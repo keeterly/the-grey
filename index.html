@@ -1,756 +1,316 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-<title>The Grey — Spellweavers (Mobile)</title>
-<meta name="theme-color" content="#0b0d10" />
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover"><title>The Grey — Mobile MVP</title><meta name="theme-color" content="#0b0d10">
 <style>
-:root{
-  --bg:#0b0d10; --panel:#0e1218; --ink:#efece7; --muted:#b9b4ac;
-  --line:#1e2631; --accent:#d7b77a; --chip:#121721; --chip-line:#223043; --slot:#0c1118;
-  --card:#111621; --card-line:#23344a; --good:#78e08f; --bad:#ff7a7a;
-  --whiteA:#a9d0ff; --whiteB:#6fa4ff;
-  --grayA:#a3a7b3;  --grayB:#6b7280;
-  --blackA:#e9a8a8; --blackB:#b56565;
-}
-*{box-sizing:border-box}
-html,body{
-  margin:0;padding:0;background:radial-gradient(1200px 600px at 20% -10%,#162030 0%,#0b0d10 55%), #0b0d10;
-  color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-  -webkit-tap-highlight-color:transparent
-}
-.wrap{padding:max(env(safe-area-inset-top),12px) 12px 14px;max-width:1100px;margin:0 auto}
-
-/* ===== VENIA banner with parallax starfield ===== */
-.banner{
-  height:100px;border-radius:14px;margin:8px 0 12px;position:relative;overflow:hidden;
-  border:1px solid #202a38;background:linear-gradient(180deg, #151b26, #0e121a);
-  box-shadow:0 8px 26px rgba(0,0,0,.35) inset, 0 10px 30px rgba(0,0,0,.25);
-}
-.banner .title{position:absolute;left:14px;top:12px;font-weight:900;letter-spacing:.14em;color:var(--accent)}
-.banner .subtitle{position:absolute;left:14px;top:40px;font-size:12px;color:#9db3cc}
-.banner .crest{position:absolute;right:10px;top:10px;opacity:.85}
-
-/* Parallax star layers */
-.banner .stars, .banner .stars2{
-  position:absolute; inset:0; pointer-events:none; background-repeat:repeat;
-  background-size:800px 800px; opacity:.55;
-  filter:drop-shadow(0 0 2px rgba(255,255,255,.15));
-}
-.banner .stars{
-  background-image:
-   radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.8) 50%, transparent 55%),
-   radial-gradient(1.5px 1.5px at 70% 60%, rgba(255,255,255,.7) 50%, transparent 55%),
-   radial-gradient(1px 1px at 40% 80%, rgba(255,255,255,.6) 50%, transparent 55%);
-  animation: drift 38s linear infinite;
-}
-.banner .stars2{
-  background-image:
-   radial-gradient(1.5px 1.5px at 10% 20%, rgba(255,255,255,.7) 50%, transparent 55%),
-   radial-gradient(1px 1px at 65% 35%, rgba(255,255,255,.5) 50%, transparent 55%),
-   radial-gradient(2px 2px at 85% 75%, rgba(255,255,255,.8) 50%, transparent 55%);
-  animation: drift2 65s linear infinite;
-  opacity:.35;
-}
-@keyframes drift { from{background-position:0 0, 0 0, 0 0} to{background-position:800px 0, 400px 0, 1200px 0} }
-@keyframes drift2{ from{background-position:0 0, 0 0, 0 0} to{background-position:-600px 0, -900px 0, -300px 0} }
-
-/* Decorative lattice */
-.banner svg.bline{position:absolute;inset:0;opacity:.32;filter:drop-shadow(0 2px 10px rgba(0,0,0,.6))}
-
-/* ===== Blocks / controls ===== */
-h1{margin:0 0 10px;font-size:20px;font-weight:800;letter-spacing:.02em}
-.zone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin:10px 0;box-shadow:0 6px 18px rgba(0,0,0,.25) inset}
+:root{--bg:#0b0d10;--panel:#0e1218;--ink:#efece7;--muted:#b9b4ac;--line:#1e2631;--accent:#d7b77a;--slot:#0c1118;--card:#111621;--card-line:#23344a}
+*{box-sizing:border-box}html,body{margin:0;background:#0b0d10;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial}
+.wrap{padding:12px;max-width:1100px;margin:0 auto}
+.zone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin:10px 0}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-.col{flex:1;min-width:280px}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);font-size:12px}
-.small{font-size:12px;color:var(--muted)}
-.badge{display:inline-block;border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:6px;font-size:11px}
-.hint{font-size:11px;color:#9ab}
-button,select{background:linear-gradient(180deg,#151c27,#0e141d);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:14px;touch-action:manipulation}
-button:disabled{opacity:.6}
-
-/* ===== Aetherflow ===== */
-.market{display:grid;grid-template-columns:repeat(5,220px);gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch}
-.costs{display:grid;grid-template-columns:repeat(5,220px);gap:8px;margin-bottom:6px;overflow-x:auto}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#121721;border:1px solid #223043;font-size:12px}
+button,select{background:#0e141d;color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.costs,.market{display:grid;grid-template-columns:repeat(5,210px);gap:8px;overflow-x:auto}
 .cost{text-align:center;font-weight:900;padding:6px 0;background:#0b111a;border:1px solid #213145;border-radius:10px;color:var(--accent)}
+.card{position:relative;background:#111621;border:1px solid var(--card-line);border-radius:14px;padding:10px;min-width:180px;max-width:210px}
+.card .name{font-weight:900;color:var(--accent);margin:.25rem 0}
+.small{font-size:12px;color:var(--muted)} .tag{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #2d3f56;background:#0b111a;margin-right:4px}
+.hand-rail{position:relative;height:260px;border-radius:16px;background:linear-gradient(180deg,#0b1114,#0a0f15);border:1px dashed #263445}
+.hand{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);height:240px;pointer-events:none}
+.hc{position:absolute;bottom:0;left:50%;transform-origin:50% 120%;transition:transform .12s ease, filter .12s ease;pointer-events:auto}
+.hc .card{width:190px}.hc[data-raise="1"]{transform:translate(-50%,-14px) scale(1.05);z-index:10;filter:drop-shadow(0 12px 18px rgba(0,0,0,.45))}
+.hand-actions{display:none;gap:6px;margin-top:6px}.hc[data-raise="1"] .hand-actions{display:flex}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;min-height:170px;padding:8px}
+.glyphs{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.glyphFace{height:14px;width:96px;background:linear-gradient(90deg,#0b111a,#131a27);border:1px solid #2d3f56;border-radius:8px}
+.log{background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;height:160px;overflow:auto;font-size:12px}
+</style></head><body><div class="wrap">
 
-/* ===== Card frames (school-specific) ===== */
-.card{
-  position:relative;background:#111621;border:1px solid var(--card-line);
-  border-radius:14px;padding:10px;min-width:180px;max-width:220px;box-shadow:0 6px 16px rgba(0,0,0,.28);
-}
-.card .name{font-weight:900;color:var(--accent);letter-spacing:.02em;margin:.25rem 0}
-.tag{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #2d3f56;background:#0b111a;margin-right:4px}
-.tag.white{background:#142235} .tag.gray{background:#1b1f27} .tag.black{background:#20151a}
-.smallmuted{font-size:12px;color:var(--muted)}
-
-/* shared sigil overlay */
-.card:before{
-  content:"";position:absolute;inset:0;border-radius:12px;opacity:.10;pointer-events:none;
-  background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="180" height="240" viewBox="0 0 180 240"><g fill="none" stroke="%23a99a7a" stroke-width="0.6" opacity="0.65"><circle cx="30" cy="40" r="14"/><path d="M12 38 L30 10 L48 38 Z"/><circle cx="140" cy="60" r="10"/><path d="M130 90 q10 -16 20 0"/></g></svg>');
-  background-size:180px 240px;background-repeat:no-repeat;background-position:top right;
-}
-
-/* white */
-.card.white{ border-image:linear-gradient(180deg,var(--whiteA),var(--whiteB)) 1; box-shadow:0 8px 22px rgba(79,153,255,.15); }
-.card.white .frameSvg{stroke:var(--whiteA);opacity:.8}
-/* gray */
-.card.gray{ border-image:linear-gradient(180deg,var(--grayA),var(--grayB)) 1; box-shadow:0 8px 22px rgba(160,160,170,.14); }
-.card.gray .frameSvg{stroke:var(--grayA);opacity:.7}
-/* black */
-.card.black{ border-image:linear-gradient(180deg,var(--blackA),var(--blackB)) 1; box-shadow:0 8px 22px rgba(214,104,104,.15); }
-.card.black .frameSvg{stroke:var(--blackA);opacity:.75}
-
-/* corner filigree */
-.frameSvg{ position:absolute;inset:6px;pointer-events:none;opacity:.6 }
-
-/* ===== Art window ===== */
-.art{
-  height:92px;border-radius:10px;margin:6px 0 8px;position:relative;overflow:hidden;
-  background:linear-gradient(180deg,#0f1520,#0a0f16);
-  border:1px solid #223044;
-}
-.art:after{ /* faint sweep glow */
-  content:""; position:absolute; inset:-30% -20%; background:conic-gradient(from 0deg, rgba(255,255,255,.06), rgba(255,255,255,0) 35%, rgba(255,255,255,.06) 70%, rgba(255,255,255,0));
-  animation: sweep 9s linear infinite; mix-blend-mode:screen; pointer-events:none;
-}
-@keyframes sweep{ to { transform: rotate(360deg); } }
-
-/* school sigils as tiled masks inside art */
-.art.white{background:
-    radial-gradient(60px 40px at 30% 20%, rgba(120,170,255,.20), transparent 60%),
-    linear-gradient(180deg,#101827,#0b111a);}
-.art.gray{background:
-    radial-gradient(60px 40px at 70% 30%, rgba(180,180,195,.20), transparent 60%),
-    linear-gradient(180deg,#0f1217,#0b0f14);}
-.art.black{background:
-    radial-gradient(60px 40px at 50% 50%, rgba(210,110,110,.18), transparent 60%),
-    linear-gradient(180deg,#171114,#0f0b0d);}
-
-/* inline vector motif layer */
-.art svg{ position:absolute; inset:0; opacity:.35 }
-
-/* ===== Foil shimmer for legendary ===== */
-.foil{
-  position:relative; overflow:hidden;
-}
-.foil:after{
-  content:""; position:absolute; inset:-20%; background:
-    linear-gradient(130deg, rgba(255,255,255,0) 35%, rgba(255,255,255,.25) 45%, rgba(255,255,255,0) 60%),
-    repeating-linear-gradient(130deg, rgba(255,200,150,.10) 0 6px, rgba(150,200,255,.10) 6px 12px, rgba(230,180,255,.10) 12px 18px);
-  filter: blur(1px); mix-blend-mode: screen; transform: translateX(-120%) rotate(6deg);
-  animation: foilSweep 5.5s ease-in-out infinite;
-  pointer-events:none;
-}
-@keyframes foilSweep{
-  0%{ transform: translateX(-120%) rotate(6deg); opacity:.55 }
-  45%{ transform: translateX(25%) rotate(6deg); opacity:.8 }
-  100%{ transform: translateX(120%) rotate(6deg); opacity:.55 }
-}
-.rarity{position:absolute; right:8px; top:8px; font-size:10px; padding:2px 6px; border-radius:6px; border:1px solid #3c3c3c; color:#d9d3c7; background:#0c0c0e; opacity:.9}
-
-/* ===== Hand: fanned + draggable ===== */
-.hand-rail{position:relative;height:240px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:12px;border:1px dashed #263445;border-radius:14px;background:linear-gradient(180deg,#0b1114,#0a0f15)}
-.hand{position:relative;height:200px}
-.hc{position:absolute;transition:transform .12s ease, box-shadow .12s ease;transform-origin:50% 120%}
-.hc .card{width:190px}
-.hc.raise{transform:translateY(-14px) scale(1.03);z-index:10;box-shadow:0 10px 24px rgba(0,0,0,.4)}
-.hand-actions{margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
-.dragging{opacity:.9;transform:scale(1.05);z-index:9999}
-
-/* ===== Boards ===== */
-.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;min-height:150px;padding:8px;transition:border-color .1s ease, box-shadow .1s ease}
-.slot.hot{border-color:#86b7ff;box-shadow:0 0 0 3px rgba(134,183,255,.2) inset}
-.slot .p{font-size:12px;color:var(--muted);margin-bottom:4px}
-
-/* ===== Glyphs ===== */
-.glyphs{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
-.glyphFace{height:12px;width:80px;background:linear-gradient(90deg,#0b111a,#131a27);border:1px solid #2d3f56;border-radius:8px}
-
-/* ===== Log ===== */
-.log{background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;height:190px;overflow:auto;font-size:12px}
-.muted{color:var(--muted)} .good{color:var(--good)} .bad{color:var(--bad)}
-</style>
-</head>
-<body>
-<div class="wrap">
-  <!-- World banner -->
-  <div class="banner">
-    <div class="stars"></div><div class="stars2"></div>
-    <svg class="bline" viewBox="0 0 1200 200" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <linearGradient id="g" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#d7b77a"/><stop offset="1" stop-color="#506b8e"/>
-        </linearGradient>
-      </defs>
-      <g fill="none" stroke="url(#g)" stroke-opacity=".38">
-        <path d="M0,160 Q150,40 300,160 T600,160 T900,160 T1200,160" stroke-width="2"/>
-        <circle cx="220" cy="110" r="10"/><circle cx="580" cy="85" r="8"/><circle cx="940" cy="120" r="12"/>
-        <path d="M460,30 l30,50 l-60,0 Z" />
-      </g>
-    </svg>
-    <div class="title">THE GREY</div>
-    <div class="subtitle">Spellweavers of Venia — Aether & Omen</div>
-    <svg viewBox="0 0 90 90" class="crest" width="90" height="90">
-      <g fill="none" stroke="#d7b77a" opacity=".85"><circle cx="45" cy="45" r="22"/>
-      <path d="M45 18 L58 40 L32 40 Z"/><circle cx="45" cy="45" r="6"/></g>
-    </svg>
+<div class="zone">
+  <div class="row">
+    <span class="pill">You ♥ <b id="hp">5</b></span>
+    <span class="pill">AI ♥ <b id="aiHp">5</b></span>
+    <span class="pill">⚡ <b id="ae">0</b></span>
+    <span class="pill">Deck <b id="deck">0</b></span>
+    <span class="pill">Discard <b id="disc">0</b></span>
+    <span class="pill">Glyphs <b id="glyphs">0</b></span>
+    <span class="pill"><b id="build">BUILD vM3</b></span>
   </div>
-
-  <!-- HUD -->
-  <div class="zone">
-    <div class="row">
-      <span class="pill">You ♥ <b id="hp">5</b></span>
-      <span class="pill">AI ♥ <b id="aiHp">5</b></span>
-      <span class="pill">⚡ <b id="ae">0</b></span>
-      <span class="pill">Deck <b id="deck">0</b></span>
-      <span class="pill">Discard <b id="disc">0</b></span>
-      <span class="pill">Glyphs <b id="glyphs">0</b></span>
-      <span class="badge" id="turnTag">Turn 1</span>
-    </div>
-    <div class="row" style="margin-top:8px;align-items:flex-start">
-      <div><b>Spellweaver:</b> <select id="swSelect"></select></div>
-      <div class="small" id="swDesc" style="flex:1"></div>
-      <div class="small" id="tranceNote"></div>
-    </div>
-    <div class="row" style="margin-top:8px">
-      <button id="drawBtn">Draw</button>
-      <button id="endBtn">End Turn</button>
-      <button id="resetBtn">Reset</button>
-      <button id="chronoBtn" disabled>Chrono Step</button>
-      <button id="trickBtn" disabled>Gamble</button>
-    </div>
-    <div class="hint">Trance: each Spellweaver unlocks passives at their own HP thresholds.</div>
+  <div class="row" style="margin-top:8px;align-items:flex-start">
+    <div><b>Spellweaver:</b> <select id="swSelect"></select></div>
+    <div class="small" id="swDesc" style="flex:1"></div>
   </div>
-
-  <!-- Aetherflow -->
-  <div class="zone">
-    <b>Aetherflow</b>
-    <div class="costs" id="mCosts"></div>
-    <div class="market" id="mRow"></div>
+  <div class="row" style="margin-top:8px">
+    <button id="drawBtn">Draw</button>
+    <button id="endBtn">End Turn</button>
+    <button id="resetBtn">Reset</button>
   </div>
+  <div class="small">Rules: No end-turn auto progress. Each spell can be advanced once per your turn. Aetherflow purchases go to discard.</div>
+</div>
 
-  <!-- Hand -->
-  <div class="zone">
-    <b>Your Hand</b>
-    <div class="hand-rail"><div class="hand" id="hand"></div></div>
+<div class="zone">
+  <b>Aetherflow</b>
+  <div class="costs" id="mCosts"></div>
+  <div class="market" id="mRow"></div>
+</div>
+
+<div class="zone">
+  <b>Your Hand</b>
+  <div class="hand-rail"><div class="hand" id="hand"></div></div>
+</div>
+
+<div class="zone" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+  <div>
+    <b>Your Board</b>
+    <div class="slots" id="slots"></div>
+    <div class="glyphs" id="glyphView"></div>
   </div>
-
-  <!-- Boards -->
-  <div class="zone row">
-    <div class="col">
-      <b>Your Board</b>
-      <div class="slots" id="slots"></div>
-      <div class="glyphs" id="glyphView"></div>
-    </div>
-    <div class="col">
-      <b>AI Board</b>
-      <div class="slots" id="aiSlots"></div>
-    </div>
-  </div>
-
-  <!-- Log -->
-  <div class="zone">
-    <b>Log</b>
-    <div class="log" id="log"></div>
+  <div>
+    <b>AI Board</b>
+    <div class="slots" id="aiSlots"></div>
   </div>
 </div>
 
-<script>
-/* ===== Touch helpers ===== */
-document.addEventListener('touchstart',()=>{}, {passive:true});
-function bindTap(el,fn){ el.addEventListener('click',fn); el.addEventListener('touchend',e=>{ e.preventDefault(); fn(e); }, {passive:false}); }
+<div class="zone"><b>Log</b><div class="log" id="log"></div></div>
+</div>
 
-/* ===== Spellweavers + Trance ===== */
+<script>
+/* Utilities */
+function bindTap(el,fn){ el.addEventListener('click',fn); el.addEventListener('touchend',e=>{ e.preventDefault(); fn(e); }, {passive:false}); }
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function shuf(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function log(m){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.innerHTML+=`<div><span style="color:#9aa">${t}</span> — ${m}</div>`; el.scrollTop=el.scrollHeight; }
+
+/* Spellweavers */
 const SPELLWEAVERS = {
-  "Seraya (Wardsinger)": {
-    desc: "Trance at 3♥: prevent 1 dmg each round • Trance at 1♥: +1⚡ when one of your glyphs flips",
-    trance: [
-      {hp:3, apply:s=>{ s.flags.preventOnce=true; s.flags.preventAvailable=true; }, label:"Ward online (prevent 1/round)."},
-      {hp:1, apply:s=>{ s.flags.glyphAether=true; }, label:"+1⚡ on glyph flip."}
-    ]
-  },
-  "Thalorin (Chronomancer)": {
-    desc: "Trance at 4♥: once/turn free +1 advance • Trance at 2♥: copy your Instants",
-    trance: [
-      {hp:4, apply:s=>{ s.flags.hasChrono=true; s.flags.chronoUsed=false; }, label:"Chrono Step unlocked."},
-      {hp:2, apply:s=>{ s.flags.copyInst=true; }, label:"Instant Echo enabled."}
-    ]
-  },
-  "Kaelis (Aether Savant)": {
-    desc: "Trance at 2♥: leftmost Aetherflow costs -1 • Trance at 1♥: free channel the top card of your hand when you buy",
-    trance: [
-      {hp:2, apply:s=>{ s.flags.leftDiscount=true; }, label:"Leftmost Flow -1⚡."},
-      {hp:1, apply:s=>{ s.flags.freeChannelOnBuy=true; }, label:"Free channel on buy."}
-    ]
-  },
-  "Zarik (Trickster)": {
-    desc: "Trance at 3♥: once/turn Gamble (random discard → draw) • Trance at 1♥: 50% deflect (future)",
-    trance: [
-      {hp:3, apply:s=>{ s.flags.trickOnce=true; s.flags.trickUsed=false; }, label:"Gamble unlocked."},
-      {hp:1, apply:s=>{ s.flags.trickCancel=true; }, label:"Chance to deflect (not simulated)."}
-    ]
-  }
+  "Seraya (Wardsinger)": {desc:"Trance at 3♥: prevent 1 dmg / round."},
+  "Thalorin (Chronomancer)": {desc:"Trance at 4♥: once/turn free +1 advance."},
+  "Kaelis (Aether Savant)": {desc:"Trance at 2♥: leftmost Flow -1⚡."},
+  "Zarik (Trickster)": {desc:"Trance at 3♥: once/turn Gamble."}
 };
 
-/* ===== Base + Flow (add rarity for foil) ===== */
+/* Cards */
 const BASE = [
   {n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
+  {n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
   {n:"Shield Flicker",t:"Instant",c:"white",v:1,txt:"Prevent 1 dmg this round.",eff:"shield"},
-  {n:"Channel Aether",t:"Utility",c:"gray",v:1,txt:"Discard 1 card: +2⚡.",eff:"channel"},
-  {n:"Channel Aether",t:"Utility",c:"gray",v:1,txt:"Discard 1 card: +2⚡.",eff:"channel"},
-  {n:"Minor Hex",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1.",eff:"hex"},
-  {n:"Minor Hex",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1.",eff:"hex"},
-  {n:"Emberbolt",t:"Spell",c:"black",v:2,p:3,txt:"After 3: deal 2 dmg.",eff:"ember"}
+  {n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Self-discard: +1⚡.",eff:"chan_self"},
+  {n:"Minor Hex+",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1 and loses 1⚡.",eff:"hex_plus"},
+  {n:"Emberbolt",t:"Spell",c:"black",v:1,p:3,txt:"After 3: deal 2 dmg.",eff:"ember"}
 ];
-
 const FLOW = [
   {n:"Accelerate",t:"Instant",c:"white",v:1,txt:"Advance one of your spells +1.",eff:"accel"},
-  {n:"Temporal Loop",t:"Spell",c:"white",v:2,p:2,txt:"After 2: replay your last Instant (or draw).",eff:"loop",rar:"Legendary"},
   {n:"Chrono Barrier",t:"Glyph",c:"white",v:1,txt:"When targeted: negate spell/dmg.",eff:"g_barrier"},
-  {n:"Aether Leech",t:"Instant",c:"gray",v:1,txt:"Gain 1⚡ (steal in PvP).",eff:"leech"},
-  {n:"Phase Swap",t:"Spell",c:"gray",v:2,p:2,txt:"After 2: swap two of your spells.",eff:"swap"},
+  {n:"Meditate",t:"Instant",c:"gray",v:0,txt:"Gain 1⚡ and draw 1.",eff:"med"},
+  {n:"Phase Swap",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: swap two of your spells.",eff:"swap"},
+  {n:"Stonewall",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: opponent’s next Advance costs +1⚡.",eff:"tax"},
   {n:"Mirror Ward",t:"Glyph",c:"gray",v:1,txt:"When you’d take dmg: reflect it.",eff:"g_mirror"},
-  {n:"Soul Burn",t:"Spell",c:"black",v:2,p:3,txt:"After 3: 3 dmg; you take 1.",eff:"soul",rar:"Legendary"},
+  {n:"Dark Bargain",t:"Spell",c:"black",v:2,p:3,txt:"After 3: deal 3 dmg; you lose 2♥.",eff:"bargain"},
   {n:"Venom Dart",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg & foe discards 1.",eff:"venom"},
-  {n:"Shadow Ambush",t:"Glyph",c:"black",v:2,txt:"On enemy spell into empty slot: cancel & deal 1.",eff:"g_ambush"},
+  {n:"Seal of Binding",t:"Glyph",c:"black",v:1,txt:"On enemy spell play: cancel & block that slot until their next turn.",eff:"g_bind"},
   {n:"Null Pulse",t:"Instant",c:"white",v:1,txt:"Counter: cancel a resolving spell.",eff:"counter"}
 ];
 
-/* ===== State ===== */
+/* State */
 let S={};
-function uid(){ return Math.random().toString(36).slice(2,9); }
-function shuf(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
 function makeDeck(){ return shuf(BASE.map(x=>Object.assign({id:uid()},x))); }
 function makeFlow(){ return shuf(FLOW.map(x=>Object.assign({id:uid()},x))); }
-function log(m){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.innerHTML+=`<div><span class="muted">${t}</span> — ${m}</div>`; el.scrollTop=el.scrollHeight; }
 
-/* ===== Core ===== */
+/* Core */
 function reset(swName){
   const name = swName || document.getElementById('swSelect').value || Object.keys(SPELLWEAVERS)[0];
   S={
-    sw:name,
-    hp:5, ae:0, deck:makeDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[],
-    ai:{hp:5, ae:0, deck:makeDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[], lastInstant:null},
-    flowDeck: makeFlow(), flowRow:[null,null,null,null,null],
-    flags:{ preventOnce:false, preventAvailable:false, glyphAether:false, hasChrono:false, copyInst:false, leftDiscount:false, freeChannelOnBuy:false, trickOnce:false, trickUsed:false, chronoUsed:false },
-    lastInstant:null, turn:1,
-    tranceHit:{}
+    sw:name,hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
+    ai:{hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],taxes:0,blocked:[]},
+    flowDeck:makeFlow(),flowRow:[null,null,null,null,null],
+    taxes:0,blocked:[],lastInstant:null,turn:1
   };
-  for(let i=0;i<5;i++){ draw(); aiDraw(); }
-  slideFlow(true);
-  render();
-  log(`New game — Spellweaver: ${S.sw}. Trance thresholds: ${SPELLWEAVERS[S.sw].trance.map(t=>t.hp+'♥').join(' & ')}.`);
-}
-function setSpellweaver(name){
-  S.sw=name; document.getElementById('swDesc').textContent = SPELLWEAVERS[name].desc;
-  S.tranceHit={}; applyTranceIfEligible(); render();
+  for(let i=0;i<5;i++){ draw(); aiDraw(); } slideFlow(true); render(); log(`New game — ${S.sw}`);
 }
 
-/* ===== Player actions ===== */
-function draw(){
-  if(!S.deck.length){ if(!S.disc.length){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); }
-  S.hand.push(S.deck.pop()); render();
-}
-function channel(handIdx){
-  const c=S.hand.splice(handIdx,1)[0]; const gain=c.v||0; S.ae+=gain; S.disc.push(c); log(`Channel ${c.n} (+${gain}⚡)`); render();
-}
-function playFromHand(handIdx){
-  const c=S.hand.splice(handIdx,1)[0];
+/* Actions */
+function draw(){ if(!S.deck.length){ if(!S.disc.length){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); } S.hand.push(S.deck.pop()); render();}
+function channelSelf(i){ const c=S.hand.splice(i,1)[0]; S.ae+=1; S.disc.push(c); log("Channel Spark (+1⚡)"); render();}
+function channel(i){ const c=S.hand.splice(i,1)[0]; const g=c.v||0; S.ae+=g; S.disc.push(c); log(`Channel ${c.n} (+${g}⚡)`); render();}
+function playFromHand(i){
+  const c=S.hand.splice(i,1)[0];
   if(c.t==="Spell"){
-    const s=S.slots.findIndex(x=>!x); if(s<0){ log("No empty slot."); S.hand.push(c); render(); return; }
-    if(triggerAmbush(S.ai)){ log("AI's Shadow Ambush cancels your spell and deals 1."); damageYou(1); S.disc.push(c); render(); return; }
-    S.slots[s]={c,ph:1}; log(`You play ${c.n} to Slot ${s+1}.`);
-  } else if(c.t==="Glyph"){
-    S.glyphs.push(c); log("You set a Glyph face-down.");
-  } else {
-    runInstant("you", c);
-    S.disc.push(c);
-    if(S.flags.copyInst){ log("Instant Echo: your instant repeats."); runInstant("you", c); }
-    S.lastInstant=c;
-  }
+    const s=S.slots.findIndex((x,idx)=>!x&&!S.blocked.includes(idx)); if(s<0){ log("No available slot (or blocked)."); S.hand.push(c); render(); return; }
+    if(triggerAmbush(S.ai)){ log("AI Ambush cancels and deals 1."); damageYou(1); S.disc.push(c); render(); return; }
+    S.slots[s]={c,ph:1,advUsed:false}; log(`Play ${c.n} → Slot ${s+1}`);
+  }else if(c.t==="Glyph"){ S.glyphs.push(c); log("Glyph set."); }
+  else{ runInstant("you",c); S.disc.push(c); S.lastInstant=c; }
   render();
 }
-function advance(slotIdx){
-  const s=S.slots[slotIdx]; if(!s) return;
-  if(S.ae<1){ log("Need 1⚡ to advance."); return; }
-  S.ae-=1; s.ph+=1; if(s.ph>=s.c.p){ resolvePlayer(slotIdx); } render();
+function advance(idx){
+  const s=S.slots[idx]; if(!s) return;
+  const cost = 1 + (S.taxes||0);
+  if(s.advUsed){ log("Already advanced this turn."); return; }
+  if(S.ae<cost){ log(`Need ${cost}⚡`); return; }
+  S.ae-=cost; s.ph+=1; s.advUsed=true; if(S.taxes) S.taxes=0;
+  if(s.ph>=(s.c.p||99)) resolvePlayer(idx); render();
 }
-function resolvePlayer(slotIdx){
-  const s=S.slots[slotIdx]; if(!s) return;
-  if(aiTryCounter()){ log("AI uses Null Pulse to counter your spell!"); S.disc.push(s.c); S.slots[slotIdx]=null; render(); return; }
-  runResolve("you", s.c);
-  S.disc.push(s.c); S.slots[slotIdx]=null; render();
+function resolvePlayer(idx){
+  const s=S.slots[idx]; if(!s) return;
+  if(aiTryCounter()){ log("AI counters!"); S.disc.push(s.c); S.slots[idx]=null; render(); return; }
+  runResolve("you",s.c); S.disc.push(s.c); S.slots[idx]=null; render();
 }
 
-/* ===== Effects ===== */
+/* Effects */
 function runInstant(who,c){
   switch(c.eff){
-    case "spark": (who==="you")?damageAI(1):damageYou(1); break;
-    case "shield": if(who==="you"){ S.flags.preventAvailable=true; log("Shield Flicker armed: prevent 1 this round."); } break;
-    case "channel":
-      if(who==="you"){
-        if(!S.hand.length){ log("No card to discard."); break; }
-        const d=S.hand.pop(); S.disc.push(d); S.ae+=2; log("Channel Aether: discard 1 → +2⚡.");
-      } else {
-        if(!S.ai.hand.length) break;
-        const d=S.ai.hand.pop(); S.ai.disc.push(d); S.ai.ae+=2; log("AI channels +2⚡.");
-      }
-      break;
+    case "spark": who==="you"?damageAI(1):damageYou(1); break;
+    case "shield": if(who==="you"){ S.flags?.preventAvailable?null:(S.flags={preventAvailable:true}); log("Shield: prevent 1 this round."); } break;
+    case "chan_self": if(who==="you"){ S.ae+=1; log("+1⚡"); } break;
     case "accel":{
-      const idx=S.slots.findIndex(s=>s); if(idx<0){ log("No active spell to accelerate."); break; }
-      S.slots[idx].ph=Math.min(S.slots[idx].c.p, S.slots[idx].ph+1);
-      log("Accelerate: +1 phase."); if(S.slots[idx].ph===S.slots[idx].c.p){ resolvePlayer(idx); }
+      if(who==="you"){ const i=S.slots.findIndex(s=>s&&!s.advUsed); if(i>-1){ S.slots[i].ph++; S.slots[i].advUsed=true; log("Accelerate +1"); if(S.slots[i].ph>=S.slots[i].c.p) resolvePlayer(i); } else log("No eligible spell."); }
     } break;
-    case "leech": (who==="you")?(S.ae+=1):(S.ai.ae+=1); if(who==="you") log("+1⚡."); break;
-    case "venom": (who==="you")?(damageAI(1),log("AI discards 1 (sim).")):(damageYou(1),log("You discard 1 (sim).")); break;
+    case "med": if(who==="you"){ S.ae+=1; draw(); log("Meditate: +1⚡ draw 1."); } break;
+    case "venom": who==="you"?(damageAI(1),log("AI discards 1 (sim).")):(damageYou(1),log("You discard 1 (sim).")); break;
     case "counter": log((who==="you")?"Null Pulse readied.":"AI holds a counter."); break;
   }
 }
 function runResolve(who,c){
   switch(c.eff){
-    case "hex":
-      if(who==="you"){
-        const bi=S.ai.glyphs.findIndex(g=>g.eff==="g_barrier");
-        if(bi>-1){ S.ai.glyphs.splice(bi,1); log("AI's Chrono Barrier negates your Hex."); break; }
-        log("Minor Hex resolves: AI discards 1 (sim).");
-      } else {
-        const bi=S.glyphs.findIndex(g=>g.eff==="g_barrier");
-        if(bi>-1){ S.glyphs.splice(bi,1); log("Your Chrono Barrier negates AI's Hex."); break; }
-        log("AI Hex resolves: you discard 1 (sim).");
-      }
-      break;
-    case "ember": (who==="you")?damageAI(2):damageYou(2); break;
-    case "swap": log(who==="you"?"Phase Swap: swapped your two earliest spells.":"AI swaps (no-op solo)."); break;
-    case "soul": if(who==="you"){ damageAI(3); damageYou(1); } else { damageYou(3); S.ai.hp=Math.max(0,S.ai.hp-1); log("AI takes 1 recoil."); } break;
-    case "loop":
-      if(who==="you"){ if(S.lastInstant){ log(`Temporal Loop replays ${S.lastInstant.n}.`); runInstant("you", S.lastInstant); } else { draw(); log("Loop draws 1 (no instant)."); } }
-      break;
+    case "hex_plus": if(who==="you"){ if(consumeBarrier(S.ai)) break; log("Hex+: AI discards 1 & loses 1⚡ (sim)"); S.ai.ae=Math.max(0,S.ai.ae-1); } else { if(consumeBarrier(S)) break; log("AI Hex+: you discard 1 & lose 1⚡ (sim)"); S.ae=Math.max(0,S.ae-1); } break;
+    case "ember": who==="you"?damageAI(2):damageYou(2); break;
+    case "swap": log(who==="you"?"Swap (abstract).":"AI swaps."); break;
+    case "tax": if(who==="you"){ S.ai.taxes=(S.ai.taxes||0)+1; log("Stonewall: AI next Advance +1⚡"); } else { S.taxes=(S.taxes||0)+1; log("AI Stonewall: your next Advance +1⚡"); } break;
+    case "bargain": if(who==="you"){ damageAI(3); S.hp=Math.max(0,S.hp-2); log("Dark Bargain recoil 2♥"); } else { damageYou(3); S.ai.hp=Math.max(0,S.ai.hp-2); } break;
   }
 }
+function consumeBarrier(T){ const i=T.glyphs.findIndex(g=>g.eff==="g_barrier"); if(i>-1){ T.glyphs.splice(i,1); log(T===S?"Your Barrier negates.":"AI Barrier negates."); return true;} return false; }
 
-/* ===== Damage + Trance ===== */
-function damageYou(n){
-  const m=S.glyphs.findIndex(g=>g.eff==="g_mirror");
-  if(m>-1 && n>0){ S.glyphs.splice(m,1); log("Your Mirror Ward reflects the damage!"); if(S.flags.glyphAether){ S.ae+=1; log("+1⚡ (glyph flip)."); } damageAI(n); return; }
-  const b=S.glyphs.findIndex(g=>g.eff==="g_barrier");
-  if(b>-1 && n>0){ S.glyphs.splice(b,1); log("Your Chrono Barrier negates the attack."); if(S.flags.glyphAether){ S.ae+=1; log("+1⚡ (glyph flip)."); } return; }
-  let dmg=n;
-  if(S.flags.preventAvailable){ dmg=Math.max(0,dmg-1); S.flags.preventAvailable=false; log("Ward prevents 1."); }
-  if(dmg>0){ S.hp=Math.max(0,S.hp-dmg); log(`<span class="bad">You take ${dmg} damage.</span>`); applyTranceIfEligible(); }
-}
-function damageAI(n){
-  const m=S.ai.glyphs.findIndex(g=>g.eff==="g_mirror");
-  if(m>-1 && n>0){ S.ai.glyphs.splice(m,1); log("AI Mirror Ward reflects!"); damageYou(n); return; }
-  const b=S.ai.glyphs.findIndex(g=>g.eff==="g_barrier");
-  if(b>-1 && n>0){ S.ai.glyphs.splice(b,1); log("AI Barrier negates your attack."); return; }
-  S.ai.hp=Math.max(0,S.ai.hp-n); log(`<span class="good">AI takes ${n} damage.</span>`);
-}
-function applyTranceIfEligible(){
-  const spec = SPELLWEAVERS[S.sw];
-  let fired=[];
-  spec.trance.forEach(step=>{
-    if(S.hp<=step.hp && !S.tranceHit[step.hp]){
-      step.apply(S); S.tranceHit[step.hp]=true;
-      fired.push(`${step.hp}♥: ${step.label}`);
-    }
-  });
-  if(fired.length){ log(`<b>Trance</b> — ${fired.join(" ")} <span class="badge">(${S.sw})</span>`); }
-  if(S.flags.preventOnce) S.flags.preventAvailable=true;
-  render();
-}
+/* Damage */
+function damageYou(n){ if(consumeBarrier(S)) return; S.hp=Math.max(0,S.hp-n); log(`You take ${n}`);}
+function damageAI(n){ if(consumeBarrier(S.ai)) return; S.ai.hp=Math.max(0,S.ai.hp-n); log(`AI takes ${n}`);}
 
-/* ===== Glyphs & Aetherflow ===== */
+/* Glyph hooks */
 function triggerAmbush(owner){ const i=owner.glyphs.findIndex(g=>g.eff==="g_ambush"); if(i>-1){ owner.glyphs.splice(i,1); return true; } return false; }
-function flowCostAt(i){ const base=[6,5,4,3,2]; let cost=base[i]; if(i===0 && S.flags.leftDiscount) cost=Math.max(1,cost-1); return cost; }
-function slideFlow(initial=false){ S.flowRow=[null, ...S.flowRow.slice(0,4)]; const next=S.flowDeck.pop(); S.flowRow[0]=next||null; if(!initial) render(); }
+
+/* Flow */
+function flowCostAt(i){ return [4,3,2,2,2][i]; }
+function slideFlow(init=false){ S.flowRow=[null,...S.flowRow.slice(0,4)]; const next=S.flowDeck.pop(); S.flowRow[0]=next||null; if(!init) render(); }
 function buy(i){
   const card=S.flowRow[i]; if(!card){ log("Empty."); return; }
   const cost=flowCostAt(i); if(S.ae<cost){ log("Not enough ⚡."); return; }
   S.ae-=cost;
-  if(card.t==="Glyph"){ S.glyphs.push(card); log(`You learn ${card.n} and set it face-down.`); }
-  else { S.hand.push(card); log(`You buy ${card.n} for ${cost}⚡.`); }
-  S.flowRow[i]=null;
-  if(S.flags.freeChannelOnBuy && S.hand.length>0){
-    const c=S.hand.shift(); const g=c.v||1; S.ae+=g; S.disc.push(c); log(`Free channel on buy: ${c.n} (+${g}⚡).`);
-  }
-  render();
+  if(card.t==="Glyph"){ S.glyphs.push(card); log(`Set ${card.n}.`); }
+  else { S.disc.push(card); log(`Learn ${card.n} → discard (will shuffle in).`); }
+  S.flowRow[i]=null; render();
 }
 
-/* ===== AI ===== */
+/* AI (simple) */
 function aiDraw(){ if(!S.ai.deck.length){ if(S.ai.disc.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
-function aiTryCounter(){ const idx=S.ai.hand.findIndex(c=>c.eff==="counter"); if(idx>-1 && Math.random()<0.45){ const c=S.ai.hand.splice(idx,1)[0]; S.ai.disc.push(c); return true; } return false; }
-function playerTryCounter(){ const idx=S.hand.findIndex(c=>c.eff==="counter"); if(idx>-1){ const c=S.hand.splice(idx,1)[0]; S.disc.push(c); log("You use Null Pulse to counter!"); return true; } return false; }
-
+function aiTryCounter(){ const idx=S.ai.hand.findIndex(c=>c.eff==="counter"); if(idx>-1 && Math.random()<0.4){ const c=S.ai.hand.splice(idx,1)[0]; S.ai.disc.push(c); return true; } return false; }
+function playerTryCounter(){ const idx=S.hand.findIndex(c=>c.eff==="counter"); if(idx>-1){ const c=S.hand.splice(idx,1)[0]; S.disc.push(c); log("You counter!"); return true; } return false; }
 function aiTurn(){
   log("— AI Turn —"); aiDraw();
+  // play glyph sometimes
   const gIdx=S.ai.hand.findIndex(c=>c.t==="Glyph");
-  if(gIdx>-1 && Math.random()<0.6){ S.ai.glyphs.push(S.ai.hand.splice(gIdx,1)[0]); log("AI sets a Glyph."); }
-  const empty=S.ai.slots.findIndex(x=>!x);
-  if(empty>-1){
-    let idx=S.ai.hand.findIndex(c=>c.t==="Spell" && c.n==="Emberbolt");
-    if(idx===-1) idx=S.ai.hand.findIndex(c=>c.t==="Spell");
-    if(idx>-1){
-      const card=S.ai.hand.splice(idx,1)[0];
-      if(triggerAmbush(S)){ log("Your Shadow Ambush cancels AI's spell and deals 1."); damageAI(1); S.ai.disc.push(card); }
-      else { S.ai.slots[empty]={c:card,ph:1}; log(`AI plays ${card.n}.`); }
-    }
-  }
-  const sp=S.ai.hand.findIndex(c=>c.eff==="spark");
-  if(sp>-1 && Math.random()<0.33){ const c=S.ai.hand.splice(sp,1)[0]; runInstant("ai", c); S.ai.disc.push(c); }
-  const ch=S.ai.hand.findIndex(c=>c.eff==="channel");
-  if(ch>-1 && S.ai.hand.length>1){ const c=S.ai.hand.splice(ch,1)[0]; runInstant("ai", c); S.ai.disc.push(c); }
-  const active=S.ai.slots.map((s,i)=> s?i:-1).filter(i=>i>=0);
-  if(active.length && S.ai.ae>0){ const t=active[Math.random()*active.length|0]; S.ai.ae-=1; S.ai.slots[t].ph+=1; log("AI advances a spell."); if(S.ai.slots[t].ph>=S.ai.slots[t].c.p){ aiResolve(t); } }
-  for(let i=4;i>=0;i--){ const c=S.flowRow[i]; const cost=flowCostAt(i); if(c && cost<=S.ai.ae){ S.ai.ae-=cost; if(c.t==="Glyph"){ S.ai.glyphs.push(c); log("AI learns a Glyph."); } else { S.ai.hand.push(c); log(`AI buys ${c.n}.`);} S.flowRow[i]=null; break; } }
-  aiAdvanceAll(); render(); log("AI ends turn.");
+  if(gIdx>-1 && Math.random()<0.5){ const g=S.ai.hand.splice(gIdx,1)[0]; if(g.eff==="g_bind"){ const open=[0,1,2].filter(i=>!S.blocked.includes(i)); if(open.length){ const s=open[0]; S.blocked.push(s); log(`AI Seal binds your Slot ${s+1} until AI ends turn.`);} } else { S.ai.glyphs.push(g); log("AI sets a Glyph."); } }
+  // play a spell
+  const empty=S.ai.slots.findIndex(x=>!x); if(empty>-1){ const idx=S.ai.hand.findIndex(c=>c.t==="Spell"); if(idx>-1){ const card=S.ai.hand.splice(idx,1)[0]; S.ai.slots[empty]={c:card,ph:1,advUsed:false}; log(`AI plays ${card.n}.`); } }
+  // med/spark sometimes
+  const med=S.ai.hand.findIndex(c=>c.eff==="med"); if(med>-1 && Math.random()<0.6){ const c=S.ai.hand.splice(med,1)[0]; S.ai.ae+=1; aiDraw(); S.ai.disc.push(c); log("AI meditates."); }
+  const sp=S.ai.hand.findIndex(c=>c.eff==="spark"); if(sp>-1 && Math.random()<0.33){ const c=S.ai.hand.splice(sp,1)[0]; damageYou(1); S.ai.disc.push(c); }
+  // advance one spell
+  const sidx=S.ai.slots.findIndex(s=>s&&!s.advUsed); if(sidx>-1){ const cost=1+(S.ai.taxes||0); if(S.ai.ae>=cost){ S.ai.ae-=cost; S.ai.slots[sidx].ph++; S.ai.slots[sidx].advUsed=true; if(S.ai.slots[sidx].ph>=S.ai.slots[sidx].c.p) aiResolve(sidx); if(S.ai.taxes) S.ai.taxes=0; log("AI advances."); } }
+  // buy
+  for(let i=4;i>=0;i--){ const c=S.flowRow[i]; const cost=flowCostAt(i); if(c && cost<=S.ai.ae){ S.ai.ae-=cost; if(c.t==="Glyph"){ S.ai.glyphs.push(c);} else { S.ai.disc.push(c);} S.flowRow[i]=null; log("AI learns a card."); break; } }
+  // unblock your slot at end of AI turn
+  S.blocked=[];
+  // reset ai adv flags
+  S.ai.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  render(); log("AI ends turn.");
 }
-function aiAdvanceAll(){ S.ai.slots.forEach((s,i)=>{ if(s){ s.ph=Math.min(s.c.p, s.ph+1); if(s.ph===s.c.p){ aiResolve(i); } } }); }
 function aiResolve(i){
   const s=S.ai.slots[i]; if(!s) return;
   if(playerTryCounter()){ S.ai.disc.push(s.c); S.ai.slots[i]=null; return; }
-  runResolve("ai", s.c);
-  S.ai.disc.push(s.c); S.ai.slots[i]=null;
+  runResolve("ai",s.c); S.ai.disc.push(s.c); S.ai.slots[i]=null;
 }
 
-/* ===== Turn flow ===== */
+/* Turn flow */
 function endTurn(){
-  S.slots.forEach((s,i)=>{ if(s){ s.ph=Math.min(s.c.p, s.ph+1); if(s.ph===s.c.p) resolvePlayer(i); } });
-  if(S.flags.preventOnce) S.flags.preventAvailable=true;
-  slideFlow(); S.turn+=1; render(); log("You end your turn."); setTimeout(aiTurn, 360);
+  // reset once/turn flags
+  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  // unblock AI (symmetry if needed)
+  S.ai.blocked=[];
+  slideFlow(); S.turn=(S.turn||1)+1; render(); log("You end your turn."); setTimeout(aiTurn, 300);
 }
 
-/* ===== UI render ===== */
-function schoolFrameSVG(){
-  return `
-    <svg class="frameSvg" viewBox="0 0 100 140" preserveAspectRatio="none">
-      <g fill="none" stroke-width="1.2">
-        <path d="M3 18 L3 6 L18 6" />
-        <path d="M82 6 L97 6 L97 18" />
-        <path d="M3 122 L3 134 L18 134" />
-        <path d="M82 134 L97 134 L97 122" />
-        <circle cx="50" cy="10" r="3"/>
-        <circle cx="50" cy="130" r="3"/>
-      </g>
-    </svg>`;
-}
-function artSVG(school){
-  // lightweight abstract glyph per school
-  if(school==="white") return `
-    <svg viewBox="0 0 220 92">
-      <g fill="none" stroke="#91b7ff" stroke-opacity=".6">
-        <path d="M10,70 Q60,10 110,70 T210,70" />
-        <circle cx="60" cy="40" r="10"/><circle cx="160" cy="34" r="8"/>
-      </g>
-    </svg>`;
-  if(school==="gray") return `
-    <svg viewBox="0 0 220 92">
-      <g fill="none" stroke="#b8bcc9" stroke-opacity=".55">
-        <path d="M10,60 L210,60" /><path d="M50,20 L50,80" />
-        <path d="M170,20 L170,80" /><circle cx="110" cy="46" r="16"/>
-      </g>
-    </svg>`;
-  return `
-    <svg viewBox="0 0 220 92">
-      <g fill="none" stroke="#f0a6a6" stroke-opacity=".55">
-        <path d="M10,76 Q110,10 210,76" /><path d="M110,20 L110,86" />
-        <circle cx="110" cy="48" r="12"/>
-      </g>
-    </svg>`;
-}
-function tagRow(c){
-  const rar = c.rar ? `<span class="rarity">${c.rar}</span>` : "";
-  return `${rar}<span class="tag ${c.c}">${c.c.toUpperCase()}</span><span class="tag">${c.t}</span><span class="tag">Value ${c.v||0}</span>`;
-}
-
+/* Render */
 function render(){
-  // HUD
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae;
   deck.textContent=S.deck.length; disc.textContent=S.disc.length; glyphs.textContent=S.glyphs.length;
-  turnTag.textContent=`Turn ${S.turn}`;
   swDesc.textContent = SPELLWEAVERS[S.sw].desc;
-  tranceNote.textContent = "Trance at " + SPELLWEAVERS[S.sw].trance.map(t=>t.hp+"♥").join(" & ");
-
-  // Spellweaver selector once
-  const swSel=document.getElementById('swSelect');
-  if(!swSel.dataset.ready){
-    Object.keys(SPELLWEAVERS).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; swSel.appendChild(o); });
-    swSel.dataset.ready="1"; swSel.value=S.sw;
-    swSel.addEventListener('change', ()=> setSpellweaver(swSel.value));
-  } else swSel.value=S.sw;
-
-  // Flow costs
-  mCosts.innerHTML="";
-  [6,5,4,3,2].forEach((c,idx)=>{ let shown=c; if(idx===0 && S.flags.leftDiscount) shown=Math.max(1,c-1);
-    const dv=document.createElement('div'); dv.className="cost"; dv.textContent=shown; mCosts.appendChild(dv);
+  // spellweaver select
+  if(!swSelect.dataset.ready){ Object.keys(SPELLWEAVERS).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; swSelect.appendChild(o); }); swSelect.dataset.ready=1; swSelect.value=S.sw; swSelect.onchange=()=>{S.sw=swSelect.value; render();}; } else swSelect.value=S.sw;
+  // costs 4/3/2/2/2
+  mCosts.innerHTML=""; [4,3,2,2,2].forEach(c=>{ const dv=document.createElement('div'); dv.className="cost"; dv.textContent=c; mCosts.appendChild(dv); });
+  // market
+  mRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{ const el=document.createElement('div'); el.className="card"; if(!c){ el.innerHTML=`<div class="name" style="opacity:.6">— empty —</div>`; mRow.appendChild(el); return; }
+    el.innerHTML=`<div><span class="tag">${c.c.toUpperCase()}</span><span class="tag">${c.t}</span><span class="tag">Val ${c.v||0}</span></div><div class="name">${c.n}</div><div class="small">${c.txt}</div>`;
+    const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; bindTap(b,()=>buy(idx));
+    el.appendChild(document.createElement('div')).style.height="6px"; el.appendChild(b); mRow.appendChild(el);
   });
-
-  // Flow row
-  mRow.innerHTML="";
-  S.flowRow.forEach((c,idx)=>{
-    const cell=document.createElement('div'); cell.className=`card ${c?c.c:''} ${c&&c.rar?'foil':''}`;
-    if(!c){ cell.innerHTML=`<div class="name" style="opacity:.6">— empty —</div>`; mRow.appendChild(cell); return; }
-    cell.innerHTML=`${schoolFrameSVG()}
-      <div>${tagRow(c)}</div>
-      <div class="art ${c.c}">${artSVG(c.c)}</div>
-      <div class="name">${c.n}</div>
-      <div class="smallmuted">${c.txt}</div>`;
-    const b=document.createElement('button'); b.textContent=`Buy (${flowCostAt(idx)}⚡)`; bindTap(b,()=>buy(idx));
-    cell.appendChild(document.createElement('br')); cell.appendChild(b); mRow.appendChild(cell);
-  });
-
-  // Hand (fanned)
-  const handEl=document.getElementById('hand'); handEl.innerHTML="";
-  const spread = 36;
-  S.hand.forEach((c,i)=>{
-    const holder=document.createElement('div'); holder.className="hc"; holder.style.left=`${i*spread}px`; holder.style.top=`${Math.abs(i-(S.hand.length-1)/2)*2}px`;
-    const foil = c.rar ? "foil" : "";
-    const card=document.createElement('div'); card.className=`card ${c.c} ${foil}`;
-    card.innerHTML=`${schoolFrameSVG()}
-      <div>${tagRow(c)}</div>
-      <div class="art ${c.c}">${artSVG(c.c)}</div>
-      <div class="name">${c.n}</div>
-      <div class="smallmuted">${c.txt}</div>`;
+  // hand fan
+  const hand=document.getElementById('hand'); hand.innerHTML="";
+  const N=S.hand.length, arc=Math.min(60,15*(N-1));
+  for(let i=0;i<N;i++){
+    const h=document.createElement('div'); h.className="hc"; const t=(N===1)?0:(i/(N-1)-0.5); const angle=t*arc; const spread=(N>1)?t*(N>5?280:220):0; h.style.transform=`translate(calc(-50% + ${spread}px),0) rotate(${angle}deg)`; h.dataset.raise="0";
+    const c=S.hand[i]; const card=document.createElement('div'); card.className="card"; card.innerHTML=`<div><span class="tag">${c.c.toUpperCase()}</span><span class="tag">${c.t}</span><span class="tag">Val ${c.v||0}</span></div><div class="name">${c.n}</div><div class="small">${c.txt}</div>`;
     const actions=document.createElement('div'); actions.className="hand-actions";
-    const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play")); bindTap(p,()=>playFromHand(i));
-    const ch=document.createElement('button'); ch.textContent=`Channel (+${c.v||0})`; bindTap(ch,()=>channel(i));
-    actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions); holder.appendChild(card);
-    bindTap(card, ()=>{ holder.classList.toggle('raise'); setTimeout(()=>holder.classList.remove('raise'),220); });
-    enableDrag(card, i);
-    handEl.appendChild(holder);
+    const p=document.createElement('button'); p.textContent=c.t==="Spell"?"Play to Slot":c.t==="Glyph"?"Set Glyph":"Play"; bindTap(p,()=>playFromHand(i));
+    const ch=document.createElement('button'); ch.textContent=c.eff==="chan_self"?"Channel (+1)":`Channel (+${c.v||0})`; bindTap(ch,()=>c.eff==="chan_self"?channelSelf(i):channel(i));
+    actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions); h.appendChild(card);
+    bindTap(card, ()=>{ h.dataset.raise = h.dataset.raise==="1"?"0":"1"; });
+    enableDrag(card,i,h);
+    hand.appendChild(h);
+  }
+  // your slots
+  slots.innerHTML=""; S.slots.forEach((s,i)=>{ const d=document.createElement('div'); d.className="slot";
+    const blocked=S.blocked.includes(i);
+    if(s){ d.innerHTML=`<div class="small">Slot ${i+1}${blocked?" — BLOCKED":""}</div><div class="card"><div class="name">${s.c.n}</div><div class="small">Phase ${s.ph}/${s.c.p}</div></div>`;
+      const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; b.disabled=s.advUsed; bindTap(b,()=>advance(i)); d.appendChild(b);
+    } else { d.innerHTML=`<div class="small">Slot ${i+1}${blocked?" — BLOCKED":""}</div><div class="small">Empty</div>`; }
+    slots.appendChild(d);
   });
-
-  // Your slots
-  slots.innerHTML="";
-  S.slots.forEach((s,i)=>{
-    const div=document.createElement('div'); div.className="slot"; div.dataset.slot=i;
-    if(s){
-      const cc = s.c.c || "";
-      const foil = s.c.rar ? "foil" : "";
-      div.innerHTML=`<div class="p">Slot ${i+1}</div>
-        <div class="card ${cc} ${foil}" style="min-width:auto;max-width:none;padding:8px">
-          ${schoolFrameSVG()}
-          <div class="art ${cc}" style="height:68px">${artSVG(cc)}</div>
-          <div class="name">${s.c.n}</div><div class="smallmuted">Phase ${s.ph}/${s.c.p}</div>
-        </div>`;
-      const b=document.createElement('button'); b.textContent="Advance (1⚡)"; bindTap(b,()=>advance(i)); div.appendChild(b);
-    } else {
-      div.innerHTML=`<div class="p">Slot ${i+1}</div><div class="small">Empty</div>`;
-    }
-    slots.appendChild(div);
+  // ai slots
+  aiSlots.innerHTML=""; S.ai.slots.forEach((s,i)=>{ const d=document.createElement('div'); d.className="slot";
+    if(s){ d.innerHTML=`<div class="small">Slot ${i+1}</div><div class="card"><div class="name">${s.c.n}</div><div class="small">Phase ${s.ph}/${s.c.p}</div></div>`; } else { d.innerHTML=`<div class="small">Slot ${i+1}</div><div class="small">Empty</div>`; } aiSlots.appendChild(d);
   });
-
-  // AI slots
-  aiSlots.innerHTML="";
-  S.ai.slots.forEach((s,i)=>{
-    const div=document.createElement('div'); div.className="slot";
-    if(s){
-      const cc = s.c.c || "";
-      const foil = s.c.rar ? "foil" : "";
-      div.innerHTML=`<div class="p">Slot ${i+1}</div>
-        <div class="card ${cc} ${foil}" style="min-width:auto;max-width:none;padding:8px">
-          ${schoolFrameSVG()}
-          <div class="art ${cc}" style="height:68px">${artSVG(cc)}</div>
-          <div class="name">${s.c.n}</div><div class="smallmuted">Phase ${s.ph}/${s.c.p}</div>
-        </div>`;
-    } else {
-      div.innerHTML=`<div class="p">Slot ${i+1}</div><div class="small">Empty</div>`;
-    }
-    aiSlots.appendChild(div);
-  });
-
-  // Glyph peek
-  glyphView.innerHTML="";
-  if(S.glyphs.length){ for(let i=0;i<S.glyphs.length;i++){ const bar=document.createElement('div'); bar.className='glyphFace'; glyphView.appendChild(bar); } }
-  else { glyphView.innerHTML=`<span class="small">No glyphs set.</span>`; }
-
-  chronoBtn.disabled = !(S.flags.hasChrono);
-  trickBtn.disabled  = !(S.flags.trickOnce && !S.flags.trickUsed);
+  // glyphs
+  glyphView.innerHTML=""; if(S.glyphs.length){ for(let i=0;i<S.glyphs.length;i++){ const bar=document.createElement('div'); bar.className='glyphFace'; glyphView.appendChild(bar); } } else glyphView.textContent="No glyphs.";
+  // HUD basics
+  document.getElementById('build').textContent="BUILD vM3";
 }
 
-/* ===== Drag to slot (touch/mouse) ===== */
-function enableDrag(cardEl, handIdx){
+/* Drag to slot */
+function enableDrag(cardEl, handIdx, holder){
   let curX=0, curY=0, dragging=false;
-  function onMove(e){
-    const t = e.touches ? e.touches[0] : e;
-    curX=t.clientX; curY=t.clientY;
-    if(dragging){
-      cardEl.style.position='fixed'; cardEl.style.left=(curX-90)+'px'; cardEl.style.top=(curY-120)+'px';
-      cardEl.classList.add('dragging');
-      highlightHotSlot(curX,curY,true);
+  function onMove(e){ const t=e.touches?e.touches[0]:e; curX=t.clientX; curY=t.clientY; if(dragging){ cardEl.style.position='fixed'; cardEl.style.left=(curX-90)+'px'; cardEl.style.top=(curY-120)+'px'; cardEl.style.zIndex='9999'; } }
+  function onStart(){ dragging=true; holder.dataset.raise="1"; cardEl.style.pointerEvents='none'; document.addEventListener('touchmove', onMove, {passive:false}); document.addEventListener('mousemove', onMove); document.addEventListener('touchend', onEnd, {passive:false}); document.addEventListener('mouseup', onEnd); }
+  function onEnd(){ document.removeEventListener('touchmove', onMove); document.removeEventListener('mousemove', onMove); document.removeEventListener('touchend', onEnd); document.removeEventListener('mouseup', onEnd); cardEl.style.position=''; cardEl.style.left=''; cardEl.style.top=''; cardEl.style.pointerEvents=''; cardEl.style.zIndex='';
+    const r=[...document.querySelectorAll('#slots .slot')].map(el=>el.getBoundingClientRect()); const i=r.findIndex(x=>curX>=x.left&&curX<=x.right&&curY>=x.top&&curY<=x.bottom);
+    if(i>-1){ const c=S.hand[handIdx]; if(c.t!=="Spell"){ log("Drag only for Spells."); render(); return; } if(S.blocked.includes(i)){ log("That slot is blocked."); render(); return; } if(S.slots[i]){ log("Slot occupied."); render(); return; }
+      S.hand.splice(handIdx,1); S.slots[i]={c,ph:1,advUsed:false}; log(`Play ${c.n} → Slot ${i+1}`); render();
     }
   }
-  function onStart(e){
-    dragging=true; cardEl.style.pointerEvents='none';
-    document.addEventListener('touchmove', onMove, {passive:false});
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('touchend', onEnd, {passive:false});
-    document.addEventListener('mouseup', onEnd);
-  }
-  function onEnd(){
-    document.removeEventListener('touchmove', onMove);
-    document.removeEventListener('mousemove', onMove);
-    document.removeEventListener('touchend', onEnd);
-    document.removeEventListener('mouseup', onEnd);
-    cardEl.classList.remove('dragging');
-    cardEl.style.position=''; cardEl.style.left=''; cardEl.style.top=''; cardEl.style.pointerEvents='';
-    const targetSlot = highlightHotSlot(curX,curY,false);
-    if(targetSlot!=null){
-      const c=S.hand[handIdx];
-      if(c.t==="Spell"){
-        if(S.slots[targetSlot]){ log("That slot is occupied."); return; }
-        S.hand.splice(handIdx,1);
-        if(triggerAmbush(S.ai)){ log("AI's Shadow Ambush cancels your spell and deals 1."); damageYou(1); S.disc.push(c); render(); return; }
-        S.slots[targetSlot]={c,ph:1}; log(`You play ${c.n} to Slot ${targetSlot+1}.`);
-        render();
-      } else {
-        log("Drag-to-slot is for Spells. Use the buttons for Instants and Glyphs.");
-      }
-    }
-  }
-  cardEl.addEventListener('touchstart', onStart, {passive:false});
-  cardEl.addEventListener('mousedown', onStart);
-}
-function highlightHotSlot(x,y,apply){
-  const els=[...document.querySelectorAll('#slots .slot')];
-  let target=null;
-  els.forEach((el,idx)=>{
-    const r=el.getBoundingClientRect();
-    const inside = x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
-    if(apply){ el.classList.toggle('hot', inside && !S.slots[idx]); }
-    if(inside) target=idx;
-  });
-  if(!apply){ els.forEach(el=>el.classList.remove('hot')); }
-  return target;
+  cardEl.addEventListener('touchstart', onStart, {passive:false}); cardEl.addEventListener('mousedown', onStart);
 }
 
-/* ===== Special buttons ===== */
+/* Buttons */
 bindTap(drawBtn, ()=>draw());
 bindTap(endBtn,  ()=>endTurn());
 bindTap(resetBtn,()=>reset(S.sw));
-bindTap(chronoBtn, ()=>{
-  const i=S.slots.findIndex(s=>s); if(i<0){ log("No active spell."); return; }
-  S.slots[i].ph=Math.min(S.slots[i].c.p, S.slots[i].ph+1); log("Chrono Step: +1 advance.");
-  if(S.slots[i].ph===S.slots[i].c.p) resolvePlayer(i); render();
-});
-bindTap(trickBtn, ()=>{
-  if(!S.flags.trickOnce || S.flags.trickUsed || !S.hand.length){ log("Gamble unavailable."); return; }
-  const k=Math.floor(Math.random()*S.hand.length); const c=S.hand.splice(k,1)[0]; S.disc.push(c); draw(); S.flags.trickUsed=true; log("Gamble: random discard → draw 1.");
-  render();
-});
 
-/* ===== Init ===== */
+/* AI helpers */
+function aiResolve(i){ const s=S.ai.slots[i]; if(!s) return; if(playerTryCounter()){ S.ai.disc.push(s.c); S.ai.slots[i]=null; return; } runResolve("ai",s.c); S.ai.disc.push(s.c); S.ai.slots[i]=null; }
+function playerTryCounter(){ const idx=S.hand.findIndex(c=>c.eff==="counter"); if(idx>-1){ const c=S.hand.splice(idx,1)[0]; S.disc.push(c); log("You counter!"); return true; } return false; }
+
+/* Init */
 (function init(){
   const sel=document.getElementById('swSelect');
   Object.keys(SPELLWEAVERS).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.appendChild(o); });
-  sel.addEventListener('change', ()=> setSpellweaver(sel.value));
-  sel.value = Object.keys(SPELLWEAVERS)[0];
-  swDesc.textContent = SPELLWEAVERS[sel.value].desc;
+  sel.onchange=()=>{ S.sw=sel.value; render(); }; sel.value=Object.keys(SPELLWEAVERS)[0]; swDesc.textContent=SPELLWEAVERS[sel.value].desc;
   reset(sel.value);
 })();
 </script>
-</body>
-</html>
+</body></html>
