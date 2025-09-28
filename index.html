@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-<title>The Grey — Arena Layout</title>
+<title>The Grey — Arena Layout (Stable Hand)</title>
 <meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
@@ -22,7 +22,7 @@ button,select{background:linear-gradient(180deg,#17202b,#0e141d);color:var(--ink
 button:disabled{opacity:.6}
 
 /* ARENA BOARD GRID */
-.board{display:grid;grid-template-columns:200px 1fr 260px;gap:10px;align-items:stretch}
+.board{display:grid;grid-template-columns:260px 1fr;gap:10px;align-items:stretch}
 @media (max-width:900px){ .board{grid-template-columns:1fr;grid-auto-rows:auto} }
 
 .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:160px}
@@ -40,10 +40,9 @@ button:disabled{opacity:.6}
 .tag{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #2d3f56;background:#0b111a;margin-right:4px}
 .smallmuted{font-size:12px;color:var(--muted)}
 .art{height:60px;border-radius:8px;margin:6px 0 8px;background:linear-gradient(180deg,#0f1520,#0a0f16);border:1px solid #223044}
-@media (max-width:900px){ .market{max-height:none} }
 
 /* Battlefield (middle column) */
-.battle{display:flex;flex-direction:column;gap:8px}
+.battle{display:flex;flex-direction:column;gap:10px}
 .rowSlots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .slot{background:var(--slot);border:2px dashed var(--slotLine);border-radius:12px;min-height:120px;padding:8px}
 .slot .cap{font-size:12px;color:var(--muted);margin-bottom:6px}
@@ -53,21 +52,16 @@ button:disabled{opacity:.6}
 .glyphs{display:flex;gap:6px;flex-wrap:wrap}
 .glyph{height:12px;width:84px;background:linear-gradient(90deg,#0b111a,#131a27);border:1px solid #2d3f56;border-radius:8px}
 
-/* Log (right column) */
-.log{height:100%;min-height:260px;max-height:560px;overflow:auto;background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;font-size:12px}
-
-/* Hand at bottom */
+/* Hand ribbon (stable, scrollable, no rotation) */
 .handBox{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
-.fan{position:relative;height:220px;border:1px dashed #263445;border-radius:12px;background:linear-gradient(180deg,#0b1114,#0a0f15)}
-.hand{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);height:210px;pointer-events:none}
-.hc{position:absolute;bottom:0;left:50%;transform-origin:50% 120%;transition:transform .12s ease, filter .12s ease;pointer-events:auto}
-.hc .card{width:170px}
-.hc[data-raise="1"]{transform:translate(-50%, -12px) scale(1.03);z-index:5;filter:drop-shadow(0 10px 16px rgba(0,0,0,.4))}
-.hand-actions{display:none;gap:6px;flex-wrap:wrap;margin-top:6px}
-.hc[data-raise="1"] .hand-actions{display:flex}
+.ribbon{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px;border:1px dashed #263445;border-radius:12px;background:linear-gradient(180deg,#0b1114,#0a0f15)}
+.ribbon .card{width:170px;flex:0 0 auto}
+.cardActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 
-/* Tiny helpers */
-.small{font-size:12px;color:var(--muted)}
+/* Log — now LAST section */
+.logBox{margin-top:10px}
+.log{height:220px;overflow:auto;background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;font-size:12px}
+.muted{color:var(--muted)} .good{color:#78e08f} .bad{color:#ff7a7a}
 </style>
 </head>
 <body>
@@ -96,7 +90,7 @@ button:disabled{opacity:.6}
       <div class="market" id="mRow"></div>
     </div>
 
-    <!-- Middle: Battlefield (Arena-style: opponent row on top, your row below) -->
+    <!-- Middle: Battlefield -->
     <div class="panel battle">
       <div>
         <div class="small" style="opacity:.8">Opponent</div>
@@ -108,18 +102,18 @@ button:disabled{opacity:.6}
         <div class="glyphs" id="glyphView"></div>
       </div>
     </div>
-
-    <!-- Right: Log -->
-    <div class="panel">
-      <h3>Log</h3>
-      <div class="log" id="log"></div>
-    </div>
   </div>
 
-  <!-- Bottom: Hand -->
+  <!-- Hand ribbon beneath board -->
   <div class="handBox">
     <div class="small">Your Hand</div>
-    <div class="fan"><div class="hand" id="hand"></div></div>
+    <div class="ribbon" id="hand"></div>
+  </div>
+
+  <!-- LOG LAST -->
+  <div class="panel logBox">
+    <h3>Log</h3>
+    <div class="log" id="log"></div>
   </div>
 
 </div>
@@ -128,7 +122,7 @@ button:disabled{opacity:.6}
 document.addEventListener('touchstart',()=>{}, {passive:true});
 function bindTap(el,fn){ el.addEventListener('click',fn); el.addEventListener('touchend',e=>{ e.preventDefault(); fn(e); }, {passive:false}); }
 
-/* Spellweavers (same as prior) */
+/* Spellweavers */
 const SPELLWEAVERS = {
   "Seraya (Wardsinger)": { desc:"Trance at 3♥: prevent 1 dmg/round • at 1♥: +1⚡ when your glyph flips",
     trance:[{hp:3,apply:s=>{s.flags.preventOnce=true;s.flags.preventAvailable=true;},label:"Ward online."},
@@ -201,7 +195,7 @@ function playFromHand(handIdx){
   render();
 }
 
-/* Advance rule (no auto-tick; once/turn per spell) */
+/* Advance rule */
 function advance(i){
   const s=S.slots[i]; if(!s) return;
   const cost=1+(S.taxes||0); if(s.advUsed){log("That spell already advanced this turn.");return}
@@ -212,7 +206,7 @@ function advance(i){
   render();
 }
 
-/* Effects */
+/* Effects (same as previous build) */
 function runInstant(who,c){
   switch(c.eff){
     case "spark": (who==="you")?damageAI(1):damageYou(1); break;
@@ -234,7 +228,7 @@ function runResolve(who,c){
       else { if(consumeBarrier(S)) break; log("AI Hex+: you discard 1 and lose 1⚡ (sim)."); S.ae=Math.max(0,S.ae-1); }
       break;
     case "ember": (who==="you")?damageAI(2):damageYou(2); break;
-    case "swap": log(who==="you"?"Phase Swap (abstract).":"AI swaps (no-op)."); break;
+    case "swap": log(who==="you")?"Phase Swap (abstract).":"AI swaps (no-op)."; break;
     case "loop": if(who==="you"){ if(S.lastInstant){ log(`Temporal Loop replays ${S.lastInstant.n}.`); runInstant("you",S.lastInstant);} else {draw();log("Loop draws 1 (no instant).")} } break;
     case "tax": if(who==="you"){S.ai.taxes=(S.ai.taxes||0)+1;log("Stonewall: AI next advance +1⚡.")} else {S.taxes=(S.taxes||0)+1;log("AI Stonewall: your next advance +1⚡.")} break;
     case "bargain": if(who==="you"){damageAI(3);S.hp=Math.max(0,S.hp-2);log("Dark Bargain recoil: -2♥")} else {damageYou(3);S.ai.hp=Math.max(0,S.ai.hp-2);log("AI recoil -2♥")} break;
@@ -284,14 +278,8 @@ function buy(i){
 function aiDraw(){ if(!S.ai.deck.length){ if(S.ai.disc.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
 function aiTurn(){
   log("— AI Turn —"); aiDraw();
-  const gIdx=S.ai.hand.findIndex(c=>c.t==="Glyph");
-  if(gIdx>-1 && Math.random()<0.6){ const g=S.ai.hand.splice(gIdx,1)[0]; S.ai.glyphs.push(g); log("AI sets a Glyph."); }
-  const empty=S.ai.slots.findIndex(x=>!x);
-  if(empty>-1){
-    let idx=S.ai.hand.findIndex(c=>c.t==="Spell" && c.n==="Emberbolt");
-    if(idx===-1) idx=S.ai.hand.findIndex(c=>c.t==="Spell");
-    if(idx>-1){ const card=S.ai.hand.splice(idx,1)[0]; S.ai.slots[empty]={c:card,ph:1,advUsed:false}; log(`AI plays ${card.n}.`); }
-  }
+  const gIdx=S.ai.hand.findIndex(c=>c.t==="Glyph"); if(gIdx>-1 && Math.random()<0.6){ const g=S.ai.hand.splice(gIdx,1)[0]; S.ai.glyphs.push(g); log("AI sets a Glyph."); }
+  const empty=S.ai.slots.findIndex(x=>!x); if(empty>-1){ let idx=S.ai.hand.findIndex(c=>c.t==="Spell" && c.n==="Emberbolt"); if(idx===-1) idx=S.ai.hand.findIndex(c=>c.t==="Spell"); if(idx>-1){ const card=S.ai.hand.splice(idx,1)[0]; S.ai.slots[empty]={c:card,ph:1,advUsed:false}; log(`AI plays ${card.n}.`); } }
   const med=S.ai.hand.findIndex(c=>c.eff==="med"); if(med>-1 && Math.random()<0.6){ const c=S.ai.hand.splice(med,1)[0]; runInstant("ai",c); S.ai.disc.push(c); }
   const sp=S.ai.hand.findIndex(c=>c.eff==="spark"); if(sp>-1 && Math.random()<0.33){ const c=S.ai.hand.splice(sp,1)[0]; runInstant("ai",c); S.ai.disc.push(c); }
   const act=S.ai.slots.findIndex(s=>s && !s.advUsed);
@@ -309,56 +297,37 @@ function endTurn(){
   slideFlow(); S.turn+=1; render(); log("You end your turn."); setTimeout(aiTurn, 320);
 }
 
-/* UI helpers */
+/* Render */
 function schoolFrame(){return `<svg viewBox='0 0 100 140' class='frame' style='position:absolute;inset:6px;opacity:.6' preserveAspectRatio='none'>
 <g fill='none' stroke-width='1.2'><path d='M3 18 L3 6 L18 6'/><path d='M82 6 L97 6 L97 18'/><path d='M3 122 L3 134 L18 134'/><path d='M82 134 L97 134 L97 122'/><circle cx='50' cy='10' r='3'/><circle cx='50' cy='130' r='3'/></g></svg>`}
 function tagRow(c){return `<span class='tag ${c.c}'>${c.c.toUpperCase()}</span><span class='tag'>${c.t}</span><span class='tag'>V${c.v||0}</span>`}
-
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; deck.textContent=S.deck.length; disc.textContent=S.disc.length; glyphs.textContent=S.glyphs.length; turnTag.textContent=`Turn ${S.turn}`;
   const sel=document.getElementById('swSelect'); if(!sel.dataset.ready){ Object.keys(SPELLWEAVERS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o)}); sel.dataset.ready=1; sel.value=S.sw; sel.addEventListener('change',()=>reset(sel.value)); } else sel.value=S.sw;
 
-  // Aetherflow
+  // Flow
   mCosts.innerHTML=""; [4,3,2,2,2].forEach((c,idx)=>{ let shown=c; if(idx===0 && S.flags.leftDiscount) shown=Math.max(1,c-1); const d=document.createElement('div'); d.className='cost'; d.textContent=shown; mCosts.appendChild(d) });
   mRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{ const w=document.createElement('div'); w.className=`card ${c?c.c:''}`; if(!c){ w.innerHTML="<div class='smallmuted'>— empty —</div>"; mRow.appendChild(w); return; } w.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'></div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`; const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; bindTap(b,()=>buy(idx)); w.appendChild(b); mRow.appendChild(w); });
 
-  // Opponent slots
+  // Opponent
   aiSlots.innerHTML=""; S.ai.slots.forEach((s,i)=>{ const div=document.createElement('div'); div.className='slot inlineCard'; if(s){ div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class='art'></div><div class='name'>${s.c.n}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`; } else { div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`} aiSlots.appendChild(div) });
 
-  // Your slots
+  // You
   slots.innerHTML=""; S.slots.forEach((s,i)=>{ const div=document.createElement('div'); div.className='slot inlineCard'; if(s){ div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class='art'></div><div class='name'>${s.c.n}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`; const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; bindTap(b,()=>{ if(S.taxes>0) S.taxes=0; advance(i) }); b.disabled = s.advUsed; div.appendChild(b);} else { div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`} slots.appendChild(div) });
 
-  // Glyphs
   glyphView.innerHTML = S.glyphs.length ? S.glyphs.map(_=>'<div class="glyph"></div>').join('') : '<span class="small">No glyphs set.</span>';
 
-  // Hand fan
+  // Hand ribbon (no rotation)
   const handEl=document.getElementById('hand'); handEl.innerHTML="";
-  const N=S.hand.length, arcDeg=Math.min(54, 13*(N-1));
-  for(let i=0;i<N;i++){
-    const holder=document.createElement('div'); holder.className='hc';
-    const t=(N===1)?0:(i/(N-1)-0.5); const angle=t*arcDeg; const spread=(N>1)? (t*(N>5?260:200)) : 0;
-    holder.style.transform=`translate(calc(-50% + ${spread}px), 0px) rotate(${angle}deg)`; holder.dataset.raise="0";
-    const c=S.hand[i]; const card=document.createElement('div'); card.className=`card ${c.c}`;
+  S.hand.forEach((c,i)=>{
+    const card=document.createElement('div'); card.className=`card ${c.c}`;
     card.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'></div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`;
-    const actions=document.createElement('div'); actions.className='hand-actions';
+    const actions=document.createElement('div'); actions.className='cardActions';
     const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play")); bindTap(p,()=>playFromHand(i));
     const ch=document.createElement('button'); ch.textContent = c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`; bindTap(ch,()=> c.eff==="chan_self"?channelSelf(i):channel(i));
-    actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions); holder.appendChild(card);
-    bindTap(card, ()=>{ holder.dataset.raise = holder.dataset.raise==="1" ? "0":"1"; });
-    enableDrag(card, i, holder);
-    handEl.appendChild(holder);
-  }
-}
-function setSpellweaver(name){ S.sw=name; S.tranceHit={}; applyTranceIfEligible(); render(); }
-
-/* Drag for spells only */
-function enableDrag(cardEl, handIdx, holder){
-  let curX=0,curY=0,drag=false;
-  function move(e){const t=e.touches?e.touches[0]:e; curX=t.clientX; curY=t.clientY; if(drag){ cardEl.style.position='fixed'; cardEl.style.left=(curX-90)+'px'; cardEl.style.top=(curY-120)+'px'; cardEl.style.zIndex=9999; highlight(curX,curY,true);}}
-  function start(e){drag=true; holder.dataset.raise="1"; cardEl.style.pointerEvents='none'; document.addEventListener('touchmove',move,{passive:false}); document.addEventListener('mousemove',move); document.addEventListener('touchend',end,{passive:false}); document.addEventListener('mouseup',end);}
-  function end(){ document.removeEventListener('touchmove',move); document.removeEventListener('mousemove',move); document.removeEventListener('touchend',end); document.removeEventListener('mouseup',end); cardEl.style.position=''; cardEl.style.left=''; cardEl.style.top=''; cardEl.style.pointerEvents=''; cardEl.style.zIndex=''; const target = highlight(curX,curY,false); if(target!=null){ const c=S.hand[handIdx]; if(c.t==="Spell"){ if(S.slots[target]){log("That slot is occupied."); render(); return;} S.hand.splice(handIdx,1); S.slots[target]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${target+1}.`); render(); } } }
-  function highlight(x,y,apply){ const els=[...document.querySelectorAll('#slots .slot')]; let target=null; els.forEach((el,idx)=>{ const r=el.getBoundingClientRect(); const inside=x>=r.left && x<=r.right && y>=r.top && y<=r.bottom; if(apply){ el.classList.toggle('hot', inside && !S.slots[idx]); } if(inside) target=idx; }); if(!apply){ els.forEach(el=>el.classList.remove('hot')); } return target; }
-  cardEl.addEventListener('touchstart',start,{passive:false}); cardEl.addEventListener('mousedown',start);
+    actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions);
+    handEl.appendChild(card);
+  });
 }
 
 /* Buttons */
@@ -366,9 +335,12 @@ bindTap(drawBtn, ()=>draw());
 bindTap(endBtn,  ()=>endTurn());
 bindTap(resetBtn,()=>reset(S.sw));
 
-/* Resolve actions */
+/* Resolve helpers */
 function resolvePlayer(i){ const s=S.slots[i]; if(!s) return; runResolve("you",s.c); S.disc.push(s.c); S.slots[i]=null; render(); }
 function aiResolve(i){ const s=S.ai.slots[i]; if(!s) return; runResolve("ai",s.c); S.ai.disc.push(s.c); S.ai.slots[i]=null; }
+
+/* AI draw helper */
+function aiDraw(){ if(!S.ai.deck.length){ if(S.ai.disc.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
 
 /* Init */
 (function init(){
