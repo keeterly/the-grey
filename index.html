@@ -3,46 +3,54 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
-<title>The Grey — v14 (Your layout)</title>
+<title>The Grey — v15 (compact spacing + safe area)</title>
 <meta name="theme-color" content="#0b0d10"/>
 <style>
 :root{
   --bg:#0b0d10; --surface:#0f141b; --ink:#eef0f3; --sub:#aeb8c6; --line:#1b2430; --accent:#d7b77a;
   --slot:#0c1219; --chip:#121821; --chipLine:#233246; --btn:#111827; --btnLine:#28364a;
-  --card:#121a26; --cardLine:#23344a; --good:#7fe19c; --bad:#ff7a7a;
+  --card:#121a26; --cardLine:#23344a;
   --t-spell:#e6c57a; --t-instant:#6fb2ff; --t-glyph:#b58cff; --t-utility:#7bd3c3;
   --p-white:#cfd8e3; --p-gray:#7a889c; --p-black:#1a1f27;
-  --fs: clamp(12px,1.58vw,15px);
+  --fs: clamp(12px,1.5vw,14px);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#0b0d10;color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial; font-size:var(--fs);
-  -webkit-tap-highlight-color:transparent; overflow:hidden}
+html,body{
+  margin:0;height:100%;
+  background:#0b0d10;color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
+  font-size:var(--fs);-webkit-tap-highlight-color:transparent;overflow:hidden
+}
 @media(orientation:portrait){
   body::before{content:"Rotate to landscape to play";position:fixed;inset:0;display:grid;place-items:center;background:#0b0d10;color:#eef0f3;z-index:9999;font-weight:800}
 }
 
-/* App grid */
-#app{height:100dvh;display:grid;grid-template-rows:64px 1fr 72px 160px}
+/* GRID – tuned for iPhone landscape + bottom safe area */
+#app{
+  height:100dvh;
+  display:grid;
+  grid-template-rows:56px 1fr 54px 136px; /* header / main / log / hand */
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
 
-/* Header */
-.hdr{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
-.brand{display:flex;gap:10px;align-items:center}
+/* HEADER */
+.hdr{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
 .title{font-weight:900;letter-spacing:.12em}
 .stats{display:flex;gap:6px;flex-wrap:wrap}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--chipLine);font-size:12px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:var(--chip);border:1px solid var(--chipLine);font-size:12px}
 .actions{display:flex;gap:8px}
-.actions button{min-width:92px}
+.actions button{min-width:86px;min-height:36px;font-size:13px}
+button,select{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);border-radius:10px}
 
-/* Main board area: left board + right aetherflow */
-.main{display:grid;grid-template-columns:1.2fr .8fr;gap:10px;padding:10px}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
-.sectionTitle{font-weight:800;margin-bottom:8px}
+/* MAIN: left board + right aetherflow */
+.main{display:grid;grid-template-columns:1.15fr .85fr;gap:8px;padding:8px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px}
+.sectionTitle{font-weight:800;margin-bottom:6px}
 
-/* Your & AI boards */
-.boards{display:grid;grid-template-columns:1fr 1fr;gap:10px;height:100%}
-.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;min-height:132px;padding:6px}
+/* BOARDS */
+.boards{display:grid;grid-template-columns:1fr 1fr;gap:8px;height:100%}
+.slots{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;min-height:118px;padding:6px}
 .slot .cap{display:flex;justify-content:space-between;color:var(--sub);font-size:11px;margin-bottom:4px}
 .card{background:var(--card);border:2px solid var(--cardLine);border-radius:12px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .card[data-t="Spell"]{border-color:var(--t-spell)}
@@ -51,24 +59,24 @@ html,body{margin:0;height:100%;background:#0b0d10;color:var(--ink);
 .name{font-weight:900;color:var(--accent);font-size:13px;margin:4px 0}
 .text{font-size:11px;color:var(--sub)}
 .actionsSmall{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.actionsSmall button{min-height:34px;font-size:12px}
 
-/* Aetherflow (yellow area) */
-.af{display:grid;grid-template-rows:auto auto 1fr;gap:8px;height:100%}
+/* AETHERFLOW */
+.af{display:grid;grid-template-rows:auto auto 1fr;gap:6px;height:100%}
 .costs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
-.cost{display:flex;align-items:center;justify-content:center;height:30px;border-radius:8px;background:#0b111a;border:1px solid #213145;color:var(--accent);font-weight:800}
-.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.cost{display:flex;align-items:center;justify-content:center;height:28px;border-radius:8px;background:#0b111a;border:1px solid #213145;color:var(--accent);font-weight:800}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .flow .card{display:flex;flex-direction:column;min-width:0}
-.flow .actionsSmall button{min-height:36px}
+.flow .actionsSmall button{min-height:34px}
 
-/* Log (blue strip) */
-.logBar{background:#0b111a;border-top:1px solid #203146;border-bottom:1px solid #203146;display:flex;align-items:center;padding:4px 10px;gap:10px;overflow:hidden}
-#log{display:flex;gap:12px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+/* LOG – thin strip, safe for bottom controls */
+.logBar{background:#0b111a;border-top:1px solid #203146;border-bottom:1px solid #203146;display:flex;align-items:center;padding:6px 8px;gap:10px;overflow:hidden}
+#log{display:flex;gap:10px;white-space:nowrap;overflow-x:auto;scrollbar-width:none;font-size:11px}
 #log::-webkit-scrollbar{display:none}
-.logItem{font-size:12px;color:#aab3c1}
 
-/* Hand (green band) */
-.handWrap{background:var(--surface);border-top:1px solid var(--line);padding:8px 10px}
-.hand{display:flex;gap:8px;overflow-x:auto;height:100%;align-items:center}
+/* HAND – compact height + safe area */
+.handWrap{background:var(--surface);border-top:1px solid var(--line);padding:6px 8px;padding-bottom:calc(6px + env(safe-area-inset-bottom,0px))}
+.hand{display:flex;gap:6px;overflow-x:auto;height:100%;align-items:center}
 .pillCard{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid #2c3b52;background:#0f1724}
 .pillCard[data-t="Spell"]{box-shadow:inset 0 0 0 2px var(--t-spell)}
 .pillCard[data-t="Instant"]{box-shadow:inset 0 0 0 2px var(--t-instant)}
@@ -76,34 +84,23 @@ html,body{margin:0;height:100%;background:#0b0d10;color:var(--ink);
 .pip{width:10px;height:10px;border-radius:50%;border:1px solid #4c5a6d}
 .pip.white{background:var(--p-white)} .pip.gray{background:var(--p-gray)} .pip.black{background:var(--p-black)}
 
-/* Slide-up detail sheet */
-.sheet{position:fixed;left:0;right:0;bottom:-70%;height:70%;background:rgba(11,13,16,.98);border-top:1px solid #1e2a3a;border-radius:14px 14px 0 0;z-index:9999;
-  box-shadow:0 -12px 30px rgba(0,0,0,.5);transition:transform .2s ease-out;transform:translateY(0)}
+/* SLIDE-UP SHEET (unchanged) */
+.sheet{position:fixed;left:0;right:0;bottom:-70%;height:70%;background:rgba(11,13,16,.98);
+  border-top:1px solid #1e2a3a;border-radius:14px 14px 0 0;z-index:9999;box-shadow:0 -12px 30px rgba(0,0,0,.5);
+  transition:transform .2s ease-out;transform:translateY(0);padding-bottom:env(safe-area-inset-bottom,0)}
 .sheet.show{transform:translateY(-70%);bottom:0}
 .sheetInner{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:8px;padding:12px}
 .sheetHead{display:flex;justify-content:space-between;align-items:center}
 .sheetTitle{font-weight:900;color:var(--accent)}
 .sheetBody{overflow:auto}
 .sheetActions{display:flex;gap:8px;justify-content:flex-end}
-button{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);border-radius:10px;padding:8px 12px;min-height:40px}
 </style>
 </head>
 <body>
 <div id="app">
-  <!-- Header -->
+  <!-- HEADER -->
   <div class="hdr">
-    <div class="brand">
-      <div class="title">THE GREY</div>
-      <div class="stats">
-        <span class="pill">❤️ You <b id="hp">5</b></span>
-        <span class="pill">🤖 AI <b id="aiHp">5</b></span>
-        <span class="pill">⚡ <b id="ae">0</b></span>
-        <span class="pill">Deck <b id="deck">0</b></span>
-        <span class="pill">Discard <b id="disc">0</b></span>
-        <span class="pill">Glyphs <b id="glyphs">0</b></span>
-        <span class="pill">Turn <b id="turn">1</b></span>
-      </div>
-    </div>
+    <div class="title">THE GREY</div>
     <div class="actions">
       <button id="drawBtn">Draw</button>
       <button id="endBtn">End Turn</button>
@@ -111,7 +108,7 @@ button{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);bo
     </div>
   </div>
 
-  <!-- Main area -->
+  <!-- MAIN -->
   <div class="main">
     <!-- Left: Boards -->
     <div class="panel">
@@ -135,20 +132,19 @@ button{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);bo
     </div>
   </div>
 
-  <!-- Blue Log strip -->
+  <!-- LOG -->
   <div class="logBar">
-    <b>Log</b>
+    <b style="opacity:.9">Log</b>
     <div id="log"></div>
   </div>
 
-  <!-- Green Hand band -->
+  <!-- HAND -->
   <div class="handWrap">
-    <div class="sectionTitle">✋ Your Hand</div>
-    <div id="hand" class="hand"></div>
+    <div class="hand" id="hand"></div>
   </div>
 </div>
 
-<!-- Slide-up detail sheet -->
+<!-- Slide-up sheet -->
 <div id="sheet" class="sheet" aria-hidden="true">
   <div class="sheetInner">
     <div class="sheetHead">
@@ -156,24 +152,24 @@ button{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);bo
       <button id="sheetClose">Close</button>
     </div>
     <div id="sheetBody" class="sheetBody"></div>
-    <div class="sheetActions" id="sheetActions"></div>
+    <div id="sheetActions" class="sheetActions"></div>
   </div>
 </div>
 
 <script>
-/* ===== Utilities ===== */
-const $ = s => document.querySelector(s);
-function uid(){ return Math.random().toString(36).slice(2,9); }
-function shuf(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
-function pip(c){ return c==="white"?"white":c==="gray"?"gray":"black"; }
-function log(msg){ const t=new Date().toLocaleTimeString(); const item=document.createElement('div'); item.className="logItem"; item.textContent=`${t} — ${msg}`; const bar=$("#log"); bar.appendChild(item); bar.scrollLeft=bar.scrollWidth; }
+/* Utilities */
+const $=s=>document.querySelector(s);
+function uid(){return Math.random().toString(36).slice(2,9);}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+function pip(c){return c==="white"?"white":c==="gray"?"gray":"black";}
+function log(msg){const t=new Date().toLocaleTimeString();const d=document.createElement('div');d.textContent=`${t} — ${msg}`;d.style.opacity=.9;$("#log").appendChild(d);$("#log").scrollLeft=$("#log").scrollWidth;}
 
-/* ===== Cards ===== */
+/* Cards */
 const BASE=[
-  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 damage to the opponent.",eff:"spark"},
-  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 damage to the opponent.",eff:"spark"},
+  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 damage.",eff:"spark"},
+  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 damage.",eff:"spark"},
   {id:uid(),n:"Shield Flicker",t:"Instant",c:"white",v:1,txt:"Prevent 1 damage this round.",eff:"shield"},
-  {id:uid(),n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Discard this card: gain +1⚡.",eff:"chan_self"},
+  {id:uid(),n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Discard this: +1⚡.",eff:"chan_self"},
   {id:uid(),n:"Minor Hex+",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1 and loses 1⚡.",eff:"hex_plus"},
   {id:uid(),n:"Emberbolt",t:"Spell",c:"black",v:1,p:3,txt:"After 3: deal 2 damage.",eff:"ember"}
 ];
@@ -185,10 +181,10 @@ const FLOW=[
   {id:uid(),n:"Mirror Ward",t:"Glyph",c:"gray",v:1,txt:"When you’d take dmg: reflect it.",eff:"g_mirror"}
 ];
 
-/* ===== State ===== */
+/* State */
 let S={};
-function makeDeck(){ return shuf(BASE.map(x=>({...x,id:uid()}))); }
-function makeFlow(){ return shuf(FLOW.map(x=>({...x,id:uid()}))); }
+function makeDeck(){return shuf(BASE.map(x=>({...x,id:uid()})));}
+function makeFlow(){return shuf(FLOW.map(x=>({...x,id:uid()})));}
 
 function reset(){
   S={
@@ -197,164 +193,114 @@ function reset(){
     flowDeck:makeFlow(), flowRow:[null,null,null,null,null], turn:1
   };
   for(let i=0;i<5;i++){ draw(); aiDraw(); }
-  slideFlow(true);
-  render(); log("New game.");
-  startTurn();
+  slideFlow(true); render(); log("New game."); startTurn();
 }
 
-/* ===== Turn flow ===== */
-function startTurn(){ draw(); S.ae+=1; log("Start of turn: draw 1, +1⚡."); render(); }
+/* Turn */
+function startTurn(){ draw(); S.ae+=1; log("Start: draw 1, +1⚡."); render(); }
 function endTurn(){
   slideFlow(); S.turn++;
-  // AI simple turn (very light)
   aiDraw(); S.ai.ae+=1;
-  const idx=S.ai.hand.findIndex(c=>c.t==="Instant"); if(idx>-1){ const c=S.ai.hand.splice(idx,1)[0]; if(c.eff==="med"){ S.ai.ae+=1; aiDraw(); log("AI uses Meditate."); } else if(c.eff==="spark"){ damageYou(1); log("AI casts Spark."); } S.ai.disc.push(c); }
-  const e=S.ai.slots.findIndex(x=>!x); const sidx=S.ai.hand.findIndex(c=>c.t==="Spell"); if(e>-1&&sidx>-1){ const c=S.ai.hand.splice(sidx,1)[0]; S.ai.slots[e]={c,ph:1,advUsed:false}; log("AI plays a spell."); }
-  const toAdv=S.ai.slots.findIndex(s=>s&&!s.advUsed && S.ai.ae>=1); if(toAdv>-1){ S.ai.ae-=1; S.ai.slots[toAdv].ph++; S.ai.slots[toAdv].advUsed=true; if(S.ai.slots[toAdv].ph>=S.ai.slots[toAdv].c.p){ applyResolve("ai", S.ai.slots[toAdv].c); S.ai.disc.push(S.ai.slots[toAdv].c); S.ai.slots[toAdv]=null; } }
-  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
-  S.ai.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  const iInst=S.ai.hand.findIndex(c=>c.t==="Instant"); if(iInst>-1){ const c=S.ai.hand.splice(iInst,1)[0]; if(c.eff==="med"){ S.ai.ae+=1; aiDraw(); log("AI meditates."); } if(c.eff==="spark"){ S.hp=Math.max(0,S.hp-1); log("AI casts Spark."); } S.ai.disc.push(c); }
+  const empty=S.ai.slots.findIndex(x=>!x); const iSpell=S.ai.hand.findIndex(c=>c.t==="Spell"); if(empty>-1&&iSpell>-1){ const c=S.ai.hand.splice(iSpell,1)[0]; S.ai.slots[empty]={c,ph:1,advUsed:false}; log("AI plays a spell."); }
+  const adv=S.ai.slots.findIndex(s=>s&&!s.advUsed && S.ai.ae>=1); if(adv>-1){ S.ai.ae-=1; S.ai.slots[adv].ph++; S.ai.slots[adv].advUsed=true; if(S.ai.slots[adv].ph>=S.ai.slots[adv].c.p){ applyResolve("ai",S.ai.slots[adv].c); S.ai.disc.push(S.ai.slots[adv].c); S.ai.slots[adv]=null; } }
+  S.slots.forEach(s=>{if(s) s.advUsed=false}); S.ai.slots.forEach(s=>{if(s) s.advUsed=false});
   startTurn();
 }
 
-/* ===== Draw / Play ===== */
+/* Core actions */
 function draw(){ if(!S.deck.length){ S.deck=shuf(S.disc); S.disc=[]; if(!S.deck.length){ log("No cards to draw."); return; } log("You reshuffle."); } S.hand.push(S.deck.pop()); render(); }
 function aiDraw(){ if(!S.ai.deck.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; } if(S.ai.deck.length) S.ai.hand.push(S.ai.deck.pop()); }
 
 function playFromHand(id){
-  const i=S.hand.findIndex(c=>c.id===id); if(i<0) return;
-  const c=S.hand.splice(i,1)[0];
-  if(c.t==="Spell"){
-    const s=S.slots.findIndex(x=>!x); if(s<0){ log("No empty slot."); S.hand.push(c); render(); return; }
-    S.slots[s]={c,ph:1,advUsed:false}; log(`Play ${c.n} → Slot ${s+1}`);
-  } else if(c.t==="Glyph"){
-    S.glyphs.push(c); log(`Set glyph ${c.n}.`);
-  } else {
-    applyInstant("you",c); S.disc.push(c);
-  }
-  render();
-  closeSheet();
-}
-
-function channelFromHand(id,forceVal){
-  const i=S.hand.findIndex(c=>c.id===id); if(i<0) return;
-  const c=S.hand.splice(i,1)[0];
-  S.ae+= (forceVal!=null ? forceVal : (c.v||0));
-  S.disc.push(c);
-  log(`Channel ${c.n} (+${forceVal!=null?forceVal:c.v||0}⚡).`);
+  const i=S.hand.findIndex(c=>c.id===id); if(i<0) return; const c=S.hand.splice(i,1)[0];
+  if(c.t==="Spell"){ const s=S.slots.findIndex(x=>!x); if(s<0){ log("No empty slot."); S.hand.push(c); render(); return; } S.slots[s]={c,ph:1,advUsed:false}; log(`Play ${c.n} → Slot ${s+1}`); }
+  else if(c.t==="Glyph"){ S.glyphs.push(c); log(`Set glyph ${c.n}.`); }
+  else { applyInstant("you",c); S.disc.push(c); }
   render(); closeSheet();
 }
-
+function channelFromHand(id,valOverride){
+  const i=S.hand.findIndex(c=>c.id===id); if(i<0) return; const c=S.hand.splice(i,1)[0];
+  const val=(valOverride!=null?valOverride:(c.v||0)); S.ae+=val; S.disc.push(c); log(`Channel ${c.n} (+${val}⚡).`); render(); closeSheet();
+}
 function advanceSlot(i){
-  const s=S.slots[i]; if(!s) return;
-  if(s.advUsed){ log("This spell already advanced this turn."); return; }
-  const cost=1+(S.taxes||0);
-  if(S.ae<cost){ log(`Need ${cost}⚡.`); return; }
+  const s=S.slots[i]; if(!s) return; if(s.advUsed){ log("Already advanced this turn."); return; }
+  const cost=1+(S.taxes||0); if(S.ae<cost){ log(`Need ${cost}⚡.`); return; }
   S.ae-=cost; s.ph++; s.advUsed=true; if(S.taxes) S.taxes=0;
   if(s.ph>=s.c.p){ applyResolve("you",s.c); S.disc.push(s.c); S.slots[i]=null; }
   render();
 }
-
 function applyInstant(who,c){
-  if(c.eff==="spark"){ who==="you"?damageAI(1):damageYou(1); }
+  if(c.eff==="spark"){ who==="you"?S.ai.hp=Math.max(0,S.ai.hp-1):S.hp=Math.max(0,S.hp-1); log(`${who==="you"?"You":"AI"} deal 1.`); }
   if(c.eff==="shield"){ log("Ward: prevent 1 (sim)."); }
   if(c.eff==="chan_self"){ S.ae+=1; log("+1⚡."); }
   if(c.eff==="med"){ S.ae+=1; draw(); log("Meditate: +1⚡ and draw 1."); }
 }
-
 function applyResolve(who,c){
-  if(c.eff==="ember"){ who==="you"?damageAI(2):damageYou(2); }
-  if(c.eff==="hex_plus"){ if(who==="you"){ log("AI discards 1 and loses 1⚡ (sim)."); S.ai.ae=Math.max(0,S.ai.ae-1); } else { log("You discard 1 and lose 1⚡ (sim)."); S.ae=Math.max(0,S.ae-1); } }
+  if(c.eff==="ember"){ who==="you"?S.ai.hp=Math.max(0,S.ai.hp-2):S.hp=Math.max(0,S.hp-2); log(`${who==="you"?"You":"AI"} deal 2.`); }
+  if(c.eff==="hex_plus"){ if(who==="you"){ log("AI discards 1 and loses 1⚡ (sim)."); S.ai.ae=Math.max(0,S.ai.ae-1);} else { log("You discard 1 and lose 1⚡ (sim)."); S.ae=Math.max(0,S.ae-1);} }
   if(c.eff==="tax"){ if(who==="you"){ S.ai.taxes=(S.ai.taxes||0)+1; log("AI next advance +1⚡."); } else { S.taxes=(S.taxes||0)+1; log("Your next advance +1⚡."); } }
 }
 
-function damageYou(n){ S.hp=Math.max(0,S.hp-n); log(`You take ${n}.`); render(); }
-function damageAI(n){ S.ai.hp=Math.max(0,S.ai.hp-n); log(`AI takes ${n}.`); render(); }
-
-/* ===== Aetherflow ===== */
-function afCost(i){ return [4,3,2,2,2][i]; }
-function slideFlow(initial=false){
-  S.flowRow=[null,...S.flowRow.slice(0,4)];
-  const next=S.flowDeck.pop(); S.flowRow[0]=next||null;
-  if(!initial) render();
-}
+/* Aetherflow */
+function afCost(i){return [4,3,2,2,2][i];}
+function slideFlow(initial=false){ S.flowRow=[null,...S.flowRow.slice(0,4)]; const next=S.flowDeck.pop(); S.flowRow[0]=next||null; if(!initial) render(); }
 function learn(i){
-  const card=S.flowRow[i]; if(!card) return;
-  const cost=afCost(i);
+  const card=S.flowRow[i]; if(!card) return; const cost=afCost(i);
   if(S.ae<cost){ log("Not enough ⚡."); return; }
   S.ae-=cost;
-  if(card.t==="Glyph"){ S.glyphs.push(card); log(`Set ${card.n} (glyph).`); }
-  else { S.disc.push(card); log(`Learned ${card.n}; added to discard.`); }
+  if(card.t==="Glyph"){ S.glyphs.push(card); log(`Set ${card.n}.`); } else { S.disc.push(card); log(`Learned ${card.n} → discard.`); }
   S.flowRow[i]=null; render();
 }
 
-/* ===== Hand sheet (press & hold) ===== */
+/* Hand sheet */
 let holdTimer=null;
 function bindHold(el, cb){
-  el.addEventListener('touchstart',e=>{ holdTimer=setTimeout(cb,300); },{passive:true});
-  el.addEventListener('touchend',e=>{ clearTimeout(holdTimer); });
-  el.addEventListener('mousedown',e=>{ holdTimer=setTimeout(cb,250); });
-  el.addEventListener('mouseup',e=>{ clearTimeout(holdTimer); });
+  el.addEventListener('touchstart',()=>{holdTimer=setTimeout(cb,250)},{passive:true});
+  el.addEventListener('touchend',()=>clearTimeout(holdTimer),{passive:true});
+  el.addEventListener('mousedown',()=>{holdTimer=setTimeout(cb,220)});
+  el.addEventListener('mouseup',()=>clearTimeout(holdTimer));
 }
 function openSheet(card){
-  const sh=$("#sheet"); $("#sheetTitle").textContent=card.n;
-  $("#sheetBody").innerHTML=`
-    <div class="card" data-t="${card.t}" style="border-color:${card.t==='Spell'?'var(--t-spell)':card.t==='Instant'?'var(--t-instant)':card.t==='Glyph'?'var(--t-glyph)':'var(--t-utility)'}">
-      <div class="name">${card.n}</div>
-      <div class="text">${card.txt||""}</div>
-    </div>`;
-  const act=$("#sheetActions"); act.innerHTML="";
+  $("#sheetTitle").textContent=card.n;
+  $("#sheetBody").innerHTML=`<div class="card" data-t="${card.t}"><div class="name">${card.n}</div><div class="text">${card.txt||""}</div></div>`;
+  const a=$("#sheetActions"); a.innerHTML="";
   if(card.t==="Spell"){
-    const b1=document.createElement('button'); b1.textContent="Play to Board"; b1.onclick=()=>playFromHand(card.id); act.appendChild(b1);
-    const b2=document.createElement('button'); b2.textContent=`Channel (+${card.v||0}⚡)`; b2.onclick=()=>channelFromHand(card.id); act.appendChild(b2);
+    const b1=document.createElement('button'); b1.textContent="Play to Board"; b1.onclick=()=>playFromHand(card.id); a.appendChild(b1);
+    const b2=document.createElement('button'); b2.textContent=`Channel (+${card.v||0}⚡)`; b2.onclick=()=>channelFromHand(card.id); a.appendChild(b2);
   } else if(card.t==="Glyph"){
-    const b1=document.createElement('button'); b1.textContent="Set Glyph"; b1.onclick=()=>playFromHand(card.id); act.appendChild(b1);
-    const b2=document.createElement('button'); b2.textContent=`Channel (+${card.v||0}⚡)`; b2.onclick=()=>channelFromHand(card.id); act.appendChild(b2);
+    const b1=document.createElement('button'); b1.textContent="Set Glyph"; b1.onclick=()=>playFromHand(card.id); a.appendChild(b1);
+    const b2=document.createElement('button'); b2.textContent=`Channel (+${card.v||0}⚡)`; b2.onclick=()=>channelFromHand(card.id); a.appendChild(b2);
   } else {
-    const b1=document.createElement('button'); b1.textContent="Cast"; b1.onclick=()=>playFromHand(card.id); act.appendChild(b1);
+    const b1=document.createElement('button'); b1.textContent="Cast"; b1.onclick=()=>playFromHand(card.id); a.appendChild(b1);
     const v=(card.eff==="chan_self")?1:(card.v||0);
-    const b2=document.createElement('button'); b2.textContent=`Channel (+${v}⚡)`; b2.onclick=()=>channelFromHand(card.id,v); act.appendChild(b2);
+    const b2=document.createElement('button'); b2.textContent=`Channel (+${v}⚡)`; b2.onclick=()=>channelFromHand(card.id,v); a.appendChild(b2);
   }
-  sh.classList.add('show'); sh.setAttribute('aria-hidden','false');
+  $("#sheet").classList.add('show'); $("#sheet").setAttribute('aria-hidden','false');
 }
-function closeSheet(){ const sh=$("#sheet"); sh.classList.remove('show'); sh.setAttribute('aria-hidden','true'); }
+function closeSheet(){ $("#sheet").classList.remove('show'); $("#sheet").setAttribute('aria-hidden','true'); }
 $("#sheetClose").onclick=closeSheet;
 
-/* ===== Render ===== */
+/* Render */
 function render(){
-  // HUD stats
-  $("#hp").textContent=S.hp; $("#aiHp").textContent=S.ai.hp; $("#ae").textContent=S.ae;
-  $("#deck").textContent=S.deck.length; $("#disc").textContent=S.disc.length; $("#glyphs").textContent=S.glyphs.length;
-  $("#turn").textContent=S.turn;
-
-  // Slots
+  // boards
   const slots=$("#slots"); slots.innerHTML="";
   S.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className="slot";
-    d.innerHTML=`<div class="cap"><span>Slot ${i+1}</span><span>${S.taxes&&i===0?" +Tax":""}</span></div>`;
-    if(s){
-      const c=s.c; const cc=document.createElement('div'); cc.className="card"; cc.dataset.t=c.t;
-      cc.innerHTML=`<div class="name">${c.n}</div><div class="text">Phase ${s.ph}/${c.p}</div>`;
-      d.appendChild(cc);
-      const a=document.createElement('div'); a.className="actionsSmall";
-      const adv=document.createElement('button'); adv.textContent=`Advance (1${S.taxes?"+Tax":""}⚡)`; adv.disabled=s.advUsed; adv.onclick=()=>advanceSlot(i); a.appendChild(adv);
-      d.appendChild(a);
-    } else {
-      const cc=document.createElement('div'); cc.className="text"; cc.textContent="— empty —"; d.appendChild(cc);
-    }
+    d.innerHTML=`<div class="cap"><span>Slot ${i+1}</span><span></span></div>`;
+    if(s){ const c=s.c; d.innerHTML+=`<div class="card" data-t="${c.t}"><div class="name">${c.n}</div><div class="text">Phase ${s.ph}/${c.p}</div></div>
+      <div class="actionsSmall"><button onclick="advanceSlot(${i})">Advance (1⚡)</button></div>`;}
+    else { d.innerHTML+=`<div class="text" style="opacity:.65">— empty —</div>`; }
     slots.appendChild(d);
   });
-
-  // AI slots
-  const ai=$("#aiSlots"); ai.innerHTML="";
-  S.ai.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className="slot"; d.innerHTML=`<div class="cap"><span>Slot ${i+1}</span><span></span></div>`;
-    if(s){ const c=s.c; const cc=document.createElement('div'); cc.className="card"; cc.dataset.t=c.t; cc.innerHTML=`<div class="name">${c.n}</div><div class="text">Phase ${s.ph}/${c.p}</div>`; d.appendChild(cc); }
-    else { const cc=document.createElement('div'); cc.className="text"; cc.textContent="—"; d.appendChild(cc); }
-    ai.appendChild(d);
+  const ais=$("#aiSlots"); ais.innerHTML="";
+  S.ai.slots.forEach((s,i)=>{ const d=document.createElement('div'); d.className="slot";
+    d.innerHTML=`<div class="cap"><span>Slot ${i+1}</span><span></span></div>` + (s?`<div class="card" data-t="${s.c.t}"><div class="name">${s.c.n}</div><div class="text">Phase ${s.ph}/${s.c.p}</div></div>`:`<div class="text" style="opacity:.65">—</div>`);
+    ais.appendChild(d);
   });
 
-  // Aetherflow
-  const costs=$("#afCosts"); costs.innerHTML=""; [4,3,2,2,2].forEach(v=>{ const c=document.createElement('div'); c.className="cost"; c.textContent=v; costs.appendChild(c); });
+  // Aetherflow row + costs
+  $("#afCosts").innerHTML=""; [4,3,2,2,2].forEach(v=>{const c=document.createElement('div');c.className="cost";c.textContent=v;$("#afCosts").appendChild(c);});
   const row=$("#afRow"); row.innerHTML="";
   S.flowRow.forEach((c,i)=>{
     const el=document.createElement('div'); el.className="card"; if(!c){ el.innerHTML=`<div class="name" style="opacity:.6">— empty —</div>`; row.appendChild(el); return; }
@@ -364,26 +310,25 @@ function render(){
     row.appendChild(el);
   });
 
-  // Hand pills
+  // Hand (name pills)
   const hand=$("#hand"); hand.innerHTML="";
   S.hand.forEach(card=>{
     const pill=document.createElement('div'); pill.className="pillCard"; pill.dataset.t=card.t;
-    const dot=document.createElement('div'); dot.className="pip "+pip(card.c);
+    const dot=document.createElement('div'); dot.className="pip "+(card.c?pip(card.c):"gray");
     const label=document.createElement('div'); label.textContent=card.n;
     pill.appendChild(dot); pill.appendChild(label);
-    bindHold(pill, ()=>openSheet(card));
-    // quick tap = open too (useful if hold feels slow)
+    bindHold(pill,()=>openSheet(card));
     pill.onclick=()=>openSheet(card);
     hand.appendChild(pill);
   });
 }
 
-/* ===== Buttons ===== */
-$("#drawBtn").onclick=()=>{ draw(); };
-$("#endBtn").onclick=()=>{ endTurn(); };
-$("#resetBtn").onclick=()=>{ reset(); };
+/* Buttons */
+document.getElementById('drawBtn').onclick=()=>draw();
+document.getElementById('endBtn').onclick=()=>endTurn();
+document.getElementById('resetBtn').onclick=()=>reset();
 
-/* ===== Init ===== */
+/* Init */
 reset();
 </script>
 </body>
