@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>The Grey — v13 (iOS beta fix, fits screen)</title>
-<meta name="theme-color" content="#0b0d10" />
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no"/>
+<title>The Grey — v14 (Your layout)</title>
+<meta name="theme-color" content="#0b0d10"/>
 <style>
 :root{
   --bg:#0b0d10; --surface:#0f141b; --ink:#eef0f3; --sub:#aeb8c6; --line:#1b2430; --accent:#d7b77a;
@@ -12,103 +12,113 @@
   --card:#121a26; --cardLine:#23344a; --good:#7fe19c; --bad:#ff7a7a;
   --t-spell:#e6c57a; --t-instant:#6fb2ff; --t-glyph:#b58cff; --t-utility:#7bd3c3;
   --p-white:#cfd8e3; --p-gray:#7a889c; --p-black:#1a1f27;
-  --fs: clamp(12px, 1.58vw, 15px);
+  --fs: clamp(12px,1.58vw,15px);
 }
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:#0b0d10;color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
-  -webkit-tap-highlight-color:transparent;font-size:var(--fs);overflow:hidden}
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial; font-size:var(--fs);
+  -webkit-tap-highlight-color:transparent; overflow:hidden}
 @media(orientation:portrait){
-  body::before{content:"Rotate to landscape to play";position:fixed;inset:0;
-    display:grid;place-items:center;background:#0b0d10;color:#eef0f3;z-index:9999;
-    font-weight:800;letter-spacing:.06em}
+  body::before{content:"Rotate to landscape to play";position:fixed;inset:0;display:grid;place-items:center;background:#0b0d10;color:#eef0f3;z-index:9999;font-weight:800}
 }
-#error{position:fixed;left:0;right:0;bottom:0;z-index:99999;
-  background:#7f1d1d;color:#fff;padding:8px 12px;font-size:12px;display:none}
-#app{height:100dvh;display:grid;grid-template-rows:58px 1fr 204px}
 
-/* HUD */
-.hud{display:flex;align-items:center;gap:8px;padding:8px 12px;
-  background:var(--surface);border-bottom:1px solid var(--line)}
+/* App grid */
+#app{height:100dvh;display:grid;grid-template-rows:64px 1fr 72px 160px}
+
+/* Header */
+.hdr{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;gap:10px;align-items:center}
 .title{font-weight:900;letter-spacing:.12em}
-.chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;
-  border-radius:999px;background:var(--chip);border:1px solid var(--chipLine);font-size:12px}
-.k{color:var(--sub)}
-button,select{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);
-  border-radius:10px;padding:8px 12px;font-size:14px;min-height:40px}
-button:disabled{opacity:.55}
+.stats{display:flex;gap:6px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--chipLine);font-size:12px}
+.actions{display:flex;gap:8px}
+.actions button{min-width:92px}
 
-/* Main */
-.main{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:8px 10px}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;
-  padding:10px;box-shadow:inset 0 6px 18px rgba(0,0,0,.22)}
-.sectionTitle{font-weight:800;margin-bottom:6px}
+/* Main board area: left board + right aetherflow */
+.main{display:grid;grid-template-columns:1.2fr .8fr;gap:10px;padding:10px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
+.sectionTitle{font-weight:800;margin-bottom:8px}
 
-/* Boards */
+/* Your & AI boards */
 .boards{display:grid;grid-template-columns:1fr 1fr;gap:10px;height:100%}
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;
-  min-height:120px;padding:6px;transition:border-color .1s,box-shadow .1s}
-.slot.hot{border-color:#86b7ff;box-shadow:0 0 0 3px rgba(134,183,255,.18) inset}
-.slot .cap{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-bottom:4px}
-.glyphs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;min-height:20px}
-.glyph{height:18px;padding:0 8px;display:inline-flex;align-items:center;gap:4px;
-  border-radius:999px;background:#2d2450;border:1px solid var(--t-glyph);font-size:11px}
-
-/* Aetherflow & Log */
-.marketGrid{display:grid;grid-template-rows:auto auto 1fr auto auto;gap:6px;height:100%}
-.costs{display:grid;grid-template-columns:repeat(auto-fit,minmax(36px,1fr));gap:6px}
-.cost{display:flex;align-items:center;justify-content:center;height:28px;border-radius:8px;
-  background:#0b111a;border:1px solid #213145;color:var(--accent);font-weight:800}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;align-content:start}
-.log{background:#0b111a;border:1px solid #1c2a3a;border-radius:8px;padding:6px;height:110px;
-  overflow:auto;font-size:12px}
-
-/* Cards */
-.card{background:var(--card);border:2px solid var(--cardLine);border-radius:12px;
-  padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.25);display:flex;flex-direction:column;min-width:0}
+.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;min-height:132px;padding:6px}
+.slot .cap{display:flex;justify-content:space-between;color:var(--sub);font-size:11px;margin-bottom:4px}
+.card{background:var(--card);border:2px solid var(--cardLine);border-radius:12px;padding:6px;box-shadow:0 4px 12px rgba(0,0,0,.25)}
 .card[data-t="Spell"]{border-color:var(--t-spell)}
 .card[data-t="Instant"]{border-color:var(--t-instant)}
 .card[data-t="Glyph"]{border-color:var(--t-glyph)}
-.card[data-t="Utility"]{border-color:var(--t-utility)}
-.badges{display:flex;gap:4px;flex-wrap:wrap}
-.badge{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #2b3a51;background:#0b111a}
-.name{font-weight:900;margin:4px 0;color:var(--accent);font-size:13px}
-.text{font-size:11px;color:var(--sub);line-height:1.25}
-.actions{margin-top:auto;display:flex;gap:4px;flex-wrap:wrap}
-.handWrap{background:var(--surface);border-top:1px solid var(--line);padding:8px}
-.hand{display:flex;gap:6px;height:100%;overflow-x:auto}
+.name{font-weight:900;color:var(--accent);font-size:13px;margin:4px 0}
+.text{font-size:11px;color:var(--sub)}
+.actionsSmall{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+
+/* Aetherflow (yellow area) */
+.af{display:grid;grid-template-rows:auto auto 1fr;gap:8px;height:100%}
+.costs{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.cost{display:flex;align-items:center;justify-content:center;height:30px;border-radius:8px;background:#0b111a;border:1px solid #213145;color:var(--accent);font-weight:800}
+.flow{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.flow .card{display:flex;flex-direction:column;min-width:0}
+.flow .actionsSmall button{min-height:36px}
+
+/* Log (blue strip) */
+.logBar{background:#0b111a;border-top:1px solid #203146;border-bottom:1px solid #203146;display:flex;align-items:center;padding:4px 10px;gap:10px;overflow:hidden}
+#log{display:flex;gap:12px;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+#log::-webkit-scrollbar{display:none}
+.logItem{font-size:12px;color:#aab3c1}
+
+/* Hand (green band) */
+.handWrap{background:var(--surface);border-top:1px solid var(--line);padding:8px 10px}
+.hand{display:flex;gap:8px;overflow-x:auto;height:100%;align-items:center}
+.pillCard{flex:0 0 auto;display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid #2c3b52;background:#0f1724}
+.pillCard[data-t="Spell"]{box-shadow:inset 0 0 0 2px var(--t-spell)}
+.pillCard[data-t="Instant"]{box-shadow:inset 0 0 0 2px var(--t-instant)}
+.pillCard[data-t="Glyph"]{box-shadow:inset 0 0 0 2px var(--t-glyph)}
+.pip{width:10px;height:10px;border-radius:50%;border:1px solid #4c5a6d}
+.pip.white{background:var(--p-white)} .pip.gray{background:var(--p-gray)} .pip.black{background:var(--p-black)}
+
+/* Slide-up detail sheet */
+.sheet{position:fixed;left:0;right:0;bottom:-70%;height:70%;background:rgba(11,13,16,.98);border-top:1px solid #1e2a3a;border-radius:14px 14px 0 0;z-index:9999;
+  box-shadow:0 -12px 30px rgba(0,0,0,.5);transition:transform .2s ease-out;transform:translateY(0)}
+.sheet.show{transform:translateY(-70%);bottom:0}
+.sheetInner{height:100%;display:grid;grid-template-rows:auto 1fr auto;gap:8px;padding:12px}
+.sheetHead{display:flex;justify-content:space-between;align-items:center}
+.sheetTitle{font-weight:900;color:var(--accent)}
+.sheetBody{overflow:auto}
+.sheetActions{display:flex;gap:8px;justify-content:flex-end}
+button{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);border-radius:10px;padding:8px 12px;min-height:40px}
 </style>
 </head>
 <body>
 <div id="app">
-  <div class="hud">
-    <div class="title">THE GREY</div>
-    <div class="chips">
-      <span class="chip">❤️ You <b id="hp">5</b></span>
-      <span class="chip">🤖 AI <b id="aiHp">5</b></span>
-      <span class="chip">⚡ <b id="ae">0</b></span>
-      <span class="chip">Deck <b id="deck">0</b></span>
-      <span class="chip">Discard <b id="disc">0</b></span>
-      <span class="chip">Glyphs <b id="glyphs">0</b></span>
-      <span class="chip">Turn <b id="turnTag">1</b></span>
+  <!-- Header -->
+  <div class="hdr">
+    <div class="brand">
+      <div class="title">THE GREY</div>
+      <div class="stats">
+        <span class="pill">❤️ You <b id="hp">5</b></span>
+        <span class="pill">🤖 AI <b id="aiHp">5</b></span>
+        <span class="pill">⚡ <b id="ae">0</b></span>
+        <span class="pill">Deck <b id="deck">0</b></span>
+        <span class="pill">Discard <b id="disc">0</b></span>
+        <span class="pill">Glyphs <b id="glyphs">0</b></span>
+        <span class="pill">Turn <b id="turn">1</b></span>
+      </div>
     </div>
-    <div style="margin-left:auto">
-      <select id="swSelect"></select>
+    <div class="actions">
       <button id="drawBtn">Draw</button>
       <button id="endBtn">End Turn</button>
       <button id="resetBtn">Reset</button>
     </div>
   </div>
 
+  <!-- Main area -->
   <div class="main">
+    <!-- Left: Boards -->
     <div class="panel">
       <div class="boards">
         <div>
           <div class="sectionTitle">» Your Board</div>
           <div id="slots" class="slots"></div>
-          <div id="glyphView" class="glyphs"></div>
         </div>
         <div>
           <div class="sectionTitle">+ AI Board</div>
@@ -116,32 +126,265 @@ button:disabled{opacity:.55}
         </div>
       </div>
     </div>
-    <div class="panel marketGrid">
+
+    <!-- Right: Aetherflow -->
+    <div class="panel af">
       <div class="sectionTitle">≡ Aetherflow</div>
-      <div id="mCosts" class="costs"></div>
-      <div id="mRow" class="cards"></div>
-      <div class="sectionTitle">≡ Log</div>
-      <div id="log" class="log"></div>
+      <div id="afCosts" class="costs"></div>
+      <div id="afRow" class="flow"></div>
     </div>
   </div>
 
+  <!-- Blue Log strip -->
+  <div class="logBar">
+    <b>Log</b>
+    <div id="log"></div>
+  </div>
+
+  <!-- Green Hand band -->
   <div class="handWrap">
     <div class="sectionTitle">✋ Your Hand</div>
     <div id="hand" class="hand"></div>
   </div>
 </div>
-<div id="error"></div>
+
+<!-- Slide-up detail sheet -->
+<div id="sheet" class="sheet" aria-hidden="true">
+  <div class="sheetInner">
+    <div class="sheetHead">
+      <div class="sheetTitle" id="sheetTitle">Card</div>
+      <button id="sheetClose">Close</button>
+    </div>
+    <div id="sheetBody" class="sheetBody"></div>
+    <div class="sheetActions" id="sheetActions"></div>
+  </div>
+</div>
 
 <script>
-// Minimal state so you see it working
-let S={hp:5,ai:{hp:5},ae:0,deck:[{id:"c1",n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg."}],hand:[],disc:[],slots:[null,null,null],glyphs:[],turn:1,flowRow:[]};
-function render(){document.getElementById("hp").textContent=S.hp;document.getElementById("aiHp").textContent=S.ai.hp;document.getElementById("ae").textContent=S.ae;}
-function reset(){S.hp=5;S.ai.hp=5;S.ae=0;render();}
-document.getElementById("resetBtn").onclick=reset;
-render();
+/* ===== Utilities ===== */
+const $ = s => document.querySelector(s);
+function uid(){ return Math.random().toString(36).slice(2,9); }
+function shuf(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+function pip(c){ return c==="white"?"white":c==="gray"?"gray":"black"; }
+function log(msg){ const t=new Date().toLocaleTimeString(); const item=document.createElement('div'); item.className="logItem"; item.textContent=`${t} — ${msg}`; const bar=$("#log"); bar.appendChild(item); bar.scrollLeft=bar.scrollWidth; }
 
-// Error catcher
-window.onerror=(msg,src,line,col,err)=>{const e=document.getElementById("error");e.style.display="block";e.textContent="JS Error: "+msg;};
+/* ===== Cards ===== */
+const BASE=[
+  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 damage to the opponent.",eff:"spark"},
+  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 damage to the opponent.",eff:"spark"},
+  {id:uid(),n:"Shield Flicker",t:"Instant",c:"white",v:1,txt:"Prevent 1 damage this round.",eff:"shield"},
+  {id:uid(),n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Discard this card: gain +1⚡.",eff:"chan_self"},
+  {id:uid(),n:"Minor Hex+",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1 and loses 1⚡.",eff:"hex_plus"},
+  {id:uid(),n:"Emberbolt",t:"Spell",c:"black",v:1,p:3,txt:"After 3: deal 2 damage.",eff:"ember"}
+];
+const FLOW=[
+  {id:uid(),n:"Accelerate",t:"Instant",c:"white",v:1,txt:"Advance one of your spells +1.",eff:"accel"},
+  {id:uid(),n:"Chrono Barrier",t:"Glyph",c:"white",v:1,txt:"When targeted: negate spell/dmg.",eff:"g_barrier"},
+  {id:uid(),n:"Meditate",t:"Instant",c:"gray",v:0,txt:"Gain 1⚡ and draw 1.",eff:"med"},
+  {id:uid(),n:"Stonewall",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: opponent’s next Advance costs +1⚡.",eff:"tax"},
+  {id:uid(),n:"Mirror Ward",t:"Glyph",c:"gray",v:1,txt:"When you’d take dmg: reflect it.",eff:"g_mirror"}
+];
+
+/* ===== State ===== */
+let S={};
+function makeDeck(){ return shuf(BASE.map(x=>({...x,id:uid()}))); }
+function makeFlow(){ return shuf(FLOW.map(x=>({...x,id:uid()}))); }
+
+function reset(){
+  S={
+    hp:5, ai:{hp:5, ae:0, hand:[], disc:[], deck:makeDeck(), slots:[null,null,null], glyphs:[], taxes:0},
+    ae:0, deck:makeDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[], taxes:0,
+    flowDeck:makeFlow(), flowRow:[null,null,null,null,null], turn:1
+  };
+  for(let i=0;i<5;i++){ draw(); aiDraw(); }
+  slideFlow(true);
+  render(); log("New game.");
+  startTurn();
+}
+
+/* ===== Turn flow ===== */
+function startTurn(){ draw(); S.ae+=1; log("Start of turn: draw 1, +1⚡."); render(); }
+function endTurn(){
+  slideFlow(); S.turn++;
+  // AI simple turn (very light)
+  aiDraw(); S.ai.ae+=1;
+  const idx=S.ai.hand.findIndex(c=>c.t==="Instant"); if(idx>-1){ const c=S.ai.hand.splice(idx,1)[0]; if(c.eff==="med"){ S.ai.ae+=1; aiDraw(); log("AI uses Meditate."); } else if(c.eff==="spark"){ damageYou(1); log("AI casts Spark."); } S.ai.disc.push(c); }
+  const e=S.ai.slots.findIndex(x=>!x); const sidx=S.ai.hand.findIndex(c=>c.t==="Spell"); if(e>-1&&sidx>-1){ const c=S.ai.hand.splice(sidx,1)[0]; S.ai.slots[e]={c,ph:1,advUsed:false}; log("AI plays a spell."); }
+  const toAdv=S.ai.slots.findIndex(s=>s&&!s.advUsed && S.ai.ae>=1); if(toAdv>-1){ S.ai.ae-=1; S.ai.slots[toAdv].ph++; S.ai.slots[toAdv].advUsed=true; if(S.ai.slots[toAdv].ph>=S.ai.slots[toAdv].c.p){ applyResolve("ai", S.ai.slots[toAdv].c); S.ai.disc.push(S.ai.slots[toAdv].c); S.ai.slots[toAdv]=null; } }
+  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  S.ai.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  startTurn();
+}
+
+/* ===== Draw / Play ===== */
+function draw(){ if(!S.deck.length){ S.deck=shuf(S.disc); S.disc=[]; if(!S.deck.length){ log("No cards to draw."); return; } log("You reshuffle."); } S.hand.push(S.deck.pop()); render(); }
+function aiDraw(){ if(!S.ai.deck.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; } if(S.ai.deck.length) S.ai.hand.push(S.ai.deck.pop()); }
+
+function playFromHand(id){
+  const i=S.hand.findIndex(c=>c.id===id); if(i<0) return;
+  const c=S.hand.splice(i,1)[0];
+  if(c.t==="Spell"){
+    const s=S.slots.findIndex(x=>!x); if(s<0){ log("No empty slot."); S.hand.push(c); render(); return; }
+    S.slots[s]={c,ph:1,advUsed:false}; log(`Play ${c.n} → Slot ${s+1}`);
+  } else if(c.t==="Glyph"){
+    S.glyphs.push(c); log(`Set glyph ${c.n}.`);
+  } else {
+    applyInstant("you",c); S.disc.push(c);
+  }
+  render();
+  closeSheet();
+}
+
+function channelFromHand(id,forceVal){
+  const i=S.hand.findIndex(c=>c.id===id); if(i<0) return;
+  const c=S.hand.splice(i,1)[0];
+  S.ae+= (forceVal!=null ? forceVal : (c.v||0));
+  S.disc.push(c);
+  log(`Channel ${c.n} (+${forceVal!=null?forceVal:c.v||0}⚡).`);
+  render(); closeSheet();
+}
+
+function advanceSlot(i){
+  const s=S.slots[i]; if(!s) return;
+  if(s.advUsed){ log("This spell already advanced this turn."); return; }
+  const cost=1+(S.taxes||0);
+  if(S.ae<cost){ log(`Need ${cost}⚡.`); return; }
+  S.ae-=cost; s.ph++; s.advUsed=true; if(S.taxes) S.taxes=0;
+  if(s.ph>=s.c.p){ applyResolve("you",s.c); S.disc.push(s.c); S.slots[i]=null; }
+  render();
+}
+
+function applyInstant(who,c){
+  if(c.eff==="spark"){ who==="you"?damageAI(1):damageYou(1); }
+  if(c.eff==="shield"){ log("Ward: prevent 1 (sim)."); }
+  if(c.eff==="chan_self"){ S.ae+=1; log("+1⚡."); }
+  if(c.eff==="med"){ S.ae+=1; draw(); log("Meditate: +1⚡ and draw 1."); }
+}
+
+function applyResolve(who,c){
+  if(c.eff==="ember"){ who==="you"?damageAI(2):damageYou(2); }
+  if(c.eff==="hex_plus"){ if(who==="you"){ log("AI discards 1 and loses 1⚡ (sim)."); S.ai.ae=Math.max(0,S.ai.ae-1); } else { log("You discard 1 and lose 1⚡ (sim)."); S.ae=Math.max(0,S.ae-1); } }
+  if(c.eff==="tax"){ if(who==="you"){ S.ai.taxes=(S.ai.taxes||0)+1; log("AI next advance +1⚡."); } else { S.taxes=(S.taxes||0)+1; log("Your next advance +1⚡."); } }
+}
+
+function damageYou(n){ S.hp=Math.max(0,S.hp-n); log(`You take ${n}.`); render(); }
+function damageAI(n){ S.ai.hp=Math.max(0,S.ai.hp-n); log(`AI takes ${n}.`); render(); }
+
+/* ===== Aetherflow ===== */
+function afCost(i){ return [4,3,2,2,2][i]; }
+function slideFlow(initial=false){
+  S.flowRow=[null,...S.flowRow.slice(0,4)];
+  const next=S.flowDeck.pop(); S.flowRow[0]=next||null;
+  if(!initial) render();
+}
+function learn(i){
+  const card=S.flowRow[i]; if(!card) return;
+  const cost=afCost(i);
+  if(S.ae<cost){ log("Not enough ⚡."); return; }
+  S.ae-=cost;
+  if(card.t==="Glyph"){ S.glyphs.push(card); log(`Set ${card.n} (glyph).`); }
+  else { S.disc.push(card); log(`Learned ${card.n}; added to discard.`); }
+  S.flowRow[i]=null; render();
+}
+
+/* ===== Hand sheet (press & hold) ===== */
+let holdTimer=null;
+function bindHold(el, cb){
+  el.addEventListener('touchstart',e=>{ holdTimer=setTimeout(cb,300); },{passive:true});
+  el.addEventListener('touchend',e=>{ clearTimeout(holdTimer); });
+  el.addEventListener('mousedown',e=>{ holdTimer=setTimeout(cb,250); });
+  el.addEventListener('mouseup',e=>{ clearTimeout(holdTimer); });
+}
+function openSheet(card){
+  const sh=$("#sheet"); $("#sheetTitle").textContent=card.n;
+  $("#sheetBody").innerHTML=`
+    <div class="card" data-t="${card.t}" style="border-color:${card.t==='Spell'?'var(--t-spell)':card.t==='Instant'?'var(--t-instant)':card.t==='Glyph'?'var(--t-glyph)':'var(--t-utility)'}">
+      <div class="name">${card.n}</div>
+      <div class="text">${card.txt||""}</div>
+    </div>`;
+  const act=$("#sheetActions"); act.innerHTML="";
+  if(card.t==="Spell"){
+    const b1=document.createElement('button'); b1.textContent="Play to Board"; b1.onclick=()=>playFromHand(card.id); act.appendChild(b1);
+    const b2=document.createElement('button'); b2.textContent=`Channel (+${card.v||0}⚡)`; b2.onclick=()=>channelFromHand(card.id); act.appendChild(b2);
+  } else if(card.t==="Glyph"){
+    const b1=document.createElement('button'); b1.textContent="Set Glyph"; b1.onclick=()=>playFromHand(card.id); act.appendChild(b1);
+    const b2=document.createElement('button'); b2.textContent=`Channel (+${card.v||0}⚡)`; b2.onclick=()=>channelFromHand(card.id); act.appendChild(b2);
+  } else {
+    const b1=document.createElement('button'); b1.textContent="Cast"; b1.onclick=()=>playFromHand(card.id); act.appendChild(b1);
+    const v=(card.eff==="chan_self")?1:(card.v||0);
+    const b2=document.createElement('button'); b2.textContent=`Channel (+${v}⚡)`; b2.onclick=()=>channelFromHand(card.id,v); act.appendChild(b2);
+  }
+  sh.classList.add('show'); sh.setAttribute('aria-hidden','false');
+}
+function closeSheet(){ const sh=$("#sheet"); sh.classList.remove('show'); sh.setAttribute('aria-hidden','true'); }
+$("#sheetClose").onclick=closeSheet;
+
+/* ===== Render ===== */
+function render(){
+  // HUD stats
+  $("#hp").textContent=S.hp; $("#aiHp").textContent=S.ai.hp; $("#ae").textContent=S.ae;
+  $("#deck").textContent=S.deck.length; $("#disc").textContent=S.disc.length; $("#glyphs").textContent=S.glyphs.length;
+  $("#turn").textContent=S.turn;
+
+  // Slots
+  const slots=$("#slots"); slots.innerHTML="";
+  S.slots.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className="slot";
+    d.innerHTML=`<div class="cap"><span>Slot ${i+1}</span><span>${S.taxes&&i===0?" +Tax":""}</span></div>`;
+    if(s){
+      const c=s.c; const cc=document.createElement('div'); cc.className="card"; cc.dataset.t=c.t;
+      cc.innerHTML=`<div class="name">${c.n}</div><div class="text">Phase ${s.ph}/${c.p}</div>`;
+      d.appendChild(cc);
+      const a=document.createElement('div'); a.className="actionsSmall";
+      const adv=document.createElement('button'); adv.textContent=`Advance (1${S.taxes?"+Tax":""}⚡)`; adv.disabled=s.advUsed; adv.onclick=()=>advanceSlot(i); a.appendChild(adv);
+      d.appendChild(a);
+    } else {
+      const cc=document.createElement('div'); cc.className="text"; cc.textContent="— empty —"; d.appendChild(cc);
+    }
+    slots.appendChild(d);
+  });
+
+  // AI slots
+  const ai=$("#aiSlots"); ai.innerHTML="";
+  S.ai.slots.forEach((s,i)=>{
+    const d=document.createElement('div'); d.className="slot"; d.innerHTML=`<div class="cap"><span>Slot ${i+1}</span><span></span></div>`;
+    if(s){ const c=s.c; const cc=document.createElement('div'); cc.className="card"; cc.dataset.t=c.t; cc.innerHTML=`<div class="name">${c.n}</div><div class="text">Phase ${s.ph}/${c.p}</div>`; d.appendChild(cc); }
+    else { const cc=document.createElement('div'); cc.className="text"; cc.textContent="—"; d.appendChild(cc); }
+    ai.appendChild(d);
+  });
+
+  // Aetherflow
+  const costs=$("#afCosts"); costs.innerHTML=""; [4,3,2,2,2].forEach(v=>{ const c=document.createElement('div'); c.className="cost"; c.textContent=v; costs.appendChild(c); });
+  const row=$("#afRow"); row.innerHTML="";
+  S.flowRow.forEach((c,i)=>{
+    const el=document.createElement('div'); el.className="card"; if(!c){ el.innerHTML=`<div class="name" style="opacity:.6">— empty —</div>`; row.appendChild(el); return; }
+    el.dataset.t=c.t;
+    el.innerHTML=`<div class="name">${c.n}</div><div class="text">${c.txt}</div>
+      <div class="actionsSmall"><button onclick="learn(${i})">Learn (${[4,3,2,2,2][i]}⚡)</button></div>`;
+    row.appendChild(el);
+  });
+
+  // Hand pills
+  const hand=$("#hand"); hand.innerHTML="";
+  S.hand.forEach(card=>{
+    const pill=document.createElement('div'); pill.className="pillCard"; pill.dataset.t=card.t;
+    const dot=document.createElement('div'); dot.className="pip "+pip(card.c);
+    const label=document.createElement('div'); label.textContent=card.n;
+    pill.appendChild(dot); pill.appendChild(label);
+    bindHold(pill, ()=>openSheet(card));
+    // quick tap = open too (useful if hold feels slow)
+    pill.onclick=()=>openSheet(card);
+    hand.appendChild(pill);
+  });
+}
+
+/* ===== Buttons ===== */
+$("#drawBtn").onclick=()=>{ draw(); };
+$("#endBtn").onclick=()=>{ endTurn(); };
+$("#resetBtn").onclick=()=>{ reset(); };
+
+/* ===== Init ===== */
+reset();
 </script>
 </body>
 </html>
