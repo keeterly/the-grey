@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-<title>The Grey — Arena Layout (Tap Fix + Icons)</title>
+<title>The Grey — Tap Fix (data-id fallback)</title>
 <meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
@@ -70,7 +70,7 @@ button:disabled{opacity:.6}
 .logBox{margin-top:10px}
 .log{height:220px;overflow:auto;background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;font-size:12px}
 
-/* Make decorative overlay non-interactive so buttons receive taps */
+/* important: decorative overlay must not capture taps */
 .frame{pointer-events:none}
 </style>
 </head>
@@ -132,6 +132,14 @@ button:disabled{opacity:.6}
 function log(m){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.innerHTML+=`<div><span style="color:#9ab">${t}</span> — ${m}</div>`; el.scrollTop=el.scrollHeight; }
 function uid(){return Math.random().toString(36).slice(2,9)}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+
+/* Helper to get card id even if the button lost its own dataset on iOS */
+function getCardIdFrom(elem){
+  return elem?.dataset?.id
+      || elem?.getAttribute?.('data-id')
+      || elem?.closest?.('.card')?.dataset?.id
+      || '';
+}
 
 /* Icons */
 function iconInstant(){return `<svg viewBox="0 0 24 24"><path fill="#a9d0ff" d="M13 2L3 14h6l-2 8 10-12h-6z"/></svg>`}
@@ -220,32 +228,23 @@ function reset(swName){
 
 /* Helpers */
 function firstEmptySlot(){ return S.slots.findIndex((x,i)=>!x && !S.blockedSlots.includes(i)); }
-function cardTypeIcon(t){
-  if(t==="Instant") return iconInstant();
-  if(t==="Spell")   return iconSpell();
-  if(t==="Glyph")   return iconGlyph();
-  return iconInstant();
-}
+function cardTypeIcon(t){ if(t==="Instant") return iconInstant(); if(t==="Spell") return iconSpell(); if(t==="Glyph") return iconGlyph(); return iconInstant(); }
 
 /* Draw/Play/Channel */
 function draw(){ if(!S.deck.length){ if(!S.disc.length){log("No cards to draw.");return} S.deck=shuf(S.disc);S.disc=[];log("You reshuffle.") } S.hand.push(S.deck.pop()); render() }
-function channelSelfById(id){ const idx=S.hand.findIndex(c=>c.id===id); if(idx<0) return; const c=S.hand.splice(idx,1)[0]; S.ae+=1; S.disc.push(c); log(`Channel Spark (+1⚡)`); render(); }
-function channelById(id){ const idx=S.hand.findIndex(c=>c.id===id); if(idx<0) return; const c=S.hand.splice(idx,1)[0]; const g=c.v||0; S.ae+=g; S.disc.push(c); log(`Channel ${c.n} (+${g}⚡)`); render(); }
+function channelSelfById(id){ const idx=S.hand.findIndex(c=>c.id===id); if(idx<0){log("Channel: card not found."); return;} const c=S.hand.splice(idx,1)[0]; S.ae+=1; S.disc.push(c); log(`Channel Spark (+1⚡)`); render(); }
+function channelById(id){ const idx=S.hand.findIndex(c=>c.id===id); if(idx<0){log("Channel: card not found."); return;} const c=S.hand.splice(idx,1)[0]; const g=c.v||0; S.ae+=g; S.disc.push(c); log(`Channel ${c.n} (+${g}⚡)`); render(); }
 function playById(id){
   const idx=S.hand.findIndex(c=>c.id===id);
   if(idx<0){ log("UI: play failed — card not found."); return; }
   const c=S.hand[idx];
   if(c.t==="Spell"){
-    const s=firstEmptySlot();
-    if(s<0){ log("No available slot (or blocked)."); return; }
-    S.hand.splice(idx,1);
-    S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`);
+    const s=firstEmptySlot(); if(s<0){ log("No available slot (or blocked)."); return; }
+    S.hand.splice(idx,1); S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`);
   }else if(c.t==="Glyph"){
     S.hand.splice(idx,1); S.glyphs.push(c); log("You set a Glyph face-down.");
-  }else{ // Instant / Utility
-    S.hand.splice(idx,1); runInstant("you",c); S.disc.push(c);
-    if(S.flags.copyInst){ log("Instant Echo: repeats."); runInstant("you",c); }
-    S.lastInstant=c;
+  }else{
+    S.hand.splice(idx,1); runInstant("you",c); S.disc.push(c); if(S.flags.copyInst){ log("Instant Echo: repeats."); runInstant("you",c); } S.lastInstant=c;
   }
   render();
 }
@@ -424,7 +423,7 @@ function render(){
   });
 }
 
-/* Delegated clicks (reliable on iOS) */
+/* Delegated clicks with id fallback */
 document.addEventListener('click', (e)=>{
   const b = e.target.closest('button,[data-action]');
   if(!b) return;
@@ -434,9 +433,9 @@ document.addEventListener('click', (e)=>{
   if(a==="reset"){ reset(S.sw); return; }
   if(a==="buy")  { buy(parseInt(b.dataset.index,10)); return; }
   if(a==="advance"){ advance(parseInt(b.dataset.slot,10)); return; }
-  if(a==="play"){ playById(b.dataset.id); return; }
-  if(a==="channel"){ channelById(b.dataset.id); return; }
-  if(a==="channelSelf"){ channelSelfById(b.dataset.id); return; }
+  if(a==="play"){ const id=getCardIdFrom(b); playById(id); return; }
+  if(a==="channel"){ const id=getCardIdFrom(b); channelById(id); return; }
+  if(a==="channelSelf"){ const id=getCardIdFrom(b); channelSelfById(id); return; }
 });
 
 /* Resolve helpers */
