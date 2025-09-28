@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-<title>The Grey — Arena Layout (Stable Hand + Fixes)</title>
+<title>The Grey — Arena Layout (Play Fix + No Cost Strip)</title>
 <meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
@@ -29,8 +29,6 @@ button:disabled{opacity:.6}
 .panel h3{margin:0 0 6px 0;font-size:14px;color:#cfd6e1;letter-spacing:.04em}
 
 /* Aetherflow (left column) */
-.costs{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:6px}
-.cost{text-align:center;font-weight:900;padding:6px 0;background:#0b111a;border:1px solid #213145;border-radius:8px;color:var(--accent)}
 .market{display:grid;grid-template-columns:1fr;gap:8px;max-height:540px;overflow:auto}
 .card{position:relative;background:#111621;border:1px solid #23344a;border-radius:12px;padding:8px}
 .card.white{border-image:linear-gradient(180deg,var(--whiteA),#6fa4ff) 1}
@@ -82,10 +80,9 @@ button:disabled{opacity:.6}
   </div>
 
   <div class="board">
-    <!-- Left: Aetherflow -->
+    <!-- Left: Aetherflow (no cost strip) -->
     <div class="panel">
       <h3>Aetherflow</h3>
-      <div class="costs" id="mCosts"></div>
       <div class="market" id="mRow"></div>
     </div>
 
@@ -204,20 +201,29 @@ function reset(swName){
   for(let i=0;i<5;i++){draw();aiDraw()}
   slideFlow(true); render(); log(`New game — Spellweaver: ${S.sw}.`)}
 
+/* Helpers */
+function firstEmptySlot(){ return S.slots.findIndex((x,i)=>!x && !S.blockedSlots.includes(i)); }
+
 /* Draw/Play/Channel */
 function draw(){ if(!S.deck.length){ if(!S.disc.length){log("No cards to draw.");return} S.deck=shuf(S.disc);S.disc=[];log("You reshuffle.") } S.hand.push(S.deck.pop()); render() }
-function channelSelf(handIdx){const c=S.hand.splice(handIdx,1)[0];S.ae+=1;S.disc.push(c);log(`Channel Spark (+1⚡)`);render()}
-function channel(handIdx){const c=S.hand.splice(handIdx,1)[0];const g=c.v||0;S.ae+=g;S.disc.push(c);log(`Channel ${c.n} (+${g}⚡)`);render()}
-function playToFirstEmpty(handIdx){
-  const s=S.slots.findIndex((x,i)=>!x&&!S.blockedSlots.includes(i));
-  if(s<0){ log("No available slot (or blocked)."); return; }
-  const c=S.hand.splice(handIdx,1)[0];
-  S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`); render();
-}
-function playFromHandByDataset(btn){
-  const idx = parseInt(btn.closest('.card').dataset.idx, 10);
-  if(isNaN(idx)) { log("Play error: index not found."); return; }
-  playToFirstEmpty(idx);
+function channelSelfFromIdx(idx){ const c=S.hand.splice(idx,1)[0]; S.ae+=1; S.disc.push(c); log(`Channel Spark (+1⚡)`); render(); }
+function channelFromIdx(idx){ const c=S.hand.splice(idx,1)[0]; const g=c.v||0; S.ae+=g; S.disc.push(c); log(`Channel ${c.n} (+${g}⚡)`); render(); }
+function playFromIdx(idx){
+  const c=S.hand[idx]; if(!c){ log("Card not found."); return; }
+  if(c.t==="Spell"){
+    const s=firstEmptySlot();
+    if(s<0){ log("No available slot (or blocked)."); return; }
+    S.hand.splice(idx,1);
+    S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`);
+  }else if(c.t==="Glyph"){
+    S.hand.splice(idx,1); S.glyphs.push(c); log("You set a Glyph face-down.");
+  }else{
+    // Instant / Utility
+    S.hand.splice(idx,1); runInstant("you",c); S.disc.push(c);
+    if(S.flags.copyInst){ log("Instant Echo: repeats."); runInstant("you",c); }
+    S.lastInstant=c;
+  }
+  render();
 }
 
 /* Advance rule */
@@ -231,7 +237,7 @@ function advance(i){
   render();
 }
 
-/* Effects */
+/* Effects (sampled) */
 function runInstant(who,c){
   switch(c.eff){
     case "spark": (who==="you")?damageAI(1):damageYou(1); break;
@@ -332,7 +338,6 @@ function render(){
   const sel=document.getElementById('swSelect'); if(!sel.dataset.ready){ Object.keys(SPELLWEAVERS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o)}); sel.dataset.ready=1; sel.value=S.sw; sel.addEventListener('change',()=>reset(sel.value)); } else sel.value=S.sw;
 
   // Flow
-  mCosts.innerHTML=""; [4,3,2,2,2].forEach((c,idx)=>{ let shown=c; if(idx===0 && S.flags.leftDiscount) shown=Math.max(1,c-1); const d=document.createElement('div'); d.className='cost'; d.textContent=shown; mCosts.appendChild(d) });
   mRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{ const w=document.createElement('div'); w.className=`card ${c?c.c:''}`; if(!c){ w.innerHTML="<div class='smallmuted'>— empty —</div>"; mRow.appendChild(w); return; } w.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`; const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; bindTap(b,()=>buy(idx)); w.appendChild(b); mRow.appendChild(w); });
 
   // Opponent
@@ -349,8 +354,10 @@ function render(){
     const card=document.createElement('div'); card.className=`card ${c.c}`; card.dataset.idx=i;
     card.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`;
     const actions=document.createElement('div'); actions.className='cardActions';
-    const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play")); p.addEventListener('click', function(){ playFromHandByDataset(this) }, {passive:false}); p.addEventListener('touchend', function(e){ e.preventDefault(); playFromHandByDataset(this) }, {passive:false});
-    const ch=document.createElement('button'); ch.textContent = c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`; ch.addEventListener('click', function(){ const idx=parseInt(card.dataset.idx,10); channel(idx) }, {passive:false}); ch.addEventListener('touchend', function(e){ e.preventDefault(); const idx=parseInt(card.dataset.idx,10); if(c.eff==="chan_self") channelSelf(idx); else channel(idx); }, {passive:false});
+    const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play"));
+    bindTap(p,()=>{ const idx=parseInt(card.dataset.idx,10); playFromIdx(idx); });
+    const ch=document.createElement('button'); ch.textContent = c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`;
+    bindTap(ch,()=>{ const idx=parseInt(card.dataset.idx,10); if(c.eff==="chan_self") channelSelfFromIdx(idx); else channelFromIdx(idx); });
     actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions);
     handEl.appendChild(card);
   });
