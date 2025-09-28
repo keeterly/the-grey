@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-<title>The Grey — Arena Layout (iOS Pointer + Icons)</title>
+<title>The Grey — Arena Layout (Tap Fix + Icons)</title>
 <meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
@@ -69,6 +69,9 @@ button:disabled{opacity:.6}
 /* Log — LAST section */
 .logBox{margin-top:10px}
 .log{height:220px;overflow:auto;background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;font-size:12px}
+
+/* Make decorative overlay non-interactive so buttons receive taps */
+.frame{pointer-events:none}
 </style>
 </head>
 <body>
@@ -84,13 +87,13 @@ button:disabled{opacity:.6}
     <span class="pill" id="turnTag">Turn 1</span>
     <span style="flex:1"></span>
     <b class="small">Spellweaver:</b>&nbsp;<select id="swSelect"></select>
-    <button id="drawBtn">Draw</button>
-    <button id="endBtn">End Turn</button>
-    <button id="resetBtn">Reset</button>
+    <button data-action="draw">Draw</button>
+    <button data-action="end">End Turn</button>
+    <button data-action="reset">Reset</button>
   </div>
 
   <div class="board">
-    <!-- Left: Aetherflow (no cost strip) -->
+    <!-- Left: Aetherflow -->
     <div class="panel">
       <h3>Aetherflow</h3>
       <div class="market" id="mRow"></div>
@@ -110,13 +113,13 @@ button:disabled{opacity:.6}
     </div>
   </div>
 
-  <!-- Hand ribbon beneath board -->
+  <!-- Hand ribbon -->
   <div class="handBox">
     <div class="small">Your Hand</div>
     <div class="ribbon" id="hand"></div>
   </div>
 
-  <!-- LOG LAST -->
+  <!-- LOG -->
   <div class="panel logBox">
     <h3>Log</h3>
     <div class="log" id="log"></div>
@@ -125,24 +128,17 @@ button:disabled{opacity:.6}
 </div>
 
 <script>
-/* ==== Input helpers tuned for iOS ==== */
-function onTap(el, handler){
-  if(window.PointerEvent){
-    el.addEventListener('pointerup', function(e){ e.preventDefault(); handler(e); }, {passive:false});
-  }else{
-    el.addEventListener('touchend', function(e){ e.preventDefault(); handler(e); }, {passive:false});
-    el.addEventListener('click', handler);
-  }
-}
+/* ---------- Utilities ---------- */
 function log(m){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.innerHTML+=`<div><span style="color:#9ab">${t}</span> — ${m}</div>`; el.scrollTop=el.scrollHeight; }
+function uid(){return Math.random().toString(36).slice(2,9)}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 
-/* ==== Type & Aether icons ==== */
+/* Icons */
 function iconInstant(){return `<svg viewBox="0 0 24 24"><path fill="#a9d0ff" d="M13 2L3 14h6l-2 8 10-12h-6z"/></svg>`}
 function iconSpell(){return `<svg viewBox="0 0 24 24"><path fill="#d7b77a" d="M12 2l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"/></svg>`}
 function iconGlyph(){return `<svg viewBox="0 0 24 24"><path fill="#e9a8a8" d="M12 2l10 10-10 10L2 12 12 2zM12 6l-6 6 6 6 6-6-6-6z"/></svg>`}
-function iconBolt(){return `<svg viewBox="0 0 24 24"><path fill="#ffd166" d="M13 2L5 14h5l-2 8 8-12h-5z"/></svg>`}
 
-/* School art (stand-ins) */
+/* Art */
 function artSVG(school){
   if(school==="white"){
     return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg">
@@ -167,18 +163,18 @@ function artSVG(school){
   </svg>`;
 }
 
-/* ==== Data ==== */
+/* Data */
 const SPELLWEAVERS = {
-  "Seraya (Wardsinger)": { desc:"Trance at 3♥: prevent 1 dmg/round • at 1♥: +1⚡ when your glyph flips",
+  "Seraya (Wardsinger)": {desc:"Trance at 3♥: prevent 1 dmg/round • at 1♥: +1⚡ when your glyph flips",
     trance:[{hp:3,apply:s=>{s.flags.preventOnce=true;s.flags.preventAvailable=true;},label:"Ward online."},
             {hp:1,apply:s=>{s.flags.glyphAether=true;},label:"+1⚡ on glyph flip."}]},
-  "Thalorin (Chronomancer)": { desc:"Trance at 4♥: once/turn free +1 advance • at 2♥: copy your Instants",
+  "Thalorin (Chronomancer)": {desc:"Trance at 4♥: once/turn free +1 advance • at 2♥: copy your Instants",
     trance:[{hp:4,apply:s=>{s.flags.hasChrono=true;s.flags.chronoUsed=false;},label:"Chrono Step."},
             {hp:2,apply:s=>{s.flags.copyInst=true;},label:"Instant Echo."}]},
-  "Kaelis (Aether Savant)": { desc:"Trance at 2♥: leftmost Flow -1 • at 1♥: free channel on buy",
+  "Kaelis (Aether Savant)": {desc:"Trance at 2♥: leftmost Flow -1 • at 1♥: free channel on buy",
     trance:[{hp:2,apply:s=>{s.flags.leftDiscount=true;},label:"Leftmost Flow -1⚡."},
             {hp:1,apply:s=>{s.flags.freeChannelOnBuy=true;},label:"Free channel on buy."}]},
-  "Zarik (Trickster)": { desc:"Trance at 3♥: once/turn Gamble • at 1♥: chance to deflect (not sim)",
+  "Zarik (Trickster)": {desc:"Trance at 3♥: once/turn Gamble • at 1♥: chance to deflect (not sim)",
     trance:[{hp:3,apply:s=>{s.flags.trickOnce=true;s.flags.trickUsed=false;},label:"Gamble unlocked."},
             {hp:1,apply:s=>{s.flags.trickCancel=true;},label:"Deflect (future)."}]}
 };
@@ -205,13 +201,12 @@ const FLOW=[
   {n:"Null Pulse",t:"Instant",c:"white",v:1,txt:"Counter: cancel a resolving spell.",eff:"counter"}
 ];
 
+/* State */
 let S={};
-function uid(){return Math.random().toString(36).slice(2,9)}
-function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function makeDeck(){return shuf(BASE.map(x=>Object.assign({id:uid()},x)))}
 function makeFlow(){return shuf(FLOW.map(x=>Object.assign({id:uid()},x)))}
 
-/* ==== Core ==== */
+/* Core */
 function reset(swName){
   const name=swName||document.getElementById('swSelect').value||Object.keys(SPELLWEAVERS)[0];
   S={sw:name,hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
@@ -240,7 +235,6 @@ function playById(id){
   const idx=S.hand.findIndex(c=>c.id===id);
   if(idx<0){ log("UI: play failed — card not found."); return; }
   const c=S.hand[idx];
-  log(`UI: Play pressed — ${c.n} (${c.t}).`);
   if(c.t==="Spell"){
     const s=firstEmptySlot();
     if(s<0){ log("No available slot (or blocked)."); return; }
@@ -256,7 +250,7 @@ function playById(id){
   render();
 }
 
-/* Advance rule */
+/* Advance */
 function advance(i){
   const s=S.slots[i]; if(!s) return;
   const cost=1+(S.taxes||0); if(s.advUsed){log("That spell already advanced this turn.");return}
@@ -267,7 +261,7 @@ function advance(i){
   render();
 }
 
-/* Effects */
+/* Effects (subset) */
 function runInstant(who,c){
   switch(c.eff){
     case "spark": (who==="you")?damageAI(1):damageYou(1); break;
@@ -301,7 +295,7 @@ function consumeBarrier(target){
   return false;
 }
 
-/* Damage/Trance */
+/* Damage & Trance */
 function damageYou(n){
   const m=S.glyphs.findIndex(g=>g.eff==="g_mirror");
   if(m>-1&&n>0){S.glyphs.splice(m,1);log("Mirror Ward reflects!"); if(S.flags.glyphAether){S.ae+=1;log("+1⚡ (glyph flip).")} damageAI(n); return}
@@ -376,21 +370,20 @@ function render(){
   if(!sel.dataset.ready){
     Object.keys(SPELLWEAVERS).forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.appendChild(o); });
     sel.dataset.ready=1; sel.value=S.sw;
-    sel.addEventListener('change', (e)=> reset(e.target.value));  // reliable on iOS
-  } else {
-    sel.value=S.sw;
-  }
+    sel.addEventListener('change', (e)=> reset(e.target.value));
+  } else { sel.value=S.sw; }
 
-  // Flow
+  // Aetherflow
   mRow.innerHTML="";
   S.flowRow.forEach((c,idx)=>{
     const w=document.createElement('div'); w.className=`card ${c?c.c:''}`;
     if(!c){ w.innerHTML="<div class='smallmuted'>— empty —</div>"; mRow.appendChild(w); return; }
     w.innerHTML=`${schoolFrame()}<div class="header"><div class='name'>${c.n}</div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='smallmuted'>${c.txt}</div>`;
-    const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; onTap(b,()=>buy(idx)); w.appendChild(b); mRow.appendChild(w);
+    const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; b.dataset.action="buy"; b.dataset.index=idx; w.appendChild(b);
+    mRow.appendChild(w);
   });
 
-  // Opponent
+  // Opponent slots
   aiSlots.innerHTML="";
   S.ai.slots.forEach((s,i)=>{
     const div=document.createElement('div'); div.className='slot inlineCard';
@@ -400,13 +393,13 @@ function render(){
     aiSlots.appendChild(div)
   });
 
-  // You
+  // Your slots
   slots.innerHTML="";
   S.slots.forEach((s,i)=>{
     const div=document.createElement('div'); div.className='slot inlineCard';
     if(s){
       div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class="header"><div class='name'>${s.c.n}</div>${tagRow(s.c)}</div><div class='art'>${artSVG(s.c.c)}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`;
-      const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; onTap(b,()=>{ if(S.taxes>0) S.taxes=0; advance(i) }); b.disabled = s.advUsed; div.appendChild(b);
+      const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; b.dataset.action="advance"; b.dataset.slot=i; b.disabled = s.advUsed; div.appendChild(b);
     } else {
       div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`
     }
@@ -415,25 +408,36 @@ function render(){
 
   glyphView.innerHTML = S.glyphs.length ? S.glyphs.map(_=>'<div class="glyph"></div>').join('') : '<span class="smallmuted">No glyphs set.</span>';
 
-  // Hand ribbon
+  // Hand
   const handEl=document.getElementById('hand'); handEl.innerHTML="";
   S.hand.forEach((c)=>{
     const card=document.createElement('div'); card.className=`card ${c.c}`; card.dataset.id=c.id;
     card.innerHTML=`${schoolFrame()}<div class="header"><div class='name'>${c.n}</div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='smallmuted'>${c.txt}</div>`;
     const actions=document.createElement('div'); actions.className='cardActions';
     const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play"));
-    onTap(p,()=>{ playById(card.dataset.id); });
+    p.dataset.action="play"; p.dataset.id=c.id;
     const ch=document.createElement('button'); ch.textContent = c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`;
-    onTap(ch,()=>{ if(c.eff==="chan_self") channelSelfById(card.dataset.id); else channelById(card.dataset.id); });
+    ch.dataset.action = (c.eff==="chan_self") ? "channelSelf" : "channel";
+    ch.dataset.id=c.id;
     actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions);
     handEl.appendChild(card);
   });
 }
 
-/* Buttons */
-onTap(document.getElementById('drawBtn'), ()=>draw());
-onTap(document.getElementById('endBtn'),  ()=>endTurn());
-onTap(document.getElementById('resetBtn'),()=>reset(S.sw));
+/* Delegated clicks (reliable on iOS) */
+document.addEventListener('click', (e)=>{
+  const b = e.target.closest('button,[data-action]');
+  if(!b) return;
+  const a = b.dataset.action;
+  if(a==="draw") { draw(); return; }
+  if(a==="end")  { endTurn(); return; }
+  if(a==="reset"){ reset(S.sw); return; }
+  if(a==="buy")  { buy(parseInt(b.dataset.index,10)); return; }
+  if(a==="advance"){ advance(parseInt(b.dataset.slot,10)); return; }
+  if(a==="play"){ playById(b.dataset.id); return; }
+  if(a==="channel"){ channelById(b.dataset.id); return; }
+  if(a==="channelSelf"){ channelSelfById(b.dataset.id); return; }
+});
 
 /* Resolve helpers */
 function resolvePlayer(i){ const s=S.slots[i]; if(!s) return; runResolve("you",s.c); S.disc.push(s.c); S.slots[i]=null; render(); }
