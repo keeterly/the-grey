@@ -3,97 +3,114 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>The Grey — Landscape (Drag, Icon UI, Auto-Draw)</title>
+<title>The Grey — Landscape (Full-Screen, Icon-Forward)</title>
 <meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
-  --bg:#0b0d10; --surface:#0f141b; --ink:#eef0f3; --sub:#aeb8c6; --line:#1e2732; --accent:#d7b77a;
-  --chip:#121821; --chipLine:#233246; --btn:#101722; --btnLine:#243349;
-  --slot:#0c1219; --card:#121a26; --cardLine:#23344a; --good:#78e08f; --bad:#ff7a7a;
+  --bg:#0b0d10; --surface:#0e1218; --ink:#eef0f3; --sub:#aeb8c6; --line:#1b2430; --accent:#d7b77a;
+  --slot:#0c1219; --chip:#121821; --chipLine:#233246; --btn:#111827; --btnLine:#28364a;
+  --card:#121a26; --cardLine:#23344a; --good:#7fe19c; --bad:#ff7a7a;
   /* type borders */
   --t-spell:#e6c57a; --t-instant:#6fb2ff; --t-glyph:#b58cff; --t-utility:#7bd3c3;
   /* color pips */
   --p-white:#cfd8e3; --p-gray:#7a889c; --p-black:#1a1f27;
-  --fs: clamp(12px, 1.8vw, 14px);
+  --fs: clamp(12px, 1.7vw, 15px);
 }
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:radial-gradient(1100px 600px at 20% -10%,#182233 0%,#0b0d10 60%),#0b0d10;color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial; -webkit-tap-highlight-color:transparent; font-size:var(--fs)}
-#root{height:100dvh;display:flex;flex-direction:column}
+html,body{margin:0;height:100%;background:
+  radial-gradient(1100px 600px at 18% -12%,#182233 0%,#0b0d10 60%),#0b0d10;
+color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial;
+-webkit-tap-highlight-color:transparent;font-size:var(--fs);overflow:hidden}
+#app{height:100dvh;display:grid;grid-template-rows:64px 1fr 250px}
+
+/* Landscape gate */
+@media (orientation:portrait){
+  body::before{
+    content:"Rotate to landscape to play";
+    position:fixed; inset:0; display:grid; place-items:center;
+    background:#0b0d10; color:#eef0f3; z-index:9999; font-weight:800; letter-spacing:.06em;
+  }
+}
 
 /* HUD */
-.hud{padding:8px 10px;background:var(--surface);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}
-.title{font-weight:900;letter-spacing:.12em}
+.hud{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.title{display:flex;align-items:center;gap:10px;font-weight:900;letter-spacing:.12em}
+.title svg{opacity:.9}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:var(--chip);border:1px solid var(--chipLine);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--chipLine);font-size:12px}
 .k{color:var(--sub)}
-button,select{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);border-radius:10px;padding:8px 10px;font-size:14px}
+button,select{background:var(--btn);border:1px solid var(--btnLine);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:14px;min-height:44px}
 button:disabled{opacity:.55}
 
-/* Layout */
-.main{flex:1;display:grid;grid-template-rows:1fr 220px}
-.row{display:grid;grid-template-columns:1.1fr .9fr;gap:10px;padding:10px}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:0 6px 18px rgba(0,0,0,.22) inset}
-.sectionTitle{font-weight:800;margin-bottom:6px}
+/* Middle: boards + market */
+.main{display:grid;grid-template-columns:1.2fr .8fr;gap:10px;padding:10px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px;box-shadow:inset 0 6px 18px rgba(0,0,0,.22)}
+.sectionTitle{display:flex;align-items:center;gap:8px;font-weight:800;margin-bottom:6px}
 
 /* Boards */
 .boards{display:grid;grid-template-columns:1fr 1fr;gap:10px;height:100%}
 .slots{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.slot{background:var(--slot);border:2px dashed #33465d;border-radius:10px;min-height:150px;padding:6px;transition:border-color .08s, box-shadow .08s}
+.slot{background:var(--slot);border:2px dashed #33465d;border-radius:12px;min-height:160px;padding:8px;transition:border-color .1s, box-shadow .1s}
+.slot .cap{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:var(--sub);margin-bottom:6px}
 .slot.hot{border-color:#86b7ff;box-shadow:0 0 0 3px rgba(134,183,255,.18) inset}
-.slot .cap{font-size:12px;color:var(--sub);margin-bottom:6px}
 .glyphs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.glyph{height:14px;min-width:90px;border-radius:8px;background:linear-gradient(90deg,#130e20,#231a3a);border:1px solid var(--t-glyph)}
+.glyph{height:18px;padding:0 10px;display:inline-flex;align-items:center;gap:6px;border-radius:999px;background:linear-gradient(90deg,#1a1230,#2d2450);border:1px solid var(--t-glyph);font-size:11px}
 
-/* Market & Log */
-.marketCosts,.marketRow{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:8px}
-.cost{display:flex;align-items:center;justify-content:center;height:34px;border-radius:8px;background:#0b111a;border:1px solid #213145;color:var(--accent);font-weight:800}
-.log{background:#0b111a;border:1px solid #1c2a3a;border-radius:8px;padding:6px;height:150px;overflow:auto;font-size:12px;margin-top:8px}
+/* Market + Log */
+.marketCosts,.marketRow{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:8px}
+.cost{display:flex;align-items:center;justify-content:center;height:36px;border-radius:8px;background:#0b111a;border:1px solid #213145;color:var(--accent);font-weight:800}
+.log{background:#0b111a;border:1px solid #1c2a3a;border-radius:8px;padding:8px;height:calc(100% - 210px);min-height:120px;overflow:auto;font-size:12px;margin-top:8px}
 .good{color:var(--good)} .bad{color:var(--bad)}
 
 /* Cards */
-.card{background:var(--card);border:2px solid var(--cardLine);border-radius:12px;padding:8px;box-shadow:0 6px 16px rgba(0,0,0,.26);min-width:190px;max-width:210px}
-.name{font-weight:900;letter-spacing:.02em;margin:2px 0 4px 0;color:var(--accent);font-size:14px}
-.meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
-.tag{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #2b3a51;background:#0b111a;white-space:nowrap}
+.card{background:var(--card);border:2px solid var(--cardLine);border-radius:12px;padding:8px;box-shadow:0 6px 16px rgba(0,0,0,.26);min-width:180px}
+.card .top{display:flex;align-items:center;justify-content:space-between}
+.badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid #2b3a51;background:#0b111a}
+.name{display:flex;align-items:center;gap:8px;font-weight:900;letter-spacing:.02em;margin:6px 0;color:var(--accent);font-size:14px}
 .text{font-size:12px;color:var(--sub);line-height:1.25}
-.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-
-/* Type borders */
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .card[data-t="Spell"]{border-color:var(--t-spell)}
 .card[data-t="Instant"]{border-color:var(--t-instant)}
-.card[data-t="Glyph"]{border-color:var(--t-glyph); position:relative}
-.card[data-t="Glyph"]::after{content:"GLYPH"; position:absolute; top:6px; right:8px; font-size:10px; color:#cdbbff; opacity:.9}
+.card[data-t="Glyph"]{border-color:var(--t-glyph);position:relative}
+.card[data-t="Glyph"]::after{content:"GLYPH";position:absolute;top:6px;right:8px;font-size:10px;color:#cdbbff;opacity:.9}
+.card[data-t="Utility"]{border-color:var(--t-utility)}
 
 /* Color pip */
 .pip{display:inline-flex;align-items:center;gap:6px}
-.pip i{display:inline-block;width:10px;height:10px;border-radius:50%;border:1px solid #4c5a6d}
+.pip i{width:10px;height:10px;border-radius:50%;border:1px solid #4c5a6d}
 .pip.white i{background:var(--p-white)}
-.pip.gray i{background:var(--p-gray)}
+.pip.gray  i{background:var(--p-gray)}
 .pip.black i{background:var(--p-black)}
 
-/* Hand bar */
-.handBar{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:6px;border:1px dashed #2a3a4f;border-radius:10px;background:linear-gradient(180deg,#0b1114,#0a0f15);height:200px}
+/* Bottom: hand (no scroll) */
+.handWrap{background:var(--surface);border-top:1px solid var(--line);padding:10px}
+.hand{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px;align-items:stretch;height:100%}
+.hand .card{min-width:auto}
 .draggable{touch-action:none; cursor:grab}
 .dragging{z-index:9999 !important; filter:drop-shadow(0 18px 26px rgba(0,0,0,.55)); cursor:grabbing}
 
-/* Small */
+/* Icon (inline SVG style helpers) */
+.icon{display:inline-flex;vertical-align:middle}
 .small{font-size:12px;color:var(--sub)}
 </style>
 </head>
 <body>
-<div id="root">
+<div id="app">
   <!-- HUD -->
   <div class="hud">
-    <div class="title">THE GREY</div>
+    <div class="title">
+      <svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none"><path d="M12 2l2.4 6.7L21 9l-5 4 1.8 7L12 16l-5.8 4L8 13 3 9l6.6-.3L12 2z" stroke="#d7b77a"/></svg>
+      THE GREY
+    </div>
     <div class="chips">
       <span class="chip">❤️ You <b id="hp">5</b></span>
       <span class="chip">🤖 AI <b id="aiHp">5</b></span>
-      <span class="chip">⚡ Aether <b id="ae">0</b></span>
-      <span class="chip">🗂️ Deck <b id="deck">0</b></span>
-      <span class="chip">♻️ Discard <b id="disc">0</b></span>
-      <span class="chip">🔮 Glyphs <b id="glyphs">0</b></span>
-      <span class="chip">🔁 Turn <b id="turnTag">1</b></span>
+      <span class="chip">⚡ <b id="ae">0</b></span>
+      <span class="chip">🗂️ <b id="deck">0</b></span>
+      <span class="chip">♻️ <b id="disc">0</b></span>
+      <span class="chip">🔮 <b id="glyphs">0</b></span>
+      <span class="chip">🔁 <b id="turnTag">1</b></span>
     </div>
     <div class="chips" style="margin-left:auto">
       <span class="k"><b>Spellweaver:</b></span>
@@ -101,48 +118,63 @@ button:disabled{opacity:.55}
       <span id="swDesc" class="k"></span>
     </div>
     <div class="chips">
-      <button id="drawBtn">Draw</button>
-      <button id="endBtn">End Turn</button>
-      <button id="resetBtn">Reset</button>
+      <button id="drawBtn" title="Draw 1">Draw</button>
+      <button id="endBtn" title="End your turn">End Turn</button>
+      <button id="resetBtn" title="Start new game">Reset</button>
     </div>
   </div>
 
-  <!-- Main -->
+  <!-- Middle -->
   <div class="main">
-    <!-- Boards + Market -->
-    <div class="row">
-      <div class="panel">
-        <div class="boards" style="height:100%">
-          <div>
-            <div class="sectionTitle">🧙‍♂️ Your Board</div>
-            <div id="slots" class="slots"></div>
-            <div id="glyphView" class="glyphs" style="margin-top:6px"></div>
+    <!-- Boards -->
+    <div class="panel">
+      <div class="boards" style="height:100%">
+        <div>
+          <div class="sectionTitle">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 20l6-6-6-6" stroke="#d7b77a"/><path d="M14 20l6-6-6-6" stroke="#d7b77a"/></svg>
+            Your Board
           </div>
-          <div>
-            <div class="sectionTitle">🤖 AI Board</div>
-            <div id="aiSlots" class="slots"></div>
-          </div>
+          <div id="slots" class="slots"></div>
+          <div id="glyphView" class="glyphs"></div>
         </div>
-      </div>
-      <div class="panel">
-        <div class="sectionTitle">🌊 Aetherflow</div>
-        <div id="mCosts" class="marketCosts" style="margin-bottom:6px"></div>
-        <div id="mRow" class="marketRow"></div>
-        <div class="sectionTitle" style="margin-top:6px">📜 Log</div>
-        <div id="log" class="log"></div>
+        <div>
+          <div class="sectionTitle">
+            <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2v20M2 12h20" stroke="#d7b77a"/></svg>
+            AI Board
+          </div>
+          <div id="aiSlots" class="slots"></div>
+        </div>
       </div>
     </div>
 
-    <!-- Hand -->
+    <!-- Market + Log -->
     <div class="panel">
-      <div class="sectionTitle">✋ Your Hand</div>
-      <div id="hand" class="handBar"></div>
+      <div class="sectionTitle">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M5 12h14M8 18h8" stroke="#d7b77a"/></svg>
+        Aetherflow
+      </div>
+      <div id="mCosts" class="marketCosts" style="margin-bottom:6px"></div>
+      <div id="mRow" class="marketRow"></div>
+      <div class="sectionTitle" style="margin-top:6px">
+        <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 5h16M4 12h16M4 19h16" stroke="#d7b77a"/></svg>
+        Log
+      </div>
+      <div id="log" class="log"></div>
     </div>
+  </div>
+
+  <!-- Hand -->
+  <div class="handWrap">
+    <div class="sectionTitle">
+      <svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 18l4-12 4 12 4-12 4 12" stroke="#d7b77a"/></svg>
+      Your Hand
+    </div>
+    <div id="hand" class="hand"></div>
   </div>
 </div>
 
 <script>
-/* ===== Utilities ===== */
+/* ===== Utils ===== */
 const $ = s => document.querySelector(s);
 function bind(el,ev,fn,opt){ el.addEventListener(ev,fn,opt||{passive:false}); }
 function uid(){ return Math.random().toString(36).slice(2,9); }
@@ -150,106 +182,81 @@ function shuf(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random(
 function log(m){ const el=$("#log"); const t=new Date().toLocaleTimeString(); el.innerHTML+=`<div><span style="color:#9aa">${t}</span> — ${m}</div>`; el.scrollTop=el.scrollHeight; }
 
 /* ===== Spellweavers ===== */
-const SPELLWEAVERS = {
-  "Seraya (Wardsinger)": {desc:"Trance 3♥: prevent 1 dmg / round."},
-  "Thalorin (Chronomancer)": {desc:"Trance 4♥: once/turn free +1 advance."},
-  "Kaelis (Aether Savant)": {desc:"Trance 2♥: leftmost Flow -1⚡."},
-  "Zarik (Trickster)": {desc:"Trance 3♥: once/turn Gamble."}
+const SPELLWEAVERS={
+  "Seraya (Wardsinger)":{desc:"Trance 3♥: prevent 1 dmg / round."},
+  "Thalorin (Chronomancer)":{desc:"Trance 4♥: once/turn free +1 advance."},
+  "Kaelis (Aether Savant)":{desc:"Trance 2♥: leftmost Flow -1⚡."},
+  "Zarik (Trickster)":{desc:"Trance 3♥: once/turn Gamble."}
 };
 
 /* ===== Cards ===== */
-function frameTypeColor(t){
-  return t==="Spell"  ? "var(--t-spell)" :
-         t==="Instant"? "var(--t-instant)" :
-         t==="Glyph"  ? "var(--t-glyph)"   : "var(--t-utility)";
-}
-function colorClass(c){ return c==="white"?"white":c==="gray"?"gray":"black"; }
-
-const BASE = [
-  {id:uid(), n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
-  {id:uid(), n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
-  {id:uid(), n:"Shield Flicker",t:"Instant",c:"white",v:1,txt:"Prevent 1 dmg this round.",eff:"shield"},
-  {id:uid(), n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Self-discard: +1⚡.",eff:"chan_self"},
-  {id:uid(), n:"Minor Hex+",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1 and loses 1⚡.",eff:"hex_plus"},
-  {id:uid(), n:"Emberbolt",t:"Spell",c:"black",v:1,p:3,txt:"After 3: deal 2 dmg.",eff:"ember"}
+function typeColor(t){return t==="Spell"?"var(--t-spell)":t==="Instant"?"var(--t-instant)":t==="Glyph"?"var(--t-glyph)":"var(--t-utility)";}
+function colorClass(c){return c==="white"?"white":c==="gray"?"gray":"black";}
+const BASE=[
+  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
+  {id:uid(),n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
+  {id:uid(),n:"Shield Flicker",t:"Instant",c:"white",v:1,txt:"Prevent 1 dmg this round.",eff:"shield"},
+  {id:uid(),n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Self-discard: +1⚡.",eff:"chan_self"},
+  {id:uid(),n:"Minor Hex+",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1 and loses 1⚡.",eff:"hex_plus"},
+  {id:uid(),n:"Emberbolt",t:"Spell",c:"black",v:1,p:3,txt:"After 3: deal 2 dmg.",eff:"ember"}
 ];
-
-const FLOW = [
-  {id:uid(), n:"Accelerate",t:"Instant",c:"white",v:1,txt:"Advance one of your spells +1.",eff:"accel"},
-  {id:uid(), n:"Chrono Barrier",t:"Glyph",c:"white",v:1,txt:"When targeted: negate spell/dmg.",eff:"g_barrier"},
-  {id:uid(), n:"Meditate",t:"Instant",c:"gray",v:0,txt:"Gain 1⚡ and draw 1.",eff:"med"},
-  {id:uid(), n:"Phase Swap",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: swap two of your spells.",eff:"swap"},
-  {id:uid(), n:"Stonewall",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: opponent’s next Advance costs +1⚡.",eff:"tax"},
-  {id:uid(), n:"Mirror Ward",t:"Glyph",c:"gray",v:1,txt:"When you’d take dmg: reflect it.",eff:"g_mirror"},
-  {id:uid(), n:"Dark Bargain",t:"Spell",c:"black",v:2,p:3,txt:"After 3: deal 3 dmg; you lose 2♥.",eff:"bargain"},
-  {id:uid(), n:"Venom Dart",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg & foe discards 1.",eff:"venom"},
-  {id:uid(), n:"Seal of Binding",t:"Glyph",c:"black",v:1,txt:"On enemy spell play: cancel & block that slot until their next turn.",eff:"g_bind"},
-  {id:uid(), n:"Null Pulse",t:"Instant",c:"white",v:1,txt:"Counter: cancel a resolving spell.",eff:"counter"}
+const FLOW=[
+  {id:uid(),n:"Accelerate",t:"Instant",c:"white",v:1,txt:"Advance one of your spells +1.",eff:"accel"},
+  {id:uid(),n:"Chrono Barrier",t:"Glyph",c:"white",v:1,txt:"When targeted: negate spell/dmg.",eff:"g_barrier"},
+  {id:uid(),n:"Meditate",t:"Instant",c:"gray",v:0,txt:"Gain 1⚡ and draw 1.",eff:"med"},
+  {id:uid(),n:"Phase Swap",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: swap two of your spells.",eff:"swap"},
+  {id:uid(),n:"Stonewall",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: opponent’s next Advance costs +1⚡.",eff:"tax"},
+  {id:uid(),n:"Mirror Ward",t:"Glyph",c:"gray",v:1,txt:"When you’d take dmg: reflect it.",eff:"g_mirror"},
+  {id:uid(),n:"Dark Bargain",t:"Spell",c:"black",v:2,p:3,txt:"After 3: deal 3 dmg; you lose 2♥.",eff:"bargain"},
+  {id:uid(),n:"Venom Dart",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg & foe discards 1.",eff:"venom"},
+  {id:uid(),n:"Seal of Binding",t:"Glyph",c:"black",v:1,txt:"On enemy spell play: cancel & block that slot until their next turn.",eff:"g_bind"},
+  {id:uid(),n:"Null Pulse",t:"Instant",c:"white",v:1,txt:"Counter: cancel a resolving spell.",eff:"counter"}
 ];
 
 /* ===== State ===== */
 let S={};
-function makeDeck(){ return shuf(BASE.map(x=>({...x, id:uid()}))); }
-function makeFlow(){ return shuf(FLOW.map(x=>({...x, id:uid()}))); }
+function makeDeck(){return shuf(BASE.map(x=>({...x,id:uid()})));}
+function makeFlow(){return shuf(FLOW.map(x=>({...x,id:uid()})));}
 
 /* ===== Core ===== */
 function reset(swName){
-  const name = swName || $("#swSelect").value || Object.keys(SPELLWEAVERS)[0];
+  const name=swName||$("#swSelect").value||Object.keys(SPELLWEAVERS)[0];
   S={
-    sw:name, hp:5, ae:0, deck:makeDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[],
-    ai:{hp:5, ae:0, deck:makeDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[], taxes:0, blocked:[]},
-    flowDeck:makeFlow(), flowRow:[null,null,null,null,null],
-    taxes:0, blocked:[], lastInstant:null, turn:1, flags:{preventOnce:false,preventAvailable:false}
+    sw:name,hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
+    ai:{hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],taxes:0,blocked:[]},
+    flowDeck:makeFlow(),flowRow:[null,null,null,null,null],
+    taxes:0,blocked:[],turn:1,flags:{preventAvailable:false}
   };
   for(let i=0;i<5;i++){ draw(); aiDraw(); }
   slideFlow(true); render(); log(`New game — ${S.sw}`);
+  startPlayerTurn(); render();
 }
 
-/* ===== Turn hooks (Start of YOUR turn: auto draw +1⚡) ===== */
-function startPlayerTurn(){
-  draw(); S.ae+=1; log("Start of turn: draw 1, gain +1⚡.");
-  // (Optional trance hooks could go here)
-}
+/* ===== Turn hooks ===== */
+function startPlayerTurn(){ draw(); S.ae+=1; log("Start of turn: draw 1, +1⚡."); }
+function aiTurnStart(){ aiDraw(); S.ai.ae+=1; log("AI start of turn: draw 1, +1⚡."); }
 
 /* ===== Draw / Channel ===== */
-function draw(){
-  if(!S.deck.length){
-    if(!S.disc.length){ log("No cards to draw."); return; }
-    S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle.");
-  }
-  S.hand.push(S.deck.pop()); render();
-}
-function aiDraw(){
-  if(!S.ai.deck.length){
-    if(S.ai.disc.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return;
-  }
-  S.ai.hand.push(S.ai.deck.pop());
-}
-function channelSelfById(id){
-  const idx=S.hand.findIndex(c=>c.id===id); if(idx<0) return;
-  const c=S.hand.splice(idx,1)[0]; S.ae+=1; S.disc.push(c); log("Channel Spark (+1⚡)"); render();
-}
-function channelById(id){
-  const idx=S.hand.findIndex(c=>c.id===id); if(idx<0) return;
-  const c=S.hand.splice(idx,1)[0]; const g=c.v||0; S.ae+=g; S.disc.push(c); log(`Channel ${c.n} (+${g}⚡)`); render();
-}
+function draw(){ if(!S.deck.length){ if(!S.disc.length){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); } S.hand.push(S.deck.pop()); }
+function aiDraw(){ if(!S.ai.deck.length){ if(S.ai.disc.length){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
+function channelById(id){ const i=S.hand.findIndex(c=>c.id===id); if(i<0)return; const c=S.hand.splice(i,1)[0]; const g=c.v||0; S.ae+=g; S.disc.push(c); log(`Channel ${c.n} (+${g}⚡)`); render(); }
+function channelSelfById(id){ const i=S.hand.findIndex(c=>c.id===id); if(i<0)return; const c=S.hand.splice(i,1)[0]; S.ae+=1; S.disc.push(c); log("Channel Spark (+1⚡)"); render(); }
 
-/* ===== Play / Advance (using IDs to avoid stale indexes) ===== */
+/* ===== Play / Advance ===== */
 function playFromHandId(cardId){
-  const i=S.hand.findIndex(c=>c.id===cardId); if(i<0) return;
+  const i=S.hand.findIndex(c=>c.id===cardId); if(i<0)return;
   const c=S.hand.splice(i,1)[0];
   if(c.t==="Spell"){
-    const s=S.slots.findIndex((x,idx)=>!x && !S.blocked.includes(idx));
+    const s=S.slots.findIndex((x,idx)=>!x&&!S.blocked.includes(idx));
     if(s<0){ log("No available slot."); S.hand.push(c); render(); return; }
     if(triggerAmbush(S.ai)){ log("AI Ambush cancels & deals 1."); damageYou(1); S.disc.push(c); render(); return; }
     S.slots[s]={c,ph:1,advUsed:false}; log(`Play ${c.n} → Slot ${s+1}`);
-  } else if(c.t==="Glyph"){ S.glyphs.push(c); log("Glyph set."); }
-  else { runInstant("you", c); S.lastInstant=c; S.disc.push(c); }
+  }else if(c.t==="Glyph"){ S.glyphs.push(c); log("Glyph set."); }
+  else{ runInstant("you",c); S.disc.push(c); }
   render();
 }
-
 function advance(idx){
-  const s=S.slots[idx]; if(!s) return;
+  const s=S.slots[idx]; if(!s)return;
   const cost=1+(S.taxes||0);
   if(s.advUsed){ log("Already advanced this turn."); return; }
   if(S.ae<cost){ log(`Need ${cost}⚡`); return; }
@@ -258,9 +265,9 @@ function advance(idx){
   render();
 }
 function resolvePlayer(idx){
-  const s=S.slots[idx]; if(!s) return;
+  const s=S.slots[idx]; if(!s)return;
   if(aiTryCounter()){ log("AI counters!"); S.disc.push(s.c); S.slots[idx]=null; render(); return; }
-  runResolve("you", s.c); S.disc.push(s.c); S.slots[idx]=null; render();
+  runResolve("you",s.c); S.disc.push(s.c); S.slots[idx]=null; render();
 }
 
 /* ===== Effects ===== */
@@ -269,9 +276,7 @@ function runInstant(who,c){
     case "spark": who==="you"?damageAI(1):damageYou(1); break;
     case "shield": if(who==="you"){ S.flags.preventAvailable=true; log("Shield: prevent 1 this round."); } break;
     case "chan_self": if(who==="you"){ S.ae+=1; log("+1⚡"); } break;
-    case "accel":{
-      if(who==="you"){ const i=S.slots.findIndex(s=>s&&!s.advUsed); if(i>-1){ S.slots[i].ph++; S.slots[i].advUsed=true; log("Accelerate +1"); if(S.slots[i].ph>=S.slots[i].c.p) resolvePlayer(i); } else log("No eligible spell."); }
-    } break;
+    case "accel": if(who==="you"){ const i=S.slots.findIndex(s=>s&&!s.advUsed); if(i>-1){ S.slots[i].ph++; S.slots[i].advUsed=true; log("Accelerate +1"); if(S.slots[i].ph>=S.slots[i].c.p) resolvePlayer(i);} else log("No eligible spell."); } break;
     case "med": if(who==="you"){ S.ae+=1; draw(); log("Meditate: +1⚡ draw 1."); } break;
     case "venom": who==="you"?(damageAI(1),log("AI discards 1 (sim).")):(damageYou(1),log("You discard 1 (sim).")); break;
     case "counter": log((who==="you")?"Null Pulse readied.":"AI holds a counter."); break;
@@ -279,10 +284,7 @@ function runInstant(who,c){
 }
 function runResolve(who,c){
   switch(c.eff){
-    case "hex_plus":
-      if(who==="you"){ if(consumeBarrier(S.ai)) break; log("Hex+: AI discards 1 & loses 1⚡ (sim)"); S.ai.ae=Math.max(0,S.ai.ae-1); }
-      else { if(consumeBarrier(S)) break; log("AI Hex+: you discard 1 & lose 1⚡ (sim)"); S.ae=Math.max(0,S.ae-1); }
-      break;
+    case "hex_plus": if(who==="you"){ if(consumeBarrier(S.ai)) break; log("Hex+: AI discards 1 & loses 1⚡ (sim)"); S.ai.ae=Math.max(0,S.ai.ae-1);} else { if(consumeBarrier(S)) break; log("AI Hex+: you discard 1 & lose 1⚡ (sim)"); S.ae=Math.max(0,S.ae-1);} break;
     case "ember": who==="you"?damageAI(2):damageYou(2); break;
     case "swap": log(who==="you"?"Swap (abstract).":"AI swaps."); break;
     case "tax": if(who==="you"){ S.ai.taxes=(S.ai.taxes||0)+1; log("Stonewall: AI next Advance +1⚡"); } else { S.taxes=(S.taxes||0)+1; log("AI Stonewall: your next Advance +1⚡"); } break;
@@ -293,13 +295,13 @@ function consumeBarrier(T){ const i=T.glyphs.findIndex(g=>g.eff==="g_barrier"); 
 
 /* ===== Damage ===== */
 function damageYou(n){
-  const m=S.glyphs.findIndex(g=>g.eff==="g_mirror"); if(m>-1 && n>0){ S.glyphs.splice(m,1); log("Your Mirror Ward reflects!"); damageAI(n); return; }
+  const m=S.glyphs.findIndex(g=>g.eff==="g_mirror"); if(m>-1&&n>0){ S.glyphs.splice(m,1); log("Your Mirror Ward reflects!"); damageAI(n); return; }
   if(consumeBarrier(S)) return;
   let dmg=n; if(S.flags.preventAvailable){ dmg=Math.max(0,dmg-1); S.flags.preventAvailable=false; log("Ward prevents 1."); }
   S.hp=Math.max(0,S.hp-dmg); log(`You take ${dmg}`);
 }
 function damageAI(n){
-  const m=S.ai.glyphs.findIndex(g=>g.eff==="g_mirror"); if(m>-1 && n>0){ S.ai.glyphs.splice(m,1); log("AI Mirror Ward reflects!"); damageYou(n); return; }
+  const m=S.ai.glyphs.findIndex(g=>g.eff==="g_mirror"); if(m>-1&&n>0){ S.ai.glyphs.splice(m,1); log("AI Mirror Ward reflects!"); damageYou(n); return; }
   if(consumeBarrier(S.ai)) return;
   S.ai.hp=Math.max(0,S.ai.hp-n); log(`AI takes ${n}`);
 }
@@ -308,89 +310,88 @@ function damageAI(n){
 function triggerAmbush(owner){ const i=owner.glyphs.findIndex(g=>g.eff==="g_ambush"); if(i>-1){ owner.glyphs.splice(i,1); return true; } return false; }
 
 /* ===== Aetherflow ===== */
-function flowCostAt(i){ return [4,3,2,2,2][i]; }
+function flowCostAt(i){return [4,3,2,2,2][i];}
 function slideFlow(initial=false){ S.flowRow=[null,...S.flowRow.slice(0,4)]; const next=S.flowDeck.pop(); S.flowRow[0]=next||null; if(!initial) render(); }
 function buy(i){
   const card=S.flowRow[i]; if(!card){ log("Empty."); return; }
   const cost=flowCostAt(i); if(S.ae<cost){ log("Not enough ⚡."); return; }
   S.ae-=cost;
   if(card.t==="Glyph"){ S.glyphs.push(card); log(`Set ${card.n}.`); }
-  else { S.disc.push(card); log(`Learn ${card.n} → discard (will shuffle in).`); }
+  else{ S.disc.push(card); log(`Learn ${card.n} → discard (will shuffle in).`); }
   S.flowRow[i]=null; render();
 }
 
 /* ===== AI ===== */
-function aiTryCounter(){ const idx=S.ai.hand.findIndex(c=>c.eff==="counter"); if(idx>-1 && Math.random()<0.4){ const c=S.ai.hand.splice(idx,1)[0]; S.ai.disc.push(c); return true; } return false; }
-function playerTryCounter(){ const idx=S.hand.findIndex(c=>c.eff==="counter"); if(idx>-1){ const c=S.hand.splice(idx,1)[0]; S.disc.push(c); log("You counter!"); return true; } return false; }
-function aiTurnStart(){ aiDraw(); S.ai.ae+=1; log("AI start of turn: draw 1, +1⚡."); }
+function aiTryCounter(){ const idx=S.ai.hand.findIndex(c=>c.eff==="counter"); if(idx>-1&&Math.random()<0.4){ const c=S.ai.hand.splice(idx,1)[0]; S.ai.disc.push(c); return true;} return false; }
+function playerTryCounter(){ const idx=S.hand.findIndex(c=>c.eff==="counter"); if(idx>-1){ const c=S.hand.splice(idx,1)[0]; S.disc.push(c); log("You counter!"); return true;} return false; }
 function aiTurn(){
   log("— AI Turn —"); aiTurnStart();
-  // Glyph sometimes
+  // set a glyph sometimes
   const gIdx=S.ai.hand.findIndex(c=>c.t==="Glyph");
   if(gIdx>-1 && Math.random()<0.5){
     const g=S.ai.hand.splice(gIdx,1)[0];
-    if(g.eff==="g_bind"){
-      const open=[0,1,2].filter(i=>!S.blocked.includes(i)); if(open.length){ const s=open[0]; S.blocked.push(s); log(`AI Seal binds your Slot ${s+1} until AI ends turn.`); }
-    } else { S.ai.glyphs.push(g); log("AI sets a Glyph."); }
+    if(g.eff==="g_bind"){ const open=[0,1,2].filter(i=>!S.blocked.includes(i)); if(open.length){ const s=open[0]; S.blocked.push(s); log(`AI Seal binds your Slot ${s+1} until AI ends turn.`);} }
+    else { S.ai.glyphs.push(g); log("AI sets a Glyph."); }
   }
-  // Spell if space
+  // play spell if space
   const empty=S.ai.slots.findIndex(x=>!x);
   if(empty>-1){ const idx=S.ai.hand.findIndex(c=>c.t==="Spell"); if(idx>-1){ const card=S.ai.hand.splice(idx,1)[0]; S.ai.slots[empty]={c:card,ph:1,advUsed:false}; log(`AI plays ${card.n}.`);} }
-  // Instants sometimes
+  // some instants
   const med=S.ai.hand.findIndex(c=>c.eff==="med"); if(med>-1 && Math.random()<0.6){ const c=S.ai.hand.splice(med,1)[0]; S.ai.ae+=1; aiDraw(); S.ai.disc.push(c); log("AI meditates."); }
   const sp=S.ai.hand.findIndex(c=>c.eff==="spark"); if(sp>-1 && Math.random()<0.33){ const c=S.ai.hand.splice(sp,1)[0]; damageYou(1); S.ai.disc.push(c); }
-  // Advance one
+  // advance one
   const sidx=S.ai.slots.findIndex(s=>s&&!s.advUsed);
   if(sidx>-1){ const cost=1+(S.ai.taxes||0); if(S.ai.ae>=cost){ S.ai.ae-=cost; S.ai.slots[sidx].ph++; S.ai.slots[sidx].advUsed=true; if(S.ai.slots[sidx].ph>=S.ai.slots[sidx].c.p) aiResolve(sidx); if(S.ai.taxes) S.ai.taxes=0; log("AI advances."); } }
-  // Buy
+  // buy
   for(let i=4;i>=0;i--){ const c=S.flowRow[i]; const cost=flowCostAt(i); if(c && cost<=S.ai.ae){ S.ai.ae-=cost; if(c.t==="Glyph"){ S.ai.glyphs.push(c);} else { S.ai.disc.push(c);} S.flowRow[i]=null; log("AI learns a card."); break; } }
-  // Cleanup
+  // cleanup
   S.blocked=[]; S.ai.slots.forEach(s=>{ if(s) s.advUsed=false; });
   render(); log("AI ends turn.");
 }
 function aiResolve(i){
-  const s=S.ai.slots[i]; if(!s) return;
+  const s=S.ai.slots[i]; if(!s)return;
   if(playerTryCounter()){ S.ai.disc.push(s.c); S.ai.slots[i]=null; return; }
-  runResolve("ai", s.c); S.ai.disc.push(s.c); S.ai.slots[i]=null;
+  runResolve("ai",s.c); S.ai.disc.push(s.c); S.ai.slots[i]=null;
 }
 
 /* ===== Turn flow ===== */
 function endTurn(){
   S.slots.forEach(s=>{ if(s) s.advUsed=false; });
   S.ai.blocked=[];
-  slideFlow(); S.turn=(S.turn||1)+1; render(); log("You end your turn."); 
-  setTimeout(()=>{ aiTurn(); setTimeout(()=>{
-    // start of YOUR next turn
-    S.slots.forEach(s=>{ if(s) s.advUsed=false; });
-    startPlayerTurn(); render();
-  }, 60); }, 260);
+  slideFlow(); S.turn=(S.turn||1)+1; render(); log("You end your turn.");
+  setTimeout(()=>{ aiTurn(); setTimeout(()=>{ S.slots.forEach(s=>{ if(s) s.advUsed=false; }); startPlayerTurn(); render(); }, 80); }, 260);
 }
 
-/* ===== Drag (uses IDs) ===== */
+/* ===== Drag (smooth; big targets) ===== */
 function enableDrag(cardEl, cardId){
-  let dragging=false;
+  let dragging=false, startX=0, startY=0;
+
   function setHot(x,y,apply){
     const slots=[...document.querySelectorAll('#slots .slot')];
-    let target=null;
+    let target=null; let bestArea=0;
     slots.forEach((el,idx)=>{
       const r=el.getBoundingClientRect();
       const inside = x>=r.left && x<=r.right && y>=r.top && y<=r.bottom;
       const ok = !S.slots[idx] && !S.blocked.includes(idx);
       if(apply) el.classList.toggle('hot', inside && ok);
-      if(inside) target=idx;
+      if(inside && ok){
+        const area=(r.right-r.left)*(r.bottom-r.top);
+        if(area>bestArea){ bestArea=area; target=idx; }
+      }
     });
     if(!apply) slots.forEach(el=>el.classList.remove('hot'));
     return target;
   }
   function moveTo(x,y){
-    cardEl.style.position='fixed';
-    cardEl.style.left=(x-100)+'px';
-    cardEl.style.top =(y-120)+'px';
+    cardEl.style.transform=`translate(${x-startX}px,${y-startY}px)`;
   }
   function onDown(e){
-    const c=S.hand.find(x=>x.id===cardId); if(!c || c.t!=="Spell") return;
-    dragging=true; cardEl.classList.add('dragging'); cardEl.style.pointerEvents='none';
-    const p=(e.touches&&e.touches[0])||e; moveTo(p.clientX,p.clientY);
+    const c=S.hand.find(x=>x.id===cardId); if(!c||c.t!=="Spell") return;
+    dragging=true; cardEl.classList.add('dragging');
+    const p=(e.touches&&e.touches[0])||e;
+    const rect=cardEl.getBoundingClientRect();
+    startX=p.clientX-rect.left; startY=p.clientY-rect.top;
+    cardEl.style.willChange='transform';
     e.preventDefault();
     window.addEventListener('mousemove',onMove,{passive:false});
     window.addEventListener('mouseup',onUp,{passive:false});
@@ -399,14 +400,15 @@ function enableDrag(cardEl, cardId){
   }
   function onMove(e){
     if(!dragging) return;
-    const p=(e.touches&&e.touches[0])||e; moveTo(p.clientX,p.clientY); setHot(p.clientX,p.clientY,true);
+    const p=(e.touches&&e.touches[0])||e;
+    moveTo(p.clientX,p.clientY); setHot(p.clientX,p.clientY,true);
   }
   function onUp(e){
     if(!dragging) return;
     const p=(e.changedTouches&&e.changedTouches[0])||e;
     const target=setHot(p.clientX,p.clientY,false);
     dragging=false; cardEl.classList.remove('dragging');
-    cardEl.style.position=''; cardEl.style.left=''; cardEl.style.top=''; cardEl.style.pointerEvents='';
+    cardEl.style.transform=''; cardEl.style.willChange='';
     if(target!=null){
       const i=S.hand.findIndex(x=>x.id===cardId); if(i<0){ render(); return; }
       const c=S.hand[i];
@@ -445,19 +447,21 @@ function render(){
   // Market
   $("#mRow").innerHTML="";
   S.flowRow.forEach((c,idx)=>{
-    const el=document.createElement('div'); el.className='card'; el.dataset.t=c?.t||"";
+    const el=document.createElement('div'); el.className='card'; el.dataset.t=c?.t||""; el.style.borderColor= c? typeColor(c.t) : "var(--cardLine)";
     if(!c){ el.innerHTML=`<div class="name" style="opacity:.6">— empty —</div>`; $("#mRow").appendChild(el); return; }
-    el.style.borderColor=frameTypeColor(c.t);
-    el.innerHTML=`<div class="meta">
-        <span class="tag">${c.t}</span>
-        <span class="tag pip ${colorClass(c.c)}"><i></i>${c.c[0].toUpperCase()+c.c.slice(1)}</span>
-        <span class="tag">🪙 Val ${c.v||0}</span>
+    el.innerHTML=`
+      <div class="top">
+        <div class="badges">
+          <span class="badge">${c.t}</span>
+          <span class="badge pip ${colorClass(c.c)}"><i></i>${c.c[0].toUpperCase()+c.c.slice(1)}</span>
+          <span class="badge">🪙 Val ${c.v||0}</span>
+        </div>
       </div>
       <div class="name">${c.n}</div>
-      <div class="text">${c.txt}</div>`;
-    const a=document.createElement('div'); a.className='actions';
-    const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; bind(b,'click',()=>buy(idx));
-    a.appendChild(b); el.appendChild(a);
+      <div class="text">${c.txt}</div>
+      <div class="actions">
+        <button onclick="buy(${idx})">Learn (${flowCostAt(idx)}⚡)</button>
+      </div>`;
     $("#mRow").appendChild(el);
   });
 
@@ -466,22 +470,20 @@ function render(){
   S.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.dataset.slot=i;
     const blocked=S.blocked.includes(i);
+    const cap=document.createElement('div'); cap.className="cap"; cap.innerHTML=`<span>Slot ${i+1}</span><span>${blocked?"⛔ BLOCKED":""}</span>`;
+    d.appendChild(cap);
     if(s){
       const cc=s.c;
-      const inC=document.createElement('div'); inC.className='card'; inC.dataset.t=cc.t; inC.style.borderColor=frameTypeColor(cc.t);
-      d.innerHTML=`<div class="cap">Slot ${i+1}${blocked?" — BLOCKED":""}</div>`;
-      inC.innerHTML=`<div class="meta">
-          <span class="tag">${cc.t}</span>
-          <span class="tag pip ${colorClass(cc.c)}"><i></i>${cc.c[0].toUpperCase()+cc.c.slice(1)}</span>
-        </div>
-        <div class="name">${cc.n}</div>
-        <div class="text">Phase ${s.ph}/${cc.p}</div>`;
+      const inC=document.createElement('div'); inC.className='card'; inC.dataset.t=cc.t; inC.style.borderColor=typeColor(cc.t);
+      inC.innerHTML=`<div class="badges"><span class="badge">${cc.t}</span><span class="badge pip ${colorClass(cc.c)}"><i></i>${cc.c}</span></div>
+                     <div class="name">${cc.n}</div>
+                     <div class="text">Phase ${s.ph}/${cc.p}</div>`;
       d.appendChild(inC);
       const a=document.createElement('div'); a.className='actions';
       const adv=document.createElement('button'); adv.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; adv.disabled=s.advUsed; bind(adv,'click',()=>advance(i));
       a.appendChild(adv); d.appendChild(a);
     } else {
-      d.innerHTML=`<div class="cap">Slot ${i+1}${blocked?" — BLOCKED":""}</div><div class="text">Empty</div>`;
+      const empty=document.createElement('div'); empty.className='text'; empty.textContent="Drop a Spell here"; d.appendChild(empty);
     }
     $("#slots").appendChild(d);
   });
@@ -490,38 +492,41 @@ function render(){
   $("#aiSlots").innerHTML="";
   S.ai.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot';
+    const cap=document.createElement('div'); cap.className='cap'; cap.innerHTML=`<span>Slot ${i+1}</span><span></span>`;
+    d.appendChild(cap);
     if(s){
-      const cc=s.c;
-      const inC=document.createElement('div'); inC.className='card'; inC.dataset.t=cc.t; inC.style.borderColor=frameTypeColor(cc.t);
-      d.innerHTML=`<div class="cap">Slot ${i+1}</div>`;
-      inC.innerHTML=`<div class="meta">
-          <span class="tag">${cc.t}</span>
-          <span class="tag pip ${colorClass(cc.c)}"><i></i>${cc.c[0].toUpperCase()+cc.c.slice(1)}</span>
-        </div>
-        <div class="name">${cc.n}</div>
-        <div class="text">Phase ${s.ph}/${cc.p}</div>`;
+      const cc=s.c; const inC=document.createElement('div'); inC.className='card'; inC.dataset.t=cc.t; inC.style.borderColor=typeColor(cc.t);
+      inC.innerHTML=`<div class="badges"><span class="badge">${cc.t}</span><span class="badge pip ${colorClass(cc.c)}"><i></i>${cc.c}</span></div>
+                     <div class="name">${cc.n}</div>
+                     <div class="text">Phase ${s.ph}/${cc.p}</div>`;
       d.appendChild(inC);
-    } else { d.innerHTML=`<div class="cap">Slot ${i+1}</div><div class="text">Empty</div>`; }
+    } else {
+      const empty=document.createElement('div'); empty.className='text'; empty.textContent="—"; d.appendChild(empty);
+    }
     $("#aiSlots").appendChild(d);
   });
 
-  // Glyphs
+  // Glyphs bar
   const gv=$("#glyphView"); gv.innerHTML="";
   if(S.glyphs.length){
     S.glyphs.forEach(g=>{
       const chip=document.createElement('div'); chip.className='glyph';
-      chip.title=g.n; gv.appendChild(chip);
+      chip.innerHTML=`<span style="width:10px;height:10px;border-radius:50%;background:#b58cff;border:1px solid #7857d4"></span>${g.n}`;
+      gv.appendChild(chip);
     });
   } else gv.innerHTML=`<span class="small">No glyphs set.</span>`;
 
-  // Hand (ID-based handlers)
+  // Hand (grid, no scroll; each card gets drag + big buttons)
   const hand=$("#hand"); hand.innerHTML="";
   S.hand.forEach(c=>{
-    const el=document.createElement('div'); el.className='card draggable'; el.dataset.t=c.t; el.style.borderColor=frameTypeColor(c.t);
-    el.innerHTML=`<div class="meta">
-        <span class="tag">${c.t}</span>
-        <span class="tag pip ${colorClass(c.c)}"><i></i>${c.c[0].toUpperCase()+c.c.slice(1)}</span>
-        <span class="tag">🪙 Val ${c.v||0}</span>
+    const el=document.createElement('div'); el.className='card draggable'; el.dataset.t=c.t; el.style.borderColor=typeColor(c.t);
+    el.innerHTML=`
+      <div class="top">
+        <div class="badges">
+          <span class="badge">${c.t}</span>
+          <span class="badge pip ${colorClass(c.c)}"><i></i>${c.c}</span>
+          <span class="badge">🪙 ${c.v||0}</span>
+        </div>
       </div>
       <div class="name">${c.n}</div>
       <div class="text">${c.txt}</div>`;
@@ -529,22 +534,21 @@ function render(){
     if(c.t==="Spell"){
       const play=document.createElement('button'); play.textContent='Play to open slot'; bind(play,'click',()=>playFromHandId(c.id)); a.appendChild(play);
       const ch=document.createElement('button'); ch.textContent=`Channel (+${c.v||0})`; bind(ch,'click',()=>channelById(c.id)); a.appendChild(ch);
-      enableDrag(el, c.id);
+      enableDrag(el,c.id);
     } else if(c.t==="Glyph"){
       const set=document.createElement('button'); set.textContent='Set Glyph'; bind(set,'click',()=>{ const i=S.hand.findIndex(x=>x.id===c.id); if(i>-1){ const x=S.hand.splice(i,1)[0]; S.glyphs.push(x); log("Glyph set."); render(); }}); a.appendChild(set);
       const ch=document.createElement('button'); ch.textContent=`Channel (+${c.v||0})`; bind(ch,'click',()=>channelById(c.id)); a.appendChild(ch);
     } else {
-      const play=document.createElement('button'); play.textContent='Play'; bind(play,'click',()=>{ const i=S.hand.findIndex(x=>x.id===c.id); if(i>-1){ const x=S.hand.splice(i,1)[0]; runInstant("you",x); S.disc.push(x); S.lastInstant=x; render(); }}); a.appendChild(play);
+      const play=document.createElement('button'); play.textContent='Play'; bind(play,'click',()=>{ const i=S.hand.findIndex(x=>x.id===c.id); if(i>-1){ const x=S.hand.splice(i,1)[0]; runInstant("you",x); S.disc.push(x); render(); }}); a.appendChild(play);
       const ch=document.createElement('button'); ch.textContent= c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`; bind(ch,'click',()=> c.eff==="chan_self"?channelSelfById(c.id):channelById(c.id)); a.appendChild(ch);
     }
-    el.appendChild(a);
-    hand.appendChild(el);
+    el.appendChild(a); hand.appendChild(el);
   });
 }
 
 /* ===== Buttons ===== */
-bind($("#drawBtn"),'click',()=>draw());
-bind($("#endBtn"),'click', ()=>endTurn());
+bind($("#drawBtn"),'click',()=>{ draw(); render(); });
+bind($("#endBtn"),'click',()=>endTurn());
 bind($("#resetBtn"),'click',()=>reset(S.sw));
 
 /* ===== Init ===== */
@@ -555,8 +559,6 @@ bind($("#resetBtn"),'click',()=>reset(S.sw));
   sel.value=Object.keys(SPELLWEAVERS)[0];
   $("#swDesc").textContent=SPELLWEAVERS[sel.value].desc;
   reset(sel.value);
-  // Start of first player turn
-  startPlayerTurn(); render();
 })();
 </script>
 </body>
