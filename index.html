@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
-<title>The Grey — Arena Layout (Stable Hand)</title>
+<title>The Grey — Arena Layout (Stable Hand + Fixes)</title>
 <meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
@@ -39,29 +39,28 @@ button:disabled{opacity:.6}
 .card .name{font-weight:800;color:var(--accent);margin:.25rem 0}
 .tag{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #2d3f56;background:#0b111a;margin-right:4px}
 .smallmuted{font-size:12px;color:var(--muted)}
-.art{height:60px;border-radius:8px;margin:6px 0 8px;background:linear-gradient(180deg,#0f1520,#0a0f16);border:1px solid #223044}
+.art{height:60px;border-radius:8px;margin:6px 0 8px;background:linear-gradient(180deg,#0f1520,#0a0f16);border:1px solid #223044;display:flex;align-items:center;justify-content:center}
+.art svg{width:100%;height:100%;opacity:.85}
 
 /* Battlefield (middle column) */
 .battle{display:flex;flex-direction:column;gap:10px}
 .rowSlots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 .slot{background:var(--slot);border:2px dashed var(--slotLine);border-radius:12px;min-height:120px;padding:8px}
 .slot .cap{font-size:12px;color:var(--muted);margin-bottom:6px}
-.slot.hot{border-color:#86b7ff;box-shadow:0 0 0 3px rgba(134,183,255,.2) inset}
 .inlineCard .card{min-width:auto;max-width:none;padding:8px}
 .inlineCard .art{height:46px}
 .glyphs{display:flex;gap:6px;flex-wrap:wrap}
 .glyph{height:12px;width:84px;background:linear-gradient(90deg,#0b111a,#131a27);border:1px solid #2d3f56;border-radius:8px}
 
-/* Hand ribbon (stable, scrollable, no rotation) */
+/* Hand ribbon (stable, scrollable) */
 .handBox{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
 .ribbon{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px;border:1px dashed #263445;border-radius:12px;background:linear-gradient(180deg,#0b1114,#0a0f15)}
 .ribbon .card{width:170px;flex:0 0 auto}
 .cardActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 
-/* Log — now LAST section */
+/* Log — LAST section */
 .logBox{margin-top:10px}
 .log{height:220px;overflow:auto;background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;font-size:12px}
-.muted{color:var(--muted)} .good{color:#78e08f} .bad{color:#ff7a7a}
 </style>
 </head>
 <body>
@@ -121,6 +120,31 @@ button:disabled{opacity:.6}
 <script>
 document.addEventListener('touchstart',()=>{}, {passive:true});
 function bindTap(el,fn){ el.addEventListener('click',fn); el.addEventListener('touchend',e=>{ e.preventDefault(); fn(e); }, {passive:false}); }
+
+/* Placeholder SVG art per school */
+function artSVG(school){
+  if(school==="white"){
+    return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg">
+      <defs><linearGradient id="gw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a9d0ff"/><stop offset="1" stop-color="#6fa4ff"/></linearGradient></defs>
+      <g fill="none" stroke="url(#gw)" stroke-width="2" stroke-opacity=".8">
+        <path d="M5,50 Q55,5 105,50 T205,50" />
+        <circle cx="60" cy="30" r="8"/><circle cx="160" cy="26" r="6"/>
+      </g>
+    </svg>`;
+  }
+  if(school==="gray"){
+    return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg">
+      <g fill="none" stroke="#a3a7b3" stroke-width="2" stroke-opacity=".8">
+        <path d="M10,40 L210,40"/><path d="M55,10 L55,50"/><path d="M170,10 L170,50"/><circle cx="110" cy="30" r="14"/>
+      </g>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg">
+    <g fill="none" stroke="#e9a8a8" stroke-width="2" stroke-opacity=".85">
+      <path d="M5,46 Q110,6 215,46"/><path d="M110,10 L110,56"/><circle cx="110" cy="30" r="10"/>
+    </g>
+  </svg>`;
+}
 
 /* Spellweavers */
 const SPELLWEAVERS = {
@@ -184,15 +208,16 @@ function reset(swName){
 function draw(){ if(!S.deck.length){ if(!S.disc.length){log("No cards to draw.");return} S.deck=shuf(S.disc);S.disc=[];log("You reshuffle.") } S.hand.push(S.deck.pop()); render() }
 function channelSelf(handIdx){const c=S.hand.splice(handIdx,1)[0];S.ae+=1;S.disc.push(c);log(`Channel Spark (+1⚡)`);render()}
 function channel(handIdx){const c=S.hand.splice(handIdx,1)[0];const g=c.v||0;S.ae+=g;S.disc.push(c);log(`Channel ${c.n} (+${g}⚡)`);render()}
-function playFromHand(handIdx){
+function playToFirstEmpty(handIdx){
+  const s=S.slots.findIndex((x,i)=>!x&&!S.blockedSlots.includes(i));
+  if(s<0){ log("No available slot (or blocked)."); return; }
   const c=S.hand.splice(handIdx,1)[0];
-  if(c.t==="Spell"){
-    const s=S.slots.findIndex((x,i)=>!x&&!S.blockedSlots.includes(i));
-    if(s<0){log("No available slot (or blocked).");S.hand.push(c);render();return}
-    S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`);
-  }else if(c.t==="Glyph"){S.glyphs.push(c);log("You set a Glyph face-down.")}
-  else{runInstant("you",c);S.disc.push(c);if(S.flags.copyInst){log("Instant Echo: repeats.");runInstant("you",c)};S.lastInstant=c}
-  render();
+  S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`); render();
+}
+function playFromHandByDataset(btn){
+  const idx = parseInt(btn.closest('.card').dataset.idx, 10);
+  if(isNaN(idx)) { log("Play error: index not found."); return; }
+  playToFirstEmpty(idx);
 }
 
 /* Advance rule */
@@ -206,7 +231,7 @@ function advance(i){
   render();
 }
 
-/* Effects (same as previous build) */
+/* Effects */
 function runInstant(who,c){
   switch(c.eff){
     case "spark": (who==="you")?damageAI(1):damageYou(1); break;
@@ -297,34 +322,35 @@ function endTurn(){
   slideFlow(); S.turn+=1; render(); log("You end your turn."); setTimeout(aiTurn, 320);
 }
 
-/* Render */
+/* Render helpers */
 function schoolFrame(){return `<svg viewBox='0 0 100 140' class='frame' style='position:absolute;inset:6px;opacity:.6' preserveAspectRatio='none'>
 <g fill='none' stroke-width='1.2'><path d='M3 18 L3 6 L18 6'/><path d='M82 6 L97 6 L97 18'/><path d='M3 122 L3 134 L18 134'/><path d='M82 134 L97 134 L97 122'/><circle cx='50' cy='10' r='3'/><circle cx='50' cy='130' r='3'/></g></svg>`}
 function tagRow(c){return `<span class='tag ${c.c}'>${c.c.toUpperCase()}</span><span class='tag'>${c.t}</span><span class='tag'>V${c.v||0}</span>`}
+
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; deck.textContent=S.deck.length; disc.textContent=S.disc.length; glyphs.textContent=S.glyphs.length; turnTag.textContent=`Turn ${S.turn}`;
   const sel=document.getElementById('swSelect'); if(!sel.dataset.ready){ Object.keys(SPELLWEAVERS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o)}); sel.dataset.ready=1; sel.value=S.sw; sel.addEventListener('change',()=>reset(sel.value)); } else sel.value=S.sw;
 
   // Flow
   mCosts.innerHTML=""; [4,3,2,2,2].forEach((c,idx)=>{ let shown=c; if(idx===0 && S.flags.leftDiscount) shown=Math.max(1,c-1); const d=document.createElement('div'); d.className='cost'; d.textContent=shown; mCosts.appendChild(d) });
-  mRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{ const w=document.createElement('div'); w.className=`card ${c?c.c:''}`; if(!c){ w.innerHTML="<div class='smallmuted'>— empty —</div>"; mRow.appendChild(w); return; } w.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'></div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`; const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; bindTap(b,()=>buy(idx)); w.appendChild(b); mRow.appendChild(w); });
+  mRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{ const w=document.createElement('div'); w.className=`card ${c?c.c:''}`; if(!c){ w.innerHTML="<div class='smallmuted'>— empty —</div>"; mRow.appendChild(w); return; } w.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`; const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; bindTap(b,()=>buy(idx)); w.appendChild(b); mRow.appendChild(w); });
 
   // Opponent
-  aiSlots.innerHTML=""; S.ai.slots.forEach((s,i)=>{ const div=document.createElement('div'); div.className='slot inlineCard'; if(s){ div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class='art'></div><div class='name'>${s.c.n}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`; } else { div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`} aiSlots.appendChild(div) });
+  aiSlots.innerHTML=""; S.ai.slots.forEach((s,i)=>{ const div=document.createElement('div'); div.className='slot inlineCard'; if(s){ div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class='art'>${artSVG(s.c.c)}</div><div class='name'>${s.c.n}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`; } else { div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`} aiSlots.appendChild(div) });
 
   // You
-  slots.innerHTML=""; S.slots.forEach((s,i)=>{ const div=document.createElement('div'); div.className='slot inlineCard'; if(s){ div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class='art'></div><div class='name'>${s.c.n}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`; const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; bindTap(b,()=>{ if(S.taxes>0) S.taxes=0; advance(i) }); b.disabled = s.advUsed; div.appendChild(b);} else { div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`} slots.appendChild(div) });
+  slots.innerHTML=""; S.slots.forEach((s,i)=>{ const div=document.createElement('div'); div.className='slot inlineCard'; if(s){ div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class='art'>${artSVG(s.c.c)}</div><div class='name'>${s.c.n}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`; const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; bindTap(b,()=>{ if(S.taxes>0) S.taxes=0; advance(i) }); b.disabled = s.advUsed; div.appendChild(b);} else { div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`} slots.appendChild(div) });
 
   glyphView.innerHTML = S.glyphs.length ? S.glyphs.map(_=>'<div class="glyph"></div>').join('') : '<span class="small">No glyphs set.</span>';
 
-  // Hand ribbon (no rotation)
+  // Hand ribbon (no rotation) with robust index binding
   const handEl=document.getElementById('hand'); handEl.innerHTML="";
   S.hand.forEach((c,i)=>{
-    const card=document.createElement('div'); card.className=`card ${c.c}`;
-    card.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'></div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`;
+    const card=document.createElement('div'); card.className=`card ${c.c}`; card.dataset.idx=i;
+    card.innerHTML=`${schoolFrame()}<div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='name'>${c.n}</div><div class='smallmuted'>${c.txt}</div>`;
     const actions=document.createElement('div'); actions.className='cardActions';
-    const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play")); bindTap(p,()=>playFromHand(i));
-    const ch=document.createElement('button'); ch.textContent = c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`; bindTap(ch,()=> c.eff==="chan_self"?channelSelf(i):channel(i));
+    const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play")); p.addEventListener('click', function(){ playFromHandByDataset(this) }, {passive:false}); p.addEventListener('touchend', function(e){ e.preventDefault(); playFromHandByDataset(this) }, {passive:false});
+    const ch=document.createElement('button'); ch.textContent = c.eff==="chan_self" ? "Channel (+1)" : `Channel (+${c.v||0})`; ch.addEventListener('click', function(){ const idx=parseInt(card.dataset.idx,10); channel(idx) }, {passive:false}); ch.addEventListener('touchend', function(e){ e.preventDefault(); const idx=parseInt(card.dataset.idx,10); if(c.eff==="chan_self") channelSelf(idx); else channel(idx); }, {passive:false});
     actions.appendChild(p); actions.appendChild(ch); card.appendChild(actions);
     handEl.appendChild(card);
   });
