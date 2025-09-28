@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover" />
+<title>The Grey — iOS tap fix (index-based actions)</title>
+<meta name="theme-color" content="#0b0d10" />
+<style>
+:root{--bg:#0b0d10;--panel:#0f141c;--ink:#efece7;--muted:#b9b4ac;--line:#223044;
+--accent:#d7b77a;--slot:#0c1118;--slotLine:#33465d;--whiteA:#a9d0ff;--grayA:#a3a7b3;--blackA:#e9a8a8}
+*{box-sizing:border-box}
+html,body{margin:0;background:#0b0d10;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;-webkit-tap-highlight-color:transparent}
+.wrap{max-width:1200px;margin:0 auto;padding:8px 10px 12px}
+.hud{display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#121721;border:1px solid #223044;font-size:12px}
+button,select{background:linear-gradient(180deg,#17202b,#0e141d);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 12px;font-size:14px;touch-action:manipulation}
+button:disabled{opacity:.6}
+.board{display:grid;grid-template-columns:260px 1fr;gap:10px;align-items:stretch}
+@media (max-width:900px){.board{grid-template-columns:1fr;grid-auto-rows:auto}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;min-height:160px}
+.panel h3{margin:0 0 6px 0;font-size:14px;color:#cfd6e1;letter-spacing:.04em}
+.market{display:grid;grid-template-columns:1fr;gap:8px;max-height:540px;overflow:auto}
+.card{position:relative;border:1px solid #23344a;border-radius:12px;padding:8px}
+.card.white{border-image:linear-gradient(180deg,var(--whiteA),#6fa4ff) 1;background:linear-gradient(180deg,#182131,#0f1724)}
+.card.gray{border-image:linear-gradient(180deg,var(--grayA),#6b7280) 1;background:linear-gradient(180deg,#121822,#0d131b)}
+.card.black{border-image:linear-gradient(180deg,var(--blackA),#b56565) 1;background:linear-gradient(180deg,#0a0d13,#070a10)}
+.card .name{font-weight:800;color:var(--accent);margin:.25rem 0}
+.smallmuted{font-size:12px;color:var(--muted)}
+.tag{font-size:10px;padding:2px 6px;border-radius:6px;border:1px solid #2d3f56;background:#0b111a;margin-right:4px}
+.header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.badges{display:inline-flex;gap:6px;margin-left:auto}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:2px 6px;border:1px solid #2b3c52;border-radius:999px;font-size:10px;background:#0b111a}
+.badge svg{width:14px;height:14px}
+.art{height:60px;border-radius:8px;margin:6px 0 8px;background:linear-gradient(180deg,#0f1520,#0a0f16);border:1px solid #223044;display:flex;align-items:center;justify-content:center}
+.art svg{width:100%;height:100%;opacity:.85}
+.battle{display:flex;flex-direction:column;gap:10px}
+.rowSlots{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.slot{background:var(--slot);border:2px dashed var(--slotLine);border-radius:12px;min-height:120px;padding:8px}
+.slot .cap{font-size:12px;color:var(--muted);margin-bottom:6px}
+.inlineCard .card{min-width:auto;max-width:none;padding:8px}
+.inlineCard .art{height:46px}
+.glyphs{display:flex;gap:6px;flex-wrap:wrap}
+.glyph{height:12px;width:84px;background:linear-gradient(90deg,#0b111a,#131a27);border:1px solid #2d3f56;border-radius:8px}
+.handBox{margin-top:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px}
+.ribbon{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding:8px;border:1px dashed #263445;border-radius:12px;background:linear-gradient(180deg,#0b1114,#0a0f15)}
+.ribbon .card{width:180px;flex:0 0 auto}
+.cardActions{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.logBox{margin-top:10px}
+.log{height:220px;overflow:auto;background:#0b111a;border:1px solid #1c2a3a;border-radius:10px;padding:8px;font-size:12px}
+.frame{pointer-events:none}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hud">
+    <span class="pill">You ♥ <b id="hp">5</b></span>
+    <span class="pill">AI ♥ <b id="aiHp">5</b></span>
+    <span class="pill">⚡ <b id="ae">0</b></span>
+    <span class="pill">Deck <b id="deck">0</b></span>
+    <span class="pill">Discard <b id="disc">0</b></span>
+    <span class="pill">Glyphs <b id="glyphs">0</b></span>
+    <span class="pill" id="turnTag">Turn 1</span>
+    <span style="flex:1"></span>
+    <b class="small">Spellweaver:</b>&nbsp;<select id="swSelect"></select>
+    <button data-action="draw">Draw</button>
+    <button data-action="end">End Turn</button>
+    <button data-action="reset">Reset</button>
+  </div>
+
+  <div class="board">
+    <div class="panel">
+      <h3>Aetherflow</h3>
+      <div class="market" id="mRow"></div>
+    </div>
+
+    <div class="panel battle">
+      <div>
+        <div class="small" style="opacity:.8">Opponent</div>
+        <div class="rowSlots" id="aiSlots"></div>
+      </div>
+      <div>
+        <div class="small" style="opacity:.8">You</div>
+        <div class="rowSlots" id="slots"></div>
+        <div class="glyphs" id="glyphView"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="handBox">
+    <div class="small">Your Hand</div>
+    <div class="ribbon" id="hand"></div>
+  </div>
+
+  <div class="panel logBox">
+    <h3>Log</h3>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+function log(m){const el=document.getElementById('log');const t=new Date().toLocaleTimeString();el.innerHTML+=`<div><span style="color:#9ab">${t}</span> — ${m}</div>`;el.scrollTop=el.scrollHeight;}
+function uid(){return Math.random().toString(36).slice(2,9)}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function iconInstant(){return `<svg viewBox="0 0 24 24"><path fill="#a9d0ff" d="M13 2L3 14h6l-2 8 10-12h-6z"/></svg>`}
+function iconSpell(){return `<svg viewBox="0 0 24 24"><path fill="#d7b77a" d="M12 2l3 6 6 1-4 4 1 6-6-3-6 3 1-6-4-4 6-1z"/></svg>`}
+function iconGlyph(){return `<svg viewBox="0 0 24 24"><path fill="#e9a8a8" d="M12 2l10 10-10 10L2 12 12 2zM12 6l-6 6 6 6 6-6-6-6z"/></svg>`}
+function artSVG(s){
+  if(s==="white")return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="gw" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#a9d0ff"/><stop offset="1" stop-color="#6fa4ff"/></linearGradient></defs><g fill="none" stroke="url(#gw)" stroke-width="2" stroke-opacity=".8"><path d="M5,50 Q55,5 105,50 T205,50"/><circle cx="60" cy="30" r="8"/><circle cx="160" cy="26" r="6"/></g></svg>`;
+  if(s==="gray")return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#a3a7b3" stroke-width="2" stroke-opacity=".8"><path d="M10,40 L210,40"/><path d="M55,10 L55,50"/><path d="M170,10 L170,50"/><circle cx="110" cy="30" r="14"/></g></svg>`;
+  return `<svg viewBox="0 0 220 60" xmlns="http://www.w3.org/2000/svg"><g fill="none" stroke="#e9a8a8" stroke-width="2" stroke-opacity=".85"><path d="M5,46 Q110,6 215,46"/><path d="M110,10 L110,56"/><circle cx="110" cy="30" r="10"/></g></svg>`;
+}
+const SPELLWEAVERS={
+ "Seraya (Wardsinger)":{desc:"Trance at 3♥: prevent 1 dmg/round • at 1♥: +1⚡ when your glyph flips",
+   trance:[{hp:3,apply:s=>{s.flags.preventOnce=true;s.flags.preventAvailable=true;},label:"Ward online."},
+           {hp:1,apply:s=>{s.flags.glyphAether=true;},label:"+1⚡ on glyph flip."}]},
+ "Thalorin (Chronomancer)":{desc:"Trance at 4♥: once/turn free +1 advance • at 2♥: copy your Instants",
+   trance:[{hp:4,apply:s=>{s.flags.hasChrono=true;s.flags.chronoUsed=false;},label:"Chrono Step."},
+           {hp:2,apply:s=>{s.flags.copyInst=true;},label:"Instant Echo."}]},
+ "Kaelis (Aether Savant)":{desc:"Trance at 2♥: leftmost Flow -1 • at 1♥: free channel on buy",
+   trance:[{hp:2,apply:s=>{s.flags.leftDiscount=true;},label:"Leftmost Flow -1⚡."},
+           {hp:1,apply:s=>{s.flags.freeChannelOnBuy=true;},label:"Free channel on buy."}]},
+ "Zarik (Trickster)":{desc:"Trance at 3♥: once/turn Gamble • at 1♥: chance to deflect (not sim)",
+   trance:[{hp:3,apply:s=>{s.flags.trickOnce=true;s.flags.trickUsed=false;},label:"Gamble unlocked."},
+           {hp:1,apply:s=>{s.flags.trickCancel=true;},label:"Deflect (future)."}]}
+};
+const BASE=[
+ {id:null,n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
+ {id:null,n:"Spark",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg.",eff:"spark"},
+ {id:null,n:"Shield Flicker",t:"Instant",c:"white",v:1,txt:"Prevent 1 dmg this round.",eff:"shield"},
+ {id:null,n:"Channel Spark",t:"Utility",c:"gray",v:0,txt:"Self-discard: +1⚡.",eff:"chan_self"},
+ {id:null,n:"Minor Hex",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: foe discards 1 and loses 1⚡.",eff:"hex_plus"},
+ {id:null,n:"Emberbolt",t:"Spell",c:"black",v:1,p:3,txt:"After 3: deal 2 dmg.",eff:"ember"}
+];
+const FLOW=[
+ {n:"Accelerate",t:"Instant",c:"white",v:1,txt:"Advance one of your spells +1.",eff:"accel"},
+ {n:"Temporal Loop",t:"Spell",c:"white",v:2,p:2,txt:"After 2: replay your last Instant (or draw).",eff:"loop",rar:"Legendary"},
+ {n:"Chrono Barrier",t:"Glyph",c:"white",v:1,txt:"When targeted: negate spell/dmg.",eff:"g_barrier"},
+ {n:"Meditate",t:"Instant",c:"gray",v:0,txt:"Gain 1⚡ and draw 1.",eff:"med"},
+ {n:"Phase Swap",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: swap two of your spells.",eff:"swap"},
+ {n:"Stonewall",t:"Spell",c:"gray",v:1,p:2,txt:"After 2: opponent’s next Advance costs +1⚡.",eff:"tax"},
+ {n:"Mirror Ward",t:"Glyph",c:"gray",v:1,txt:"When you’d take dmg: reflect it.",eff:"g_mirror"},
+ {n:"Dark Bargain",t:"Spell",c:"black",v:2,p:3,txt:"After 3: deal 3 dmg; you lose 2♥.",eff:"bargain",rar:"Legendary"},
+ {n:"Venom Dart",t:"Instant",c:"black",v:1,txt:"Deal 1 dmg & foe discards 1.",eff:"venom"},
+ {n:"Seal of Binding",t:"Glyph",c:"black",v:1,txt:"On enemy spell play: cancel & block that slot until their next turn.",eff:"g_bind"},
+ {n:"Null Pulse",t:"Instant",c:"white",v:1,txt:"Counter: cancel a resolving spell.",eff:"counter"}
+];
+let S={};
+function makeDeck(){return shuf(BASE.map(x=>Object.assign({id:uid()},x)))}
+function makeFlow(){return shuf(FLOW.map(x=>Object.assign({id:uid()},x)))}
+
+function reset(swName){
+  const name=swName||document.getElementById('swSelect').value||Object.keys(SPELLWEAVERS)[0];
+  S={sw:name,hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
+     ai:{hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],lastInstant:null,taxes:0,blockedSlots:[]},
+     flowDeck:makeFlow(),flowRow:[null,null,null,null,null],
+     flags:{preventOnce:false,preventAvailable:false,glyphAether:false,hasChrono:false,copyInst:false,leftDiscount:false,freeChannelOnBuy:false,trickOnce:false,trickUsed:false},
+     lastInstant:null,turn:1,tranceHit:{},taxes:0,blockedSlots:[]};
+  for(let i=0;i<5;i++){draw();aiDraw()}
+  slideFlow(true); render(); log(`New game — Spellweaver: ${S.sw}.`);
+}
+
+function firstEmptySlot(){return S.slots.findIndex((x,i)=>!x && !S.blockedSlots.includes(i));}
+
+/* ==== INDEX-BASED actions (no ids) ==== */
+function draw(){ if(!S.deck.length){ if(!S.disc.length){log("No cards to draw.");return} S.deck=shuf(S.disc);S.disc=[];log("You reshuffle.") } S.hand.push(S.deck.pop()); render(); }
+function playAt(i){
+  const c=S.hand[i]; if(!c){log("Play: card not found."); return;}
+  if(c.t==="Spell"){
+    const s=firstEmptySlot(); if(s<0){log("No available slot (or blocked)."); return;}
+    S.hand.splice(i,1); S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`);
+  }else if(c.t==="Glyph"){
+    S.hand.splice(i,1); S.glyphs.push(c); log("You set a Glyph face-down.");
+  }else{
+    S.hand.splice(i,1); runInstant("you",c); S.disc.push(c); if(S.flags.copyInst){log("Instant Echo: repeats."); runInstant("you",c);} S.lastInstant=c;
+  }
+  render();
+}
+function channelAt(i){
+  const c=S.hand[i]; if(!c){log("Channel: card not found."); return;}
+  const g=c.v||0; S.ae+=g; S.disc.push(c); S.hand.splice(i,1); log(`Channel ${c.n} (+${g}⚡)`); render();
+}
+function channelSelfAt(i){
+  const c=S.hand[i]; if(!c){log("Channel: card not found."); return;}
+  S.ae+=1; S.disc.push(c); S.hand.splice(i,1); log("Channel Spark (+1⚡)"); render();
+}
+function advance(i){
+  const s=S.slots[i]; if(!s) return;
+  const cost=1+(S.taxes||0); if(s.advUsed){log("That spell already advanced this turn.");return}
+  if(S.ae<cost){log(`Need ${cost}⚡ to advance.`);return}
+  S.ae-=cost; s.ph+=1; s.advUsed=true;
+  if(s.ph>=(s.c.p||99)) resolvePlayer(i);
+  if(S.taxes>0) S.taxes=0;
+  render();
+}
+
+/* Effects */
+function runInstant(who,c){
+  switch(c.eff){
+    case "spark": (who==="you")?damageAI(1):damageYou(1); break;
+    case "shield": if(who==="you"){S.flags.preventAvailable=true;log("Shield Flicker: prevent 1 this round.");} break;
+    case "chan_self": if(who==="you"){S.ae+=1;log("+1⚡ (Channel Spark).")}break;
+    case "accel":
+      if(who==="you"){const idx=S.slots.findIndex(s=>s&&!s.advUsed); if(idx<0){log("No eligible spell.");break}
+        S.slots[idx].ph=Math.min(S.slots[idx].c.p,S.slots[idx].ph+1);S.slots[idx].advUsed=true;log("Accelerate: +1 phase."); if(S.slots[idx].ph===S.slots[idx].c.p) resolvePlayer(idx);}
+      break;
+    case "med": if(who==="you"){S.ae+=1;draw();log("Meditate: +1⚡ & draw 1.")} else {S.ai.ae+=1;aiDraw();log("AI meditates.")} break;
+    case "venom": (who==="you")?(damageAI(1),log("AI discards 1 (sim).")):(damageYou(1),log("You discard 1 (sim).")); break;
+    case "counter": log((who==="you")?"Null Pulse readied.":"AI holds a counter."); break;
+  }
+}
+function runResolve(who,c){
+  switch(c.eff){
+    case "hex_plus":
+      if(who==="you"){ if(consumeBarrier(S.ai)) break; log("Minor Hex+: AI discards 1 and loses 1⚡ (sim)."); S.ai.ae=Math.max(0,S.ai.ae-1); }
+      else { if(consumeBarrier(S)) break; log("AI Hex+: you discard 1 and lose 1⚡ (sim)."); S.ae=Math.max(0,S.ae-1); }
+      break;
+    case "ember": (who==="you")?damageAI(2):damageYou(2); break;
+    case "swap": log(who==="you")?"Phase Swap (abstract).":"AI swaps (no-op)."; break;
+    case "loop": if(who==="you"){ if(S.lastInstant){ log(`Temporal Loop replays ${S.lastInstant.n}.`); runInstant("you",S.lastInstant);} else {draw();log("Loop draws 1 (no instant).")} } break;
+    case "tax": if(who==="you"){S.ai.taxes=(S.ai.taxes||0)+1;log("Stonewall: AI next advance +1⚡.")} else {S.taxes=(S.taxes||0)+1;log("AI Stonewall: your next advance +1⚡.")} break;
+    case "bargain": if(who==="you"){damageAI(3);S.hp=Math.max(0,S.hp-2);log("Dark Bargain recoil: -2♥")} else {damageYou(3);S.ai.hp=Math.max(0,S.ai.hp-2);log("AI recoil -2♥")} break;
+  }
+}
+function consumeBarrier(t){const i=t.glyphs.findIndex(g=>g.eff==="g_barrier");if(i>-1){t.glyphs.splice(i,1);log(t===S?"Your Chrono Barrier negates it.":"AI's Chrono Barrier negates it.");return true}return false}
+function damageYou(n){
+  const m=S.glyphs.findIndex(g=>g.eff==="g_mirror");
+  if(m>-1&&n>0){S.glyphs.splice(m,1);log("Mirror Ward reflects!"); if(S.flags.glyphAether){S.ae+=1;log("+1⚡ (glyph flip).")} damageAI(n); return}
+  if(consumeBarrier(S)){ if(S.flags.glyphAether){S.ae+=1;log("+1⚡ (glyph flip).")} return}
+  let d=n; if(S.flags.preventAvailable){ d=Math.max(0,d-1); S.flags.preventAvailable=false; log("Ward prevents 1.") }
+  if(d>0){S.hp=Math.max(0,S.hp-d);log(`You take ${d} damage.`); applyTranceIfEligible()}
+}
+function damageAI(n){
+  const m=S.ai.glyphs.findIndex(g=>g.eff==="g_mirror");
+  if(m>-1&&n>0){S.ai.glyphs.splice(m,1);log("AI Mirror Ward reflects!"); damageYou(n); return}
+  if(consumeBarrier(S.ai)) return;
+  S.ai.hp=Math.max(0,S.ai.hp-n); log(`AI takes ${n} damage.`);
+}
+function applyTranceIfEligible(){
+  const spec=SPELLWEAVERS[S.sw]; let fired=[];
+  spec.trance.forEach(step=>{ if(S.hp<=step.hp && !S.tranceHit[step.hp]){ step.apply(S); S.tranceHit[step.hp]=true; fired.push(`${step.hp}♥: ${step.label}`) } });
+  if(fired.length){ log(`Trance — ${fired.join(" ")}`) }
+  if(S.flags.preventOnce) S.flags.preventAvailable=true;
+  render();
+}
+
+/* Aetherflow + AI + turns */
+function flowCostAt(i){const band=[4,3,2,2,2];let cost=band[i];if(i===0&&S.flags.leftDiscount)cost=Math.max(1,cost-1);return cost}
+function slideFlow(initial=false){S.flowRow=[null,...S.flowRow.slice(0,4)];const next=S.flowDeck.pop();S.flowRow[0]=next||null;if(!initial)render()}
+function buy(i){const card=S.flowRow[i];if(!card){log("Empty.");return}const cost=flowCostAt(i);if(S.ae<cost){log("Not enough ⚡.");return}S.ae-=cost;if(card.t==="Glyph"){S.glyphs.push(card);log(`You learn ${card.n} and set it.`)}else{S.disc.push(card);log(`You learn ${card.n}; it will shuffle in.`)}S.flowRow[i]=null;render()}
+function aiDraw(){if(!S.ai.deck.length){if(S.ai.disc.length){S.ai.deck=shuf(S.ai.disc);S.ai.disc=[];log("AI reshuffles.")}else return}S.ai.hand.push(S.ai.deck.pop())}
+function aiTurn(){log("— AI Turn —");aiDraw();const gIdx=S.ai.hand.findIndex(c=>c.t==="Glyph");if(gIdx>-1&&Math.random()<0.6){const g=S.ai.hand.splice(gIdx,1)[0];S.ai.glyphs.push(g);log("AI sets a Glyph.")}const empty=S.ai.slots.findIndex(x=>!x);if(empty>-1){let idx=S.ai.hand.findIndex(c=>c.t==="Spell"&&c.n==="Emberbolt");if(idx===-1)idx=S.ai.hand.findIndex(c=>c.t==="Spell");if(idx>-1){const card=S.ai.hand.splice(idx,1)[0];S.ai.slots[empty]={c:card,ph:1,advUsed:false};log(`AI plays ${card.n}.`)}}const med=S.ai.hand.findIndex(c=>c.eff==="med");if(med>-1&&Math.random()<0.6){const c=S.ai.hand.splice(med,1)[0];runInstant("ai",c);S.ai.disc.push(c)}const sp=S.ai.hand.findIndex(c=>c.eff==="spark");if(sp>-1&&Math.random()<0.33){const c=S.ai.hand.splice(sp,1)[0];runInstant("ai",c);S.ai.disc.push(c)}const act=S.ai.slots.findIndex(s=>s&&!s.advUsed);if(act>-1){if(S.ai.ae>=1+(S.ai.taxes||0)){S.ai.ae-=1+(S.ai.taxes||0);S.ai.slots[act].ph+=1;S.ai.slots[act].advUsed=true;if(S.ai.taxes>0)S.ai.taxes=0;if(S.ai.slots[act].ph>=S.ai.slots[act].c.p)aiResolve(act);log("AI advances a spell.")}}for(let i=4;i>=0;i--){const c=S.flowRow[i];const cost=flowCostAt(i);if(c&&cost<=S.ai.ae){S.ai.ae-=cost;if(c.t==="Glyph"){S.ai.glyphs.push(c)}else{S.ai.disc.push(c)}S.flowRow[i]=null;log("AI learns a card.");break}}S.ai.slots.forEach(s=>{if(s)s.advUsed=false});render();log("AI ends turn.")}
+function aiResolve(i){const s=S.ai.slots[i];if(!s)return;runResolve("ai",s.c);S.ai.disc.push(s.c);S.ai.slots[i]=null;}
+function endTurn(){if(S.flags.preventOnce)S.flags.preventAvailable=true;S.slots.forEach(s=>{if(s)s.advUsed=false});slideFlow();S.turn+=1;render();log("You end your turn.");setTimeout(aiTurn,320)}
+
+/* Render */
+function schoolFrame(){return `<svg viewBox='0 0 100 140' class='frame' style='position:absolute;inset:6px;opacity:.6' preserveAspectRatio='none'><g fill='none' stroke-width='1.2'><path d='M3 18 L3 6 L18 6'/><path d='M82 6 L97 6 L97 18'/><path d='M3 122 L3 134 L18 134'/><path d='M82 134 L97 134 L97 122'/><circle cx='50' cy='10' r='3'/><circle cx='50' cy='130' r='3'/></g></svg>`}
+function cardTypeIcon(t){if(t==="Instant")return iconInstant();if(t==="Spell")return iconSpell();if(t==="Glyph")return iconGlyph();return iconInstant()}
+function tagRow(c){const v=(c.v||0);return `<span class='tag ${c.c}'>${c.c.toUpperCase()}</span><span class='tag'>${c.t}</span><span class='tag' title='Channel value'>⚡${v}</span><span class="badges"><span class="badge" title="${c.t}">${cardTypeIcon(c.t)}</span><span class="badge" title="Aether"><svg viewBox="0 0 24 24"><path fill="#ffd166" d="M13 2L5 14h5l-2 8 8-12h-5z"/></svg><b style="font-size:10px"> ${v}</b></span></span>`}
+function render(){
+  hp.textContent=S.hp;aiHp.textContent=S.ai.hp;ae.textContent=S.ae;deck.textContent=S.deck.length;disc.textContent=S.disc.length;glyphs.textContent=S.glyphs.length;turnTag.textContent=`Turn ${S.turn}`;
+  const sel=document.getElementById('swSelect');
+  if(!sel.dataset.ready){Object.keys(SPELLWEAVERS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o)});sel.dataset.ready=1;sel.value=S.sw;sel.addEventListener('change',e=>reset(e.target.value))}else sel.value=S.sw;
+
+  mRow.innerHTML="";
+  S.flowRow.forEach((c,idx)=>{
+    const w=document.createElement('div'); w.className=`card ${c?c.c:''}`;
+    if(!c){w.innerHTML="<div class='smallmuted'>— empty —</div>";mRow.appendChild(w);return}
+    w.innerHTML=`${schoolFrame()}<div class="header"><div class='name'>${c.n}</div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='smallmuted'>${c.txt}</div>`;
+    const b=document.createElement('button'); b.textContent=`Learn (${flowCostAt(idx)}⚡)`; b.dataset.action="buy"; b.dataset.index=idx; w.appendChild(b);
+    mRow.appendChild(w);
+  });
+
+  aiSlots.innerHTML="";
+  S.ai.slots.forEach((s,i)=>{
+    const div=document.createElement('div'); div.className='slot inlineCard';
+    if(s){div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class="header"><div class='name'>${s.c.n}</div>${tagRow(s.c)}</div><div class='art'>${artSVG(s.c.c)}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`}
+    else{div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`}
+    aiSlots.appendChild(div);
+  });
+
+  slots.innerHTML="";
+  S.slots.forEach((s,i)=>{
+    const div=document.createElement('div'); div.className='slot inlineCard';
+    if(s){
+      div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='card ${s.c.c}'>${schoolFrame()}<div class="header"><div class='name'>${s.c.n}</div>${tagRow(s.c)}</div><div class='art'>${artSVG(s.c.c)}</div><div class='smallmuted'>Phase ${s.ph}/${s.c.p}</div></div>`;
+      const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:""}⚡)`; b.dataset.action="advance"; b.dataset.slot=i; b.disabled=s.advUsed; div.appendChild(b);
+    }else{div.innerHTML=`<div class='cap'>Slot ${i+1}</div><div class='smallmuted'>Empty</div>`}
+    slots.appendChild(div);
+  });
+
+  glyphView.innerHTML=S.glyphs.length?S.glyphs.map(_=>'<div class="glyph"></div>').join(''):'<span class="smallmuted">No glyphs set.</span>';
+
+  const handEl=document.getElementById('hand'); handEl.innerHTML="";
+  S.hand.forEach((c,i)=>{
+    const card=document.createElement('div'); card.className=`card ${c.c}`; card.dataset.index=i;
+    card.innerHTML=`${schoolFrame()}<div class="header"><div class='name'>${c.n}</div>${tagRow(c)}</div><div class='art'>${artSVG(c.c)}</div><div class='smallmuted'>${c.txt}</div>`;
+    const actions=document.createElement('div'); actions.className='cardActions';
+    const p=document.createElement('button'); p.textContent=(c.t==="Spell"?"Play to Slot":(c.t==="Glyph"?"Set Glyph":"Play")); p.dataset.action="play"; p.dataset.index=i;
+    const ch=document.createElement('button'); ch.textContent=c.eff==="chan_self"?"Channel (+1)":`Channel (+${c.v||0})`; ch.dataset.action=c.eff==="chan_self"?"channelSelf":"channel"; ch.dataset.index=i;
+    actions.appendChild(p);actions.appendChild(ch);card.appendChild(actions);
+    handEl.appendChild(card);
+  });
+}
+
+/* Delegated clicks (index-based) */
+document.addEventListener('click',e=>{
+  const b=e.target.closest('button,[data-action]'); if(!b) return;
+  const a=b.dataset.action; const idx= b.dataset.index ?? b.closest('.card')?.dataset.index;
+  if(a==="draw"){draw();return}
+  if(a==="end"){endTurn();return}
+  if(a==="reset"){reset(S.sw);return}
+  if(a==="buy"){buy(parseInt(b.dataset.index,10));return}
+  if(a==="advance"){advance(parseInt(b.dataset.slot,10));return}
+  if(a==="play"){playAt(parseInt(idx,10));return}
+  if(a==="channel"){channelAt(parseInt(idx,10));return}
+  if(a==="channelSelf"){channelSelfAt(parseInt(idx,10));return}
+});
+
+/* Resolve helpers and init */
+function resolvePlayer(i){const s=S.slots[i];if(!s)return;runResolve("you",s.c);S.disc.push(s.c);S.slots[i]=null;render();}
+function aiResolve(i){const s=S.ai.slots[i];if(!s)return;runResolve("ai",s.c);S.ai.disc.push(s.c);S.ai.slots[i]=null;}
+(function init(){const sel=document.getElementById('swSelect');Object.keys(SPELLWEAVERS).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o)});sel.addEventListener('change',e=>reset(e.target.value));sel.value=Object.keys(SPELLWEAVERS)[0];reset(sel.value);})();
+</script>
+</body>
+</html>
