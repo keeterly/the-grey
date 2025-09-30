@@ -274,6 +274,20 @@ const slots     = document.getElementById('slots');
 const aiSlots   = document.getElementById('aiSlots');
 const glyphView = document.getElementById('glyphView');
 const turnTag   = document.getElementById('turnTag');
+
+// Update the selected Spellweaver and reset trance state.
+function setSpellweaver(name) {
+  // Update current Spellweaver in state
+  S.sw = name;
+  // Update description in HUD
+  swDesc.textContent = SPELLWEAVERS[name].desc;
+  // Clear any previously activated trance thresholds
+  S.tranceHit = {};
+  // Apply trance abilities that match your current HP
+  applyTranceIfEligible();
+  // Re-render the UI to reflect the change
+  render();
+}
   
 /* Core */
 function reset(swName){
