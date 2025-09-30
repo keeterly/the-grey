@@ -1,4 +1,4 @@
-  <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -249,6 +249,30 @@ function shuf(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random(
 function makeDeck(){ return shuf(BASE.map(x=>Object.assign({id:uid()},x))); }
 function makeFlow(){ return shuf(FLOW.map(x=>Object.assign({id:uid()},x))); }
 function log(m){ const el=document.getElementById('log'); const t=new Date().toLocaleTimeString(); el.innerHTML+=`<div><span class="muted">${t}</span> — ${m}</div>`; el.scrollTop=el.scrollHeight; }
+
+// Cache frequently used DOM elements once after the page loads. Without these
+// declarations the script will throw reference errors because variables such
+// as `hp`, `aiHp`, `drawBtn`, etc. would be undefined. Defining them here
+// ensures that subsequent functions can update the UI correctly.
+const hp        = document.getElementById('hp');
+const aiHp      = document.getElementById('aiHp');
+const ae        = document.getElementById('ae');
+const deck      = document.getElementById('deck');
+const disc      = document.getElementById('disc');
+const glyphs    = document.getElementById('glyphs');
+const swDesc    = document.getElementById('swDesc');
+const tranceNote= document.getElementById('tranceNote');
+const drawBtn   = document.getElementById('drawBtn');
+const endBtn    = document.getElementById('endBtn');
+const resetBtn  = document.getElementById('resetBtn');
+const chronoBtn = document.getElementById('chronoBtn');
+const trickBtn  = document.getElementById('trickBtn');
+const mCosts    = document.getElementById('mCosts');
+const mRow      = document.getElementById('mRow');
+const hand      = document.getElementById('hand');
+const slots     = document.getElementById('slots');
+const aiSlots   = document.getElementById('aiSlots');
+const glyphView = document.getElementById('glyphView');
 
 /* Core */
 function reset(swName){
