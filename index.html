@@ -273,22 +273,7 @@ const hand      = document.getElementById('hand');
 const slots     = document.getElementById('slots');
 const aiSlots   = document.getElementById('aiSlots');
 const glyphView = document.getElementById('glyphView');
-const turnTag   = document.getElementById('turnTag');
 
-// Update the selected Spellweaver and reset trance state.
-function setSpellweaver(name) {
-  // Update current Spellweaver in state
-  S.sw = name;
-  // Update description in HUD
-  swDesc.textContent = SPELLWEAVERS[name].desc;
-  // Clear any previously activated trance thresholds
-  S.tranceHit = {};
-  // Apply trance abilities that match your current HP
-  applyTranceIfEligible();
-  // Re-render the UI to reflect the change
-  render();
-}
-  
 /* Core */
 function reset(swName){
   const name = swName || document.getElementById('swSelect').value || Object.keys(SPELLWEAVERS)[0];
@@ -652,7 +637,14 @@ function render(){
           <div class="art ${cc}" style="height:68px">${artSVG(cc)}</div>
           <div class="name">${s.c.n}</div><div class="smallmuted">Phase ${s.ph}/${s.c.p}</div>
         </div>`;
-      const b=document.createElement('button'); b.textContent=`Advance (1${S.taxes?`+${S.taxes}`:"")⚡)`;
+      // Use string concatenation in the advance button label to avoid nested
+      // template literals inside another template string. The previous
+      // implementation used a backtick inside a backtick template which
+      // caused a syntax error in some browsers. Here we construct the
+      // label by concatenating strings and values explicitly.
+      const b=document.createElement('button');
+      const taxLabel = S.taxes ? '+' + S.taxes : '';
+      b.textContent = `Advance (1${taxLabel}⚡)`;
       bindTap(b,()=>{ if(S.taxes>0){ S.taxes=0; } advance(i); });
       b.disabled = s.advUsed;
       div.appendChild(b);
