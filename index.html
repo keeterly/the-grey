@@ -3,9 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Grey – Ribbon Hand (Fixed Preview/Drag)</title>
+<title>The Grey – Ribbon UX Final</title>
 <style>
-  :root{
+  :root {
     --card-w: 140px;
     --card-h: 200px;
     --card-radius: 14px;
@@ -15,251 +15,142 @@
     --ring: 2px;
     --transition: 140ms ease;
   }
-  body{ margin:0; background:#0f1013; color:#e9e9ef; font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; display:flex; flex-direction:column; min-height:100dvh; }
-  header{ padding:16px 20px; border-bottom:1px solid #1d1f25; display:flex; align-items:center; gap:12px; }
-  header h1{ font-size:16px; margin:0; font-weight:600; opacity:.9 }
+  body {
+    margin:0; background:#0f1013; color:#e9e9ef;
+    font-family:system-ui, sans-serif;
+    display:flex; flex-direction:column; min-height:100dvh;
+  }
+  header {padding:16px 20px; border-bottom:1px solid #1d1f25;}
+  header h1 {font-size:16px; margin:0; font-weight:600; opacity:.9}
 
-  .ribbon-wrap{ position:fixed; left:0; right:0; bottom:0; padding:14px 10px 22px; background:linear-gradient(180deg, rgba(15,16,19,0) 0%, rgba(15,16,19,.85) 40%, rgba(15,16,19,1) 100%); backdrop-filter:saturate(1.1) blur(4px); border-top:1px solid #1d1f25; z-index:40; }
-  .ribbon{ position:relative; height:calc(var(--card-h) + 20px); display:flex; align-items:flex-end; justify-content:center; touch-action:pan-x; user-select:none; overflow-x:auto; scrollbar-width:none; gap:0; }
-  .ribbon::-webkit-scrollbar{ display:none }
+  .ribbon-wrap {position:fixed; left:0; right:0; bottom:0;
+    padding:14px 10px 22px;
+    background:linear-gradient(180deg, rgba(15,16,19,0) 0%, rgba(15,16,19,.85) 40%, rgba(15,16,19,1) 100%);
+    backdrop-filter:saturate(1.1) blur(4px); border-top:1px solid #1d1f25; z-index:40;}
+  .ribbon {position:relative; height:calc(var(--card-h) + 20px);
+    display:flex; align-items:flex-end; justify-content:center;
+    touch-action:pan-x; overflow-x:auto; scrollbar-width:none; gap:0;}
+  .ribbon::-webkit-scrollbar{display:none}
 
-  .card{ position:relative; width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius); background:#1a1d24; box-shadow:0 6px 18px rgba(0,0,0,.35); border:1px solid #2a2f3a; display:flex; flex-direction:column; overflow:hidden; transform-origin:bottom center; transition:transform var(--transition), filter var(--transition), box-shadow var(--transition); outline:none; }
-  .card:focus-visible{ box-shadow:0 0 0 var(--ring) #7aa2ff, 0 6px 18px rgba(0,0,0,.35); }
-  .card-header{ padding:8px 10px 6px; font-size:12px; font-weight:700; letter-spacing:.02em; background:linear-gradient(180deg,#242a36,#1b202a); border-bottom:1px solid #2b3140; }
-  .card-art{ flex:1; display:flex; align-items:center; justify-content:center; font-size:12px; opacity:.85; background:
-      radial-gradient(60% 80% at 50% 20%, rgba(255,255,255,.06), rgba(255,255,255,0) 70%),
-      linear-gradient(180deg, #12141a, #0f1217); }
-  .card-footer{ padding:8px 10px; font-size:11px; opacity:.75; border-top:1px solid #232836; background:#151821; }
+  .card {
+    position:relative; width:var(--card-w); height:var(--card-h);
+    border-radius:var(--card-radius); background:#1a1d24;
+    box-shadow:0 6px 18px rgba(0,0,0,.35); border:1px solid #2a2f3a;
+    display:flex; flex-direction:column; overflow:hidden;
+    transform-origin:bottom center;
+    transition:transform var(--transition), filter var(--transition), box-shadow var(--transition);
+    outline:none;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+  }
+  .card * { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  body.no-select, body.no-select * { -webkit-user-select:none!important; user-select:none!important; }
 
-  .ribbon.expanded .card{ transition:transform var(--transition); }
-  .card.is-focused{ transform:translateY(calc(-1 * var(--fan-lift))) scale(1.04) translateX(var(--dx, 0px)); z-index:5; filter:saturate(1.08); }
-  .card.is-left, .card.is-right{ z-index:4; transform:translateY(-8px) translateX(var(--dx, 0px)); }
-  @media (hover:hover){ .card:hover{ filter:brightness(1.06); } }
+  .card-header{padding:8px 10px 6px; font-size:12px; font-weight:700; background:#242a36; border-bottom:1px solid #2b3140;}
+  .card-art{flex:1; display:flex; align-items:center; justify-content:center; font-size:12px; opacity:.85;}
+  .card-footer{padding:8px 10px; font-size:11px; opacity:.75; border-top:1px solid #232836; background:#151821;}
 
-  /* PREVIEW: now non-interactive so it never blocks drags/clicks */
-  .preview{
-    position:absolute; left:50%; transform:translateX(-50%);
-    bottom:calc(100% + 12px);
-    min-width:min(540px, 92vw); max-width:92vw;
+  .card.is-focused{transform:translateY(calc(-1*var(--fan-lift))) scale(1.04) translateX(var(--dx,0px)); z-index:5;}
+  .card.is-left,.card.is-right{z-index:4; transform:translateY(-8px) translateX(var(--dx,0px));}
+  @media (hover:hover){.card:hover{filter:brightness(1.06);}}
+
+  .preview {
+    position:absolute; left:50%; bottom:calc(100% + 12px);
+    min-width:min(540px,92vw); max-width:92vw;
     padding:12px 14px; border-radius:12px; background:#12141a; border:1px solid #2a2f3a;
     box-shadow:0 12px 28px rgba(0,0,0,.45);
-    display:none; z-index:50;
-    pointer-events:none; /* <-- key fix */
+    display:none; z-index:50; pointer-events:none;
   }
-  .preview.visible{ display:block; }
-  .preview h3{ margin:0 0 6px; font-size:14px; font-weight:700; }
-  .preview p{ margin:0; font-size:12px; line-height:1.4; opacity:.9; }
+  .preview.visible{display:block;}
+  .preview h3{margin:0 0 6px; font-size:14px; font-weight:700;}
+  .preview p{margin:0; font-size:12px; line-height:1.4; opacity:.9;}
 
-  .board{ flex:1; padding:20px; display:grid; gap:14px; grid-template-columns:repeat(3, minmax(200px, 1fr)); align-content:start; }
-  .slot{ min-height:120px; border:2px dashed #2d3342; border-radius:12px; display:flex; align-items:center; justify-content:center; opacity:.9; }
-  .slot.is-hot{ border-color:#7aa2ff; background:rgba(122,162,255,.05); }
-  .slot p{ opacity:.7; font-size:13px; margin:18px; }
+  .board{flex:1; padding:20px; display:grid; gap:14px; grid-template-columns:repeat(3,minmax(200px,1fr));}
+  .slot{min-height:120px; border:2px dashed #2d3342; border-radius:12px; display:flex; align-items:center; justify-content:center;}
+  .slot.is-hot{border-color:#7aa2ff; background:rgba(122,162,255,.05);}
 </style>
 </head>
 <body>
-  <header><h1>Spell Board – Ribbon UX</h1></header>
+<header><h1>Spell Board – Ribbon UX</h1></header>
+<main class="board" id="board">
+  <div class="slot" data-slot="1"><p>Slot 1</p></div>
+  <div class="slot" data-slot="2"><p>Slot 2</p></div>
+  <div class="slot" data-slot="3"><p>Slot 3</p></div>
+</main>
 
-  <main class="board" id="board">
-    <div class="slot" data-slot="1"><p>Spell Slot 1</p></div>
-    <div class="slot" data-slot="2"><p>Spell Slot 2</p></div>
-    <div class="slot" data-slot="3"><p>Spell Slot 3</p></div>
-  </main>
-
-  <section class="ribbon-wrap" aria-label="Your hand">
-    <div class="preview" id="preview" role="dialog" aria-live="polite" aria-label="Card Preview"></div>
-
-    <div class="ribbon" id="ribbon" aria-label="Card ribbon" tabindex="-1">
-      <!-- Sample cards -->
-      <button class="card" data-id="c1"><div class="card-header">Flame Lash</div><div class="card-art">🔥 Fire • Cost 2</div><div class="card-footer">Deal 3 dmg. If channeled, deal 5 instead.</div></button>
-      <button class="card" data-id="c2"><div class="card-header">Glacial Ward</div><div class="card-art">❄️ Ice • Cost 1</div><div class="card-footer">Gain 4 shield. Next hit slowed.</div></button>
-      <button class="card" data-id="c3"><div class="card-header">Chain Spark</div><div class="card-art">⚡ Storm • Cost 2</div><div class="card-footer">Deal 2 to 3 targets. Forks on crit.</div></button>
-      <button class="card" data-id="c4"><div class="card-header">Verdant Bloom</div><div class="card-art">🌿 Nature • Cost 1</div><div class="card-footer">Heal 3. If over-heal, grow a seed.</div></button>
-      <button class="card" data-id="c5"><div class="card-header">Astral Step</div><div class="card-art">🌌 Arcane • Cost 0</div><div class="card-footer">Evade next attack. Draw a card.</div></button>
-    </div>
-  </section>
+<section class="ribbon-wrap">
+  <div class="preview" id="preview"></div>
+  <div class="ribbon" id="ribbon">
+    <button class="card"><div class="card-header">Flame Lash</div><div class="card-art">🔥 Fire • Cost 2</div><div class="card-footer">Deal 3 dmg.</div></button>
+    <button class="card"><div class="card-header">Glacial Ward</div><div class="card-art">❄️ Ice • Cost 1</div><div class="card-footer">Gain 4 shield.</div></button>
+    <button class="card"><div class="card-header">Chain Spark</div><div class="card-art">⚡ Storm • Cost 2</div><div class="card-footer">Hit 3 targets.</div></button>
+  </div>
+</section>
 
 <script>
 (function(){
-  const ribbon  = document.getElementById('ribbon');
-  const cards   = Array.from(ribbon.querySelectorAll('.card'));
-  const preview = document.getElementById('preview');
-  const board   = document.getElementById('board');
-  const slots   = Array.from(board.querySelectorAll('.slot'));
+  const ribbon=document.getElementById('ribbon');
+  const cards=[...ribbon.querySelectorAll('.card')];
+  const preview=document.getElementById('preview');
+  const slots=[...document.querySelectorAll('.slot')];
+  let focusIndex=-1, baseOverlap=-90;
+  let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null;
 
-  let focusIndex = -1;
-  let baseOverlap = -90;
-
-  // drag/preview state
-  let isPointerDown = false;
-  let isDragging = false;
-  let dragGhost = null;
-  let dragFromIndex = -1;
-  let longPressTimer = null;
-
-  function layoutStack(){
-    const n = cards.length;
-    const minOverlap = -40, maxOverlap = -92;
-    const t = Math.min(1, Math.max(0, (n - 4) / 8));
-    baseOverlap = Math.round(maxOverlap + (minOverlap - maxOverlap) * Math.max(0, 1 - t));
-
-    const totalWidth = (n>0) ? ((n-1)*(-baseOverlap) + parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w'))) : 0;
-    const containerW = ribbon.clientWidth;
-    const startX = Math.max(10, (containerW - totalWidth) / 2);
-
-    cards.forEach((card, i) => {
-      const x = startX + i * (-baseOverlap);
-      card.style.transform = `translateX(${x}px)`;
-      card.style.setProperty('--dx','0px');
-      card.style.zIndex = i + 1;
-      card.dataset.index = i;
-    });
+  function layout(){
+    const n=cards.length,minO=-40,maxO=-92;
+    const t=Math.min(1,Math.max(0,(n-4)/8));
+    baseOverlap=Math.round(maxO+(minO-maxO)*Math.max(0,1-t));
+    const total=(n>0)?((n-1)*(-baseOverlap)+140):0;
+    const start=Math.max(10,(ribbon.clientWidth-total)/2);
+    cards.forEach((c,i)=>{c.style.transform=`translateX(${start+i*(-baseOverlap)}px)`;c.dataset.index=i;});
   }
-
-  function getSpread(){
-    const base = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--fan-spread'));
-    const scale = Math.max(0.8, Math.min(1.2, (Math.abs(baseOverlap) / 80)));
-    return Math.round(base * scale);
-  }
-
+  function spread(){return 36;}
   function applyFan(){
-    ribbon.classList.toggle('expanded', focusIndex >= 0);
-    cards.forEach((card, i) => {
-      const d = i - focusIndex;
-      card.classList.remove('is-focused','is-left','is-right');
-      if (focusIndex < 0){ card.style.setProperty('--dx','0px'); return; }
-      if (d === 0){
-        card.classList.add('is-focused'); card.style.setProperty('--dx','0px');
-      } else if (d === -1 || d === -2){
-        card.classList.add('is-left'); card.style.setProperty('--dx', `${-Math.abs((3 - Math.abs(d)) * getSpread())}px`);
-      } else if (d === 1 || d === 2){
-        card.classList.add('is-right'); card.style.setProperty('--dx', `${(3 - Math.abs(d)) * getSpread()}px`);
-      } else {
-        card.style.setProperty('--dx','0px');
-      }
+    cards.forEach((c,i)=>{
+      const d=i-focusIndex;c.classList.remove('is-focused','is-left','is-right');
+      if(focusIndex<0)return;
+      if(d===0)c.classList.add('is-focused');
+      if(Math.abs(d)===1||Math.abs(d)===2){c.classList.add(d<0?'is-left':'is-right');c.style.setProperty('--dx',`${(d<0?-1:1)*spread()}px`);}
     });
   }
+  function showPrev(i){if(i<0)return;const c=cards[i];preview.innerHTML=`<h3>${c.querySelector('.card-header').textContent}</h3><p>${c.querySelector('.card-footer').textContent}</p>`;preview.classList.add('visible');}
+  function hidePrev(){preview.classList.remove('visible');}
+  function focusCard(i){focusIndex=i;applyFan();}
+  function clearFocus(){focusIndex=-1;applyFan();hidePrev();}
 
-  function showPreview(i){
-    if (i < 0 || i >= cards.length){ hidePreview(); return; }
-    const card = cards[i];
-    const title = card.querySelector('.card-header')?.textContent?.trim() || 'Card';
-    const footer = card.querySelector('.card-footer')?.textContent?.trim() || '';
-    const art   = card.querySelector('.card-art')?.textContent?.trim() || '';
-    preview.innerHTML = `<h3>${title}</h3><p><strong>${art}</strong></p><p>${footer}</p>`;
-    preview.classList.add('visible');
+  // prevent native drag/select
+  cards.forEach(c=>c.addEventListener('dragstart',e=>e.preventDefault()));
+  document.addEventListener('selectstart',e=>{if(isDragging||isPointerDown)e.preventDefault();});
 
-    // keep centered over focused card
-    const cardRect = card.getBoundingClientRect();
-    const ribRect  = ribbon.getBoundingClientRect();
-    const centerX  = cardRect.left + cardRect.width/2;
-    const left     = Math.min(ribRect.right - 16, Math.max(ribRect.left + 16, centerX));
-    const offset   = left - (ribRect.left + ribRect.width/2);
-    preview.style.transform = `translateX(calc(-50% + ${offset}px))`;
-  }
-  function hidePreview(){ preview.classList.remove('visible'); }
-
-  function focusCard(i, opts={scroll:true}){
-    focusIndex = i;
-    applyFan();
-    if (opts.scroll) smartScrollIntoView(i);
-  }
-  function clearFocus(){ focusIndex = -1; applyFan(); hidePreview(); }
-
-  function smartScrollIntoView(i){
-    const card = cards[i]; if (!card) return;
-    const rect = card.getBoundingClientRect(); const pad = 20;
-    if (rect.left < pad || rect.right > (window.innerWidth - pad)){
-      card.scrollIntoView({behavior:'smooth', inline:'center', block:'nearest'});
-    }
-  }
-
-  // Desktop hover shows preview; doesn’t interfere with drag
-  if (matchMedia('(hover: hover)').matches){
-    cards.forEach((card, i) => {
-      card.addEventListener('mouseenter', () => { focusCard(i, {scroll:false}); showPreview(i); });
-    });
-    ribbon.addEventListener('mouseleave', clearFocus);
-  }
-
-  // Click selects only (no preview) — prevents blocking drag
-  cards.forEach((card, i) => {
-    card.addEventListener('click', (e) => {
-      // If a drag just occurred, suppress click’s side-effects
-      if (isDragging){ e.preventDefault(); return; }
-      focusCard(i, {scroll:true}); /* preview intentionally not shown on click */
-    });
-
-    // Keyboard: keep preview for accessibility
-    card.addEventListener('focus', () => { focusCard(i, {scroll:false}); showPreview(i); });
-    card.addEventListener('blur', () => { setTimeout(() => { if (!ribbon.contains(document.activeElement)) clearFocus(); }, 0); });
-
-    // Pointer — long-press shows preview; movement cancels
-    card.addEventListener('pointerdown', (e) => {
-      isPointerDown = true; isDragging = false; dragFromIndex = i;
+  cards.forEach((card,i)=>{
+    card.addEventListener('pointerdown',e=>{
+      isPointerDown=true;isDragging=false;dragFrom=i;
+      document.body.classList.add('no-select');
       card.setPointerCapture(e.pointerId);
-      // long press to show preview on touch
+      longPressTimer=setTimeout(()=>{if(!isDragging){focusCard(i);showPrev(i);}},350);
+      e.preventDefault();
+    });
+    card.addEventListener('pointermove',e=>{
+      if(!isPointerDown)return;
+      if(Math.hypot(e.movementX,e.movementY)>6&&!isDragging){
+        isDragging=true;clearTimeout(longPressTimer);hidePrev();startGhost(card,e);
+      }
+      if(isDragging){posGhost(e.clientX,e.clientY);highlight(e.clientX,e.clientY);}
+    });
+    card.addEventListener('pointerup',e=>{
       clearTimeout(longPressTimer);
-      longPressTimer = setTimeout(() => {
-        if (!isDragging) { focusCard(i, {scroll:false}); showPreview(i); }
-      }, 350);
+      if(isDragging)finishGhost(e.clientX,e.clientY,card);
+      isDragging=false;isPointerDown=false;dragFrom=-1;
+      document.body.classList.remove('no-select');
     });
-
-    card.addEventListener('pointermove', (e) => {
-      if (!isPointerDown || dragFromIndex !== i) return;
-      const movedEnough = Math.hypot(e.movementX, e.movementY) > 6;
-      if (movedEnough && !isDragging){
-        isDragging = true;
-        hidePreview();
-        clearTimeout(longPressTimer);
-        startGhost(card, e);
-      }
-      if (isDragging){
-        positionGhost(e.clientX, e.clientY);
-        updateDropTargets(e.clientX, e.clientY);
-      }
-    });
-
-    card.addEventListener('pointerup', (e) => {
-      clearTimeout(longPressTimer);
-      if (isDragging){
-        finishGhost(e.clientX, e.clientY, card);
-        // prevent click-after-drag from firing an unwanted focus
-        requestAnimationFrame(() => { isDragging = false; });
-      }
-      isPointerDown = false; dragFromIndex = -1;
-    });
+    card.addEventListener('pointercancel',()=>{document.body.classList.remove('no-select');});
   });
 
-  window.addEventListener('resize', () => { layoutStack(); if (focusIndex >= 0 && preview.classList.contains('visible')) showPreview(focusIndex); });
+  function startGhost(card,e){dragGhost=card.cloneNode(true);Object.assign(dragGhost.style,{position:'fixed',pointerEvents:'none',opacity:.9,transform:'translate(-50%,-50%) scale(1.02)',zIndex:999});document.body.appendChild(dragGhost);posGhost(e.clientX,e.clientY);}
+  function posGhost(x,y){if(dragGhost){dragGhost.style.left=x+'px';dragGhost.style.top=y+'px';}}
+  function highlight(x,y){const el=document.elementFromPoint(x,y);slots.forEach(s=>s.classList.toggle('is-hot',s===el||s.contains(el))); }
+  function finishGhost(x,y,card){const el=document.elementFromPoint(x,y);const hot=slots.find(s=>s===el||s.contains(el));if(hot)hot.querySelector('p').textContent=`Placed: ${card.querySelector('.card-header').textContent}`;if(dragGhost)dragGhost.remove();slots.forEach(s=>s.classList.remove('is-hot'));dragGhost=null;}
 
-  // ---- Drag ghost + drop targets (same as before) ----
-  function startGhost(card, e){
-    dragGhost = card.cloneNode(true);
-    Object.assign(dragGhost.style, { position:'fixed', pointerEvents:'none', opacity:.9, transform:'translate(-50%, -50%) scale(1.02)', boxShadow:'0 12px 28px rgba(0,0,0,.45)', zIndex:999 });
-    document.body.appendChild(dragGhost);
-    positionGhost(e.clientX, e.clientY);
-    slots.forEach(s => s.classList.add('is-dragging'));
-  }
-  function positionGhost(x,y){ if (!dragGhost) return; dragGhost.style.left = x+'px'; dragGhost.style.top = y+'px'; }
-  function updateDropTargets(x,y){
-    const el = document.elementFromPoint(x,y);
-    slots.forEach(s => s.classList.toggle('is-hot', s === el || s.contains(el)));
-  }
-  function finishGhost(x,y, sourceCard){
-    const el = document.elementFromPoint(x,y);
-    const hotSlot = slots.find(s => s === el || s.contains(el));
-    if (hotSlot){
-      hotSlot.querySelector('p').textContent = `Placed: ${sourceCard.querySelector('.card-header').textContent}`;
-      // TODO: wire to your real "play card to slot" handler
-    }
-    cleanupGhost();
-  }
-  function cleanupGhost(){
-    if (dragGhost && dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
-    dragGhost = null; slots.forEach(s => s.classList.remove('is-hot','is-dragging'));
-  }
-
-  layoutStack();
+  layout(); window.addEventListener('resize',layout);
 })();
 </script>
 </body>
