@@ -284,7 +284,12 @@ function playFromHand(handIdx){
   if(c.t==="Spell"){
     const s=S.slots.findIndex((x,i)=>!x && !S.blockedSlots.includes(i)); 
     if(s<0){ log("No available slot (or blocked)."); S.hand.push(c); render(); return; }
+    // check ambush and bind triggers before placing
     if(triggerAmbush(S.ai)){ log("AI’s Ambush cancels your spell and deals 1."); damageYou(1); S.disc.push(c); render(); return; }
+    if(triggerBind(S.ai, S, s)){
+      // spell cancelled and slot blocked; discard card and return
+      S.disc.push(c); render(); return;
+    }
     S.slots[s]={c,ph:1,advUsed:false}; log(`You play ${c.n} to Slot ${s+1}.`);
   } else if(c.t==="Glyph"){
     S.glyphs.push(c); log("You set a Glyph face-down.");
@@ -401,6 +406,32 @@ function triggerAmbush(owner){
   const i=owner.glyphs.findIndex(g=>g.eff==="g_ambush"); if(i>-1){ owner.glyphs.splice(i,1); return true; } return false;
 }
 
+/*
+ * Seal of Binding hook.
+ * When a spell is played into a slot, before placing it, call this function.
+ * If the defending player (defender) has a g_bind glyph, the spell is cancelled
+ * and the attacker’s slot is blocked until the defender’s next turn.
+ * attacker.blockedSlots is an array of slot indices that may not be used.
+ */
+function triggerBind(defender, attacker, slotIdx){
+  const idx = defender.glyphs.findIndex(g => g.eff === "g_bind");
+  if (idx > -1) {
+    // remove the glyph
+    defender.glyphs.splice(idx, 1);
+    // ensure blockedSlots exists
+    if (!attacker.blockedSlots) attacker.blockedSlots = [];
+    attacker.blockedSlots.push(slotIdx);
+    // log appropriate message
+    if (defender === S) {
+      log(`Your Seal of Binding cancels the spell and blocks Slot ${slotIdx + 1} until your next turn.`);
+    } else {
+      log(`AI’s Seal of Binding cancels your spell and blocks its Slot ${slotIdx + 1} until its next turn.`);
+    }
+    return true;
+  }
+  return false;
+}
+
 /* Aetherflow: new costs 4/3/2/2/2; purchases -> discard (or set if Glyph) */
 function flowCostAt(i){ const band=[4,3,2,2,2]; let cost=band[i]; if(i===0 && S.flags.leftDiscount) cost=Math.max(1,cost-1); return cost; }
 function slideFlow(initial=false){ S.flowRow=[null, ...S.flowRow.slice(0,4)]; const next=S.flowDeck.pop(); S.flowRow[0]=next||null; if(!initial) render(); }
@@ -429,13 +460,12 @@ function aiTurn(){
   log("— AI Turn —"); aiDraw();
   // Play a glyph sometimes
   const gIdx=S.ai.hand.findIndex(c=>c.t==="Glyph");
-  if(gIdx>-1 && Math.random()<0.6){ const g=S.ai.hand.splice(gIdx,1)[0]; 
-    if(g.eff==="g_bind"){ // Seal of Binding blocks a random player slot until AI's next turn
-      const emptyIdx=[0,1,2].filter(i=>!S.blockedSlots.includes(i)).sort(()=>Math.random()-.5)[0];
-      if(emptyIdx!=null){ S.blockedSlots.push(emptyIdx); log(`AI’s Seal of Binding blocks your Slot ${emptyIdx+1} until AI’s next turn.`); }
-    } else {
-      S.ai.glyphs.push(g); log("AI sets a Glyph.");
-    }
+  if(gIdx>-1 && Math.random()<0.6){
+    const g=S.ai.hand.splice(gIdx,1)[0];
+    // AI sets any glyph face-down (including Seal of Binding). The blocking effect will be handled
+    // by triggerBind when a spell is played into that slot.
+    S.ai.glyphs.push(g);
+    log("AI sets a Glyph.");
   }
   // Play a spell if space
   const empty=S.ai.slots.findIndex(x=>!x);
@@ -444,8 +474,15 @@ function aiTurn(){
     if(idx===-1) idx=S.ai.hand.findIndex(c=>c.t==="Spell");
     if(idx>-1){
       const card=S.ai.hand.splice(idx,1)[0];
+      // check ambush and bind triggers before placing
       if(triggerAmbush(S)){ log("Your Ambush cancels AI’s spell and deals 1."); damageAI(1); S.ai.disc.push(card); }
-      else { S.ai.slots[empty]={c:card,ph:1,advUsed:false}; log(`AI plays ${card.n}.`); }
+      else if(triggerBind(S, S.ai, empty)){
+        // player's Seal of Binding cancels the AI spell
+        S.ai.disc.push(card);
+      }
+      else {
+        S.ai.slots[empty]={c:card,ph:1,advUsed:false}; log(`AI plays ${card.n}.`);
+      }
     }
   }
   // Play instant sometimes
@@ -461,7 +498,22 @@ function aiTurn(){
     if(S.ai.ae>=cost){ S.ai.ae-=cost; S.ai.slots[actIdx].ph+=1; S.ai.slots[actIdx].advUsed=true; if(tax>0){ S.ai.taxes=0; } log("AI advances a spell."); if(S.ai.slots[actIdx].ph>=S.ai.slots[actIdx].c.p){ aiResolve(actIdx); } }
   }
   // Buy
-  for(let i=4;i>=0;i--){ const c=S.flowRow[i]; const cost=flowCostAt(i); if(c && cost<=S.ai.ae){ S.ai.ae-=cost; if(c.t==="Glyph"){ if(c.eff==="g_bind"){ const slot=[0,1,2].filter(j=>!(S.ai.blockedSlots||[]).includes(j)).sort(()=>Math.random()-.5)[0]; S.ai.blockedSlots=S.ai.blockedSlots||[]; if(slot!=null) S.ai.blockedSlots.push(slot); else S.ai.glyphs.push(c); } else { S.ai.glyphs.push(c); } log("AI learns a card."); } else { S.ai.disc.push(c); log(`AI learns ${c.n}.`);} S.flowRow[i]=null; break; } }
+  for(let i=4;i>=0;i--){
+    const c=S.flowRow[i]; const cost=flowCostAt(i);
+    if(c && cost<=S.ai.ae){
+      S.ai.ae-=cost;
+      if(c.t==="Glyph"){
+        // all glyphs, including Seal of Binding, are set face-down for AI
+        S.ai.glyphs.push(c);
+        log("AI learns a Glyph.");
+      } else {
+        S.ai.disc.push(c);
+        log(`AI learns ${c.n}.`);
+      }
+      S.flowRow[i]=null;
+      break;
+    }
+  }
   // Unblock player slots at end of AI turn
   S.blockedSlots=[];
   // reset AI per-turn flags
