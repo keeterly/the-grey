@@ -3,21 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Grey – Ribbon + Auto-Inspector</title>
-
+<title>The Grey – Ribbon (Provider/Event Bridge)</title>
 <style>
   :root{ --card-w:140px; --card-h:200px; --card-radius:14px; --fan-lift:24px; --fan-spread:36px; --transition:140ms ease; }
   body{ margin:0; background:#0f1013; color:#e9e9ef; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; display:flex; flex-direction:column; min-height:100dvh; }
   header{ padding:12px 16px; border-bottom:1px solid #1d1f25; }
   header h1{ margin:0; font-size:14px; font-weight:700; }
 
-  /* ==== Your board (keep yours; these are placeholders) ==== */
   .board{ flex:1; padding:16px; }
   .slots{ display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:14px; }
   .slot{ min-height:120px; border:2px dashed #2d3342; border-radius:12px; display:flex; align-items:center; justify-content:center; }
   .slot.is-hot{ border-color:#7aa2ff; background:rgba(122,162,255,.05); }
 
-  /* ==== Ribbon layer ==== */
   .ribbon-wrap{ position:fixed; left:0; right:0; bottom:0; z-index:40; padding:14px 10px calc(22px + env(safe-area-inset-bottom)); background:linear-gradient(180deg,rgba(15,16,19,0) 0%,rgba(15,16,19,.85) 40%,rgba(15,16,19,1) 100%); border-top:1px solid #1d1f25; backdrop-filter:saturate(1.1) blur(4px); }
   .ribbon{ position:relative; height:calc(var(--card-h) + 20px); display:flex; align-items:flex-end; justify-content:center; touch-action:pan-x; overflow-x:auto; scrollbar-width:none; gap:0; user-select:none; }
   .ribbon::-webkit-scrollbar{ display:none }
@@ -42,7 +39,6 @@
   .preview h3{ margin:0 0 6px; font-size:14px; font-weight:800; }
   .preview p{ margin:0; font-size:12px; line-height:1.4; opacity:.9; }
 
-  /* Debug pill */
   .dbg{ position:fixed; right:10px; bottom:calc(64px + env(safe-area-inset-bottom)); background:#1c2030; color:#9db1ff; border:1px solid #2a3150; padding:6px 8px; border-radius:10px; font-size:11px; opacity:.9; display:none; z-index:60; }
   .dbg.show{ display:inline-block; }
 </style>
@@ -66,86 +62,73 @@
   <div class="dbg" id="dbg"></div>
 
 <script>
-/* =========================================================
-   Ribbon + Auto-Inspector (no framework)
-   ========================================================= */
 (function(){
-  const ART_ROOT = 'assets/art/standard/'; // ← change if your art lives elsewhere
+  const ART_ROOT = 'assets/art/standard/'; // update if your art lives elsewhere
   const ribbon = document.getElementById('ribbon');
   const preview= document.getElementById('preview');
   const slots  = Array.from(document.querySelectorAll('.slot'));
   const dbg    = document.getElementById('dbg');
 
-  // ---- state
   let cards=[], handData=[], focusIndex=-1, baseOverlap=-90;
   let isPointerDown=false, isDragging=false, dragGhost=null, dragFromIndex=-1, longPressTimer=null;
-  const HAND_POLL_MS=250, HAND_POLL_MAX=32;
-  let forcedHandPath = new URLSearchParams(location.search).get('handPath') || null;
 
-  // ---- helpers
-  const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-  const getByPath = (root, path) => {
-    try{
-      return path.split('.').reduce((acc,k)=> (acc==null?acc:acc[k]), root);
-    }catch(e){ return undefined; }
+  // ---------- Bridge ----------
+  let handProvider = null; // () => Card[]
+
+  // Public API for your game to call:
+  window.Ribbon = {
+    setHandProvider(fn){ handProvider = typeof fn === 'function' ? fn : null; renderHand('setHandProvider'); },
+    handChanged(){ renderHand('handChanged'); }, // call whenever your hand mutates
+    // Optional: set a static array once
+    setHandOnce(arr){ handProvider = () => Array.isArray(arr) ? arr : []; renderHand('setHandOnce'); }
   };
+
+  // Event-style bridge (if you prefer not to touch globals):
+  window.addEventListener('thegrey:hand-provider', (e)=>{
+    // e.detail should be a function that returns the hand array
+    if (e && typeof e.detail === 'function'){ handProvider = e.detail; renderHand('event:provider'); }
+  });
+  window.addEventListener('thegrey:hand-changed', ()=> renderHand('event:changed'));
+
+  // ---------- Helpers ----------
+  const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
   const showDbg = t => { dbg.textContent=t; dbg.classList.add('show'); };
   const hideDbg = () => dbg.classList.remove('show');
+  const resolveArt = c => ART_ROOT + (c.artKey || slug(c.name || 'card')) + '.jpg';
 
-  function resolveArt(card){ const key = card.artKey || slug(card.name); return ART_ROOT + key + '.jpg'; }
-  function playCard(id, slotId){ try{ window.Game && typeof Game.playCard==='function' && Game.playCard(id,slotId); }catch(e){} }
+  // Demo hand if no provider yet
+  const demoHand = () => ([
+    {id:'demo1', name:'Flame Lash', element:'Fire', cost:2, text:'Deal 3 dmg. If channeled, deal 5.', artKey:'flame-lash'},
+    {id:'demo2', name:'Glacial Ward', element:'Ice',  cost:1, text:'Gain 4 shield. Next hit slowed.',   artKey:'glacial-ward'},
+    {id:'demo3', name:'Chain Spark',  element:'Storm',cost:2, text:'Hit up to 3 targets.',              artKey:'chain-spark'}
+  ]);
 
-  // ---- Hand sources
-  const KNOWN_PATHS = [
-    'Game.hand',
-    'Game.state.hand',
-    'Game.player.hand',
-    'state.hand',
-    'app.hand',
-    'app.state.hand',
-    'engine.hand',
-    'engine.state.hand',
-    'store.state.hand',
-  ];
-
-  function tryAllHandPaths(){
-    const candidates = forcedHandPath ? [forcedHandPath, ...KNOWN_PATHS] : KNOWN_PATHS;
-    for (const p of candidates){
-      const v = getByPath(window, p);
-      if (Array.isArray(v)) return {path:p, value:v};
-    }
+  function getHandSafe(){
+    try{
+      if (handProvider){
+        const h = handProvider();
+        if (Array.isArray(h)) return h;
+      }
+    }catch(_){}
     return null;
   }
 
-  // ---- demo hand
-  function demoHand(){
-    return [
-      {id:'demo1', name:'Flame Lash', element:'Fire', cost:2, text:'Deal 3 dmg. If channeled, deal 5.', artKey:'flame-lash'},
-      {id:'demo2', name:'Glacial Ward', element:'Ice', cost:1, text:'Gain 4 shield. Next hit slowed.', artKey:'glacial-ward'},
-      {id:'demo3', name:'Chain Spark', element:'Storm', cost:2, text:'Hit up to 3 targets.', artKey:'chain-spark'}
-    ];
-  }
-
-  // ---- render
-  function renderHand(sourceLabel){
+  // ---------- Render ----------
+  function renderHand(reason){
     ribbon.innerHTML=''; cards.length=0;
 
-    let live=null, pathUsed=null;
-    const found = tryAllHandPaths();
-    if (found){ live = found.value; pathUsed=found.path; }
-
+    const live = getHandSafe();
     if (Array.isArray(live)){
       handData = live.slice();
-      if (!handData.length) showDbg(`Hand loaded (${pathUsed}) but it's empty.`);
+      if (!handData.length) showDbg('Hand provided, but empty.');
       else hideDbg();
     } else {
       handData = demoHand();
-      showDbg('No game hand detected — showing demo hand.');
+      showDbg('No hand provider — showing demo hand.');
     }
 
-    handData.forEach((card)=>{
+    handData.forEach(card=>{
       const btn=document.createElement('button'); btn.className='card'; btn.type='button'; btn.dataset.id=card.id;
-
       const head=document.createElement('div'); head.className='card-header'; head.textContent=card.name||'Card';
       const art=document.createElement('div'); art.className='card-art';
       const img=document.createElement('img'); img.alt=(card.name||'Card')+' artwork'; img.loading='lazy'; img.src=resolveArt(card);
@@ -165,7 +148,7 @@
     layoutStack(); focusIndex=-1; applyFan(); hidePreview();
   }
 
-  // ---- layout & fan
+  // ---------- Layout / fan ----------
   function layoutStack(){
     const n=cards.length, minOverlap=-40, maxOverlap=-92;
     const t=Math.min(1,Math.max(0,(n-4)/8));
@@ -185,7 +168,7 @@
     });
   }
 
-  // ---- preview
+  // ---------- Preview ----------
   function showPreview(i){
     if (i<0||i>=cards.length){ hidePreview(); return; }
     const card=handData[i]||{};
@@ -197,7 +180,7 @@
   }
   function hidePreview(){ preview.classList.remove('visible'); }
 
-  // ---- drag ghost + cleanup
+  // ---------- Drag with robust cleanup ----------
   function startGhost(cardEl,e){
     dragGhost=cardEl.cloneNode(true);
     Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
@@ -206,8 +189,7 @@
   function positionGhost(x,y){ if(dragGhost){ dragGhost.style.left=x+'px'; dragGhost.style.top=y+'px'; } }
   function updateDropTargets(x,y){ const el=document.elementFromPoint(x,y); slots.forEach(s=>s.classList.toggle('is-hot', s===el || (el && s.contains(el)))); }
   function finishGhost(x,y,i){
-    const el=document.elementFromPoint(x,y); const hot=slots.find(s=>s===el || (el && s.contains(el)));
-    if(hot){ const slotId=hot.getAttribute('data-slot'); const id=handData[i]?.id; if(id!=null) playCard(id, slotId); }
+    // Hook your real play logic here if needed
     cleanupGhost();
   }
   function cleanupGhost(){
@@ -216,7 +198,7 @@
     document.body.classList.remove('no-select'); hidePreview(); slots.forEach(s=>s.classList.remove('is-hot','is-dragging'));
   }
 
-  // ---- interactions
+  // ---------- Interactions ----------
   function attachHandlers(){
     cards.forEach(c=>c.addEventListener('dragstart',e=>e.preventDefault()));
     document.addEventListener('selectstart',e=>{ if(isDragging||isPointerDown) e.preventDefault(); });
@@ -245,61 +227,22 @@
     window.addEventListener('resize', ()=>{ layoutStack(); if(focusIndex>=0 && preview.classList.contains('visible')) showPreview(focusIndex); });
   }
 
-  // ---- Auto-inspector (logs globals with hand arrays)
-  function runInspector(){
-    const hits=[];
-    const keys = Object.keys(window).sort();
-    for (const key of keys){
-      try{
-        const val = window[key];
-        if (!val || typeof val !== 'object') continue;
-        if (Array.isArray(val.hand)) hits.push(`window.${key}.hand`);
-        else if (val.state && Array.isArray(val.state.hand)) hits.push(`window.${key}.state.hand`);
-      }catch(e){}
-    }
-    if (hits.length){
-      console.log('%c[Inspector] Possible hand paths:', 'color:#7aa2ff', hits);
-      showDbg('Inspector: check console for hand paths.');
-    }else{
-      console.log('%c[Inspector] No obvious hand arrays found on window.', 'color:#7aa2ff');
-    }
-    return hits;
+  // ---------- Boot ----------
+  function layoutStack(){
+    const n=cards.length, minOverlap=-40, maxOverlap=-92;
+    const t=Math.min(1,Math.max(0,(n-4)/8));
+    baseOverlap=Math.round(maxOverlap+(minOverlap-maxOverlap)*Math.max(0,1-t));
+    const cardW=140, total=(n>0)?((n-1)*(-baseOverlap)+cardW):0;
+    const start=Math.max(10,(ribbon.clientWidth-total)/2);
+    cards.forEach((c,i)=>{ c.style.transform=`translateX(${start+i*(-baseOverlap)}px)`; c.style.setProperty('--dx','0px'); c.style.zIndex=i+1; c.dataset.index=i; });
   }
 
-  // ---- Boot: poll for hand; wire events; expose helpers
-  function wireGameEvents(){
-    try{
-      if (window.Game && typeof Game.onHandChanged==='function'){
-        Game.onHandChanged(()=>renderHand('onHandChanged'));
-      }
-      window.addEventListener('game:handChanged', ()=>renderHand('event'));
-    }catch(e){}
-  }
-
-  function boot(){
-    let tries=0;
-    const tick=()=>{
-      const found=tryAllHandPaths();
-      if (found){ renderHand('poll'); wireGameEvents(); return; }
-      tries++; if (tries===4) runInspector(); // run inspector once early
-      if (tries>=HAND_POLL_MAX){ renderHand('fallback'); wireGameEvents(); return; }
-      setTimeout(tick, HAND_POLL_MS);
-    };
-    tick();
-  }
-
-  // expose small helper API
-  window.Ribbon = {
-    inspect: runInspector,
-    setHandPath: (p)=>{ forcedHandPath=p; renderHand('setHandPath'); },
-    getHandPath: ()=>forcedHandPath
-  };
-
-  boot();
+  // Initial render with demo until provider arrives
+  renderHand('boot');
 })();
 </script>
 
-<!-- Keep your actual game bundles below (unchanged) -->
+<!-- Your game bundles stay here -->
 <!-- <script src="build/game.bundle.js"></script> -->
 </body>
 </html>
