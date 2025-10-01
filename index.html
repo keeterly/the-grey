@@ -11,7 +11,7 @@
   --line:#1e2631;--accent:#d7b77a;--chip:#121721;--chip-line:#223043;--slot:#0c1118;
   --card:#111621;--card-line:#23344a;
 
-  /* Compact ribbon sizing */
+  /* Constant card sizing */
   --card-w:120px; --card-h:172px; --card-radius:12px;
   --fan-lift:28px; --transition:140ms ease;
 }
@@ -36,12 +36,24 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .card h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
 .card p{font-size:12px;color:#b9b4ac;margin-bottom:4px}
 .card .actions{display:flex;gap:6px;margin-top:6px}
+
 .slots{display:flex;gap:8px;flex-wrap:wrap}
 .slot{flex:1 0 30%;background:#0c1118;border:2px dashed #33465d;border-radius:12px;padding:8px;min-height:140px;position:relative}
 .slot h5{font-size:12px;color:#a7a4a0;margin-bottom:6px}
-.log{max-height:160px;overflow:auto;padding-right:6px}
 
-/* ===== Compact, peeking Ribbon ===== */
+/* ===== Top toast log ===== */
+.topLog{
+  position:fixed;top:8px;left:50%;transform:translateX(-50%);
+  background:#111724;border:1px solid #273246;color:#cfe2ff;
+  border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);
+  z-index:60;display:none;max-width:92vw;font-size:12px;line-height:1.35
+}
+.topLog.show{display:block;animation:pop .18s ease-out}
+.topLog .item{opacity:.92}
+.topLog .item + .item{margin-top:4px;border-top:1px solid #233145;padding-top:4px}
+@keyframes pop{from{transform:translateX(-50%) translateY(-6px);opacity:.0}to{transform:translateX(-50%) translateY(0);opacity:1}}
+
+/* ===== Compact, side-by-side ribbon ===== */
 .ribbon-wrap{
   position:fixed;left:0;right:0;bottom:0;z-index:40;
   padding:8px 6px calc(10px + env(safe-area-inset-bottom));
@@ -49,14 +61,16 @@ button:disabled{opacity:.6;cursor:not-allowed}
   border-top:1px solid #1e2631;box-shadow:0 -2px 10px rgba(0,0,0,.4)
 }
 .ribbon{
-  position:relative;height:110px;
-  display:flex;align-items:flex-end;justify-content:center;
-  touch-action:pan-x;overflow-x:auto;scrollbar-width:none;gap:0;user-select:none
+  display:flex;align-items:flex-end;justify-content:flex-start;
+  gap:4px; /* minimal padding between cards */
+  padding:0 6px;
+  height:110px; /* constant, compact */
+  overflow-x:auto;scrollbar-width:none;user-select:none;touch-action:pan-x
 }
 .ribbon::-webkit-scrollbar{display:none}
 
 .rCard{
-  position:relative;width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);
+  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);
   overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);
   transform: translateY(46%); /* peeking */
   transform-origin:bottom center;
@@ -72,7 +86,7 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
 .rArt .fallback{font-size:11px;opacity:.75;padding:6px;text-align:center}
 .rFoot{padding:6px 8px;font-size:10.5px;opacity:.9;border-top:1px solid #232836;background:#151821;line-height:1.25}
 
-/* corner badges, only shown when needed */
+/* corner badges (only added if values exist) */
 .badgeTL,.badgeTR{
   position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;
   background:#0b111a;border:1px solid #2a3342;color:#a9d0ff;box-shadow:0 2px 8px rgba(0,0,0,.25)
@@ -80,23 +94,27 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
 .badgeTL{left:6px}
 .badgeTR{right:6px}
 
-.rCard.is-focused{ transform: translateY(0) scale(1.05) translateX(var(--dx,0px)); z-index:5; filter:saturate(1.06) }
-.rCard.is-left,.rCard.is-right{ z-index:4; transform: translateY(20%) translateX(var(--dx,0px)) }
+/* focus lift */
+.rCard.is-focused{ transform: translateY(0) scale(1.05); z-index:5; filter:saturate(1.06) }
 
+/* quick preview / actions */
 .preview{
   position:absolute;left:50%;bottom:calc(100% + 10px);min-width:min(540px,92vw);max-width:92vw;
   padding:10px 12px;border-radius:12px;background:#12141a;border:1px solid #2a2f3a;box-shadow:0 12px 28px rgba(0,0,0,.45);
-  display:none;z-index:50;pointer-events:none
+  display:none;z-index:55;pointer-events:none
 }
 .preview.visible{display:block}
 .preview h3{margin:0 0 6px;font-size:14px;font-weight:800}
 .preview p{margin:0;font-size:12px;line-height:1.4;opacity:.9}
-.quickActions{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);display:none;gap:6px;z-index:55}
+.quickActions{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);display:none;gap:6px;z-index:56}
 .quickActions button{padding:6px 10px;font-size:12px;border-radius:10px}
 .quickActions.show{display:flex}
 </style>
 </head>
 <body>
+<!-- top toast log -->
+<div id="topLog" class="topLog" aria-live="polite"></div>
+
 <div class="wrap">
   <div class="banner">
     <div class="title">THE GREY</div>
@@ -123,7 +141,7 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
     <div class="hint">Spells slot to the board. Glyphs are set. Instants resolve or Channel for ⚡.</div>
   </div>
 
-  <!-- Aetherflow (kept simple for demo) -->
+  <!-- Aetherflow -->
   <div class="zone">
     <b>Aetherflow</b>
     <div class="costRow" id="flowCosts"></div>
@@ -138,16 +156,11 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
     <b>AI Board</b>
     <div class="slots" id="aiSlots"></div>
   </div>
-
-  <div class="zone">
-    <b>Log</b>
-    <div class="log" id="log"></div>
-  </div>
 </div>
 
 <!-- Ribbon Hand -->
 <section class="ribbon-wrap" aria-label="Your hand">
-  <div class="preview" id="rPreview" role="dialog" aria-live="polite" aria-label="Card Preview"></div>
+  <div class="preview" id="rPreview" role="dialog" aria-label="Card Preview"></div>
   <div class="quickActions" id="rActions">
     <button id="actPlay">Play/Set</button>
     <button id="actChannel">Channel</button>
@@ -156,17 +169,16 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
 </section>
 
 <script>
-/* ---------------- DATA ---------------- */
-/* More cards to test: multiple spells, glyphs, instants. Costs only present where relevant. */
+/* ---------------- DATA (with a few extra test cards) ---------------- */
 const BASE = [
-  {n:'Flame Lash',     t:'Spell',   txt:'Deal 2 then 3.', p:2, artKey:'flame-lash'},
-  {n:'Ember',          t:'Spell',   txt:'Deal 2.', p:1, artKey:'ember'},
-  {n:'Frost Bolt',     t:'Spell',   txt:'Deal 1. Slow the next hit (sim).', p:2, artKey:'frost-bolt'},
-  {n:'Glacial Ward',   t:'Glyph',   txt:'Prevent 1 next hit.', eff:'g_barrier', artKey:'glacial-ward'},
-  {n:'Mirror Ward',    t:'Glyph',   txt:'Reflect the next damage back (sim).', eff:'g_mirror', artKey:'mirror-ward'},
-  {n:'Chain Spark',    t:'Instant', txt:'+2⚡ this turn (or Channel).', v:2, artKey:'chain-spark'},
-  {n:'Aether Surge',   t:'Instant', txt:'+3⚡ this turn (or Channel).', v:3, artKey:'aether-surge'},
-  {n:'Quick Study',    t:'Instant', txt:'+1⚡ and draw (sim).', v:1, artKey:'quick-study'}
+  {n:'Flame Lash',   t:'Spell',   txt:'Deal 2 then 3.', p:2, artKey:'flame-lash'},
+  {n:'Ember',        t:'Spell',   txt:'Deal 2.', p:1, artKey:'ember'},
+  {n:'Frost Bolt',   t:'Spell',   txt:'Deal 1. Slow enemy next hit (sim).', p:2, artKey:'frost-bolt'},
+  {n:'Glacial Ward', t:'Glyph',   txt:'Prevent 1 next hit.', eff:'g_barrier', artKey:'glacial-ward'},
+  {n:'Mirror Ward',  t:'Glyph',   txt:'Reflect the next damage (sim).', eff:'g_mirror', artKey:'mirror-ward'},
+  {n:'Chain Spark',  t:'Instant', txt:'+2⚡ this turn (or Channel).', v:2, artKey:'chain-spark'},
+  {n:'Aether Surge', t:'Instant', txt:'+3⚡ this turn (or Channel).', v:3, artKey:'aether-surge'},
+  {n:'Quick Study',  t:'Instant', txt:'+1⚡ and draw (sim).', v:1, artKey:'quick-study'}
 ];
 const FLOW = [
   {n:'Hex+',      t:'Spell', txt:'Hex the foe.', p:2, eff:'hex_plus', artKey:'hex-plus'},
@@ -178,39 +190,51 @@ const ART_ROOT = 'assets/art/standard/';
 const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
 
-/* ---------------- State / utils ---------------- */
-const hp = document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae');
+/* ---------------- State/DOM ---------------- */
+const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae');
 const deckCount=document.getElementById('deckCount'), discardCount=document.getElementById('discardCount'), glyphCount=document.getElementById('glyphCount');
 const flowCosts=document.getElementById('flowCosts'), flowRow=document.getElementById('flowRow');
-const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots'), logEl=document.getElementById('log');
+const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots');
 const drawBtn=document.getElementById('drawBtn'), endBtn=document.getElementById('endBtn'), resetBtn=document.getElementById('resetBtn');
-const chronoBtn=document.getElementById('chronoBtn'), trickBtn=document.getElementById('trickBtn');
-
 const rRibbon=document.getElementById('ribbon'), rPreview=document.getElementById('rPreview'), rActions=document.getElementById('rActions');
 const actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
+const topLog=document.getElementById('topLog');
 
-function log(m){const t=new Date().toLocaleTimeString();logEl.innerHTML+=`<div><span class="muted">${t}</span> — ${m}</div>`;logEl.scrollTop=logEl.scrollHeight;}
+let S={};
+let rCards=[], focusIndex=-1;
+let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
+let turnLog=[], logHideTimer;
+
+/* ---------------- Helpers ---------------- */
+function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2500); }
+function toastRender(){ topLog.innerHTML = turnLog.slice(-3).map(x=>`<div class="item">${x}</div>`).join(''); toastShow(); }
+
+function log(msg){
+  turnLog.push(msg);
+  toastRender();
+}
+function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
+
 function uid(){return Math.random().toString(36).slice(2,9);}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function makeDeck(){return shuf(BASE.map(x=>Object.assign({id:uid()},x)));}
 
-let S={};
+/* ---------------- Game init/render ---------------- */
 function initGame(){
   S={hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
      ai:{hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[]},
      flowDeck:shuf(FLOW.slice()),flowRow:[null,null,null,null,null],
-     flags:{preventOnce:false,preventAvailable:false,hasChrono:false},turn:1,taxes:0,lastInstant:null,blockedSlots:[]};
+     flags:{preventOnce:false,preventAvailable:false},turn:1,taxes:0,lastInstant:null,blockedSlots:[]};
   for(let i=0;i<5;i++){drawCard(); aiDraw();}
-  slideFlow(true); render();
+  slideFlow(true); render(); log("Game started.");
 }
 
-/* ---------------- Render core ---------------- */
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae;
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length; glyphCount.textContent=S.glyphs.length;
   document.getElementById('turnTag').textContent=`Turn ${S.turn}`;
 
-  // Flow row (simple)
+  // Flow
   flowCosts.innerHTML=""; [4,3,2,2,2].forEach(c=>{const d=document.createElement('div'); d.textContent=c; flowCosts.appendChild(d);});
   flowRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{
     const div=document.createElement('div');
@@ -240,10 +264,7 @@ function render(){
   renderRibbon();
 }
 
-/* ---------------- Ribbon render ---------------- */
-let rCards=[], focusIndex=-1, baseOverlap=-50;
-let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
-
+/* ---------------- Ribbon (side-by-side) ---------------- */
 function renderRibbon(){
   rRibbon.innerHTML='';
   S.hand.forEach((c,i)=>{
@@ -258,7 +279,7 @@ function renderRibbon(){
     img.addEventListener('load',()=>{ fb.style.display='none'; });
     img.addEventListener('error',()=>{ fb.style.display='grid'; img.style.display='none'; });
 
-    /* corner badges — only if defined */
+    /* optional corner badges (only if values exist) */
     if (c.cost!=null){ const tl=document.createElement('div'); tl.className='badgeTL'; tl.textContent='Cost '+c.cost; art.appendChild(tl); }
     if (c.v!=null){   const tr=document.createElement('div'); tr.className='badgeTR'; tr.textContent='+'+c.v+'⚡'; art.appendChild(tr); }
 
@@ -270,30 +291,11 @@ function renderRibbon(){
 
   rCards=[...rRibbon.querySelectorAll('.rCard')];
   focusIndex=-1; qaForIndex=-1;
-  layoutStack(); applyFan(); hidePreview(); hideActions();
+  hidePreview(); hideActions();
   wireRibbonEvents();
 }
 
-function layoutStack(){
-  const n=rCards.length, minO=-36, maxO=-86;
-  const t=Math.min(1,Math.max(0,(n-4)/8));
-  baseOverlap=Math.round(maxO+(minO-maxO)*Math.max(0,1-t));
-  const cardW=parseInt(getComputedStyle(document.documentElement).getPropertyValue('--card-w'))||120;
-  const total=(n>0)?((n-1)*(-baseOverlap)+cardW):0;
-  const start=Math.max(10,(rRibbon.clientWidth-total)/2);
-  rCards.forEach((c,i)=>{ c.style.transform=`translateY(46%) translateX(${start+i*(-baseOverlap)}px)`; c.style.setProperty('--dx','0px'); c.style.zIndex=i+1; });
-}
-function getSpread(){ const base=32, scale=Math.max(0.8, Math.min(1.2, (Math.abs(baseOverlap)/80))); return Math.round(base*scale); }
-function applyFan(){
-  rCards.forEach((c,i)=>{
-    const d=i-focusIndex; c.classList.remove('is-focused','is-left','is-right');
-    if (focusIndex<0){ c.style.setProperty('--dx','0px'); return; }
-    if (d===0){ c.classList.add('is-focused'); c.style.setProperty('--dx','0px'); }
-    else if (d===-1||d===-2){ c.classList.add('is-left');  c.style.setProperty('--dx', `${-Math.abs((3-Math.abs(d))*getSpread())}px`); }
-    else if (d===1 ||d===2 ){ c.classList.add('is-right'); c.style.setProperty('--dx', `${ (3-Math.abs(d))*getSpread()}px`); }
-  });
-}
-
+/* preview & actions */
 function showPreview(i){
   const c=S.hand[i]; if(!c) return hidePreview();
   rPreview.innerHTML=`<h3>${c.n}</h3><p>${c.txt||''}</p>`;
@@ -303,14 +305,12 @@ function showPreview(i){
   const off=left-(rr.left+rr.width/2); rPreview.style.transform=`translateX(calc(-50% + ${off}px))`;
 }
 function hidePreview(){ rPreview.classList.remove('visible'); }
-
 function showActions(i){
   const card=rCards[i]; if(!card) return;
   const rect=card.getBoundingClientRect();
   rActions.style.left=(rect.left + rect.width/2)+'px';
   rActions.style.bottom=(window.innerHeight - rect.top + 6)+'px';
-  rActions.classList.add('show');
-  qaForIndex=i;
+  rActions.classList.add('show'); qaForIndex=i;
 }
 function hideActions(){ rActions.classList.remove('show'); qaForIndex=-1; }
 
@@ -324,33 +324,34 @@ function wireRibbonEvents(){
   document.addEventListener('selectstart',e=>{ if(isPointerDown||isDragging) e.preventDefault(); });
 
   if (matchMedia('(hover:hover)').matches){
-    rCards.forEach((card,i)=> card.addEventListener('mouseenter',()=>{ focusIndex=i; applyFan(); showPreview(i); }));
-    rRibbon.addEventListener('mouseleave',()=>{ focusIndex=-1; applyFan(); hidePreview(); hideActions(); });
+    rCards.forEach((card,i)=> card.addEventListener('mouseenter',()=>{
+      rCards.forEach(el=>el.classList.remove('is-focused'));
+      focusIndex=i; card.classList.add('is-focused'); showPreview(i);
+    }));
+    rRibbon.addEventListener('mouseleave',()=>{
+      focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions();
+    });
   }
   rCards.forEach((card,i)=>{
-    card.addEventListener('click',(e)=>{ if(isDragging){ e.preventDefault(); return; } focusIndex=i; applyFan(); showActions(i); });
-    card.addEventListener('focus',()=>{ focusIndex=i; applyFan(); showPreview(i); });
-    card.addEventListener('blur', ()=>{ setTimeout(()=>{ if(!rRibbon.contains(document.activeElement)){ focusIndex=-1; applyFan(); hidePreview(); hideActions(); } },0); });
+    card.addEventListener('click',(e)=>{ if(isDragging){ e.preventDefault(); return; } rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showActions(i); });
+    card.addEventListener('focus',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); });
+    card.addEventListener('blur', ()=>{ setTimeout(()=>{ if(!rRibbon.contains(document.activeElement)){ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); } },0); });
 
     card.addEventListener('pointerdown',(e)=>{
       isPointerDown=true; isDragging=false; dragFrom=i;
       document.body.classList.add('no-select');
       card.setPointerCapture(e.pointerId);
       clearTimeout(longPressTimer);
-      longPressTimer=setTimeout(()=>{ if(!isDragging){ focusIndex=i; applyFan(); showPreview(i); showActions(i); } },350);
+      longPressTimer=setTimeout(()=>{ if(!isDragging){ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); showActions(i); } },350);
       e.preventDefault();
     });
     card.addEventListener('pointermove',(e)=>{
       if(!isPointerDown || dragFrom!==i) return;
       const moved=Math.hypot(e.movementX,e.movementY)>6;
       if(moved && !isDragging){
-        isDragging=true; clearTimeout(longPressTimer); hidePreview(); hideActions();
-        startGhost(card,e);
+        isDragging=true; clearTimeout(longPressTimer); hidePreview(); hideActions(); startGhost(card,e);
       }
-      if(isDragging){
-        positionGhost(e.clientX,e.clientY);
-        updateDropTargets(e.clientX,e.clientY, slots);
-      }
+      if(isDragging){ positionGhost(e.clientX,e.clientY); updateDropTargets(e.clientX,e.clientY, slots); }
     });
     card.addEventListener('pointerup',(e)=>{
       clearTimeout(longPressTimer);
@@ -358,9 +359,7 @@ function wireRibbonEvents(){
         const slotIndex=finishGhost(e.clientX,e.clientY, slots);
         if(slotIndex!=null) playFromHandIndex(i, slotIndex);
         cleanupGhost(slots);
-      } else {
-        cleanupGhost(slots);
-      }
+      } else { cleanupGhost(slots); }
     });
     card.addEventListener('pointercancel',()=>cleanupGhost(slots));
   });
@@ -369,8 +368,6 @@ function wireRibbonEvents(){
   window.addEventListener('pointercancel', ()=>cleanupGhost(slots), {passive:true});
   window.addEventListener('blur', ()=>cleanupGhost(slots));
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) cleanupGhost(slots); });
-
-  window.addEventListener('resize', ()=>{ layoutStack(); if(focusIndex>=0 && rPreview.classList.contains('visible')) showPreview(focusIndex); });
 }
 
 /* drag ghost helpers */
@@ -392,8 +389,7 @@ function cleanupGhost(slots){
 
 /* ---------------- Game actions ---------------- */
 function drawCard(){ if(S.deck.length===0){ if(S.disc.length===0){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); } S.hand.push(S.deck.pop()); renderRibbon(); }
-function aiDraw(){ if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
-
+function aiDraw(){ if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; } else return; } S.ai.hand.push(S.ai.deck.pop()); }
 function playFromHandIndex(idx, dropSlotIndex=null){
   const c=S.hand[idx]; if(!c) return;
   if(c.t==="Spell"){
@@ -408,20 +404,16 @@ function playFromHandIndex(idx, dropSlotIndex=null){
   }
   render();
 }
-function channelFromHandIndex(idx){
-  const c=S.hand[idx]; if(!c) return;
-  S.ae+=(c.v||0); log(`Channel ${c.n}: +${c.v||0}⚡`);
-  S.disc.push(c); S.hand.splice(idx,1); render();
-}
+function channelFromHandIndex(idx){ const c=S.hand[idx]; if(!c) return; S.ae+=(c.v||0); log(`Channel ${c.n}: +${c.v||0}⚡`); S.disc.push(c); S.hand.splice(idx,1); render(); }
 function advance(i){ const s=S.slots[i]; if(!s) return; const cost=1+S.taxes; if(S.ae<cost){ log(`Need ${cost}⚡ to advance.`); return; } S.ae-=cost; s.ph++; s.advUsed=true; if(s.ph>=s.c.p){ S.disc.push(s.c); S.slots[i]=null; log(`${s.c.n} resolves.`); } render(); }
 function buyFlowCard(i){ const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; } const cost=[4,3,2,2,2][i]; if(S.ae<cost){ log("Not enough ⚡."); return; } S.ae-=cost; S.disc.push(c); S.flowRow[i]=null; render(); }
 function slideFlow(initial){ if(!initial) S.flowRow.pop(); S.flowRow.unshift(S.flowDeck.pop()||null); render(); }
-function endTurn(){ S.slots.forEach(s=>{if(s)s.advUsed=false}); slideFlow(); S.turn++; render(); log("Turn ends."); }
-function aiTurn(){ /* simple AI omitted for brevity */ }
+function endTurn(){ S.slots.forEach(s=>{if(s)s.advUsed=false}); slideFlow(); S.turn++; render(); log("Turn ends."); setTimeout(()=>{ logResetTurn(); },600); }
+function aiDraw(){} /* demo AI omitted */
 
-/* ---------------- Wire buttons ---------------- */
+/* ---------------- Buttons ---------------- */
 drawBtn.onclick=()=>{ drawCard(); };
-endBtn.onclick =()=>{ endTurn(); aiTurn(); };
+endBtn.onclick =()=>{ endTurn(); };
 resetBtn.onclick=()=> initGame();
 
 /* ---------------- Boot ---------------- */
