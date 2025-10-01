@@ -3,20 +3,21 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Grey – Stable Ribbon (Auto-hand detection)</title>
+<title>The Grey – Ribbon + Auto-Inspector</title>
+
 <style>
   :root{ --card-w:140px; --card-h:200px; --card-radius:14px; --fan-lift:24px; --fan-spread:36px; --transition:140ms ease; }
   body{ margin:0; background:#0f1013; color:#e9e9ef; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; display:flex; flex-direction:column; min-height:100dvh; }
   header{ padding:12px 16px; border-bottom:1px solid #1d1f25; }
   header h1{ margin:0; font-size:14px; font-weight:700; }
 
-  /* Your existing board stays as-is */
+  /* ==== Your board (keep yours; these are placeholders) ==== */
   .board{ flex:1; padding:16px; }
   .slots{ display:grid; grid-template-columns:repeat(3,minmax(220px,1fr)); gap:14px; }
   .slot{ min-height:120px; border:2px dashed #2d3342; border-radius:12px; display:flex; align-items:center; justify-content:center; }
   .slot.is-hot{ border-color:#7aa2ff; background:rgba(122,162,255,.05); }
 
-  /* Ribbon */
+  /* ==== Ribbon layer ==== */
   .ribbon-wrap{ position:fixed; left:0; right:0; bottom:0; z-index:40; padding:14px 10px calc(22px + env(safe-area-inset-bottom)); background:linear-gradient(180deg,rgba(15,16,19,0) 0%,rgba(15,16,19,.85) 40%,rgba(15,16,19,1) 100%); border-top:1px solid #1d1f25; backdrop-filter:saturate(1.1) blur(4px); }
   .ribbon{ position:relative; height:calc(var(--card-h) + 20px); display:flex; align-items:flex-end; justify-content:center; touch-action:pan-x; overflow-x:auto; scrollbar-width:none; gap:0; user-select:none; }
   .ribbon::-webkit-scrollbar{ display:none }
@@ -41,7 +42,7 @@
   .preview h3{ margin:0 0 6px; font-size:14px; font-weight:800; }
   .preview p{ margin:0; font-size:12px; line-height:1.4; opacity:.9; }
 
-  /* Tiny debug pill (shows “No hand detected” if needed) */
+  /* Debug pill */
   .dbg{ position:fixed; right:10px; bottom:calc(64px + env(safe-area-inset-bottom)); background:#1c2030; color:#9db1ff; border:1px solid #2a3150; padding:6px 8px; border-radius:10px; font-size:11px; opacity:.9; display:none; z-index:60; }
   .dbg.show{ display:inline-block; }
 </style>
@@ -50,7 +51,6 @@
   <header><h1>The Grey</h1></header>
 
   <main class="board">
-    <!-- keep your real board markup; these are placeholders -->
     <section class="slots" id="slots">
       <div class="slot" data-slot="1"><p>Slot 1</p></div>
       <div class="slot" data-slot="2"><p>Slot 2</p></div>
@@ -66,35 +66,58 @@
   <div class="dbg" id="dbg"></div>
 
 <script>
+/* =========================================================
+   Ribbon + Auto-Inspector (no framework)
+   ========================================================= */
 (function(){
+  const ART_ROOT = 'assets/art/standard/'; // ← change if your art lives elsewhere
   const ribbon = document.getElementById('ribbon');
   const preview= document.getElementById('preview');
   const slots  = Array.from(document.querySelectorAll('.slot'));
   const dbg    = document.getElementById('dbg');
 
-  let cards = [];
-  let handData = [];
-  let focusIndex = -1, baseOverlap = -90;
+  // ---- state
+  let cards=[], handData=[], focusIndex=-1, baseOverlap=-90;
   let isPointerDown=false, isDragging=false, dragGhost=null, dragFromIndex=-1, longPressTimer=null;
-  const HAND_POLL_MS = 250, HAND_POLL_MAX = 32; // ~8s
+  const HAND_POLL_MS=250, HAND_POLL_MAX=32;
+  let forcedHandPath = new URLSearchParams(location.search).get('handPath') || null;
 
-  /* ---- Resolve hand from different builds ---- */
-  function getLiveHand(){
+  // ---- helpers
+  const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  const getByPath = (root, path) => {
     try{
-      const G = window.Game;
-      if (G){
-        if (typeof G.getHand === 'function'){
-          const h = G.getHand();
-          if (Array.isArray(h) && h.length) return h;
-          if (Array.isArray(h)) return h; // could be empty but valid
-        }
-        if (G.state && Array.isArray(G.state.hand)) return G.state.hand;
-      }
-      if (window.state && Array.isArray(window.state.hand)) return window.state.hand;
-    }catch(e){}
+      return path.split('.').reduce((acc,k)=> (acc==null?acc:acc[k]), root);
+    }catch(e){ return undefined; }
+  };
+  const showDbg = t => { dbg.textContent=t; dbg.classList.add('show'); };
+  const hideDbg = () => dbg.classList.remove('show');
+
+  function resolveArt(card){ const key = card.artKey || slug(card.name); return ART_ROOT + key + '.jpg'; }
+  function playCard(id, slotId){ try{ window.Game && typeof Game.playCard==='function' && Game.playCard(id,slotId); }catch(e){} }
+
+  // ---- Hand sources
+  const KNOWN_PATHS = [
+    'Game.hand',
+    'Game.state.hand',
+    'Game.player.hand',
+    'state.hand',
+    'app.hand',
+    'app.state.hand',
+    'engine.hand',
+    'engine.state.hand',
+    'store.state.hand',
+  ];
+
+  function tryAllHandPaths(){
+    const candidates = forcedHandPath ? [forcedHandPath, ...KNOWN_PATHS] : KNOWN_PATHS;
+    for (const p of candidates){
+      const v = getByPath(window, p);
+      if (Array.isArray(v)) return {path:p, value:v};
+    }
     return null;
   }
 
+  // ---- demo hand
   function demoHand(){
     return [
       {id:'demo1', name:'Flame Lash', element:'Fire', cost:2, text:'Deal 3 dmg. If channeled, deal 5.', artKey:'flame-lash'},
@@ -103,38 +126,35 @@
     ];
   }
 
-  function slugify(s){ return (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,''); }
-  function resolveArt(card){ const root='assets/art/standard/'; const key = card.artKey || slugify(card.name); return root + key + '.jpg'; }
-  const playCard = (id, slotId) => { try{ window.Game && typeof Game.playCard==='function' && Game.playCard(id, slotId); }catch(e){} };
+  // ---- render
+  function renderHand(sourceLabel){
+    ribbon.innerHTML=''; cards.length=0;
 
-  /* ---- Render ---- */
-  function renderHand(from){
-    ribbon.innerHTML='';
-    cards.length=0;
+    let live=null, pathUsed=null;
+    const found = tryAllHandPaths();
+    if (found){ live = found.value; pathUsed=found.path; }
 
-    const live = getLiveHand();
-    if (Array.isArray(live)) {
+    if (Array.isArray(live)){
       handData = live.slice();
-      if (!handData.length) showDbg('Hand loaded ('+from+'), but empty.');
+      if (!handData.length) showDbg(`Hand loaded (${pathUsed}) but it's empty.`);
       else hideDbg();
     } else {
-      handData = demoHand(); // safe visual fallback
+      handData = demoHand();
       showDbg('No game hand detected — showing demo hand.');
     }
 
-    handData.forEach((card, i) => {
-      const btn = document.createElement('button');
-      btn.className='card'; btn.type='button'; btn.dataset.id = card.id;
+    handData.forEach((card)=>{
+      const btn=document.createElement('button'); btn.className='card'; btn.type='button'; btn.dataset.id=card.id;
 
-      const head = document.createElement('div'); head.className='card-header'; head.textContent = card.name || 'Card';
-      const art  = document.createElement('div'); art.className='card-art';
-      const img  = document.createElement('img'); img.alt = (card.name||'Card')+' artwork'; img.loading='lazy'; img.src = resolveArt(card);
-      const fb   = document.createElement('div'); fb.className='fallback'; fb.textContent = (card.element?card.element+' • ':'') + (card.cost!=null?('Cost '+card.cost):'');
+      const head=document.createElement('div'); head.className='card-header'; head.textContent=card.name||'Card';
+      const art=document.createElement('div'); art.className='card-art';
+      const img=document.createElement('img'); img.alt=(card.name||'Card')+' artwork'; img.loading='lazy'; img.src=resolveArt(card);
+      const fb=document.createElement('div'); fb.className='fallback'; fb.textContent=(card.element?card.element+' • ':'')+(card.cost!=null?('Cost '+card.cost):'');
       art.appendChild(img); art.appendChild(fb);
       img.addEventListener('load',()=>{ fb.style.display='none'; });
       img.addEventListener('error',()=>{ fb.style.display='grid'; img.style.display='none'; });
 
-      const foot = document.createElement('div'); foot.className='card-footer'; foot.textContent = card.text || '';
+      const foot=document.createElement('div'); foot.className='card-footer'; foot.textContent=card.text||'';
 
       btn.appendChild(head); btn.appendChild(art); btn.appendChild(foot);
       ribbon.appendChild(btn);
@@ -145,7 +165,7 @@
     layoutStack(); focusIndex=-1; applyFan(); hidePreview();
   }
 
-  /* ---- Layout / fan ---- */
+  // ---- layout & fan
   function layoutStack(){
     const n=cards.length, minOverlap=-40, maxOverlap=-92;
     const t=Math.min(1,Math.max(0,(n-4)/8));
@@ -165,7 +185,7 @@
     });
   }
 
-  /* ---- Preview ---- */
+  // ---- preview
   function showPreview(i){
     if (i<0||i>=cards.length){ hidePreview(); return; }
     const card=handData[i]||{};
@@ -177,7 +197,7 @@
   }
   function hidePreview(){ preview.classList.remove('visible'); }
 
-  /* ---- Drag ghost (with robust cleanup) ---- */
+  // ---- drag ghost + cleanup
   function startGhost(cardEl,e){
     dragGhost=cardEl.cloneNode(true);
     Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
@@ -196,7 +216,7 @@
     document.body.classList.remove('no-select'); hidePreview(); slots.forEach(s=>s.classList.remove('is-hot','is-dragging'));
   }
 
-  /* ---- Handlers ---- */
+  // ---- interactions
   function attachHandlers(){
     cards.forEach(c=>c.addEventListener('dragstart',e=>e.preventDefault()));
     document.addEventListener('selectstart',e=>{ if(isDragging||isPointerDown) e.preventDefault(); });
@@ -225,38 +245,61 @@
     window.addEventListener('resize', ()=>{ layoutStack(); if(focusIndex>=0 && preview.classList.contains('visible')) showPreview(focusIndex); });
   }
 
-  /* ---- Debug helper ---- */
-  function showDbg(txt){ dbg.textContent = txt; dbg.classList.add('show'); }
-  function hideDbg(){ dbg.classList.remove('show'); }
+  // ---- Auto-inspector (logs globals with hand arrays)
+  function runInspector(){
+    const hits=[];
+    const keys = Object.keys(window).sort();
+    for (const key of keys){
+      try{
+        const val = window[key];
+        if (!val || typeof val !== 'object') continue;
+        if (Array.isArray(val.hand)) hits.push(`window.${key}.hand`);
+        else if (val.state && Array.isArray(val.state.hand)) hits.push(`window.${key}.state.hand`);
+      }catch(e){}
+    }
+    if (hits.length){
+      console.log('%c[Inspector] Possible hand paths:', 'color:#7aa2ff', hits);
+      showDbg('Inspector: check console for hand paths.');
+    }else{
+      console.log('%c[Inspector] No obvious hand arrays found on window.', 'color:#7aa2ff');
+    }
+    return hits;
+  }
 
-  /* ---- Boot: wait for the game if needed ---- */
+  // ---- Boot: poll for hand; wire events; expose helpers
+  function wireGameEvents(){
+    try{
+      if (window.Game && typeof Game.onHandChanged==='function'){
+        Game.onHandChanged(()=>renderHand('onHandChanged'));
+      }
+      window.addEventListener('game:handChanged', ()=>renderHand('event'));
+    }catch(e){}
+  }
+
   function boot(){
     let tries=0;
-    const tick = ()=>{
-      const h = getLiveHand();
-      if (Array.isArray(h)){ renderHand('poll'); wireGameEvents(); return; }
-      tries++;
+    const tick=()=>{
+      const found=tryAllHandPaths();
+      if (found){ renderHand('poll'); wireGameEvents(); return; }
+      tries++; if (tries===4) runInspector(); // run inspector once early
       if (tries>=HAND_POLL_MAX){ renderHand('fallback'); wireGameEvents(); return; }
       setTimeout(tick, HAND_POLL_MS);
     };
     tick();
   }
 
-  function wireGameEvents(){
-    try{
-      if (window.Game && typeof Game.onHandChanged==='function'){
-        Game.onHandChanged(()=>renderHand('onHandChanged'));
-      }
-      // If your engine emits a custom event, listen here as well:
-      window.addEventListener('game:handChanged', ()=>renderHand('event'));
-    }catch(e){}
-  }
+  // expose small helper API
+  window.Ribbon = {
+    inspect: runInspector,
+    setHandPath: (p)=>{ forcedHandPath=p; renderHand('setHandPath'); },
+    getHandPath: ()=>forcedHandPath
+  };
 
   boot();
 })();
 </script>
 
-<!-- keep your actual game bundles below -->
+<!-- Keep your actual game bundles below (unchanged) -->
 <!-- <script src="build/game.bundle.js"></script> -->
 </body>
 </html>
