@@ -18,13 +18,14 @@
 body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
 .wrap{padding:12px;max-width:1100px;margin:auto}
 
-/* ===== HUD (player left, enemy right) ===== */
-.hud{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start}
-.hud .stack{display:flex;flex-direction:column;gap:6px}
-.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--chip);border:1px solid var(--chip-line);font-size:12px}
-.pill b{font-size:13px}
-.pill .icon{font-size:13px;opacity:.9}
-.badge{border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:6px;font-size:11px}
+/* ===== Floating HUD chips (top corners) ===== */
+.hudFloat{
+  position:fixed;top:10px;z-index:70;display:flex;flex-direction:column;gap:8px
+}
+.hudFloat.left{left:10px}
+.hudFloat.right{right:10px;align-items:flex-end}
+.hchip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:13px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
+.hchip .icon{width:16px;height:16px;display:inline-grid;place-items:center}
 
 /* ===== Sections ===== */
 .zone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;box-shadow:0 6px 18px rgba(0,0,0,.25) inset}
@@ -56,10 +57,14 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 }
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek,.glyphTok.own.peek .glyphPeek{display:block}
 
-/* ===== Aetherflow (5-column grid; synced costs) ===== */
+/* ===== Aetherflow (synced horizontal scroller) ===== */
 .flowZone{display:flex;flex-direction:column;gap:8px}
-.flowGrid{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:10px;align-items:start}
-.costGrid{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:10px}
+.flowScroller{overflow:auto;scrollbar-width:none}
+.flowScroller::-webkit-scrollbar{display:none}
+.flowInner{min-width:720px} /* ensures columns don't collapse on narrow screens */
+.costGrid, .cardGrid{
+  display:grid;grid-template-columns:repeat(5, 1fr);gap:10px;align-items:start
+}
 .costChip{justify-self:center;min-width:42px;text-align:center;font-weight:800;padding:4px 8px;border:1px solid #213145;border-radius:999px;background:#0b111a;color:#d7b77a;font-size:12px}
 .marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28)}
 .marketCard h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
@@ -69,7 +74,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .placeholder{opacity:.35;display:grid;place-items:center;border-style:dashed}
 
 /* ===== Top toast log ===== */
-.topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:60;display:none;max-width:92vw;font-size:12px;line-height:1.35}
+.topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:80;display:none;max-width:92vw;font-size:12px;line-height:1.35}
 .topLog.show{display:block;animation:pop .18s ease-out}
 .topLog .item{opacity:.92}.topLog .item + .item{margin-top:4px;border-top:1px solid #233145;padding-top:4px}
 @keyframes pop{from{transform:translateX(-50%) translateY(-6px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
@@ -87,32 +92,33 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0b111a;border:1px solid #2a3342;color:#a9d0ff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .badgeTL{left:6px}.badgeTR{right:6px}
 
-/* preview / actions */
-.preview{position:absolute;left:50%;bottom:calc(100% + 10px);min-width:min(540px,92vw);max-width:92vw;padding:10px 12px;border-radius:12px;background:#12141a;border:1px solid #2a2f3a;box-shadow:0 12px 28px rgba(0,0,0,.45);display:none;z-index:55;pointer-events:none}
-.preview.visible{display:block}
-.preview h3{margin:0 0 6px;font-size:14px;font-weight:800}
-.preview p{margin:0;font-size:12px;line-height:1.4;opacity:.9}
-.quickActions{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);display:none;gap:6px;z-index:56}
-.quickActions button{padding:6px 10px;font-size:12px;border-radius:10px}
-.quickActions.show{display:flex}
+/* ===== Inspect panel (larger readable card info) ===== */
+.inspectBack{
+  position:fixed;inset:0;z-index:75;background:rgba(6,8,12,.52);
+  display:none;align-items:flex-end;justify-content:center;padding-bottom:128px /* space above ribbon */
+}
+.inspectBack.show{display:flex}
+.inspectCard{
+  min-width:min(560px,92vw);max-width:92vw;background:#12141a;border:1px solid #2a2f3a;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);
+  padding:12px 14px
+}
+.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:900;color:#d7b77a}
+.inspectCard p{margin:0 0 8px;font-size:13px;line-height:1.45;color:#cfd6e3}
+.inspectDots{display:flex;gap:6px;margin-bottom:8px}
+.inspectDot{width:12px;height:12px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
+.inspectDot.on{background:#6fa4ff;border-color:#6fa4ff}
+.inspectActions{display:flex;gap:8px;justify-content:flex-end}
+.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid #273246;background:#0f141d;color:#cfe2ff;font-size:13px;cursor:pointer}
 
 /* ===== Deck & Discard chips ===== */
 .deckBar{position:fixed;left:10px;bottom:120px;z-index:50;display:flex;gap:6px}
-.chip{
-  display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;
-  box-shadow:0 6px 18px rgba(0,0,0,.35)
-}
+.chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .chip svg{width:14px;height:14px;opacity:.9}
 .chip .narrow{font-variant-numeric:tabular-nums}
 
 /* ===== Floating FAB controls ===== */
-.fabStack{
-  position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;gap:8px
-}
-.fab{
-  width:44px;height:44px;border-radius:999px;background:#0f141d;border:1px solid #273246;display:grid;place-items:center;color:#cfe2ff;
-  box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer
-}
+.fabStack{position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;gap:8px}
+.fab{width:44px;height:44px;border-radius:999px;background:#0f141d;border:1px solid #273246;display:grid;place-items:center;color:#cfe2ff;box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer}
 .fab:hover{filter:brightness(1.1)}
 .fab svg{width:20px;height:20px}
 
@@ -121,23 +127,21 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 </style>
 </head>
 <body>
+<!-- Floating HUD -->
+<div class="hudFloat left">
+  <div class="hchip" title="Your HP"><span class="icon">♥</span><b id="hp">5</b></div>
+  <div class="hchip" title="Your Aether"><span class="icon">⚡</span><b id="ae">0</b></div>
+  <div class="hchip" style="padding:4px 8px" title="Turn"><span id="turnTag" style="font-size:12px">Turn 1</span></div>
+</div>
+<div class="hudFloat right">
+  <div class="hchip" title="AI HP">AI&nbsp;<span class="icon">♥</span><b id="aiHp">5</b></div>
+  <div class="hchip" title="AI Aether"><span class="icon">⚡</span><b id="aiAe">0</b></div>
+</div>
+
 <!-- toast -->
 <div id="topLog" class="topLog" aria-live="polite"></div>
 
 <div class="wrap">
-  <!-- HUD -->
-  <div class="hud">
-    <div class="stack">
-      <span class="pill">You <span class="icon">♥</span><b id="hp">5</b></span>
-      <span class="pill"><span class="icon">⚡</span><b id="ae">0</b></span>
-      <span class="badge" id="turnTag">Turn 1</span>
-    </div>
-    <div class="stack" style="align-items:flex-end">
-      <span class="pill">AI <span class="icon">♥</span><b id="aiHp">5</b></span>
-      <span class="pill"><span class="icon">⚡</span><b id="aiAe">0</b></span>
-    </div>
-  </div>
-
   <!-- AI Board -->
   <div class="zone">
     <div class="subtleTitle">AI Board</div>
@@ -148,8 +152,12 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
   <div class="zone">
     <div class="subtleTitle" style="text-align:center">Aetherflow</div>
     <div class="flowZone">
-      <div class="costGrid" id="flowCosts"></div>
-      <div class="flowGrid" id="flowGrid"></div>
+      <div class="flowScroller" id="flowScroll">
+        <div class="flowInner">
+          <div class="costGrid" id="flowCosts"></div>
+          <div class="cardGrid" id="flowGrid"></div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -188,13 +196,22 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 
 <!-- Ribbon Hand -->
 <section class="ribbon-wrap" aria-label="Your hand">
-  <div class="preview" id="rPreview" role="dialog"></div>
-  <div class="quickActions" id="rActions">
-    <button id="actPlay">Play/Set</button>
-    <button id="actChannel">Channel</button>
-  </div>
   <div class="ribbon" id="ribbon" tabindex="-1"></div>
 </section>
+
+<!-- Inspect panel -->
+<div id="inspect" class="inspectBack" role="dialog" aria-modal="true">
+  <div class="inspectCard">
+    <h3 id="insTitle">Card</h3>
+    <div class="inspectDots" id="insDots"></div>
+    <p id="insText"></p>
+    <div class="inspectActions">
+      <button id="btnInspectPlay">Play/Set</button>
+      <button id="btnInspectChan">Channel</button>
+      <button id="btnInspectClose" aria-label="Close">Close</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ===== CONFIG / CARDS (mechanics unchanged) ===== */
@@ -234,18 +251,22 @@ const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.j
 /* ===== DOM ===== */
 const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae'), aiAe=document.getElementById('aiAe');
 const deckCount=document.getElementById('deckCount'), discardCount=document.getElementById('discardCount');
-const flowCosts=document.getElementById('flowCosts'), flowGrid=document.getElementById('flowGrid');
+const flowCosts=document.getElementById('flowCosts'), flowGrid=document.getElementById('flowGrid'), flowScroll=document.getElementById('flowScroll');
 const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots'), glyphTray=document.getElementById('glyphTray');
-const rRibbon=document.getElementById('ribbon'), rPreview=document.getElementById('rPreview'), rActions=document.getElementById('rActions');
-const actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
+const rRibbon=document.getElementById('ribbon');
 const topLog=document.getElementById('topLog');
 const fabDraw=document.getElementById('fabDraw'), fabEnd=document.getElementById('fabEnd'), fabReset=document.getElementById('fabReset');
+
+/* Inspect panel */
+const inspect=document.getElementById('inspect'), insTitle=document.getElementById('insTitle'), insText=document.getElementById('insText'), insDots=document.getElementById('insDots');
+const btnInsPlay=document.getElementById('btnInspectPlay'), btnInsChan=document.getElementById('btnInspectChan'), btnInsClose=document.getElementById('btnInspectClose');
 
 /* ===== STATE ===== */
 let S={};
 let rCards=[], focusIndex=-1;
-let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
+let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null;
 let turnLog=[], logHideTimer;
+let inspectIndex=-1;
 
 /* ===== TOAST ===== */
 function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
@@ -276,12 +297,12 @@ function startTurn(first=false){
   logResetTurn();
   while(S.hand.length < HAND_DRAW){ drawCard(); }
   render();
-  log(first? "Game started." : `Start of Turn ${S.turn}: drew to ${HAND_DRAW}.`);
+  log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`);
 }
 function endTurn(){
   S.slots.forEach(s=>{ if(s) s.advUsed=false; });
   slideFlow();
-  if(DISCARD_AT_END && S.hand.length){
+  if(S.hand.length){
     const n=S.hand.length; S.disc.push(...S.hand); S.hand.length=0;
     log(`End Turn: discarded ${n} card${n>1?'s':''}.`);
   } else log("End Turn.");
@@ -295,11 +316,9 @@ function render(){
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
   document.getElementById('turnTag').textContent=`Turn ${S.turn}`;
 
-  // Glyph tray (your glyphs visible)
-  glyphTray.innerHTML = S.glyphs.map(g=>{
-    const tip = (g.txt||'Glyph');
-    return `<button class="glyphTok own" title="Glyph"><span class="glyphPeek">${g.n}: ${tip}</span></button>`;
-  }).join('') || `<span style="font-size:11px;color:#7d8aa4;opacity:.8">No glyphs set.</span>`;
+  // Glyph tray
+  glyphTray.innerHTML = S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')
+    || `<span style="font-size:11px;color:#7d8aa4;opacity:.8">No glyphs set.</span>`;
 
   // Player board
   playerSlots.innerHTML="";
@@ -332,7 +351,7 @@ function render(){
     aiSlots.appendChild(d);
   });
 
-  // Aetherflow — synced grids
+  // Aetherflow — synced scroller
   flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="costChip">${c}</div>`).join('');
   flowGrid.innerHTML="";
   for(let i=0;i<FLOW_PRICES.length;i++){
@@ -354,9 +373,9 @@ function render(){
 }
 function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
 
-/* ===== RIBBON ===== */
+/* ===== RIBBON + Inspect ===== */
 function renderRibbon(){
-  const ribbon=document.getElementById('ribbon'); ribbon.innerHTML='';
+  rRibbon.innerHTML='';
   S.hand.forEach((c,i)=>{
     const b=document.createElement('button'); b.className='rCard'; b.type='button'; b.dataset.index=i;
 
@@ -375,83 +394,59 @@ function renderRibbon(){
     const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
 
     b.appendChild(h); b.appendChild(art); b.appendChild(f);
-    ribbon.appendChild(b);
+    // click -> Inspect
+    b.addEventListener('click',()=>openInspect(i));
+    // drag for quick play
+    prepDrag(b,i);
+    rRibbon.appendChild(b);
   });
 
   rCards=[...document.querySelectorAll('.rCard')];
-  focusIndex=-1; qaForIndex=-1;
-  wireRibbonEvents();
 }
 
-/* preview / actions */
-function showPreview(i){
-  const c=S.hand[i]; if(!c) return hidePreview();
-  const dots=(c.t==='Spell')?`<div style="margin-top:6px;opacity:.9">Phases: ${'●'.repeat(c.p||1)}</div>`:'';
-  rPreview.innerHTML=`<h3>${c.n}</h3><p>${c.txt||''}</p>${dots}`;
-  rPreview.classList.add('visible');
-  const cr=rCards[i].getBoundingClientRect(), rr=document.getElementById('ribbon').getBoundingClientRect();
-  const cx=cr.left+cr.width/2, left=Math.min(rr.right-16, Math.max(rr.left+16, cx));
-  const off=left-(rr.left+rr.width/2); rPreview.style.transform=`translateX(calc(-50% + ${off}px))`;
+/* Inspect modal */
+function openInspect(i){
+  const c=S.hand[i]; if(!c) return;
+  inspectIndex=i;
+  insTitle.textContent=c.n;
+  insText.textContent=c.txt||'';
+  insDots.innerHTML = (c.t==='Spell') ? Array.from({length:c.p||1},(_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('') : '';
+  inspect.classList.add('show');
 }
-function hidePreview(){ rPreview.classList.remove('visible'); }
-function showActions(i){
-  const card=rCards[i]; if(!card) return;
-  const rect=card.getBoundingClientRect();
-  const qa=document.getElementById('rActions');
-  qa.style.left=(rect.left + rect.width/2)+'px';
-  qa.style.bottom=(window.innerHeight - rect.top + 6)+'px';
-  qa.classList.add('show'); qaForIndex=i;
-}
-function hideActions(){ document.getElementById('rActions').classList.remove('show'); qaForIndex=-1; }
+function closeInspect(){ inspect.classList.remove('show'); inspectIndex=-1; }
+btnInsClose.onclick=closeInspect;
+btnInsPlay.onclick = ()=>{ if(inspectIndex>-1){ playFromHandIndex(inspectIndex,null); closeInspect(); } };
+btnInsChan.onclick = ()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
+inspect.addEventListener('click',e=>{ if(e.target===inspect) closeInspect(); });
 
-/* interactions & drag */
-function wireRibbonEvents(){
-  const slots=[...document.querySelectorAll('#playerSlots .slot')];
-  const qa=document.getElementById('rActions'), actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
-  actPlay.onclick = ()=>{ if(qaForIndex>-1) playFromHandIndex(qaForIndex,null); hideActions(); };
-  actChan.onclick = ()=>{ if(qaForIndex>-1) channelFromHandIndex(qaForIndex); hideActions(); };
-
-  rCards.forEach(c=>c.addEventListener('dragstart',e=>e.preventDefault()));
-  document.addEventListener('selectstart',e=>{ if(isPointerDown||isDragging) e.preventDefault(); });
-
-  if (matchMedia('(hover:hover)').matches){
-    rCards.forEach((card,i)=> card.addEventListener('mouseenter',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); }));
-    document.getElementById('ribbon').addEventListener('mouseleave',()=>{ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); });
-  }
-  rCards.forEach((card,i)=>{
-    card.addEventListener('click',(e)=>{ if(isDragging){ e.preventDefault(); return; } rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showActions(i); });
-    card.addEventListener('focus',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); });
-    card.addEventListener('pointerdown',(e)=>{
-      isPointerDown=true; isDragging=false; dragFrom=i;
-      card.setPointerCapture(e.pointerId);
-      clearTimeout(longPressTimer);
-      longPressTimer=setTimeout(()=>{ if(!isDragging){ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); showActions(i); } },350);
-      e.preventDefault();
-    });
-    card.addEventListener('pointermove',(e)=>{
-      if(!isPointerDown || dragFrom!==i) return;
-      const moved=Math.hypot(e.movementX,e.movementY)>6;
-      if(moved && !isDragging){ isDragging=true; clearTimeout(longPressTimer); hidePreview(); hideActions(); startGhost(card,e); }
-      if(isDragging){ positionGhost(e.clientX,e.clientY); updateDropTargets(e.clientX,e.clientY, slots); }
-    });
-    card.addEventListener('pointerup',(e)=>{
-      clearTimeout(longPressTimer);
-      if(isDragging){
-        const slotIndex=finishGhost(e.clientX,e.clientY, slots);
-        if(slotIndex!=null) playFromHandIndex(i, slotIndex);
-        cleanupGhost(slots);
-      } else { cleanupGhost(slots); }
-    });
-    card.addEventListener('pointercancel',()=>cleanupGhost(slots));
+/* drag helpers (unchanged behavior) */
+function prepDrag(card,i){
+  card.addEventListener('dragstart',e=>e.preventDefault());
+  card.addEventListener('pointerdown',e=>{
+    isPointerDown=true; isDragging=false; dragFrom=i;
+    card.setPointerCapture(e.pointerId);
+    clearTimeout(longPressTimer);
+    longPressTimer=setTimeout(()=>{ if(!isDragging) openInspect(i); },350);
+    e.preventDefault();
   });
-
-  window.addEventListener('pointerup', ()=>{ if(isPointerDown) cleanupGhost(slots); }, {passive:true});
-  window.addEventListener('pointercancel', ()=>cleanupGhost(slots), {passive:true});
-  window.addEventListener('blur', ()=>cleanupGhost(slots));
-  document.addEventListener('visibilitychange', ()=>{ if(document.hidden) cleanupGhost(slots); });
+  card.addEventListener('pointermove',e=>{
+    const slots=[...document.querySelectorAll('#playerSlots .slot')];
+    if(!isPointerDown || dragFrom!==i) return;
+    const moved=Math.hypot(e.movementX,e.movementY)>6;
+    if(moved && !isDragging){ isDragging=true; clearTimeout(longPressTimer); startGhost(card,e); }
+    if(isDragging){ positionGhost(e.clientX,e.clientY); updateDropTargets(e.clientX,e.clientY, slots); }
+  });
+  card.addEventListener('pointerup',e=>{
+    clearTimeout(longPressTimer);
+    const slots=[...document.querySelectorAll('#playerSlots .slot')];
+    if(isDragging){
+      const slotIndex=finishGhost(e.clientX,e.clientY, slots);
+      if(slotIndex!=null) playFromHandIndex(i, slotIndex);
+      cleanupGhost(slots);
+    } else { cleanupGhost(slots); }
+  });
+  card.addEventListener('pointercancel',()=>cleanupGhost([...document.querySelectorAll('#playerSlots .slot')]));
 }
-
-/* drag ghost helpers */
 function startGhost(card,e){
   dragGhost=card.cloneNode(true);
   Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
@@ -464,7 +459,7 @@ function finishGhost(x,y,slots){ const el=document.elementFromPoint(x,y); const 
 function cleanupGhost(slots){
   if(dragGhost&&dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
   dragGhost=null; isDragging=false; isPointerDown=false; dragFrom=-1;
-  hidePreview(); hideActions(); slots.forEach(s=>s.classList.remove('is-hot'));
+  slots.forEach(s=>s.classList.remove('is-hot'));
 }
 
 /* ===== GAMEPLAY ===== */
