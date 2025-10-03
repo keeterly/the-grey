@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>The Grey — Spellweavers</title>
-<meta name="theme-color" content="#0b0d10">
+<meta name="theme-color" content="#0b0d10" />
 <style>
 :root{
   --bg:#0b0d10;--panel:#0e1218;--ink:#efece7;--muted:#b9b4ac;
@@ -19,9 +19,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .wrap{padding:12px;max-width:1100px;margin:auto}
 
 /* ===== HUD (player left, enemy right) ===== */
-.hud{
-  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start
-}
+.hud{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start}
 .hud .stack{display:flex;flex-direction:column;gap:6px}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--chip);border:1px solid var(--chip-line);font-size:12px}
 .pill b{font-size:13px}
@@ -42,17 +40,33 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .pip{width:10px;height:10px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
 .pip.on{background:#6fa4ff;border-color:#6fa4ff}
 
-/* ===== Aetherflow (centered single row) ===== */
-.flowWrap{display:flex;flex-direction:column;align-items:center;gap:8px}
-.flowCosts{display:flex;gap:8px}
-.flowCosts .cost{min-width:42px;text-align:center;font-weight:800;padding:4px 8px;border:1px solid #213145;border-radius:999px;background:#0b111a;color:#d7b77a;font-size:12px}
-.flowRow{display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;width:100%}
-.flowRow::-webkit-scrollbar{display:none}
-.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-width:240px;max-width:260px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28)}
+/* ===== Glyph tray ===== */
+.glyphTray{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
+.glyphTok{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:28px;border-radius:8px;background:#0f141d;border:1px solid #273246;color:#9fb8da;
+  font-size:11px;box-shadow:0 3px 10px rgba(0,0,0,.25)
+}
+.glyphTok::before{content:'✦';opacity:.85;font-size:12px}
+.glyphTok.own{cursor:pointer}
+.glyphPeek{
+  position:absolute;left:50%;bottom:110%;transform:translateX(-50%);
+  background:#12141a;border:1px solid #2a2f3a;color:#cfe2ff;padding:6px 8px;border-radius:10px;
+  font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(0,0,0,.45);display:none;z-index:8
+}
+.glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek,.glyphTok.own.peek .glyphPeek{display:block}
+
+/* ===== Aetherflow (5-column grid; synced costs) ===== */
+.flowZone{display:flex;flex-direction:column;gap:8px}
+.flowGrid{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:10px;align-items:start}
+.costGrid{display:grid;grid-template-columns:repeat(5,minmax(220px,1fr));gap:10px}
+.costChip{justify-self:center;min-width:42px;text-align:center;font-weight:800;padding:4px 8px;border:1px solid #213145;border-radius:999px;background:#0b111a;color:#d7b77a;font-size:12px}
+.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28)}
 .marketCard h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
 .marketCard p{font-size:12px;color:#b9b4ac;margin-bottom:6px}
 .marketCard .actions{display:flex;gap:6px}
 .marketBadge{position:absolute;top:8px;right:10px;border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:8px;font-size:11px}
+.placeholder{opacity:.35;display:grid;place-items:center;border-style:dashed}
 
 /* ===== Top toast log ===== */
 .topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:60;display:none;max-width:92vw;font-size:12px;line-height:1.35}
@@ -82,14 +96,28 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .quickActions button{padding:6px 10px;font-size:12px;border-radius:10px}
 .quickActions.show{display:flex}
 
-/* ===== Deck chip above ribbon ===== */
-.deckChip{
-  position:fixed;left:10px;bottom:120px;z-index:50;
-  display:flex;align-items:center;gap:6px;
-  padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;
+/* ===== Deck & Discard chips ===== */
+.deckBar{position:fixed;left:10px;bottom:120px;z-index:50;display:flex;gap:6px}
+.chip{
+  display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;
   box-shadow:0 6px 18px rgba(0,0,0,.35)
 }
-.deckChip svg{width:14px;height:14px;opacity:.9}
+.chip svg{width:14px;height:14px;opacity:.9}
+.chip .narrow{font-variant-numeric:tabular-nums}
+
+/* ===== Floating FAB controls ===== */
+.fabStack{
+  position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;gap:8px
+}
+.fab{
+  width:44px;height:44px;border-radius:999px;background:#0f141d;border:1px solid #273246;display:grid;place-items:center;color:#cfe2ff;
+  box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer
+}
+.fab:hover{filter:brightness(1.1)}
+.fab svg{width:20px;height:20px}
+
+/* helpers */
+.hidden{display:none}
 </style>
 </head>
 <body>
@@ -97,52 +125,65 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 <div id="topLog" class="topLog" aria-live="polite"></div>
 
 <div class="wrap">
-  <!-- HUD rows -->
+  <!-- HUD -->
   <div class="hud">
-    <div class="stack" id="hudLeft">
+    <div class="stack">
       <span class="pill">You <span class="icon">♥</span><b id="hp">5</b></span>
       <span class="pill"><span class="icon">⚡</span><b id="ae">0</b></span>
       <span class="badge" id="turnTag">Turn 1</span>
     </div>
-    <div class="stack" id="hudRight" style="align-items:flex-end">
+    <div class="stack" style="align-items:flex-end">
       <span class="pill">AI <span class="icon">♥</span><b id="aiHp">5</b></span>
       <span class="pill"><span class="icon">⚡</span><b id="aiAe">0</b></span>
     </div>
   </div>
 
-  <!-- AI Board (now above flow) -->
+  <!-- AI Board -->
   <div class="zone">
     <div class="subtleTitle">AI Board</div>
     <div class="slots" id="aiSlots"></div>
   </div>
 
-  <!-- Aetherflow (centered, one row) -->
+  <!-- Aetherflow -->
   <div class="zone">
     <div class="subtleTitle" style="text-align:center">Aetherflow</div>
-    <div class="flowWrap">
-      <div class="flowCosts" id="flowCosts"></div>
-      <div class="flowRow" id="flowRow" aria-label="Aetherflow market"></div>
+    <div class="flowZone">
+      <div class="costGrid" id="flowCosts"></div>
+      <div class="flowGrid" id="flowGrid"></div>
     </div>
   </div>
 
-  <!-- Player Board (below flow) -->
+  <!-- Player Board + Glyphs -->
   <div class="zone">
     <div class="subtleTitle">Your Board</div>
+    <div class="glyphTray" id="glyphTray"></div>
     <div class="slots" id="playerSlots"></div>
-  </div>
-
-  <!-- controls (kept for testing) -->
-  <div class="zone" style="display:flex;gap:8px;justify-content:center">
-    <button id="drawBtn">Draw</button>
-    <button id="endBtn">End Turn</button>
-    <button id="resetBtn">Reset</button>
   </div>
 </div>
 
-<!-- Deck chip -->
-<div class="deckChip" id="deckChip" title="Deck">
-  <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.4"/><rect x="8" y="6" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.2" opacity=".6"/></svg>
-  <span id="deckCount">0</span>
+<!-- Deck & Discard chips -->
+<div class="deckBar" aria-label="Deck and Discard">
+  <div class="chip" title="Deck">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.4"/><rect x="8" y="6" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.2" opacity=".6"/></svg>
+    <span id="deckCount" class="narrow">0</span>
+  </div>
+  <div class="chip" title="Discard">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M6 12h12" stroke="#a9d0ff" stroke-width="1.4"/><path d="M8 16h8" stroke="#a9d0ff" stroke-width="1.4"/><rect x="5" y="4" width="14" height="16" rx="2" stroke="#a9d0ff" stroke-width="1.2"/></svg>
+    <span id="discardCount" class="narrow">0</span>
+  </div>
+</div>
+
+<!-- FAB controls -->
+<div class="fabStack" aria-label="Turn controls">
+  <button id="fabDraw" class="fab" title="Draw">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M7 10l5-5 5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button id="fabEnd" class="fab" title="End Turn">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h10" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M13 7l5 5-5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <button id="fabReset" class="fab" title="Reset">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 3-6" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4v4h4" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
 </div>
 
 <!-- Ribbon Hand -->
@@ -156,7 +197,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 </section>
 
 <script>
-/* ---------------- CONFIG & DATA (same mechanics) ---------------- */
+/* ===== CONFIG / CARDS (mechanics unchanged) ===== */
 const HAND_DRAW = 5;
 const DISCARD_AT_END = true;
 
@@ -190,42 +231,43 @@ const ART_ROOT = 'assets/art/standard/';
 const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
 
-/* ---------------- DOM ---------------- */
-const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae');
-const aiAe=document.getElementById('aiAe'); // simple HUD mirror (not used in sim yet)
-const deckCount=document.getElementById('deckCount'), flowCosts=document.getElementById('flowCosts'), flowRow=document.getElementById('flowRow');
-const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots');
-const drawBtn=document.getElementById('drawBtn'), endBtn=document.getElementById('endBtn'), resetBtn=document.getElementById('resetBtn');
+/* ===== DOM ===== */
+const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae'), aiAe=document.getElementById('aiAe');
+const deckCount=document.getElementById('deckCount'), discardCount=document.getElementById('discardCount');
+const flowCosts=document.getElementById('flowCosts'), flowGrid=document.getElementById('flowGrid');
+const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots'), glyphTray=document.getElementById('glyphTray');
 const rRibbon=document.getElementById('ribbon'), rPreview=document.getElementById('rPreview'), rActions=document.getElementById('rActions');
 const actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
 const topLog=document.getElementById('topLog');
+const fabDraw=document.getElementById('fabDraw'), fabEnd=document.getElementById('fabEnd'), fabReset=document.getElementById('fabReset');
 
-/* ---------------- State ---------------- */
+/* ===== STATE ===== */
 let S={};
 let rCards=[], focusIndex=-1;
 let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
 let turnLog=[], logHideTimer;
 
-/* ---------------- Toast ---------------- */
+/* ===== TOAST ===== */
 function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
 function toastRender(){ topLog.innerHTML = turnLog.slice(-3).map(x=>`<div class="item">${x}</div>`).join(''); toastShow(); }
 function log(msg){ turnLog.push(msg); toastRender(); }
 function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
 
-/* ---------------- Utils ---------------- */
+/* ===== UTILS ===== */
 function uid(){return Math.random().toString(36).slice(2,9);}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
 function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
 
-/* ---------------- Init / Turn flow ---------------- */
+/* ===== INIT / TURN FLOW ===== */
 function initGame(){
-  S={ hp:5, ae:0,
-      deck:makeStarterDeck(), hand:[], disc:[],
-      slots:[null,null,null], glyphs:[],
-      ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
-      flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null],
-      turn:1, taxes:0, lastInstant:null };
+  S={
+    hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[],
+    slots:[null,null,null], glyphs:[],
+    ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
+    flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null],
+    turn:1, taxes:0, lastInstant:null
+  };
   ensureMarketComposition(true);
   startTurn(true);
 }
@@ -247,26 +289,17 @@ function endTurn(){
   setTimeout(()=>startTurn(false), 350);
 }
 
-/* ---------------- Render ---------------- */
+/* ===== RENDER ===== */
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; aiAe.textContent=S.ai.ae||0;
-  deckCount.textContent=S.deck.length;
+  deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
   document.getElementById('turnTag').textContent=`Turn ${S.turn}`;
 
-  // flow prices
-  flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="cost">${c}</div>`).join('');
-
-  // flow row
-  flowRow.innerHTML="";
-  S.flowRow.forEach((c,idx)=>{
-    const div=document.createElement('div');
-    div.className='marketCard';
-    if(!c){ div.innerHTML='<h4 style="opacity:.5">— empty —</h4>'; flowRow.appendChild(div); return; }
-    const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:"";
-    div.innerHTML = `${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${FLOW_PRICES[idx]}⚡)</button></div>`;
-    div.querySelector('button').onclick=()=>buyFlowCard(idx);
-    flowRow.appendChild(div);
-  });
+  // Glyph tray (your glyphs visible)
+  glyphTray.innerHTML = S.glyphs.map(g=>{
+    const tip = (g.txt||'Glyph');
+    return `<button class="glyphTok own" title="Glyph"><span class="glyphPeek">${g.n}: ${tip}</span></button>`;
+  }).join('') || `<span style="font-size:11px;color:#7d8aa4;opacity:.8">No glyphs set.</span>`;
 
   // Player board
   playerSlots.innerHTML="";
@@ -299,13 +332,31 @@ function render(){
     aiSlots.appendChild(d);
   });
 
+  // Aetherflow — synced grids
+  flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="costChip">${c}</div>`).join('');
+  flowGrid.innerHTML="";
+  for(let i=0;i<FLOW_PRICES.length;i++){
+    const c=S.flowRow[i];
+    const div=document.createElement('div');
+    if(!c){
+      div.className='marketCard placeholder';
+      div.innerHTML='— empty —';
+    }else{
+      div.className='marketCard';
+      const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:"";
+      div.innerHTML = `${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${FLOW_PRICES[i]}⚡)</button></div>`;
+      div.querySelector('button').onclick=()=>buyFlowCard(i);
+    }
+    flowGrid.appendChild(div);
+  }
+
   renderRibbon();
 }
 function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
 
-/* ---------------- Ribbon ---------------- */
+/* ===== RIBBON ===== */
 function renderRibbon(){
-  rRibbon.innerHTML='';
+  const ribbon=document.getElementById('ribbon'); ribbon.innerHTML='';
   S.hand.forEach((c,i)=>{
     const b=document.createElement('button'); b.className='rCard'; b.type='button'; b.dataset.index=i;
 
@@ -324,10 +375,10 @@ function renderRibbon(){
     const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
 
     b.appendChild(h); b.appendChild(art); b.appendChild(f);
-    rRibbon.appendChild(b);
+    ribbon.appendChild(b);
   });
 
-  rCards=[...rRibbon.querySelectorAll('.rCard')];
+  rCards=[...document.querySelectorAll('.rCard')];
   focusIndex=-1; qaForIndex=-1;
   wireRibbonEvents();
 }
@@ -338,7 +389,7 @@ function showPreview(i){
   const dots=(c.t==='Spell')?`<div style="margin-top:6px;opacity:.9">Phases: ${'●'.repeat(c.p||1)}</div>`:'';
   rPreview.innerHTML=`<h3>${c.n}</h3><p>${c.txt||''}</p>${dots}`;
   rPreview.classList.add('visible');
-  const cr=rCards[i].getBoundingClientRect(), rr=rRibbon.getBoundingClientRect();
+  const cr=rCards[i].getBoundingClientRect(), rr=document.getElementById('ribbon').getBoundingClientRect();
   const cx=cr.left+cr.width/2, left=Math.min(rr.right-16, Math.max(rr.left+16, cx));
   const off=left-(rr.left+rr.width/2); rPreview.style.transform=`translateX(calc(-50% + ${off}px))`;
 }
@@ -346,15 +397,17 @@ function hidePreview(){ rPreview.classList.remove('visible'); }
 function showActions(i){
   const card=rCards[i]; if(!card) return;
   const rect=card.getBoundingClientRect();
-  rActions.style.left=(rect.left + rect.width/2)+'px';
-  rActions.style.bottom=(window.innerHeight - rect.top + 6)+'px';
-  rActions.classList.add('show'); qaForIndex=i;
+  const qa=document.getElementById('rActions');
+  qa.style.left=(rect.left + rect.width/2)+'px';
+  qa.style.bottom=(window.innerHeight - rect.top + 6)+'px';
+  qa.classList.add('show'); qaForIndex=i;
 }
-function hideActions(){ rActions.classList.remove('show'); qaForIndex=-1; }
+function hideActions(){ document.getElementById('rActions').classList.remove('show'); qaForIndex=-1; }
 
-/* wire events */
+/* interactions & drag */
 function wireRibbonEvents(){
   const slots=[...document.querySelectorAll('#playerSlots .slot')];
+  const qa=document.getElementById('rActions'), actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
   actPlay.onclick = ()=>{ if(qaForIndex>-1) playFromHandIndex(qaForIndex,null); hideActions(); };
   actChan.onclick = ()=>{ if(qaForIndex>-1) channelFromHandIndex(qaForIndex); hideActions(); };
 
@@ -363,7 +416,7 @@ function wireRibbonEvents(){
 
   if (matchMedia('(hover:hover)').matches){
     rCards.forEach((card,i)=> card.addEventListener('mouseenter',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); }));
-    rRibbon.addEventListener('mouseleave',()=>{ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); });
+    document.getElementById('ribbon').addEventListener('mouseleave',()=>{ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); });
   }
   rCards.forEach((card,i)=>{
     card.addEventListener('click',(e)=>{ if(isDragging){ e.preventDefault(); return; } rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showActions(i); });
@@ -398,7 +451,7 @@ function wireRibbonEvents(){
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) cleanupGhost(slots); });
 }
 
-/* drag helpers */
+/* drag ghost helpers */
 function startGhost(card,e){
   dragGhost=card.cloneNode(true);
   Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
@@ -414,7 +467,7 @@ function cleanupGhost(slots){
   hidePreview(); hideActions(); slots.forEach(s=>s.classList.remove('is-hot'));
 }
 
-/* ---------------- Core actions (same) ---------------- */
+/* ===== GAMEPLAY ===== */
 function drawCard(){
   if(S.deck.length===0){
     if(S.disc.length===0){ log("No cards to draw."); return; }
@@ -431,7 +484,8 @@ function playFromHandIndex(idx, dropSlotIndex=null){
     S.hand.splice(idx,1);
     log(`Play ${c.n} → Slot ${slot+1}.`);
   } else if(c.t==="Glyph"){
-    S.glyphs.push(c); S.hand.splice(idx,1); log(`Set glyph: ${c.n}.`);
+    S.glyphs.push(c); S.hand.splice(idx,1);
+    log(`Set glyph: ${c.n}.`);
   } else { // Instant
     S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); S.lastInstant=c;
     log(`Cast ${c.n}: +${c.v||0}⚡.`);
@@ -476,7 +530,7 @@ function runResolve(who,c){
   }
 }
 
-/* ---------------- Market ---------------- */
+/* ===== MARKET ===== */
 function buyFlowCard(i){
   const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; }
   const cost=FLOW_PRICES[i];
@@ -504,12 +558,12 @@ function ensureMarketComposition(initial=false){
   if(initial) render();
 }
 
-/* ---------------- Buttons ---------------- */
-drawBtn.onclick=()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
-endBtn.onclick =()=> endTurn();
-resetBtn.onclick=()=> initGame();
+/* ===== FAB Buttons ===== */
+fabDraw.onclick = ()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
+fabEnd.onclick  = ()=> endTurn();
+fabReset.onclick= ()=> initGame();
 
-/* ---------------- Boot ---------------- */
+/* ===== Boot ===== */
 initGame();
 </script>
 </body>
