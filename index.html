@@ -6,734 +6,148 @@
 <title>The Grey — Spellweavers</title>
 <meta name="theme-color" content="#0b0c0d" />
 <style>
-/* ================= NieR: Automata–inspired palette ================= */
-:root{
-  --bg:#0b0c0d;              /* near-black background */
-  --panel:#121416;           /* charcoal panel */
-  --line:#1e2124;            /* graphite line */
-  --slot:#0f1214;            /* slot mat */
-  --ink:#e6e1d6;             /* bone text */
-  --muted:#bdb6aa;           /* parchment-muted */
-  --accent:#cfc29c;          /* antique-gold accent */
-  --chip:#13171a; --chip-line:#262c31;
+:root {
+  --bg:#0b0c0d; --panel:#121416; --line:#1e2124;
+  --slot:#0f1214; --ink:#e6e1d6; --muted:#bdb6aa;
+  --accent:#cfc29c; --chip-line:#262c31;
   --card:#14181b; --card-line:#2a3137;
-  --card-w:120px; --card-h:172px; --card-radius:12px;
-  --transition:140ms ease;
+  --card-w:120px; --card-h:172px;
 }
-
-/* ===== Global ===== */
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%}
-body{
-  background:radial-gradient(1200px 800px at 50% -200px, rgba(255,255,255,.06), transparent 60%), var(--bg);
-  color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-}
-body::after{ /* subtle paper grain */
-  content:""; pointer-events:none; position:fixed; inset:0; z-index:0;
-  background-image:
-    radial-gradient(rgba(0,0,0,.35), transparent 60%),
-    url("data:image/svg+xml;utf8,\
-      <svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'>\
-        <filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 .03'/></feComponentTransfer></filter>\
-        <rect width='100%' height='100%' filter='url(%23n)'/>\
-      </svg>");
-  mix-blend-mode:soft-light; opacity:.35;
-}
-.wrap{padding:12px;max-width:1100px;margin:auto;position:relative;z-index:1}
+body{background:var(--bg);color:var(--ink);font-family:sans-serif;overflow-x:hidden}
 
-/* ===== Floating HUD ===== */
-.hudFloat{
-  position:fixed;top:10px;z-index:70;display:flex;flex-direction:column;gap:8px;
-  transition: opacity .16s ease, transform .16s ease;
-}
+/* HUD */
+.hudFloat{position:fixed;top:10px;display:flex;flex-direction:column;gap:6px;z-index:50}
 .hudFloat.left{left:10px}
 .hudFloat.right{right:10px;align-items:flex-end}
-.hchip{
-  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;
-  background:linear-gradient(180deg,#15191c,#0f1214);
-  border:1px solid var(--chip-line);color:var(--ink);font-size:13px;
-  box-shadow:0 6px 16px rgba(0,0,0,.35)
-}
-.hchip .icon{width:16px;height:16px;display:inline-grid;place-items:center;color:var(--accent)}
+.hchip{display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:10px;background:#101417;border:1px solid var(--chip-line);font-size:13px}
+.hchip .icon{width:16px;height:16px}
 
-/* ===== Sections ===== */
-.zone{
-  background:linear-gradient(180deg,#161a1d,#121416);
-  border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;
-  box-shadow:0 6px 18px rgba(0,0,0,.25) inset, 0 2px 10px rgba(0,0,0,.15)
-}
-.subtleTitle{
-  font-weight:800;letter-spacing:.04em;margin-bottom:6px;color:var(--accent);text-shadow:0 1px 0 rgba(0,0,0,.35)
-}
+/* Zones */
+.zone{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin:8px}
+.subtleTitle{font-weight:700;color:var(--accent);margin-bottom:6px}
+.slots{display:flex;gap:6px}
+.slot{flex:1;background:var(--slot);border:2px dashed #2e3439;border-radius:10px;min-height:120px;padding:6px;color:var(--muted);font-size:12px}
 
-/* ===== Boards ===== */
-.slots{display:flex;gap:8px;flex-wrap:wrap}
-.slot{
-  flex:1 0 30%;background:var(--slot);border:2px dashed #2e3439;border-radius:12px;padding:8px;min-height:140px;position:relative;
-  transition:transform .12s, background .12s, border-color .12s
-}
-.slot h5{font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.02em}
-.slot.is-hot{ border-color:#9fb1bf; background:#121a1e; transform:translateY(-1px) }
+/* Aetherflow */
+.flowZone{display:flex;flex-direction:column;gap:6px}
+.flowGrid{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none}
+.flowGrid::-webkit-scrollbar{display:none}
+.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:10px;padding:8px;min-width:140px}
+.marketCard h4{color:var(--accent);margin-bottom:4px}
+.marketCard p{font-size:12px;color:var(--muted)}
+.marketCard button{margin-top:4px;font-size:11px;padding:4px 8px;border-radius:8px;background:#101417;color:var(--ink);border:1px solid #2a3137}
 
-/* phase pips */
-.pips{display:flex;gap:4px;margin-top:4px}
-.pip{width:10px;height:10px;border-radius:999px;border:1px solid #3e4952;background:#0f1418}
-.pip.on{background:#98a8b5;border-color:#98a8b5}
-
-/* ===== Glyph tray ===== */
-.glyphTray{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
-.glyphTok{
-  position:relative;display:inline-flex;align-items:center;justify-content:center;
-  width:44px;height:28px;border-radius:8px;background:#101417;border:1px solid #2b333a;color:#cfc9bb;
-  font-size:11px;box-shadow:0 3px 10px rgba(0,0,0,.25)
-}
-.glyphTok::before{content:'✦';opacity:.9;font-size:12px;color:var(--accent)}
-.glyphTok.own{cursor:pointer}
-.glyphPeek{
-  position:absolute;left:50%;bottom:110%;transform:translateX(-50%);
-  background:#14181b;border:1px solid #2b3137;color:#e9e4d8;padding:6px 8px;border-radius:10px;
-  font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(0,0,0,.45);display:none;z-index:8
-}
-.glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek,.glyphTok.own.peek .glyphPeek{display:block}
-
-/* ===== Aetherflow (snap + peek dots) ===== */
-.flowZone{display:flex;flex-direction:column;gap:8px}
-.flowScroller{overflow:auto;scrollbar-width:none;scroll-snap-type: x mandatory}
-.flowScroller::-webkit-scrollbar{display:none}
-.flowInner{min-width:720px}
-.costGrid, .cardGrid{
-  display:grid;grid-template-columns:repeat(5, 1fr);gap:10px;align-items:start
-}
-.costChip{
-  justify-self:center;min-width:42px;text-align:center;font-weight:900;letter-spacing:.05em;
-  padding:3px 8px;border:1px solid #30363b;border-radius:999px;background:#0f1214;color:var(--accent);font-size:12px
-}
-.marketCard{
-  background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;
-  box-shadow:0 6px 16px rgba(0,0,0,.28);scroll-snap-align:start
-}
-.marketCard h4{font-size:14px;color:var(--accent);margin-bottom:4px;letter-spacing:.03em}
-.marketCard p{font-size:12px;color:var(--muted);margin-bottom:6px}
-.marketCard .actions{display:flex;gap:6px}
-.marketCard .actions button{padding:6px 10px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink)}
-.marketBadge{
-  position:absolute;top:8px;right:10px;border:1px solid #2b3a42;background:#0f1214;color:#cfc9bb;padding:2px 6px;border-radius:8px;font-size:11px
-}
-.placeholder{opacity:.35;display:grid;place-items:center;border-style:dashed}
-.marketCard.afford{ box-shadow: 0 8px 22px rgba(200,196,172,.22); border-color:#3a454c }
-.marketCard.na .actions button{opacity:.55;cursor:not-allowed}
-
-/* Flow peek dots */
-.peekDots{display:flex;gap:6px;justify-content:center;margin-top:2px}
-.peekDot{width:6px;height:6px;border-radius:999px;background:#2d3439}
-.peekDot.on{background:#98a8b5}
-
-/* ===== Top toast log ===== */
-.topLog{
-  position:fixed;top:8px;left:50%;transform:translateX(-50%);
-  background:#111417;border:1px solid #272d32;color:#efe9dc;border-radius:12px;padding:8px 12px;
-  box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:80;display:none;max-width:92vw;font-size:12px;line-height:1.35
-}
-.topLog.show{display:block;animation:pop .18s ease-out}
-.topLog .item{opacity:.92}.topLog .item + .item{margin-top:4px;border-top:1px solid #23282d;padding-top:4px}
-@keyframes pop{from{transform:translateX(-50%) translateY(-6px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
-
-/* ===== Ribbon Hand ===== */
-.ribbon-wrap{
-  position:fixed;left:0;right:0;bottom:0;z-index:40;padding:8px 6px calc(10px + env(safe-area-inset-bottom));
-  background:linear-gradient(0deg,#111518,#151a1d);border-top:1px solid #1d2226;box-shadow:0 -2px 10px rgba(0,0,0,.4)
-}
-.ribbon{
-  display:flex;align-items:flex-end;justify-content:flex-start;gap:4px;padding:0 6px;height:110px;overflow-x:auto;scrollbar-width:none;
-  user-select:none;touch-action:pan-x;scroll-snap-type:x mandatory
-}
+/* Hand */
+.ribbon-wrap{position:fixed;bottom:0;left:0;right:0;background:#111518;border-top:1px solid #1d2226;padding:6px;z-index:40}
+.ribbon{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
 .ribbon::-webkit-scrollbar{display:none}
-.rCard{
-  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#171b1e;border:1px solid #2a3137;box-shadow:0 6px 18px rgba(0,0,0,.35);
-  transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);
-  outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;scroll-snap-align:start
-}
-.rHead{padding:6px 8px 5px;font-size:11px;font-weight:900;letter-spacing:.04em;background:linear-gradient(180deg,#21262a,#191e22);border-bottom:1px solid #2b3137;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rArt{position:relative;flex:1;background:#0f1214;display:grid;place-items:center}
-.rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9) contrast(1.02)}
-.rArt .fallback{position:absolute;inset:0;background:#0f1214;display:none}
-.rFoot{padding:6px 8px;font-size:10.5px;color:var(--muted);border-top:1px solid #232a2f;background:#151a1d;line-height:1.25}
-.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0f1214;border:1px solid #2a3340;color:#d9d2c4;box-shadow:0 2px 8px rgba(0,0,0,.25)}
-.badgeTL{left:6px}.badgeTR{right:6px}
+.rCard{width:var(--card-w);height:var(--card-h);background:#171b1e;border:1px solid #2a3137;border-radius:10px;display:flex;flex-direction:column}
+.rHead{padding:4px 6px;font-size:11px;font-weight:bold;color:var(--accent)}
+.rArt{flex:1;display:grid;place-items:center;background:#101417}
+.rArt img{width:100%;height:100%;object-fit:contain}
+.rFoot{padding:4px 6px;font-size:11px;color:var(--muted)}
 
-/* ===== Inspect panel ===== */
-.inspectBack{
-  position:fixed;inset:0;z-index:75;background:rgba(12,14,16,.52);
-  display:none;align-items:flex-end;justify-content:center;padding-bottom:128px
-}
+/* Inspect */
+.inspectBack{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:60}
 .inspectBack.show{display:flex}
-.inspectCard{
-  min-width:min(560px,92vw);max-width:92vw;background:#13171a;border:1px solid #2a3036;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);
-  padding:12px 14px
-}
-.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:900;color:var(--accent);letter-spacing:.04em}
-.inspectCard p{margin:0 0 8px;font-size:13px;line-height:1.45;color:#efe9dc}
-.inspectCard .artBox{height:160px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid #22282d;background:#0f1214;display:grid;place-items:center}
-.inspectCard .artBox img{width:100%;height:100%;object-fit:cover;filter:saturate(.9)}
-.inspectDots{display:flex;gap:6px;margin-bottom:8px}
-.inspectDot{width:14px;height:14px;border-radius:999px;border:1px solid #3e4952;background:#0f1418}
-.inspectDot.on{background:#98a8b5;border-color:#98a8b5}
+.inspectCard{background:#13171a;border:1px solid #2a3036;border-radius:12px;padding:12px;width:90%;max-width:400px}
+.inspectCard h3{color:var(--accent);margin-bottom:6px}
+.inspectCard .artBox{height:160px;background:#101417;border:1px solid #2a3137;border-radius:8px;margin-bottom:8px;display:grid;place-items:center}
+.inspectCard .artBox img{width:100%;height:100%;object-fit:contain}
 .inspectActions{display:flex;gap:8px;justify-content:flex-end}
-.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink);font-size:13px;cursor:pointer}
+.inspectActions button{padding:6px 10px;border-radius:8px;background:#101417;color:var(--ink);border:1px solid #2a3137}
 
-/* ===== Deck & Discard chips ===== */
-.deckBar{position:fixed;left:10px;bottom:120px;z-index:50;display:flex;gap:6px;transition: opacity .16s ease, transform .16s ease}
-.chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#101417;border:1px solid #2b3137;color:var(--ink);font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-.chip svg{width:14px;height:14px;opacity:.9;stroke:var(--accent)}
-.chip .narrow{font-variant-numeric:tabular-nums}
-
-/* ===== Speed-dial FAB ===== */
-.fabDial{position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition: opacity .16s ease, transform .16s ease}
-.fab{width:48px;height:48px;border-radius:999px;background:#101417;border:1px solid #2b3137;display:grid;place-items:center;color:var(--ink);box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer}
-.fab svg{width:22px;height:22px}
-.fab.small{width:42px;height:42px}
-.dialActions{display:grid;gap:8px;transform-origin:bottom right;transition:transform .14s ease, opacity .14s ease;opacity:0;transform:scale(.9);pointer-events:none}
-.fabDial.open .dialActions{opacity:1;transform:scale(1);pointer-events:auto}
-.smartHide{ opacity:.15; transform: translateY(6px); pointer-events:none; }
-.hidden{display:none}
+/* Chips + FAB */
+.deckBar{position:fixed;left:10px;bottom:100px;display:flex;gap:6px;z-index:50}
+.chip{padding:4px 8px;border-radius:999px;background:#101417;border:1px solid #2a3137;font-size:12px}
+.fabDial{position:fixed;right:10px;bottom:100px;display:flex;flex-direction:column;gap:8px;z-index:50}
+.fab{width:42px;height:42px;border-radius:999px;background:#101417;border:1px solid #2a3137;display:grid;place-items:center;color:var(--ink)}
 </style>
 </head>
 <body>
-<!-- Floating HUD -->
 <div class="hudFloat left">
-  <div class="hchip" title="Your HP"><span class="icon">♥</span><b id="hp">5</b></div>
-  <div class="hchip" title="Your Aether"><span class="icon">⚡</span><b id="ae">0</b></div>
-  <div class="hchip" style="padding:4px 8px" title="Turn"><span id="turnTag" style="font-size:12px">Turn 1</span></div>
+  <div class="hchip"><span class="icon">♥</span><b id="hp">5</b></div>
+  <div class="hchip"><span class="icon">⚡</span><b id="ae">0</b></div>
+  <div class="hchip" id="turnChip">Turn 1</div>
 </div>
 <div class="hudFloat right">
-  <div class="hchip" title="AI HP">AI&nbsp;<span class="icon">♥</span><b id="aiHp">5</b></div>
-  <div class="hchip" title="AI Aether"><span class="icon">⚡</span><b id="aiAe">0</b></div>
-  <div class="hchip" title="AI Glyphs"><span class="icon">✦</span><b id="aiGlyphs">0</b></div>
+  <div class="hchip">AI ♥ <b id="aiHp">5</b></div>
+  <div class="hchip">⚡ <b id="aiAe">0</b></div>
 </div>
 
-<!-- toast -->
-<div id="topLog" class="topLog" aria-live="polite"></div>
+<div class="zone"><div class="subtleTitle">AI Board</div><div class="slots" id="aiSlots"></div></div>
+<div class="zone">
+  <div class="subtleTitle" style="text-align:center">Aetherflow</div>
+  <div class="flowZone"><div class="flowGrid" id="flowGrid"></div></div>
+</div>
+<div class="zone"><div class="subtleTitle">Your Board</div><div class="slots" id="playerSlots"></div></div>
 
-<div class="wrap">
-  <!-- AI Board -->
-  <div class="zone">
-    <div class="subtleTitle">AI Board</div>
-    <div class="slots" id="aiSlots"></div>
-  </div>
-
-  <!-- Aetherflow -->
-  <div class="zone">
-    <div class="subtleTitle" style="text-align:center">Aetherflow</div>
-    <div class="flowZone">
-      <div class="flowScroller" id="flowScroll">
-        <div class="flowInner">
-          <div class="costGrid" id="flowCosts"></div>
-          <div class="cardGrid" id="flowGrid"></div>
-        </div>
-      </div>
-      <div class="peekDots" id="peekDots"></div>
-    </div>
-  </div>
-
-  <!-- Player Board + Glyphs -->
-  <div class="zone">
-    <div class="subtleTitle">Your Board</div>
-    <div class="glyphTray" id="glyphTray"></div>
-    <div class="slots" id="playerSlots"></div>
-  </div>
+<div class="deckBar">
+  <div class="chip">Deck <span id="deckCount">0</span></div>
+  <div class="chip">Discard <span id="discardCount">0</span></div>
+</div>
+<div class="fabDial">
+  <button class="fab" id="btnDraw">⇧</button>
+  <button class="fab" id="btnEnd">⏵</button>
+  <button class="fab" id="btnReset">↺</button>
 </div>
 
-<!-- Deck & Discard chips -->
-<div class="deckBar" aria-label="Deck and Discard">
-  <div class="chip" title="Deck">
-    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" ry="2" stroke-width="1.4"/><rect x="8" y="6" width="12" height="18" rx="2" ry="2" stroke-width="1.2" opacity=".6"/></svg>
-    <span id="deckCount" class="narrow">0</span>
-  </div>
-  <div class="chip" title="Discard">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M6 12h12" stroke-width="1.4"/><path d="M8 16h8" stroke-width="1.4"/><rect x="5" y="4" width="14" height="16" rx="2" stroke-width="1.2"/></svg>
-    <span id="discardCount" class="narrow">0</span>
-  </div>
-</div>
+<section class="ribbon-wrap"><div class="ribbon" id="ribbon"></div></section>
 
-<!-- Speed-dial FAB -->
-<div class="fabDial" id="fabDial" aria-label="Turn controls">
-  <div class="dialActions">
-    <button id="fabDraw" class="fab small" title="Draw">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M7 10l5-5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <button id="fabEnd" class="fab small" title="End Turn">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-    <button id="fabReset" class="fab small" title="Reset">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 3-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4v4h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-    </button>
-  </div>
-  <button id="fabMain" class="fab" title="Actions">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-  </button>
-</div>
-
-<!-- Ribbon Hand -->
-<section class="ribbon-wrap" aria-label="Your hand">
-  <div class="ribbon" id="ribbon" tabindex="-1"></div>
-</section>
-
-<!-- Inspect panel -->
-<div id="inspect" class="inspectBack" role="dialog" aria-modal="true">
+<div id="inspect" class="inspectBack">
   <div class="inspectCard">
-    <h3 id="insTitle">Card</h3>
-    <div class="artBox"><img id="insArt" alt="" loading="lazy"></div>
-    <div class="inspectDots" id="insDots"></div>
+    <h3 id="insTitle"></h3>
+    <div class="artBox"><img id="insArt"></div>
     <p id="insText"></p>
     <div class="inspectActions">
-      <button id="btnInspectPlay">Play/Set</button>
-      <button id="btnInspectChan">Channel</button>
-      <button id="btnInspectClose" aria-label="Close">Close</button>
+      <button id="btnPlay">Play</button>
+      <button id="btnChan">Channel</button>
+      <button id="btnClose">Close</button>
     </div>
   </div>
 </div>
 
 <script>
-/* ===== CONFIG / CARDS ===== */
-const HAND_DRAW = 5;
-const DISCARD_AT_END = true;
-
-const STARTER = [
-  {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
-  {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
-  {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
-  {n:'Kindle',          t:'Spell',   txt:'On resolve: +1⚡.', p:2, eff:'gain1', artKey:'kindle'},
-  {n:'Glacial Ward',    t:'Glyph',   txt:'Prevent 1 next hit.', eff:'g_barrier', artKey:'glacial-ward'},
-  {n:'Mirror Ward',     t:'Glyph',   txt:'Reflect next damage (sim).', eff:'g_mirror', artKey:'mirror-ward'},
-  {n:'Ward Sigil',      t:'Glyph',   txt:'Prevent 1 (sim).', eff:'g_barrier', artKey:'ward-sigil'},
-  {n:'Meditate',        t:'Instant', txt:'↺ +1⚡ (or play +1⚡).', v:1, artKey:'meditate'}
+/* Example cards */
+const STARTER=[
+ {n:'Apprentice Bolt',txt:'Deal 1.',art:'lightning'},
+ {n:'Kindle',txt:'+1⚡',art:'fire'},
+ {n:'Glacial Ward',txt:'Prevent 1.',art:'ward'}
 ];
-const ECON_CARDS = [
-  {n:'Aether Pebble', t:'Instant', txt:'↺ +1⚡ (or play +1⚡).', v:1, artKey:'aether-pebble'},
-  {n:'Aether Shard',  t:'Instant', txt:'↺ +2⚡ (or play +2⚡).', v:2, artKey:'aether-shard'},
-  {n:'Aether Core',   t:'Instant', txt:'↺ +3⚡ (or play +3⚡).', v:3, artKey:'aether-core'}
+const FLOW=[
+ {n:'Flame Lash',txt:'Deal 2 then 3.',art:'fire'},
+ {n:'Aether Core',txt:'↺ +3⚡',art:'aether'}
 ];
-const OFFENSE_CARDS = [
-  {n:'Spark Javelin', t:'Spell', txt:'Deal 2.', p:1, v:1, artKey:'spark-javelin'},
-  {n:'Flame Lash',    t:'Spell', txt:'Deal 2 then 3.', p:2, v:0, artKey:'flame-lash'},
-  {n:'Ember',         t:'Spell', txt:'Deal 2.', p:1, v:0, artKey:'ember'},
-  {n:'Frost Bolt',    t:'Spell', txt:'Deal 1; slow next hit (sim).', p:2, v:0, artKey:'frost-bolt'},
-  {n:'Siphon Hex',    t:'Spell', txt:'Drain 1⚡ from foe.', p:2, v:1, eff:'drain1', artKey:'siphon-hex'},
-  {n:'Stonewall',     t:'Spell', txt:'+1 advance tax (foe).', p:2, v:0, eff:'tax', artKey:'stonewall'}
-];
-const FLOW_POOL = [...ECON_CARDS, ...OFFENSE_CARDS];
-const FLOW_PRICES = [4,3,2,2,2];
-
-/* ==== Procedural concept art (NieR/Bloodborne/FF vibe) ==== */
-function artSVG({h=32, motif='aether', label='Spell'} = {}){
-  const gold='#cfc29c', graphite='#0f1214', bone='#e6e1d6';
-  const motifSVG = {
-    fire:"<path d='M210 210c-14-38 10-60 24-84-3 30 16 43 6 72 32-14 44-44 40-84 34 36 30 82-20 116-20 14-40 22-50 24z' fill='"+gold+"' opacity='.85'/>",
-    lightning:"<path d='M250 120l-44 62h32l-36 56 80-90h-30l30-28z' fill='"+bone+"' opacity='.85'/>",
-    ice:"<g fill='"+bone+"' opacity='.9'><path d='M248 110l16 40 40 16-40 16-16 40-16-40-40-16 40-16z'/></g>",
-    aether:"<circle cx='264' cy='168' r='32' fill='none' stroke='"+gold+"' stroke-width='4' opacity='.85'/>",
-    ward:"<g stroke='"+gold+"' stroke-width='3' opacity='.9' fill='none'><circle cx='264' cy='168' r='36'/><path d='M264 132l22 36h-44z'/><circle cx='264' cy='168' r='8' stroke-width='2'/></g>",
-    hex:"<g fill='none' stroke='"+bone+"' opacity='.85'><path d='M228 148h72v40h-72z' stroke-width='3'/><path d='M228 168h72' stroke-width='6' opacity='.5'/></g>",
-    stone:"<g fill='"+gold+"' opacity='.35'><rect x='236' y='144' width='20' height='32'/><rect x='260' y='136' width='24' height='40'/><rect x='288' y='152' width='18' height='24'/></g>",
-    meditate:"<g fill='none' stroke='"+gold+"' stroke-width='3' opacity='.9'><circle cx='264' cy='168' r='26'/><circle cx='264' cy='168' r='40' opacity='.45'/></g>"
-  }[motif] || "";
-  const svg = `
-  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>
-    <defs>
-      <filter id='grain'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 .05'/></feComponentTransfer></filter>
-      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'>
-        <stop offset='0' stop-color='#13171a'/><stop offset='1' stop-color='${graphite}'/>
-      </linearGradient>
-    </defs>
-    <rect width='100%' height='100%' fill='url(#v)'/>
-    <rect width='100%' height='100%' filter='url(#grain)' opacity='.25'/>
-    <g fill='${graphite}' opacity='.6'>
-      <rect x='0' y='290' width='300' height='130'/>
-      <rect x='14' y='250' width='30' height='40'/><rect x='50' y='230' width='26' height='60'/>
-      <rect x='92' y='240' width='22' height='50'/><rect x='124' y='226' width='18' height='64'/>
-    </g>
-    <!-- androgynous robed figure -->
-    <g fill='${graphite}' stroke='${graphite}' stroke-width='2'>
-      <path d='M108 120c22-12 54-12 76 0l10 20c10 24 16 52 12 80-2 16-10 34-18 46-10 16-18 32-24 52-4 14-10 26-30 26s-26-12-30-26c-6-20-14-36-24-52-8-12-16-30-18-46-4-28 2-56 12-80l10-20z' fill='#14181b'/>
-      <path d='M120 112c24-14 48-14 72 0l-12 14c-18-6-30-6-48 0z' fill='${graphite}'/>
-      <circle cx='156' cy='156' r='20' fill='${graphite}'/>
-    </g>
-    <g transform='rotate(${h} 264 168)'>${motifSVG}</g>
-    <text x='18' y='392' font-family='-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif'
-          font-size='14' fill='${gold}' opacity='.9' letter-spacing='.04em'>${label}</text>
-  </svg>`;
-  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
-}
-const ART_MAP = {
-  'flame-lash':       artSVG({h:12, motif:'fire',     label:'Flame Lash'}),
-  'spark-javelin':    artSVG({h:22, motif:'lightning',label:'Spark Javelin'}),
-  'frost-bolt':       artSVG({h:0,  motif:'ice',      label:'Frost Bolt'}),
-  'ember':            artSVG({h:18, motif:'fire',     label:'Ember'}),
-  'siphon-hex':       artSVG({h:0,  motif:'hex',      label:'Siphon Hex'}),
-  'stonewall':        artSVG({h:0,  motif:'stone',    label:'Stonewall'}),
-  'aether-core':      artSVG({h:0,  motif:'aether',   label:'Aether Core'}),
-  'aether-shard':     artSVG({h:0,  motif:'aether',   label:'Aether Shard'}),
-  'aether-pebble':    artSVG({h:0,  motif:'aether',   label:'Aether Pebble'}),
-  'meditate':         artSVG({h:0,  motif:'meditate', label:'Meditate'}),
-  'glacial-ward':     artSVG({h:0,  motif:'ward',     label:'Glacial Ward'}),
-  'mirror-ward':      artSVG({h:0,  motif:'ward',     label:'Mirror Ward'}),
-  'ward-sigil':       artSVG({h:0,  motif:'ward',     label:'Ward Sigil'}),
-  'apprentice-bolt':  artSVG({h:16, motif:'lightning',label:'Apprentice Bolt'}),
-  'kindle':           artSVG({h:10, motif:'fire',     label:'Kindle'})
+const ART={
+ fire:'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="90" fill="#0f1214"/><path d="M100 40c20 30-10 40 0 70 30-10 40-40 30-70 30 40 20 90-30 120-50-30-60-80-30-120z" fill="#cfc29c"/></svg>`),
+ lightning:'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="#0f1214"/><polygon points="90,30 70,100 110,100 90,170 140,90 100,90" fill="#e6e1d6"/></svg>`),
+ ward:'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="80" fill="none" stroke="#cfc29c" stroke-width="6"/></svg>`),
+ aether:'data:image/svg+xml;utf8,'+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="100" cy="100" r="90" fill="none" stroke="#cfc29c" stroke-width="4"/></svg>`)
 };
-/* prefer external file if present; otherwise concept art */
-const ART_ROOT = 'assets/art/standard/';
-const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-function resolveArt(c){
-  const k = (c && (c.artKey || slug(c.n))) || 'card';
-  if (ART_MAP[k]) return ART_MAP[k];
-  return ART_ROOT + k + '.jpg';
+function cardEl(c,i,fromHand=false){
+ let div=document.createElement('div');
+ div.className=fromHand?'rCard':'marketCard';
+ div.innerHTML=`<div class="rHead">${c.n}</div>
+ <div class="rArt"><img src="${ART[c.art]||''}"></div>
+ <div class="rFoot">${c.txt}</div>`;
+ div.onclick=()=>inspect(c);
+ return div;
 }
-
-/* ===== DOM ===== */
-const hp=qs('#hp'), aiHp=qs('#aiHp'), ae=qs('#ae'), aiAe=qs('#aiAe'), aiGlyphs=qs('#aiGlyphs');
-const deckCount=qs('#deckCount'), discardCount=qs('#discardCount');
-const flowCosts=qs('#flowCosts'), flowGrid=qs('#flowGrid'), flowScroll=qs('#flowScroll'), peekDots=qs('#peekDots');
-const playerSlots=qs('#playerSlots'), aiSlots=qs('#aiSlots'), glyphTray=qs('#glyphTray');
-const rRibbon=qs('#ribbon'), topLog=qs('#topLog');
-const fabDial=qs('#fabDial'), fabMain=qs('#fabMain'), fabDraw=qs('#fabDraw'), fabEnd=qs('#fabEnd'), fabReset=qs('#fabReset');
-const inspect=qs('#inspect'), insTitle=qs('#insTitle'), insText=qs('#insText'), insDots=qs('#insDots'), insArt=qs('#insArt');
-const turnTag=qs('#turnTag');
-const chromeEls=[qsa('.hudFloat.left')[0],qsa('.hudFloat.right')[0],qs('.deckBar'),fabDial];
-
-/* ===== STATE ===== */
-let S={};
-let rCards=[], isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null;
-let turnLog=[], logHideTimer, inspectIndex=-1;
-
-/* ===== HELPERS ===== */
-function qs(s,r=document){return r.querySelector(s)} function qsa(s,r=document){return Array.from(r.querySelectorAll(s))}
-function uid(){return Math.random().toString(36).slice(2,9);}
-function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function makeStarterDeck(){return shuf(STARTER.map(x=>Object.assign({id:uid()},x)));}
-function makeFlowDeck(){return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x)));}
-
-/* ===== TOAST ===== */
-function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
-function toastRender(){ topLog.innerHTML = turnLog.slice(-3).map(x=>`<div class="item">${x}</div>`).join(''); toastShow(); }
-function log(msg){ turnLog.push(msg); toastRender(); }
-function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
-
-/* ===== INIT / TURN FLOW ===== */
-function initGame(){
-  S={ hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[],
-      slots:[null,null,null], glyphs:[],
-      ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
-      flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null],
-      turn:1, taxes:0, lastInstant:null };
-  ensureMarketComposition(true);
-  startTurn(true);
-}
-function startTurn(first=false){
-  if(!first) S.turn++;
-  logResetTurn();
-  while(S.hand.length < HAND_DRAW){ drawCard(); }
-  render();
-  log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`);
-}
-function endTurn(){
-  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
-  slideFlow();
-  if(S.hand.length){
-    const n=S.hand.length; S.disc.push(...S.hand); S.hand.length=0;
-    log(`End Turn: discarded ${n} card${n>1?'s':''}.`);
-  } else log("End Turn.");
-  render();
-  setTimeout(()=>startTurn(false), 350);
-}
-
-/* ===== RENDER ===== */
 function render(){
-  hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; aiAe.textContent=S.ai.ae||0;
-  deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
-  aiGlyphs.textContent=S.ai.glyphs.length; turnTag.textContent=`Turn ${S.turn}`;
-
-  // Glyph tray
-  glyphTray.innerHTML = S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')
-    || `<span style="font-size:11px;color:var(--muted);opacity:.8">No glyphs set.</span>`;
-
-  // Player board
-  playerSlots.innerHTML="";
-  S.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>Slot ${i+1}</h5>`;
-    if(s){
-      d.innerHTML += `
-        <div class="marketCard" style="min-width:auto;max-width:none;margin-bottom:6px">
-          <h4>${s.c.n}</h4>
-          <p>${s.c.txt||''}</p>
-          <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
-        </div>
-        <button ${s.advUsed?'disabled':''} style="padding:6px 10px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink)">Advance (1⚡)</button>`;
-      if(!s.advUsed) d.querySelector('button').onclick=()=>advance(i);
-    }
-    playerSlots.appendChild(d);
-  });
-
-  // AI board
-  aiSlots.innerHTML="";
-  S.ai.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>AI Slot ${i+1}</h5>`;
-    if(s){
-      d.innerHTML += `
-        <div class="marketCard" style="min-width:auto;max-width:none">
-          <h4>${s.c.n}</h4>
-          <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
-        </div>`;
-    }
-    aiSlots.appendChild(d);
-  });
-
-  // Aetherflow
-  flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="costChip">${c}</div>`).join('');
-  flowGrid.innerHTML="";
-  for (let i = 0; i < FLOW_PRICES.length; i++) {
-    const c = S.flowRow[i];
-    const div = document.createElement('div'); div.className='marketCard';
-    if (!c) { div.classList.add('placeholder'); div.textContent='— empty —'; }
-    else {
-      const cost = FLOW_PRICES[i], canBuy = S.ae >= cost;
-      if (canBuy) div.classList.add('afford'); else div.classList.remove('afford');
-      if (!canBuy) div.classList.add('na'); else div.classList.remove('na');
-      const badge = (c.v != null) ? `<span class="marketBadge">↺ +${c.v}⚡</span>` : "";
-      div.innerHTML = `${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button ${canBuy?"":"disabled"}>Buy (${cost}⚡)</button></div>`;
-      div.querySelector('button').onclick = () => buyFlowCard(i);
-    }
-    flowGrid.appendChild(div);
-  }
-  renderPeekDots();
-  renderRibbon();
+ const flow=document.getElementById('flowGrid');flow.innerHTML='';
+ FLOW.forEach(c=>flow.appendChild(cardEl(c)));
+ const rib=document.getElementById('ribbon');rib.innerHTML='';
+ STARTER.forEach(c=>rib.appendChild(cardEl(c,0,true)));
 }
-function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
-
-/* ===== Peek dots for Aetherflow ===== */
-function renderPeekDots(){
-  peekDots.innerHTML='';
-  for(let i=0;i<FLOW_PRICES.length;i++){
-    const d=document.createElement('div'); d.className='peekDot'; d.dataset.idx=i; peekDots.appendChild(d);
-  }
-  updatePeekDots();
+function inspect(c){
+ document.getElementById('inspect').classList.add('show');
+ document.getElementById('insTitle').textContent=c.n;
+ document.getElementById('insText').textContent=c.txt;
+ document.getElementById('insArt').src=ART[c.art]||'';
 }
-function updatePeekDots(){
-  const dots = qsa('.peekDot', peekDots);
-  const center = flowScroll.scrollLeft + flowScroll.clientWidth/2;
-  const cards = qsa('.cardGrid .marketCard', flowScroll);
-  let best = 0, bestDist = Infinity;
-  cards.forEach((el,i)=>{
-    const r = el.getBoundingClientRect();
-    const elCenter = (r.left + r.right)/2 + flowScroll.scrollLeft - flowScroll.getBoundingClientRect().left;
-    const d = Math.abs(elCenter - center);
-    if (d < bestDist){ bestDist = d; best = i; }
-  });
-  dots.forEach((d,i)=> d.classList.toggle('on', i===best));
-}
-flowScroll.addEventListener('scroll', ()=>{ updatePeekDots(); }, {passive:true});
-
-/* ===== Ribbon + Inspect ===== */
-function renderRibbon(){
-  rRibbon.innerHTML='';
-  S.hand.forEach((c,i)=>{
-    const b=document.createElement('button'); b.className='rCard'; b.type='button'; b.dataset.index=i;
-    const h=document.createElement('div'); h.className='rHead'; h.textContent=c.n;
-    const art=document.createElement('div'); art.className='rArt';
-    const img=document.createElement('img'); img.src=resolveArt(c); img.alt=c.n+' artwork'; img.loading='lazy';
-    const fb=document.createElement('div'); fb.className='fallback';
-    // show SVG fallback if image fails
-    img.addEventListener('load',()=>{ fb.style.display='none'; });
-    img.addEventListener('error',()=>{ fb.style.display='block'; fb.style.background=`url(${resolveArt({artKey:(c.artKey||slug(c.n))})}) center/cover no-repeat`; img.style.display='none'; });
-    art.appendChild(fb); art.appendChild(img);
-
-    if (c.v!=null){ const tr=document.createElement('div'); tr.className='badgeTR'; tr.textContent='↺ +'+c.v+'⚡'; art.appendChild(tr); }
-    if (c.t==='Spell'){ const tl=document.createElement('div'); tl.className='badgeTL'; tl.textContent='●'.repeat(c.p||1); art.appendChild(tl); }
-
-    const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
-    b.appendChild(h); b.appendChild(art); b.appendChild(f);
-    b.addEventListener('click',()=>openInspect(i));
-    prepDrag(b,i);
-    rRibbon.appendChild(b);
-  });
-  rCards=qsa('.rCard');
-}
-
-/* Inspect modal */
-function openInspect(i){
-  const c=S.hand[i]; if(!c) return;
-  inspectIndex = i;
-  insTitle.textContent = c.n;
-  insText.textContent = c.txt || '';
-  insArt.style.display=''; insArt.parentElement.style.background='';
-  insArt.src = resolveArt(c); insArt.alt = c.n+' artwork';
-  insArt.onerror = ()=>{ insArt.style.display='none'; insArt.parentElement.style.background = `url(${resolveArt({artKey:(c.artKey||slug(c.n))})}) center/cover no-repeat`; };
-  insDots.innerHTML = (c.t === 'Spell') ? Array.from({length:(c.p||1)},(_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('') : '';
-  inspect.classList.add('show');
-}
-function closeInspect(){ inspect.classList.remove('show'); inspectIndex=-1; }
-qs('#btnInspectClose').onclick=closeInspect;
-qs('#btnInspectPlay').onclick = ()=>{ if(inspectIndex>-1){ playFromHandIndex(inspectIndex,null); closeInspect(); } };
-qs('#btnInspectChan').onclick = ()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
-inspect.addEventListener('click',e=>{ if(e.target===inspect) closeInspect(); });
-
-/* Drag helpers */
-function prepDrag(card,i){
-  card.addEventListener('dragstart',e=>e.preventDefault());
-  card.addEventListener('pointerdown',e=>{
-    isPointerDown=true; isDragging=false; dragFrom=i;
-    card.setPointerCapture(e.pointerId);
-    clearTimeout(longPressTimer);
-    longPressTimer=setTimeout(()=>{ if(!isDragging) openInspect(i); },350);
-    e.preventDefault();
-  });
-  card.addEventListener('pointermove',e=>{
-    const slots=[...qsa('#playerSlots .slot')];
-    if(!isPointerDown || dragFrom!==i) return;
-    const moved=Math.hypot(e.movementX,e.movementY)>6;
-    if(moved && !isDragging){ isDragging=true; clearTimeout(longPressTimer); startGhost(card,e); }
-    if(isDragging){ positionGhost(e.clientX,e.clientY); updateDropTargets(e.clientX,e.clientY, slots); }
-  });
-  card.addEventListener('pointerup',e=>{
-    clearTimeout(longPressTimer);
-    const slots=[...qsa('#playerSlots .slot')];
-    if(isDragging){
-      const slotIndex=finishGhost(e.clientX,e.clientY, slots);
-      if(slotIndex!=null) playFromHandIndex(i, slotIndex);
-      cleanupGhost(slots);
-    } else { cleanupGhost(slots); }
-  });
-  card.addEventListener('pointercancel',()=>cleanupGhost([...qsa('#playerSlots .slot')]));
-}
-function startGhost(card,e){
-  dragGhost=card.cloneNode(true);
-  Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
-  document.body.appendChild(dragGhost);
-  positionGhost(e.clientX,e.clientY);
-}
-function positionGhost(x,y){ if(dragGhost){ dragGhost.style.left=x+'px'; dragGhost.style.top=y+'px'; } }
-function updateDropTargets(x,y,slots){ const el=document.elementFromPoint(x,y); slots.forEach(s=> s.classList.toggle('is-hot', s===el || (el && s.contains(el)))); }
-function finishGhost(x,y,slots){ const el=document.elementFromPoint(x,y); const idx=slots.findIndex(s=> s===el || (el && s.contains(el))); return idx>-1 ? idx : null; }
-function cleanupGhost(slots){
-  if(dragGhost&&dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
-  dragGhost=null; isDragging=false; isPointerDown=false; dragFrom=-1;
-  slots.forEach(s=>s.classList.remove('is-hot'));
-}
-
-/* ===== Gameplay ===== */
-function drawCard(){
-  if(S.deck.length===0){
-    if(S.disc.length===0){ log("No cards to draw."); return; }
-    S.deck = shuf(S.disc); S.disc = []; log("You reshuffle.");
-  }
-  S.hand.push(S.deck.pop());
-}
-function playFromHandIndex(idx, dropSlotIndex=null){
-  const c=S.hand[idx]; if(!c) return;
-  if(c.t==="Spell"){
-    let slot=dropSlotIndex!=null?dropSlotIndex:S.slots.findIndex(x=>!x);
-    if(slot<0){ log("No empty slot."); return; }
-    S.slots[slot]={c,ph:1,advUsed:false};
-    S.hand.splice(idx,1);
-    log(`Play ${c.n} → Slot ${slot+1}.`);
-  } else if(c.t==="Glyph"){
-    S.glyphs.push(c); S.hand.splice(idx,1);
-    log(`Set glyph: ${c.n}.`);
-  } else { // Instant
-    S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); S.lastInstant=c;
-    log(`Cast ${c.n}: +${c.v||0}⚡.`);
-  }
-  render();
-}
-function channelFromHandIndex(idx){
-  const c=S.hand[idx]; if(!c) return;
-  S.ae += (c.v||0);
-  S.disc.push(c);
-  S.hand.splice(idx,1);
-  log(`Channel ${c.n}: +${c.v||0}⚡.`);
-  render();
-}
-function advance(i){
-  const s=S.slots[i]; if(!s) return;
-  if(S.ae<1){ log("Need 1⚡ to advance."); return; }
-  S.ae-=1; s.ph++; s.advUsed=true;
-  if(s.ph >= (s.c.p||1)){ resolvePlayer(i); }
-  render();
-}
-function resolvePlayer(idx){
-  const s=S.slots[idx]; if(!s) return;
-  runResolve('you', s.c);
-  S.disc.push(s.c);
-  S.slots[idx]=null;
-  render();
-}
-function runResolve(who,c){
-  switch(c.eff){
-    case 'gain1': if(who==='you'){ S.ae+=1; log(`${c.n} resolves: +1⚡.`); } break;
-    case 'drain1': if(who==='you'){ log(`${c.n}: drain 1⚡ (sim).`); } break;
-    case 'tax': if(who==='you'){ log(`${c.n}: foe’s next Advance costs +1⚡ (sim).`);} break;
-    default:
-      if(c.t==='Spell'){
-        if(c.n==='Flame Lash'){ log("Flame Lash deals 5 total (2+3) (sim)."); }
-        else if(c.n==='Ember'){ log("Ember deals 2 (sim)."); }
-        else if(c.n==='Spark Javelin'){ log("Spark Javelin deals 2 (sim)."); }
-        else if(c.n==='Frost Bolt'){ log("Frost Bolt deals 1; slows next hit (sim)."); }
-        else { log(`${c.n} resolves.`); }
-      } else { log(`${c.n} resolves.`); }
-  }
-}
-
-/* ===== Market ===== */
-function buyFlowCard(i){
-  const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; }
-  const cost=FLOW_PRICES[i];
-  if(S.ae<cost){ log("Not enough ⚡."); return; }
-  S.ae-=cost; S.disc.push(c); S.flowRow[i]=null;
-  log(`Bought ${c.n} for ${cost}⚡.`);
-  ensureMarketComposition();
-  render();
-}
-function slideFlow(){
-  S.flowRow.pop();
-  S.flowRow.unshift(drawFromFlowDeck());
-  ensureMarketComposition();
-}
-function drawFromFlowDeck(){
-  if(S.flowDeck.length===0) S.flowDeck=makeFlowDeck();
-  return S.flowDeck.pop()||null;
-}
-function ensureMarketComposition(initial=false){
-  for(let j=0;j<S.flowRow.length;j++){ if(S.flowRow[j]==null) S.flowRow[j]=drawFromFlowDeck(); }
-  let hasEcon = S.flowRow.some(c=>c && c.v>0);
-  let hasOff  = S.flowRow.some(c=>c && c.t==='Spell');
-  if(!hasEcon){ const econ = shuf(ECON_CARDS.slice()).pop(); S.flowRow[S.flowRow.length-1]=Object.assign({id:uid()},econ); }
-  if(!hasOff){ const off = shuf(OFFENSE_CARDS.slice()).pop(); S.flowRow[0]=Object.assign({id:uid()},off); }
-  if(initial) render();
-}
-
-/* ===== Speed-dial FAB ===== */
-fabMain.addEventListener('click', ()=> fabDial.classList.toggle('open'));
-fabDraw.onclick = ()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
-fabEnd.onclick  = ()=> endTurn();
-fabReset.onclick= ()=> initGame();
-
-/* ===== Smart-hide chrome while scrolling ===== */
-let lastY = window.scrollY, hideTimer;
-function updateSmartHide() {
-  const dy = window.scrollY - lastY; lastY = window.scrollY;
-  const goingDown = dy > 2;
-  chromeEls.forEach(el => el && el.classList.toggle('smartHide', goingDown));
-  clearTimeout(hideTimer);
-  hideTimer = setTimeout(() => chromeEls.forEach(el => el && el.classList.remove('smartHide')), 300);
-}
-window.addEventListener('scroll', updateSmartHide, { passive: true });
-['touchstart','pointerdown','wheel','keydown'].forEach(evt =>
-  window.addEventListener(evt, () => chromeEls.forEach(el => el && el.classList.remove('smartHide')), { passive:true })
-);
-
-/* ===== Boot ===== */
-initGame();
+document.getElementById('btnClose').onclick=()=>document.getElementById('inspect').classList.remove('show');
+render();
 </script>
 </body>
 </html>
