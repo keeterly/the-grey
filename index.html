@@ -8,26 +8,15 @@
 <style>
 /* ================= NieR: Automata–inspired palette ================= */
 :root{
-  /* graphite & onyx */
-  --bg:#0b0c0d;                 /* near-black background */
-  --panel:#121416;              /* charcoal panel */
-  --line:#1e2124;               /* graphite line */
-  --slot:#0f1214;               /* slot mat */
-
-  /* bone & parchment */
-  --ink:#e6e1d6;                /* bone text */
-  --muted:#bdb6aa;              /* parchment-muted */
-
-  /* antique gold (subtle) */
-  --accent:#cfc29c;             /* headers, highlights */
-
-  /* chips/cards */
-  --chip:#13171a;
-  --chip-line:#262c31;
-  --card:#14181b;
-  --card-line:#2a3137;
-
-  /* shared */
+  --bg:#0b0c0d;              /* near-black background */
+  --panel:#121416;           /* charcoal panel */
+  --line:#1e2124;            /* graphite line */
+  --slot:#0f1214;            /* slot mat */
+  --ink:#e6e1d6;             /* bone text */
+  --muted:#bdb6aa;           /* parchment-muted */
+  --accent:#cfc29c;          /* antique-gold accent */
+  --chip:#13171a; --chip-line:#262c31;
+  --card:#14181b; --card-line:#2a3137;
   --card-w:120px; --card-h:172px; --card-radius:12px;
   --transition:140ms ease;
 }
@@ -36,12 +25,11 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
 body{
-  background:radial-gradient(1200px 800px at 50% -200px, rgba(255,255,255,.06), transparent 60%) , var(--bg);
+  background:radial-gradient(1200px 800px at 50% -200px, rgba(255,255,255,.06), transparent 60%), var(--bg);
   color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
 }
-/* subtle paper grain */
-body::after{
+body::after{ /* subtle paper grain */
   content:""; pointer-events:none; position:fixed; inset:0; z-index:0;
   background-image:
     radial-gradient(rgba(0,0,0,.35), transparent 60%),
@@ -54,7 +42,7 @@ body::after{
 }
 .wrap{padding:12px;max-width:1100px;margin:auto;position:relative;z-index:1}
 
-/* ===== Float HUD ===== */
+/* ===== Floating HUD ===== */
 .hudFloat{
   position:fixed;top:10px;z-index:70;display:flex;flex-direction:column;gap:8px;
   transition: opacity .16s ease, transform .16s ease;
@@ -166,18 +154,10 @@ body::after{
   transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);
   outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;scroll-snap-align:start
 }
-.rHead{padding:6px 8px 5px;font-size:11px;font-weight:900;letter-spacing:.04em;background:linear-gradient(180deg,#21262a,#191e22);border-bottom:1px solid #2b3137;color:#cfc29c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rHead{padding:6px 8px 5px;font-size:11px;font-weight:900;letter-spacing:.04em;background:linear-gradient(180deg,#21262a,#191e22);border-bottom:1px solid #2b3137;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rArt{position:relative;flex:1;background:#0f1214;display:grid;place-items:center}
 .rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9) contrast(1.02)}
-.rArt .fallback{position:absolute;inset:0;background:#0f1214 url("data:image/svg+xml;utf8,\
-  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>\
-    <rect width='100%' height='100%' fill='%23101417'/>\
-    <g fill='none' stroke='%23cfc29c' stroke-opacity='.7'>\
-      <circle cx='150' cy='180' r='80' stroke-width='2'/>\
-      <path d='M150 80 L205 176 L95 176 Z' stroke-width='2'/>\
-      <circle cx='150' cy='176' r='16' stroke-width='1.5'/>\
-    </g>\
-  </svg>") center/70% 70% no-repeat; display:none }
+.rArt .fallback{position:absolute;inset:0;background:#0f1214;display:none}
 .rFoot{padding:6px 8px;font-size:10.5px;color:var(--muted);border-top:1px solid #232a2f;background:#151a1d;line-height:1.25}
 .badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0f1214;border:1px solid #2a3340;color:#d9d2c4;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .badgeTL{left:6px}.badgeTR{right:6px}
@@ -345,9 +325,71 @@ const OFFENSE_CARDS = [
 const FLOW_POOL = [...ECON_CARDS, ...OFFENSE_CARDS];
 const FLOW_PRICES = [4,3,2,2,2];
 
-const ART_ROOT = 'assets/art/standard/';   // if a file is missing, we show stand-in art
+/* ==== Procedural concept art (NieR/Bloodborne/FF vibe) ==== */
+function artSVG({h=32, motif='aether', label='Spell'} = {}){
+  const gold='#cfc29c', graphite='#0f1214', bone='#e6e1d6';
+  const motifSVG = {
+    fire:"<path d='M210 210c-14-38 10-60 24-84-3 30 16 43 6 72 32-14 44-44 40-84 34 36 30 82-20 116-20 14-40 22-50 24z' fill='"+gold+"' opacity='.85'/>",
+    lightning:"<path d='M250 120l-44 62h32l-36 56 80-90h-30l30-28z' fill='"+bone+"' opacity='.85'/>",
+    ice:"<g fill='"+bone+"' opacity='.9'><path d='M248 110l16 40 40 16-40 16-16 40-16-40-40-16 40-16z'/></g>",
+    aether:"<circle cx='264' cy='168' r='32' fill='none' stroke='"+gold+"' stroke-width='4' opacity='.85'/>",
+    ward:"<g stroke='"+gold+"' stroke-width='3' opacity='.9' fill='none'><circle cx='264' cy='168' r='36'/><path d='M264 132l22 36h-44z'/><circle cx='264' cy='168' r='8' stroke-width='2'/></g>",
+    hex:"<g fill='none' stroke='"+bone+"' opacity='.85'><path d='M228 148h72v40h-72z' stroke-width='3'/><path d='M228 168h72' stroke-width='6' opacity='.5'/></g>",
+    stone:"<g fill='"+gold+"' opacity='.35'><rect x='236' y='144' width='20' height='32'/><rect x='260' y='136' width='24' height='40'/><rect x='288' y='152' width='18' height='24'/></g>",
+    meditate:"<g fill='none' stroke='"+gold+"' stroke-width='3' opacity='.9'><circle cx='264' cy='168' r='26'/><circle cx='264' cy='168' r='40' opacity='.45'/></g>"
+  }[motif] || "";
+  const svg = `
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>
+    <defs>
+      <filter id='grain'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 .05'/></feComponentTransfer></filter>
+      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'>
+        <stop offset='0' stop-color='#13171a'/><stop offset='1' stop-color='${graphite}'/>
+      </linearGradient>
+    </defs>
+    <rect width='100%' height='100%' fill='url(#v)'/>
+    <rect width='100%' height='100%' filter='url(#grain)' opacity='.25'/>
+    <g fill='${graphite}' opacity='.6'>
+      <rect x='0' y='290' width='300' height='130'/>
+      <rect x='14' y='250' width='30' height='40'/><rect x='50' y='230' width='26' height='60'/>
+      <rect x='92' y='240' width='22' height='50'/><rect x='124' y='226' width='18' height='64'/>
+    </g>
+    <!-- androgynous robed figure -->
+    <g fill='${graphite}' stroke='${graphite}' stroke-width='2'>
+      <path d='M108 120c22-12 54-12 76 0l10 20c10 24 16 52 12 80-2 16-10 34-18 46-10 16-18 32-24 52-4 14-10 26-30 26s-26-12-30-26c-6-20-14-36-24-52-8-12-16-30-18-46-4-28 2-56 12-80l10-20z' fill='#14181b'/>
+      <path d='M120 112c24-14 48-14 72 0l-12 14c-18-6-30-6-48 0z' fill='${graphite}'/>
+      <circle cx='156' cy='156' r='20' fill='${graphite}'/>
+    </g>
+    <g transform='rotate(${h} 264 168)'>${motifSVG}</g>
+    <text x='18' y='392' font-family='-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Arial,sans-serif'
+          font-size='14' fill='${gold}' opacity='.9' letter-spacing='.04em'>${label}</text>
+  </svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+}
+const ART_MAP = {
+  'flame-lash':       artSVG({h:12, motif:'fire',     label:'Flame Lash'}),
+  'spark-javelin':    artSVG({h:22, motif:'lightning',label:'Spark Javelin'}),
+  'frost-bolt':       artSVG({h:0,  motif:'ice',      label:'Frost Bolt'}),
+  'ember':            artSVG({h:18, motif:'fire',     label:'Ember'}),
+  'siphon-hex':       artSVG({h:0,  motif:'hex',      label:'Siphon Hex'}),
+  'stonewall':        artSVG({h:0,  motif:'stone',    label:'Stonewall'}),
+  'aether-core':      artSVG({h:0,  motif:'aether',   label:'Aether Core'}),
+  'aether-shard':     artSVG({h:0,  motif:'aether',   label:'Aether Shard'}),
+  'aether-pebble':    artSVG({h:0,  motif:'aether',   label:'Aether Pebble'}),
+  'meditate':         artSVG({h:0,  motif:'meditate', label:'Meditate'}),
+  'glacial-ward':     artSVG({h:0,  motif:'ward',     label:'Glacial Ward'}),
+  'mirror-ward':      artSVG({h:0,  motif:'ward',     label:'Mirror Ward'}),
+  'ward-sigil':       artSVG({h:0,  motif:'ward',     label:'Ward Sigil'}),
+  'apprentice-bolt':  artSVG({h:16, motif:'lightning',label:'Apprentice Bolt'}),
+  'kindle':           artSVG({h:10, motif:'fire',     label:'Kindle'})
+};
+/* prefer external file if present; otherwise concept art */
+const ART_ROOT = 'assets/art/standard/';
 const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
+function resolveArt(c){
+  const k = (c && (c.artKey || slug(c.n))) || 'card';
+  if (ART_MAP[k]) return ART_MAP[k];
+  return ART_ROOT + k + '.jpg';
+}
 
 /* ===== DOM ===== */
 const hp=qs('#hp'), aiHp=qs('#aiHp'), ae=qs('#ae'), aiAe=qs('#aiAe'), aiGlyphs=qs('#aiGlyphs');
@@ -358,12 +400,7 @@ const rRibbon=qs('#ribbon'), topLog=qs('#topLog');
 const fabDial=qs('#fabDial'), fabMain=qs('#fabMain'), fabDraw=qs('#fabDraw'), fabEnd=qs('#fabEnd'), fabReset=qs('#fabReset');
 const inspect=qs('#inspect'), insTitle=qs('#insTitle'), insText=qs('#insText'), insDots=qs('#insDots'), insArt=qs('#insArt');
 const turnTag=qs('#turnTag');
-const chromeEls = [
-  qsa('.hudFloat.left')[0],
-  qsa('.hudFloat.right')[0],
-  qs('.deckBar'),
-  fabDial
-];
+const chromeEls=[qsa('.hudFloat.left')[0],qsa('.hudFloat.right')[0],qs('.deckBar'),fabDial];
 
 /* ===== STATE ===== */
 let S={};
@@ -371,12 +408,11 @@ let rCards=[], isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,l
 let turnLog=[], logHideTimer, inspectIndex=-1;
 
 /* ===== HELPERS ===== */
-function qs(s, root=document){ return root.querySelector(s); }
-function qsa(s, root=document){ return Array.from(root.querySelectorAll(s)); }
+function qs(s,r=document){return r.querySelector(s)} function qsa(s,r=document){return Array.from(r.querySelectorAll(s))}
 function uid(){return Math.random().toString(36).slice(2,9);}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
-function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
+function makeStarterDeck(){return shuf(STARTER.map(x=>Object.assign({id:uid()},x)));}
+function makeFlowDeck(){return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x)));}
 
 /* ===== TOAST ===== */
 function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
@@ -386,13 +422,11 @@ function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
 
 /* ===== INIT / TURN FLOW ===== */
 function initGame(){
-  S={
-    hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[],
-    slots:[null,null,null], glyphs:[],
-    ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
-    flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null],
-    turn:1, taxes:0, lastInstant:null
-  };
+  S={ hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[],
+      slots:[null,null,null], glyphs:[],
+      ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
+      flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null],
+      turn:1, taxes:0, lastInstant:null };
   ensureMarketComposition(true);
   startTurn(true);
 }
@@ -418,10 +452,9 @@ function endTurn(){
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; aiAe.textContent=S.ai.ae||0;
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
-  aiGlyphs.textContent = S.ai.glyphs.length;
-  turnTag.textContent=`Turn ${S.turn}`;
+  aiGlyphs.textContent=S.ai.glyphs.length; turnTag.textContent=`Turn ${S.turn}`;
 
-  // Glyph tray (your side)
+  // Glyph tray
   glyphTray.innerHTML = S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')
     || `<span style="font-size:11px;color:var(--muted);opacity:.8">No glyphs set.</span>`;
 
@@ -456,37 +489,24 @@ function render(){
     aiSlots.appendChild(d);
   });
 
-  // Aetherflow — synced scroller + affordability
+  // Aetherflow
   flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="costChip">${c}</div>`).join('');
   flowGrid.innerHTML="";
   for (let i = 0; i < FLOW_PRICES.length; i++) {
     const c = S.flowRow[i];
-    const div = document.createElement('div');
-    div.className = 'marketCard';
-    if (!c) {
-      div.classList.add('placeholder');
-      div.innerHTML = '— empty —';
-    } else {
-      const cost = FLOW_PRICES[i];
-      const canBuy = S.ae >= cost;
+    const div = document.createElement('div'); div.className='marketCard';
+    if (!c) { div.classList.add('placeholder'); div.textContent='— empty —'; }
+    else {
+      const cost = FLOW_PRICES[i], canBuy = S.ae >= cost;
       if (canBuy) div.classList.add('afford'); else div.classList.remove('afford');
       if (!canBuy) div.classList.add('na'); else div.classList.remove('na');
-
       const badge = (c.v != null) ? `<span class="marketBadge">↺ +${c.v}⚡</span>` : "";
-      div.innerHTML = `
-        ${badge}
-        <h4>${c.n}</h4>
-        <p>${c.txt}</p>
-        <div class="actions">
-          <button ${canBuy ? "" : "disabled"}>Buy (${cost}⚡)</button>
-        </div>
-      `;
+      div.innerHTML = `${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button ${canBuy?"":"disabled"}>Buy (${cost}⚡)</button></div>`;
       div.querySelector('button').onclick = () => buyFlowCard(i);
     }
     flowGrid.appendChild(div);
   }
   renderPeekDots();
-
   renderRibbon();
 }
 function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
@@ -495,8 +515,7 @@ function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span c
 function renderPeekDots(){
   peekDots.innerHTML='';
   for(let i=0;i<FLOW_PRICES.length;i++){
-    const d=document.createElement('div'); d.className='peekDot'; d.dataset.idx=i;
-    peekDots.appendChild(d);
+    const d=document.createElement('div'); d.className='peekDot'; d.dataset.idx=i; peekDots.appendChild(d);
   }
   updatePeekDots();
 }
@@ -520,26 +539,24 @@ function renderRibbon(){
   rRibbon.innerHTML='';
   S.hand.forEach((c,i)=>{
     const b=document.createElement('button'); b.className='rCard'; b.type='button'; b.dataset.index=i;
-
     const h=document.createElement('div'); h.className='rHead'; h.textContent=c.n;
-
     const art=document.createElement('div'); art.className='rArt';
     const img=document.createElement('img'); img.src=resolveArt(c); img.alt=c.n+' artwork'; img.loading='lazy';
-    const fb=document.createElement('div'); fb.className='fallback'; art.appendChild(fb); art.appendChild(img);
+    const fb=document.createElement('div'); fb.className='fallback';
+    // show SVG fallback if image fails
     img.addEventListener('load',()=>{ fb.style.display='none'; });
-    img.addEventListener('error',()=>{ fb.style.display='block'; img.style.display='none'; });
+    img.addEventListener('error',()=>{ fb.style.display='block'; fb.style.background=`url(${resolveArt({artKey:(c.artKey||slug(c.n))})}) center/cover no-repeat`; img.style.display='none'; });
+    art.appendChild(fb); art.appendChild(img);
 
     if (c.v!=null){ const tr=document.createElement('div'); tr.className='badgeTR'; tr.textContent='↺ +'+c.v+'⚡'; art.appendChild(tr); }
     if (c.t==='Spell'){ const tl=document.createElement('div'); tl.className='badgeTL'; tl.textContent='●'.repeat(c.p||1); art.appendChild(tl); }
 
     const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
-
     b.appendChild(h); b.appendChild(art); b.appendChild(f);
     b.addEventListener('click',()=>openInspect(i));
     prepDrag(b,i);
     rRibbon.appendChild(b);
   });
-
   rCards=qsa('.rCard');
 }
 
@@ -549,18 +566,10 @@ function openInspect(i){
   inspectIndex = i;
   insTitle.textContent = c.n;
   insText.textContent = c.txt || '';
-  insArt.src = resolveArt(c); insArt.alt = c.n + ' artwork';
-  insArt.onerror = ()=>{ insArt.style.display='none'; insArt.parentElement.style.backgroundImage = "url('data:image/svg+xml;utf8,\
-    <svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 300 180\\'>\
-      <rect width=\\'100%\\' height=\\'100%\\' fill=\\'#101417\\'/>\
-      <g fill=\\'none\\' stroke=\\'#cfc29c\\' stroke-opacity=\\'.7\\'>\
-        <circle cx=\\'150\\' cy=\\'90\\' r=\\'56\\' stroke-width=\\'2\\'/>\
-        <path d=\\'M150 25 L190 95 L110 95 Z\\' stroke-width=\\'2\\'/>\
-        <circle cx=\\'150\\' cy=\\'95\\' r=\\'11\\' stroke-width=\\'1.5\\'/>\
-      </g></svg>')"; };
-  insDots.innerHTML = (c.t === 'Spell')
-    ? Array.from({length: (c.p||1)}, (_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('')
-    : '';
+  insArt.style.display=''; insArt.parentElement.style.background='';
+  insArt.src = resolveArt(c); insArt.alt = c.n+' artwork';
+  insArt.onerror = ()=>{ insArt.style.display='none'; insArt.parentElement.style.background = `url(${resolveArt({artKey:(c.artKey||slug(c.n))})}) center/cover no-repeat`; };
+  insDots.innerHTML = (c.t === 'Spell') ? Array.from({length:(c.p||1)},(_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('') : '';
   inspect.classList.add('show');
 }
 function closeInspect(){ inspect.classList.remove('show'); inspectIndex=-1; }
