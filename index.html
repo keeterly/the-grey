@@ -3,49 +3,49 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>The Grey — Spellweavers</title>
-<meta name="theme-color" content="#0c0c0a" />
+<title>The Grey — Spellweavers (Light)</title>
+<meta name="theme-color" content="#e8e2d4" />
 <style>
 /* =========================
-   NieR-ish palette & rhythm
+   NieR-style LIGHT THEME
    ========================= */
 :root{
-  /* Warm, low-saturation, parchment accents on charcoal */
-  --bg:#0e0f10;            /* deep charcoal */
-  --panel:#141617;         /* card & zone base */
-  --panel-2:#101213;       /* chips, hud */
-  --line:#232628;          /* border line */
-  --line-soft:#1a1d1f;
+  /* Parchment base with graphite ink + soft gold accents */
+  --bg:#ece6d8;            /* page */
+  --bg-grad:#f4efe4;       /* subtle vignette */
+  --ink:#1d1f21;           /* main text (graphite) */
+  --muted:#51565c;         /* muted graphite */
+  --accent:#9b8e69;        /* warm desaturated gold */
 
-  --ink:#e9e3d6;           /* main text (warm parchment) */
-  --muted:#b2ab9d;         /* muted text */
-  --accent:#d6caa9;        /* sand-gold accent */
+  --panel:#f6f2e8;         /* zones & cards */
+  --panel-2:#f0eadf;       /* chips/hud */
+  --line:#d8d2c6;          /* hard edge line */
+  --line-soft:#e5decf;
 
-  --slot:#0f1213;          /* slot bg */
-  --chip:#0f1213;
-  --chip-line:#2a2e30;
+  --slot:#faf6ee;          /* slot bg */
 
-  --card:#16191a;
-  --card-line:#2a2f32;
+  --chip:#f3ede2;
+  --chip-line:#d8d1c4;
 
-  --fade:#0e0f10;
+  --card:#faf6ee;
+  --card-line:#d9d2c6;
+
+  --fade:#ece6d8;
 
   --card-w:120px; --card-h:172px; --card-radius:12px;
 
-  --shadow-soft:0 3px 10px rgba(0,0,0,.28);
-  --shadow-panel:0 1px 7px rgba(0,0,0,.18) inset, 0 1px 10px rgba(0,0,0,.06);
+  --shadow-soft:0 2px 10px rgba(90,78,58,.12);
+  --shadow-panel:0 1px 6px rgba(70,60,45,.08) inset, 0 1px 10px rgba(80,70,55,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
 body{
   background:
-    radial-gradient(1200px 700px at 50% -240px, rgba(255,240,200,.06), transparent 60%),
-    var(--bg);
+    radial-gradient(1200px 700px at 50% -240px, rgba(120,100,70,.08), transparent 60%),
+    var(--bg-grad);
   color:var(--ink);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,"Noto Sans",sans-serif;
-  letter-spacing:.005em;
-  -webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
+  letter-spacing:.005em;-webkit-font-smoothing:antialiased;overflow-x:hidden;
 }
 
 /* ========== HUD ========== */
@@ -55,17 +55,16 @@ body{
 .hchip{
   display:flex;align-items:center;gap:8px;
   padding:8px 10px;border-radius:12px;
-  background:linear-gradient(180deg,var(--panel-2),#0e1012);
+  background:linear-gradient(180deg,var(--panel-2),#fff);
   border:1px solid var(--chip-line);
-  color:var(--ink);font-size:13px;
-  box-shadow:var(--shadow-soft)
+  color:var(--ink);font-size:13px;box-shadow:var(--shadow-soft)
 }
 .hchip .icon{width:16px;height:16px;display:grid;place-items:center;color:var(--accent)}
 
 /* ========== CONTAINERS ========== */
-.wrap{padding:14px;max-width:1100px;margin:auto;padding-bottom:170px} /* bottom room for ribbon */
+.wrap{padding:14px;max-width:1100px;margin:auto;padding-bottom:170px}
 .zone{
-  background:linear-gradient(180deg,#171a1c,var(--panel));
+  background:linear-gradient(180deg,#fff,var(--panel));
   border:1px solid var(--line);
   border-radius:14px;padding:12px;margin-bottom:12px;
   box-shadow:var(--shadow-panel)
@@ -77,87 +76,87 @@ body{
 .slot{
   flex:1 0 30%;
   background:var(--slot);
-  border:2px dashed #31373a;border-radius:12px;
+  border:2px dashed #cec6b7;border-radius:12px;
   padding:10px;min-height:146px;position:relative
 }
-.slot h5{font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.01em}
+.slot h5{font-size:12px;color:#6a6f76;margin-bottom:6px;letter-spacing:.01em}
 .pips{display:flex;gap:4px;margin-top:6px}
-.pip{width:10px;height:10px;border-radius:999px;border:1px solid #41484f;background:#101518;opacity:.95}
-.pip.on{background:#b7c1c9;border-color:#b7c1c9}
+.pip{width:10px;height:10px;border-radius:999px;border:1px solid #b8b2a4;background:#efe9dc}
+.pip.on{background:#7a838c;border-color:#7a838c}
 
 /* ===== Glyphs ===== */
 .glyphTray{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
 .glyphTok{
   position:relative;display:inline-flex;align-items:center;justify-content:center;
   min-width:46px;height:28px;border-radius:8px;background:var(--panel-2);border:1px solid var(--chip-line);
-  color:#e7e1d4;font-size:11px;box-shadow:var(--shadow-soft);padding:0 8px
+  color:#3a3d40;font-size:11px;box-shadow:var(--shadow-soft);padding:0 8px
 }
 .glyphTok::before{content:'✦';opacity:.95;font-size:12px;color:var(--accent)}
 .glyphTok.own{cursor:pointer}
 .glyphPeek{
   position:absolute;left:50%;bottom:110%;transform:translateX(-50%);
-  background:#121517;border:1px solid #2a3036;color:#efe9dc;
-  padding:6px 8px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(0,0,0,.35);display:none
+  background:#fff;border:1px solid var(--line);color:#222;
+  padding:6px 8px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(60,50,40,.18);display:none
 }
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek{display:block}
 
-/* ===== Aetherflow (always aligned) ===== */
+/* ===== Aetherflow ===== */
 .flowArea{position:relative}
 .flowWrap{overflow-x:auto;scrollbar-width:none;mask-image:linear-gradient(90deg,transparent 0,var(--fade) 24px,#fff calc(100% - 24px),transparent 100%)}
 .flowWrap::-webkit-scrollbar{display:none}
 .flowGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-width:820px}
 .costCell{display:flex;justify-content:center}
-.costChip{min-width:42px;text-align:center;font-weight:800;letter-spacing:.04em;padding:4px 8px;border:1px solid #323639;border-radius:999px;background:#111416;color:var(--accent);font-size:12px}
+.costChip{min-width:42px;text-align:center;font-weight:800;letter-spacing:.04em;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--accent);font-size:12px}
 .marketCard{
   background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:136px;position:relative;
-  box-shadow:0 4px 14px rgba(0,0,0,.22)
+  box-shadow:0 4px 14px rgba(70,60,45,.12)
 }
 .marketCard h4{font-size:14px;color:var(--accent);margin-bottom:6px;letter-spacing:.01em}
 .marketCard p{font-size:12px;color:var(--muted);margin-bottom:8px}
 .marketCard .actions{display:flex;gap:8px}
 .marketCard .actions button{
-  padding:7px 12px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink);letter-spacing:.01em
+  padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);letter-spacing:.01em
 }
 .marketBadge{
-  position:absolute;top:8px;right:10px;border:1px solid #2b3a42;background:#101316;color:#e7e1d4;
+  position:absolute;top:8px;right:10px;border:1px solid var(--line);background:#fff;color:#554c38;
   padding:2px 6px;border-radius:8px;font-size:11px;letter-spacing:.01em
 }
-.placeholder{opacity:.35;display:grid;place-items:center;border-style:dashed}
+.placeholder{opacity:.45;display:grid;place-items:center;border-style:dashed}
 
 /* ===== Toast ===== */
-.topLog{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#0f1214;border:1px solid var(--line);color:#f0eadc;border-radius:12px;padding:9px 12px;box-shadow:0 8px 18px rgba(0,0,0,.35);z-index:80;display:none;max-width:92vw;font-size:12px;letter-spacing:.01em}
+.topLog{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#2a2e33;border-radius:12px;padding:9px 12px;box-shadow:0 8px 18px rgba(70,60,45,.18);z-index:80;display:none;max-width:92vw;font-size:12px;letter-spacing:.01em}
 .topLog.show{display:block}
 
-/* ===== Hand ribbon (compact, readable) ===== */
-.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#101416,#151a1d);border-top:1px solid var(--line-soft)}
+/* ===== Hand ribbon ===== */
+.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#f2ece1,#f8f3ea);border-top:1px solid var(--line)}
 .ribbon{display:flex;align-items:flex-end;gap:6px;height:118px;overflow-x:auto;scrollbar-width:none}
 .ribbon::-webkit-scrollbar{display:none}
 .rCard{
-  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#181b1d;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(0,0,0,.3);transform:translateY(46%);display:flex;flex-direction:column;user-select:none
+  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#fff;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(70,60,45,.18);transform:translateY(46%);display:flex;flex-direction:column;user-select:none
 }
-.rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#202629,#191e21);border-bottom:1px solid #242b2f;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rArt{position:relative;flex:1;display:grid;place-items:center;background:linear-gradient(180deg,#0f1214,#151a1d)}
-.rArt img{width:100%;height:100%;object-fit:contain;display:block;filter:saturate(.92) contrast(1.06)}
-.rFoot{padding:6px 8px 7px;font-size:11px;color:var(--muted);border-top:1px solid #232a2f;background:#151a1d;line-height:1.25;letter-spacing:.01em}
-.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0f1214;border:1px solid #2a3340;color:#e9e3d6;letter-spacing:.02em}
+.rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#f4eee3);border-bottom:1px solid var(--line);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rArt{position:relative;flex:1;display:grid;place-items:center;background:linear-gradient(180deg,#f7f2e9,#fcfaf6)}
+.rArt img{width:100%;height:100%;object-fit:contain;display:block;filter:saturate(.9) contrast(1.02)}
+.rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25;letter-spacing:.01em}
+.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);color:#4a4e52;letter-spacing:.02em}
 .badgeTL{left:6px}.badgeTR{right:6px}
 
 /* ===== Inspect modal ===== */
-.inspectBack{position:fixed;inset:0;z-index:75;background:rgba(12,14,16,.5);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
+.inspectBack{position:fixed;inset:0;z-index:75;background:rgba(20,20,20,.25);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
 .inspectBack.show{display:flex}
-.inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#13171a;border:1px solid #2a3036;border-radius:14px;box-shadow:0 14px 32px rgba(0,0,0,.45);padding:12px 14px}
+.inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(70,60,45,.22);padding:12px 14px}
 .inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:var(--accent);letter-spacing:.01em}
-.inspectCard p{margin:0 0 8px;font-size:13px;color:#efe9dc;letter-spacing:.01em}
-.inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid #22282d;background:linear-gradient(180deg,#0f1214,#161a1d);display:grid;place-items:center}
+.inspectCard p{margin:0 0 8px;font-size:13px;color:#2b2f33;letter-spacing:.01em}
+.inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line);background:#fcfaf6;display:grid;place-items:center}
 .inspectCard .artBox img{width:100%;height:100%;object-fit:contain}
 .inspectActions{display:flex;gap:8px;justify-content:flex-end}
-.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink)}
+.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2225}
 
-/* ===== Deck / Discard + Actions ===== */
+/* ===== Deck / Discard + FAB ===== */
 .deckBar{position:fixed;left:12px;bottom:126px;z-index:50;display:flex;gap:8px}
-.chip{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:var(--panel-2);border:1px solid var(--chip-line);color:var(--ink);font-size:12px}
+.chip{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:#1f2326;font-size:12px}
 .fabDial{position:fixed;right:12px;bottom:126px;z-index:50;display:flex;flex-direction:column;gap:12px}
-.fab{width:46px;height:46px;border-radius:999px;background:var(--panel-2);border:1px solid var(--chip-line);display:grid;place-items:center;color:var(--ink);font-size:18px}
+.fab{width:46px;height:46px;border-radius:999px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:#1d1f21;font-size:18px;box-shadow:var(--shadow-soft)}
 
 /* slot highlight on drag */
 #playerSlots .slot.is-hot{outline:2px solid var(--accent);outline-offset:2px}
@@ -246,7 +245,7 @@ body{
 
 <script>
 /* =========================
-   Data: cards & market
+   Data
    ========================= */
 const HAND_DRAW=5;
 const FLOW_PRICES=[4,3,2,2,2];
@@ -277,28 +276,28 @@ const OFFENSE_CARDS=[
 const FLOW_POOL=[...ECON_CARDS,...OFFENSE_CARDS];
 
 /* =========================
-   Procedural artwork (centered)
+   Procedural SVG art tuned for LIGHT
    ========================= */
 function artSVG({motif='aether'}={}) {
-  const gold='#d6caa9', graphite='#101214', bone='#efe7d7';
+  const gold='#9b8e69', graphite='#25282b', bone='#474b50';
   const fx={
-    fire:`<path d="M150 190c-18-38 12-64 26-90-4 30 18 46 8 78 34-14 48-48 44-92 36 38 32 86-22 122-22 16-44 24-56 26z" fill="${gold}" opacity=".9"/>`,
+    fire:`<path d="M150 190c-18-38 12-64 26-90-4 30 18 46 8 78 34-14 48-48 44-92 36 38 32 86-22 122-22 16-44 24-56 26z" fill="${gold}" opacity=".85"/>`,
     lightning:`<path d="M160 120l-48 72h36l-40 60 88-98h-34l30-34z" fill="${bone}" opacity=".9"/>`,
-    ice:`<g fill="${bone}" opacity=".9"><path d="M180 120l16 40 40 16-40 16-16 40-16-40-40-16 40-16z"/></g>`,
+    ice:`<g fill="${bone}" opacity=".85"><path d="M180 120l16 40 40 16-40 16-16 40-16-40-40-16 40-16z"/></g>`,
     aether:`<circle cx="200" cy="180" r="34" fill="none" stroke="${gold}" stroke-width="4" opacity=".9"/>`,
-    ward:`<g stroke="${gold}" stroke-width="3" opacity=".92" fill="none"><circle cx="200" cy="180" r="40"/><path d="M200 140l24 40h-48z"/><circle cx="200" cy="180" r="8" stroke-width="2"/></g>`,
-    hex:`<g fill="none" stroke="${bone}" opacity=".9"><path d="M164 160h72v40h-72z" stroke-width="3"/><path d="M164 180h72" stroke-width="6" opacity=".5"/></g>`,
-    stone:`<g fill="${gold}" opacity=".35"><rect x="172" y="156" width="20" height="32"/><rect x="196" y="148" width="24" height="40"/><rect x="224" y="164" width="18" height="24"/></g>`,
-    meditate:`<g fill="none" stroke="${gold}" stroke-width="3" opacity=".92"><circle cx="200" cy="180" r="28"/><circle cx="200" cy="180" r="44" opacity=".45"/></g>`
+    ward:`<g stroke="${gold}" stroke-width="3" opacity=".9" fill="none"><circle cx="200" cy="180" r="40"/><path d="M200 140l24 40h-48z"/><circle cx="200" cy="180" r="8" stroke-width="2"/></g>`,
+    hex:`<g fill="none" stroke="${bone}" opacity=".9"><path d="M164 160h72v40h-72z" stroke-width="3"/><path d="M164 180h72" stroke-width="6" opacity=".4"/></g>`,
+    stone:`<g fill="${gold}" opacity=".28"><rect x="172" y="156" width="20" height="32"/><rect x="196" y="148" width="24" height="40"/><rect x="224" y="164" width="18" height="24"/></g>`,
+    meditate:`<g fill="none" stroke="${gold}" stroke-width="3" opacity=".9"><circle cx="200" cy="180" r="28"/><circle cx="200" cy="180" r="44" opacity=".45"/></g>`
   }[motif]||'';
   return 'data:image/svg+xml;utf8,'+encodeURIComponent(`
   <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>
     <defs>
-      <filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 .06'/></feComponentTransfer></filter>
-      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='#141718'/><stop offset='1' stop-color='${graphite}'/></linearGradient>
+      <filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feComponentTransfer><feFuncA type='table' tableValues='0 .08'/></feComponentTransfer></filter>
+      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='#f7f2e9'/><stop offset='1' stop-color='#fff'/></linearGradient>
     </defs>
     <rect width='100%' height='100%' fill='url(#v)'/>
-    <rect width='100%' height='100%' filter='url(#g)' opacity='.2'/>
+    <rect width='100%' height='100%' filter='url(#g)' opacity='.12'/>
     <g transform='translate(-40 0)'>${fx}</g>
   </svg>`);
 }
@@ -316,7 +315,7 @@ const slug=s=>(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/
 function resolveArt(c){const k=(c&&(c.artKey||slug(c.n)))||'card';return ART_MAP[k]||ART_MAP['aether-core'];}
 
 /* =========================
-   DOM
+   DOM helpers
    ========================= */
 const hp=qs('#hp'), aiHp=qs('#aiHp'), ae=qs('#ae'), aiAe=qs('#aiAe'), aiGlyphs=qs('#aiGlyphs');
 const deckCount=qs('#deckCount'), discardCount=qs('#discardCount');
@@ -328,9 +327,6 @@ const fabDraw=qs('#fabDraw'), fabEnd=qs('#fabEnd'), fabReset=qs('#fabReset');
 
 let S={}, turnLog=[], hideTimer, inspectIndex=-1;
 
-/* =========================
-   Utils
-   ========================= */
 function qs(s,r=document){return r.querySelector(s)}
 function qsa(s,r=document){return r.querySelectorAll(s)}
 function uid(){return Math.random().toString(36).slice(2,9)}
@@ -341,7 +337,7 @@ function log(m){turnLog.push(m); topLog.innerHTML=turnLog.slice(-3).map(x=>`<div
 function logResetTurn(){turnLog=[]; topLog.classList.remove('show')}
 
 /* =========================
-   Game core
+   Game core + AI
    ========================= */
 function initGame(){
   S={hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
@@ -358,16 +354,11 @@ function startTurn(first=false){
   log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`);
 }
 function endTurn(){
-  // reset player adv flags
   S.slots.forEach(s=>{ if(s) s.advUsed=false; });
-  // slide flow row
   slideFlow();
-  // auto-discard hand
   if(S.hand.length){ S.disc.push(...S.hand); S.hand.length=0; log("End Turn: auto-discard hand."); }
   render();
-  // AI acts
   setTimeout(()=>aiTurn(),300);
-  // then new player turn
   setTimeout(()=>startTurn(false),800);
 }
 function drawCard(){
@@ -394,7 +385,7 @@ function render(){
       d.innerHTML+=`<div class="marketCard" style="min-width:auto;max-width:none;margin-bottom:8px">
         <h4>${s.c.n}</h4><p>${s.c.txt||''}</p>
         <div class="pips">${pips(s.ph,s.c.p||1)}</div></div>
-        <button style="padding:7px 12px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink)" ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
+        <button style="padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2326" ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
       if(!s.advUsed) d.querySelector('button').onclick=()=>advance(i);
     }
     playerSlots.appendChild(d);
@@ -415,7 +406,7 @@ function render(){
     el.classList.remove('placeholder'); el.innerHTML='';
     const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:'';
     el.innerHTML=`${badge}<h4>${c.n}</h4>
-      <div style="height:128px;border-radius:10px;overflow:hidden;border:1px solid #232a2f;background:#0f1214;display:grid;place-items:center;margin-bottom:6px">
+      <div style="height:128px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;display:grid;place-items:center;margin-bottom:6px">
         <img src="${resolveArt(c)}" alt="" style="width:100%;height:100%;object-fit:contain">
       </div>
       <p>${c.txt||''}</p>
@@ -424,9 +415,8 @@ function render(){
   }
 
   // glyphs
-  glyphTray.innerHTML=S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')||`<span style="font-size:11px;color:var(--muted);opacity:.85">No glyphs set.</span>`;
+  glyphTray.innerHTML=S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')||`<span style="font-size:11px;color:#888e93">No glyphs set.</span>`;
 
-  // hand
   renderHand();
 }
 function pips(cur,total){let h='';for(let i=1;i<=total;i++)h+=`<span class="pip ${i<=cur?'on':''}"></span>`;return h;}
@@ -514,32 +504,26 @@ function runResolve(who,c){
    ========================= */
 function aiDraw(){ if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
 function aiTurn(){
-  // draw up to 5
   while(S.ai.hand.length<5) aiDraw();
 
-  // play first spell if any
   const idxSpell=S.ai.hand.findIndex(x=>x.t==='Spell');
   if(idxSpell>-1){
     const c=S.ai.hand.splice(idxSpell,1)[0];
     const s=S.ai.slots.findIndex(x=>!x);
     if(s>-1){ S.ai.slots[s]={c,ph:1,advUsed:false}; log("AI plays "+c.n); }
   }
-  // channel one instant for AE
   const idxInst=S.ai.hand.findIndex(x=>x.t==='Instant');
   if(idxInst>-1){ const r=S.ai.hand.splice(idxInst,1)[0]; S.ai.ae+=(r.v||0); S.ai.disc.push(r); log("AI channels "+r.n+" (+ "+(r.v||0)+"⚡)"); }
 
-  // advance one spell if it can pay 1
   const sIdx=S.ai.slots.findIndex(s=>s && !s.advUsed && S.ai.ae>0);
   if(sIdx>-1){ S.ai.ae--; S.ai.slots[sIdx].ph++; S.ai.slots[sIdx].advUsed=true; log("AI advances."); if(S.ai.slots[sIdx].ph>= (S.ai.slots[sIdx].c.p||1)){ runResolve('ai',S.ai.slots[sIdx].c); S.ai.disc.push(S.ai.slots[sIdx].c); S.ai.slots[sIdx]=null; } }
 
-  // buy cheapest affordable
   for(let i=4;i>=0;i--){ const c=S.flowRow[i]; if(c && FLOW_PRICES[i] <= (S.ai.ae||0)){ S.ai.ae -= FLOW_PRICES[i]; S.ai.disc.push(c); S.flowRow[i]=null; log("AI buys "+c.n); break; } }
-  ensureMarket();
-  render();
+  ensureMarket(); render();
 }
 
 /* =========================
-   Market helpers
+   Market
    ========================= */
 function ensureMarket(initial=false){ for(let i=0;i<5;i++){ if(!S.flowRow[i]) S.flowRow[i]=drawFlow(); } if(initial) render(); }
 function drawFlow(){ if(S.flowDeck.length===0) S.flowDeck=makeFlowDeck(); return S.flowDeck.pop()||null; }
