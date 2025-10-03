@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>The Grey — Spellweavers (Mobile)</title>
+<title>The Grey — Spellweavers</title>
 <meta name="theme-color" content="#0b0d10">
 <style>
 :root{
@@ -16,27 +16,23 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
-.wrap{padding:12px;max-width:1100px;margin:auto;overflow-x:hidden}
-.banner{height:88px;border-radius:14px;margin-bottom:12px;position:relative;overflow:hidden;border:1px solid #202a38;background:linear-gradient(180deg,#151b26,#0e121a);box-shadow:0 8px 26px rgba(0,0,0,.35) inset,0 10px 30px rgba(0,0,0,.25)}
-.banner .title{position:absolute;left:14px;top:10px;font-weight:900;letter-spacing:.14em;color:var(--accent)}
-.banner .subtitle{position:absolute;left:14px;top:36px;font-size:12px;color:#9db3cc}
+.wrap{padding:12px;max-width:1100px;margin:auto}
 
+/* ===== HUD (player left, enemy right) ===== */
+.hud{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;align-items:start
+}
+.hud .stack{display:flex;flex-direction:column;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:12px;background:var(--chip);border:1px solid var(--chip-line);font-size:12px}
+.pill b{font-size:13px}
+.pill .icon{font-size:13px;opacity:.9}
+.badge{border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:6px;font-size:11px}
+
+/* ===== Sections ===== */
 .zone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;box-shadow:0 6px 18px rgba(0,0,0,.25) inset}
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.pill{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:var(--chip);border:1px solid var(--chip-line);font-size:12px;margin-right:4px}
-.badge{border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:6px;font-size:11px;margin-left:4px}
-button{background:linear-gradient(180deg,#151c27,#0e141d);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;cursor:pointer}
-button:disabled{opacity:.6;cursor:not-allowed}
-.hint{font-size:11px;color:#9ab;margin-top:6px}
+.subtleTitle{font-weight:700;letter-spacing:.02em;margin-bottom:6px;color:#cfd6e3}
 
-.costRow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
-.costRow div{flex:1 0 60px;text-align:center;font-weight:700;padding:4px;border:1px solid #213145;border-radius:8px;background:#0b111a;color:#d7b77a}
-.market{display:flex;flex-wrap:wrap;gap:8px;overflow-x:auto}
-.card{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-width:180px;flex:1 0 180px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28);margin-bottom:8px}
-.card h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
-.card p{font-size:12px;color:#b9b4ac;margin-bottom:4px}
-.card .actions{display:flex;gap:6px;margin-top:6px}
-
+/* Boards */
 .slots{display:flex;gap:8px;flex-wrap:wrap}
 .slot{flex:1 0 30%;background:#0c1118;border:2px dashed #33465d;border-radius:12px;padding:8px;min-height:140px;position:relative}
 .slot h5{font-size:12px;color:#a7a4a0;margin-bottom:6px}
@@ -46,21 +42,29 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .pip{width:10px;height:10px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
 .pip.on{background:#6fa4ff;border-color:#6fa4ff}
 
-/* toast log */
-.topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);
-  background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;
-  box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:60;display:none;max-width:92vw;font-size:12px;line-height:1.35}
+/* ===== Aetherflow (centered single row) ===== */
+.flowWrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+.flowCosts{display:flex;gap:8px}
+.flowCosts .cost{min-width:42px;text-align:center;font-weight:800;padding:4px 8px;border:1px solid #213145;border-radius:999px;background:#0b111a;color:#d7b77a;font-size:12px}
+.flowRow{display:flex;gap:8px;justify-content:center;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;width:100%}
+.flowRow::-webkit-scrollbar{display:none}
+.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-width:240px;max-width:260px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28)}
+.marketCard h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
+.marketCard p{font-size:12px;color:#b9b4ac;margin-bottom:6px}
+.marketCard .actions{display:flex;gap:6px}
+.marketBadge{position:absolute;top:8px;right:10px;border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:8px;font-size:11px}
+
+/* ===== Top toast log ===== */
+.topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:60;display:none;max-width:92vw;font-size:12px;line-height:1.35}
 .topLog.show{display:block;animation:pop .18s ease-out}
-.topLog .item{opacity:.92}.topLog .item+.item{margin-top:4px;border-top:1px solid #233145;padding-top:4px}
+.topLog .item{opacity:.92}.topLog .item + .item{margin-top:4px;border-top:1px solid #233145;padding-top:4px}
 @keyframes pop{from{transform:translateX(-50%) translateY(-6px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
 
-/* ribbon */
-.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:8px 6px calc(10px + env(safe-area-inset-bottom));
-  background:linear-gradient(0deg,#0e1218,#151b26);border-top:1px solid #1e2631;box-shadow:0 -2px 10px rgba(0,0,0,.4)}
+/* ===== Ribbon Hand ===== */
+.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:8px 6px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#0e1218,#151b26);border-top:1px solid #1e2631;box-shadow:0 -2px 10px rgba(0,0,0,.4)}
 .ribbon{display:flex;align-items:flex-end;justify-content:flex-start;gap:4px;padding:0 6px;height:110px;overflow-x:auto;scrollbar-width:none;user-select:none;touch-action:pan-x}
 .ribbon::-webkit-scrollbar{display:none}
-.rCard{width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);
-  transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none}
+.rCard{width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none}
 .rHead{padding:6px 8px 5px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#242a36,#1b202a);border-bottom:1px solid #2b3140;color:#7aa2ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rArt{position:relative;flex:1;background:#0f1217;display:grid;place-items:center}
 .rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.05) contrast(1.02)}
@@ -68,8 +72,8 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .rFoot{padding:6px 8px;font-size:10.5px;opacity:.9;border-top:1px solid #232836;background:#151821;line-height:1.25}
 .badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0b111a;border:1px solid #2a3342;color:#a9d0ff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .badgeTL{left:6px}.badgeTR{right:6px}
-.rCard.is-focused{transform:translateY(0) scale(1.05);z-index:5;filter:saturate(1.06)}
 
+/* preview / actions */
 .preview{position:absolute;left:50%;bottom:calc(100% + 10px);min-width:min(540px,92vw);max-width:92vw;padding:10px 12px;border-radius:12px;background:#12141a;border:1px solid #2a2f3a;box-shadow:0 12px 28px rgba(0,0,0,.45);display:none;z-index:55;pointer-events:none}
 .preview.visible{display:block}
 .preview h3{margin:0 0 6px;font-size:14px;font-weight:800}
@@ -77,66 +81,85 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .quickActions{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);display:none;gap:6px;z-index:56}
 .quickActions button{padding:6px 10px;font-size:12px;border-radius:10px}
 .quickActions.show{display:flex}
+
+/* ===== Deck chip above ribbon ===== */
+.deckChip{
+  position:fixed;left:10px;bottom:120px;z-index:50;
+  display:flex;align-items:center;gap:6px;
+  padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;
+  box-shadow:0 6px 18px rgba(0,0,0,.35)
+}
+.deckChip svg{width:14px;height:14px;opacity:.9}
 </style>
 </head>
 <body>
+<!-- toast -->
 <div id="topLog" class="topLog" aria-live="polite"></div>
 
 <div class="wrap">
-  <div class="banner">
-    <div class="title">THE GREY</div>
-    <div class="subtitle">Spellweavers of Venia — Aether & Omen</div>
-  </div>
-
-  <div class="zone">
-    <div class="row">
-      <span class="pill">You ♥ <b id="hp">5</b></span>
-      <span class="pill">AI ♥ <b id="aiHp">5</b></span>
-      <span class="pill">⚡ <b id="ae">0</b></span>
-      <span class="pill">Deck <b id="deckCount">0</b></span>
-      <span class="pill">Discard <b id="discardCount">0</b></span>
-      <span class="pill">Glyphs <b id="glyphCount">0</b></span>
+  <!-- HUD rows -->
+  <div class="hud">
+    <div class="stack" id="hudLeft">
+      <span class="pill">You <span class="icon">♥</span><b id="hp">5</b></span>
+      <span class="pill"><span class="icon">⚡</span><b id="ae">0</b></span>
       <span class="badge" id="turnTag">Turn 1</span>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button id="drawBtn">Draw</button>
-      <button id="endBtn">End Turn</button>
-      <button id="resetBtn">Reset</button>
+    <div class="stack" id="hudRight" style="align-items:flex-end">
+      <span class="pill">AI <span class="icon">♥</span><b id="aiHp">5</b></span>
+      <span class="pill"><span class="icon">⚡</span><b id="aiAe">0</b></span>
     </div>
-    <div class="hint">Starters are low-economy. Buy ⚡ or effects from Aetherflow. Spells slot & advance ●○○; Glyphs set; cards with ↺ +X⚡ can Channel. End turn auto-discards; next turn auto-draws.</div>
   </div>
 
+  <!-- AI Board (now above flow) -->
   <div class="zone">
-    <b>Aetherflow</b>
-    <div class="costRow" id="flowCosts"></div>
-    <div class="market" id="flowRow"></div>
+    <div class="subtleTitle">AI Board</div>
+    <div class="slots" id="aiSlots"></div>
   </div>
 
+  <!-- Aetherflow (centered, one row) -->
   <div class="zone">
-    <b>Your Board</b>
+    <div class="subtleTitle" style="text-align:center">Aetherflow</div>
+    <div class="flowWrap">
+      <div class="flowCosts" id="flowCosts"></div>
+      <div class="flowRow" id="flowRow" aria-label="Aetherflow market"></div>
+    </div>
+  </div>
+
+  <!-- Player Board (below flow) -->
+  <div class="zone">
+    <div class="subtleTitle">Your Board</div>
     <div class="slots" id="playerSlots"></div>
   </div>
-  <div class="zone">
-    <b>AI Board</b>
-    <div class="slots" id="aiSlots"></div>
+
+  <!-- controls (kept for testing) -->
+  <div class="zone" style="display:flex;gap:8px;justify-content:center">
+    <button id="drawBtn">Draw</button>
+    <button id="endBtn">End Turn</button>
+    <button id="resetBtn">Reset</button>
   </div>
 </div>
 
-<section class="ribbon-wrap">
-  <div class="preview" id="rPreview"></div>
+<!-- Deck chip -->
+<div class="deckChip" id="deckChip" title="Deck">
+  <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.4"/><rect x="8" y="6" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.2" opacity=".6"/></svg>
+  <span id="deckCount">0</span>
+</div>
+
+<!-- Ribbon Hand -->
+<section class="ribbon-wrap" aria-label="Your hand">
+  <div class="preview" id="rPreview" role="dialog"></div>
   <div class="quickActions" id="rActions">
     <button id="actPlay">Play/Set</button>
     <button id="actChannel">Channel</button>
   </div>
-  <div class="ribbon" id="ribbon"></div>
+  <div class="ribbon" id="ribbon" tabindex="-1"></div>
 </section>
 
 <script>
-/* ===== CONFIG ===== */
+/* ---------------- CONFIG & DATA (same mechanics) ---------------- */
 const HAND_DRAW = 5;
 const DISCARD_AT_END = true;
 
-/* ===== STARTER / MARKET ===== */
 const STARTER = [
   {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
   {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
@@ -167,47 +190,45 @@ const ART_ROOT = 'assets/art/standard/';
 const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
 
-/* ===== DOM ===== */
+/* ---------------- DOM ---------------- */
 const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae');
-const deckCount=document.getElementById('deckCount'), discardCount=document.getElementById('discardCount'), glyphCount=document.getElementById('glyphCount');
-const flowCosts=document.getElementById('flowCosts'), flowRow=document.getElementById('flowRow');
+const aiAe=document.getElementById('aiAe'); // simple HUD mirror (not used in sim yet)
+const deckCount=document.getElementById('deckCount'), flowCosts=document.getElementById('flowCosts'), flowRow=document.getElementById('flowRow');
 const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots');
 const drawBtn=document.getElementById('drawBtn'), endBtn=document.getElementById('endBtn'), resetBtn=document.getElementById('resetBtn');
 const rRibbon=document.getElementById('ribbon'), rPreview=document.getElementById('rPreview'), rActions=document.getElementById('rActions');
 const actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
 const topLog=document.getElementById('topLog');
 
-/* ===== STATE ===== */
+/* ---------------- State ---------------- */
 let S={};
 let rCards=[], focusIndex=-1;
 let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
 let turnLog=[], logHideTimer;
 
-/* ===== HELPERS ===== */
-function uid(){return Math.random().toString(36).slice(2,9);}
-function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
-function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
-
+/* ---------------- Toast ---------------- */
 function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
 function toastRender(){ topLog.innerHTML = turnLog.slice(-3).map(x=>`<div class="item">${x}</div>`).join(''); toastShow(); }
 function log(msg){ turnLog.push(msg); toastRender(); }
 function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
 
-/* ===== GAME INIT / TURN FLOW ===== */
-function initGame(){
-  S={
-    hp:5, ae:0,
-    deck: makeStarterDeck(), hand:[], disc:[],
-    slots:[null,null,null], glyphs:[],
-    ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
-    flowDeck: makeFlowDeck(), flowRow:[null,null,null,null,null],
-    turn:1, taxes:0, lastInstant:null
-  };
-  ensureMarketComposition(true);
-  startTurn(true);        // <- draws opening hand
-}
+/* ---------------- Utils ---------------- */
+function uid(){return Math.random().toString(36).slice(2,9);}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
+function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
 
+/* ---------------- Init / Turn flow ---------------- */
+function initGame(){
+  S={ hp:5, ae:0,
+      deck:makeStarterDeck(), hand:[], disc:[],
+      slots:[null,null,null], glyphs:[],
+      ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
+      flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null],
+      turn:1, taxes:0, lastInstant:null };
+  ensureMarketComposition(true);
+  startTurn(true);
+}
 function startTurn(first=false){
   if(!first) S.turn++;
   logResetTurn();
@@ -215,7 +236,6 @@ function startTurn(first=false){
   render();
   log(first? "Game started." : `Start of Turn ${S.turn}: drew to ${HAND_DRAW}.`);
 }
-
 function endTurn(){
   S.slots.forEach(s=>{ if(s) s.advUsed=false; });
   slideFlow();
@@ -227,30 +247,34 @@ function endTurn(){
   setTimeout(()=>startTurn(false), 350);
 }
 
-/* ===== RENDER ===== */
+/* ---------------- Render ---------------- */
 function render(){
-  hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae;
-  deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length; glyphCount.textContent=S.glyphs.length;
+  hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; aiAe.textContent=S.ai.ae||0;
+  deckCount.textContent=S.deck.length;
   document.getElementById('turnTag').textContent=`Turn ${S.turn}`;
 
-  flowCosts.innerHTML=""; FLOW_PRICES.forEach(c=>{const d=document.createElement('div'); d.textContent=c; flowCosts.appendChild(d);});
+  // flow prices
+  flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="cost">${c}</div>`).join('');
+
+  // flow row
   flowRow.innerHTML="";
   S.flowRow.forEach((c,idx)=>{
     const div=document.createElement('div');
-    if(!c){ div.className='card'; div.innerHTML='<h4 style="opacity:.5">— empty —</h4>'; flowRow.appendChild(div); return; }
-    div.className='card';
-    const badge = (c.v!=null) ? `<span class="badge" style="position:absolute;top:8px;right:10px">↺ +${c.v}⚡</span>` : '';
-    div.innerHTML=`${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${FLOW_PRICES[idx]}⚡)</button></div>`;
+    div.className='marketCard';
+    if(!c){ div.innerHTML='<h4 style="opacity:.5">— empty —</h4>'; flowRow.appendChild(div); return; }
+    const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:"";
+    div.innerHTML = `${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${FLOW_PRICES[idx]}⚡)</button></div>`;
     div.querySelector('button').onclick=()=>buyFlowCard(idx);
     flowRow.appendChild(div);
   });
 
+  // Player board
   playerSlots.innerHTML="";
   S.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>Slot ${i+1}</h5>`;
     if(s){
       d.innerHTML += `
-        <div class="card" style="min-width:auto;max-width:none;padding:8px;margin-bottom:6px">
+        <div class="marketCard" style="min-width:auto;max-width:none;margin-bottom:6px">
           <h4>${s.c.n}</h4>
           <p>${s.c.txt||''}</p>
           <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
@@ -261,10 +285,17 @@ function render(){
     playerSlots.appendChild(d);
   });
 
+  // AI board
   aiSlots.innerHTML="";
   S.ai.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>AI Slot ${i+1}</h5>`;
-    if(s){ d.innerHTML+=`<div class="card" style="min-width:auto;max-width:none;padding:8px"><h4>${s.c.n}</h4><div class="pips">${renderPips(s.ph, s.c.p||1)}</div></div>`;}
+    if(s){
+      d.innerHTML += `
+        <div class="marketCard" style="min-width:auto;max-width:none">
+          <h4>${s.c.n}</h4>
+          <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
+        </div>`;
+    }
     aiSlots.appendChild(d);
   });
 
@@ -272,7 +303,7 @@ function render(){
 }
 function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
 
-/* ===== HAND / RIBBON ===== */
+/* ---------------- Ribbon ---------------- */
 function renderRibbon(){
   rRibbon.innerHTML='';
   S.hand.forEach((c,i)=>{
@@ -301,7 +332,7 @@ function renderRibbon(){
   wireRibbonEvents();
 }
 
-/* ===== PREVIEW/ACTIONS ===== */
+/* preview / actions */
 function showPreview(i){
   const c=S.hand[i]; if(!c) return hidePreview();
   const dots=(c.t==='Spell')?`<div style="margin-top:6px;opacity:.9">Phases: ${'●'.repeat(c.p||1)}</div>`:'';
@@ -321,7 +352,7 @@ function showActions(i){
 }
 function hideActions(){ rActions.classList.remove('show'); qaForIndex=-1; }
 
-/* ===== RIBBON EVENTS ===== */
+/* wire events */
 function wireRibbonEvents(){
   const slots=[...document.querySelectorAll('#playerSlots .slot')];
   actPlay.onclick = ()=>{ if(qaForIndex>-1) playFromHandIndex(qaForIndex,null); hideActions(); };
@@ -337,11 +368,8 @@ function wireRibbonEvents(){
   rCards.forEach((card,i)=>{
     card.addEventListener('click',(e)=>{ if(isDragging){ e.preventDefault(); return; } rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showActions(i); });
     card.addEventListener('focus',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); });
-    card.addEventListener('blur', ()=>{ setTimeout(()=>{ if(!rRibbon.contains(document.activeElement)){ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); } },0); });
-
     card.addEventListener('pointerdown',(e)=>{
       isPointerDown=true; isDragging=false; dragFrom=i;
-      document.body.classList.add('no-select');
       card.setPointerCapture(e.pointerId);
       clearTimeout(longPressTimer);
       longPressTimer=setTimeout(()=>{ if(!isDragging){ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); showActions(i); } },350);
@@ -370,7 +398,7 @@ function wireRibbonEvents(){
   document.addEventListener('visibilitychange', ()=>{ if(document.hidden) cleanupGhost(slots); });
 }
 
-/* ===== DRAG GHOST ===== */
+/* drag helpers */
 function startGhost(card,e){
   dragGhost=card.cloneNode(true);
   Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
@@ -383,11 +411,10 @@ function finishGhost(x,y,slots){ const el=document.elementFromPoint(x,y); const 
 function cleanupGhost(slots){
   if(dragGhost&&dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
   dragGhost=null; isDragging=false; isPointerDown=false; dragFrom=-1;
-  document.body.classList.remove('no-select'); hidePreview(); hideActions();
-  slots.forEach(s=>s.classList.remove('is-hot'));
+  hidePreview(); hideActions(); slots.forEach(s=>s.classList.remove('is-hot'));
 }
 
-/* ===== GAMEPLAY ACTIONS ===== */
+/* ---------------- Core actions (same) ---------------- */
 function drawCard(){
   if(S.deck.length===0){
     if(S.disc.length===0){ log("No cards to draw."); return; }
@@ -404,8 +431,7 @@ function playFromHandIndex(idx, dropSlotIndex=null){
     S.hand.splice(idx,1);
     log(`Play ${c.n} → Slot ${slot+1}.`);
   } else if(c.t==="Glyph"){
-    S.glyphs.push(c); S.hand.splice(idx,1);
-    log(`Set glyph: ${c.n}.`);
+    S.glyphs.push(c); S.hand.splice(idx,1); log(`Set glyph: ${c.n}.`);
   } else { // Instant
     S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); S.lastInstant=c;
     log(`Cast ${c.n}: +${c.v||0}⚡.`);
@@ -450,7 +476,7 @@ function runResolve(who,c){
   }
 }
 
-/* ===== MARKET ===== */
+/* ---------------- Market ---------------- */
 function buyFlowCard(i){
   const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; }
   const cost=FLOW_PRICES[i];
@@ -478,29 +504,12 @@ function ensureMarketComposition(initial=false){
   if(initial) render();
 }
 
-/* ===== BUTTONS ===== */
+/* ---------------- Buttons ---------------- */
 drawBtn.onclick=()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
 endBtn.onclick =()=> endTurn();
 resetBtn.onclick=()=> initGame();
 
-/* ===== DRAG UTILS ===== */
-function startGhost(card,e){
-  dragGhost=card.cloneNode(true);
-  Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
-  document.body.appendChild(dragGhost);
-  positionGhost(e.clientX,e.clientY);
-}
-function positionGhost(x,y){ if(dragGhost){ dragGhost.style.left=x+'px'; dragGhost.style.top=y+'px'; } }
-function updateDropTargets(x,y,slots){ const el=document.elementFromPoint(x,y); slots.forEach(s=> s.classList.toggle('is-hot', s===el || (el && s.contains(el)))); }
-function finishGhost(x,y,slots){ const el=document.elementFromPoint(x,y); const idx=slots.findIndex(s=> s===el || (el && s.contains(el))); return idx>-1 ? idx : null; }
-function cleanupGhost(slots){
-  if(dragGhost&&dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
-  dragGhost=null; isDragging=false; isPointerDown=false; dragFrom=-1;
-  document.body.classList.remove('no-select'); hidePreview(); hideActions();
-  slots.forEach(s=>s.classList.remove('is-hot'));
-}
-
-/* ===== BOOT ===== */
+/* ---------------- Boot ---------------- */
 initGame();
 </script>
 </body>
