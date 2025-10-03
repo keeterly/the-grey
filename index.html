@@ -20,7 +20,8 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 
 /* ===== Floating HUD chips (top corners) ===== */
 .hudFloat{
-  position:fixed;top:10px;z-index:70;display:flex;flex-direction:column;gap:8px
+  position:fixed;top:10px;z-index:70;display:flex;flex-direction:column;gap:8px;
+  transition: opacity .16s ease, transform .16s ease;
 }
 .hudFloat.left{left:10px}
 .hudFloat.right{right:10px;align-items:flex-end}
@@ -33,8 +34,9 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 
 /* Boards */
 .slots{display:flex;gap:8px;flex-wrap:wrap}
-.slot{flex:1 0 30%;background:#0c1118;border:2px dashed #33465d;border-radius:12px;padding:8px;min-height:140px;position:relative}
+.slot{flex:1 0 30%;background:#0c1118;border:2px dashed #33465d;border-radius:12px;padding:8px;min-height:140px;position:relative;transition:transform .12s, background .12s, border-color .12s}
 .slot h5{font-size:12px;color:#a7a4a0;margin-bottom:6px}
+.slot.is-hot{ border-color:#6fa4ff; background:#0d1523; transform:translateY(-1px) }
 
 /* phase pips */
 .pips{display:flex;gap:4px;margin-top:4px}
@@ -57,21 +59,28 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 }
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek,.glyphTok.own.peek .glyphPeek{display:block}
 
-/* ===== Aetherflow (synced horizontal scroller) ===== */
+/* ===== Aetherflow (synced horizontal scroller + snap + peek dots) ===== */
 .flowZone{display:flex;flex-direction:column;gap:8px}
-.flowScroller{overflow:auto;scrollbar-width:none}
+.flowScroller{overflow:auto;scrollbar-width:none;scroll-snap-type: x mandatory}
 .flowScroller::-webkit-scrollbar{display:none}
-.flowInner{min-width:720px} /* ensures columns don't collapse on narrow screens */
+.flowInner{min-width:720px}
 .costGrid, .cardGrid{
   display:grid;grid-template-columns:repeat(5, 1fr);gap:10px;align-items:start
 }
 .costChip{justify-self:center;min-width:42px;text-align:center;font-weight:800;padding:4px 8px;border:1px solid #213145;border-radius:999px;background:#0b111a;color:#d7b77a;font-size:12px}
-.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28)}
+.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28);scroll-snap-align:start}
 .marketCard h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
 .marketCard p{font-size:12px;color:#b9b4ac;margin-bottom:6px}
 .marketCard .actions{display:flex;gap:6px}
 .marketBadge{position:absolute;top:8px;right:10px;border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:8px;font-size:11px}
 .placeholder{opacity:.35;display:grid;place-items:center;border-style:dashed}
+.marketCard.afford{ box-shadow: 0 8px 22px rgba(111,164,255,.22); border-color:#2e3e56 }
+.marketCard.na .actions button{opacity:.55;cursor:not-allowed}
+
+/* Flow peek dots */
+.peekDots{display:flex;gap:6px;justify-content:center;margin-top:2px}
+.peekDot{width:6px;height:6px;border-radius:999px;background:#2a3241}
+.peekDot.on{background:#6fa4ff}
 
 /* ===== Top toast log ===== */
 .topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:80;display:none;max-width:92vw;font-size:12px;line-height:1.35}
@@ -81,9 +90,9 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 
 /* ===== Ribbon Hand ===== */
 .ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:8px 6px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#0e1218,#151b26);border-top:1px solid #1e2631;box-shadow:0 -2px 10px rgba(0,0,0,.4)}
-.ribbon{display:flex;align-items:flex-end;justify-content:flex-start;gap:4px;padding:0 6px;height:110px;overflow-x:auto;scrollbar-width:none;user-select:none;touch-action:pan-x}
+.ribbon{display:flex;align-items:flex-end;justify-content:flex-start;gap:4px;padding:0 6px;height:110px;overflow-x:auto;scrollbar-width:none;user-select:none;touch-action:pan-x;scroll-snap-type:x mandatory}
 .ribbon::-webkit-scrollbar{display:none}
-.rCard{width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none}
+.rCard{width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;scroll-snap-align:start}
 .rHead{padding:6px 8px 5px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#242a36,#1b202a);border-bottom:1px solid #2b3140;color:#7aa2ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rArt{position:relative;flex:1;background:#0f1217;display:grid;place-items:center}
 .rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.05) contrast(1.02)}
@@ -92,10 +101,10 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0b111a;border:1px solid #2a3342;color:#a9d0ff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .badgeTL{left:6px}.badgeTR{right:6px}
 
-/* ===== Inspect panel (larger readable card info) ===== */
+/* ===== Inspect panel (large readable card info + art) ===== */
 .inspectBack{
   position:fixed;inset:0;z-index:75;background:rgba(6,8,12,.52);
-  display:none;align-items:flex-end;justify-content:center;padding-bottom:128px /* space above ribbon */
+  display:none;align-items:flex-end;justify-content:center;padding-bottom:128px
 }
 .inspectBack.show{display:flex}
 .inspectCard{
@@ -104,25 +113,28 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 }
 .inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:900;color:#d7b77a}
 .inspectCard p{margin:0 0 8px;font-size:13px;line-height:1.45;color:#cfd6e3}
+.inspectCard .artBox{height:160px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid #222a36;background:#0f1218;display:grid;place-items:center}
+.inspectCard .artBox img{width:100%;height:100%;object-fit:cover}
 .inspectDots{display:flex;gap:6px;margin-bottom:8px}
-.inspectDot{width:12px;height:12px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
+.inspectDot{width:14px;height:14px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
 .inspectDot.on{background:#6fa4ff;border-color:#6fa4ff}
 .inspectActions{display:flex;gap:8px;justify-content:flex-end}
 .inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid #273246;background:#0f141d;color:#cfe2ff;font-size:13px;cursor:pointer}
 
 /* ===== Deck & Discard chips ===== */
-.deckBar{position:fixed;left:10px;bottom:120px;z-index:50;display:flex;gap:6px}
+.deckBar{position:fixed;left:10px;bottom:120px;z-index:50;display:flex;gap:6px;transition: opacity .16s ease, transform .16s ease}
 .chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .chip svg{width:14px;height:14px;opacity:.9}
 .chip .narrow{font-variant-numeric:tabular-nums}
 
-/* ===== Floating FAB controls ===== */
-.fabStack{position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;gap:8px}
-.fab{width:44px;height:44px;border-radius:999px;background:#0f141d;border:1px solid #273246;display:grid;place-items:center;color:#cfe2ff;box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer}
-.fab:hover{filter:brightness(1.1)}
-.fab svg{width:20px;height:20px}
-
-/* helpers */
+/* ===== Speed-dial FAB ===== */
+.fabDial{position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition: opacity .16s ease, transform .16s ease}
+.fab{width:48px;height:48px;border-radius:999px;background:#0f141d;border:1px solid #273246;display:grid;place-items:center;color:#cfe2ff;box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer}
+.fab svg{width:22px;height:22px}
+.fab.small{width:42px;height:42px}
+.dialActions{display:grid;gap:8px;transform-origin:bottom right;transition:transform .14s ease, opacity .14s ease;opacity:0;transform:scale(.9);pointer-events:none}
+.fabDial.open .dialActions{opacity:1;transform:scale(1);pointer-events:auto}
+.smartHide{ opacity:.15; transform: translateY(6px); pointer-events:none; }
 .hidden{display:none}
 </style>
 </head>
@@ -136,6 +148,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 <div class="hudFloat right">
   <div class="hchip" title="AI HP">AI&nbsp;<span class="icon">♥</span><b id="aiHp">5</b></div>
   <div class="hchip" title="AI Aether"><span class="icon">⚡</span><b id="aiAe">0</b></div>
+  <div class="hchip" title="AI Glyphs"><span class="icon">✦</span><b id="aiGlyphs">0</b></div>
 </div>
 
 <!-- toast -->
@@ -158,6 +171,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
           <div class="cardGrid" id="flowGrid"></div>
         </div>
       </div>
+      <div class="peekDots" id="peekDots"></div>
     </div>
   </div>
 
@@ -181,16 +195,21 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
   </div>
 </div>
 
-<!-- FAB controls -->
-<div class="fabStack" aria-label="Turn controls">
-  <button id="fabDraw" class="fab" title="Draw">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M7 10l5-5 5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </button>
-  <button id="fabEnd" class="fab" title="End Turn">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h10" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M13 7l5 5-5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </button>
-  <button id="fabReset" class="fab" title="Reset">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 3-6" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4v4h4" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<!-- Speed-dial FAB -->
+<div class="fabDial" id="fabDial" aria-label="Turn controls">
+  <div class="dialActions">
+    <button id="fabDraw" class="fab small" title="Draw">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M7 10l5-5 5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button id="fabEnd" class="fab small" title="End Turn">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h10" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M13 7l5 5-5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button id="fabReset" class="fab small" title="Reset">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 3-6" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4v4h4" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+  </div>
+  <button id="fabMain" class="fab" title="Actions">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#cfe2ff" stroke-width="1.8" stroke-linecap="round"/></svg>
   </button>
 </div>
 
@@ -203,6 +222,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 <div id="inspect" class="inspectBack" role="dialog" aria-modal="true">
   <div class="inspectCard">
     <h3 id="insTitle">Card</h3>
+    <div class="artBox"><img id="insArt" alt="" loading="lazy"></div>
     <div class="inspectDots" id="insDots"></div>
     <p id="insText"></p>
     <div class="inspectActions">
@@ -214,7 +234,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 </div>
 
 <script>
-/* ===== CONFIG / CARDS (mechanics unchanged) ===== */
+/* ===== CONFIG / CARDS ===== */
 const HAND_DRAW = 5;
 const DISCARD_AT_END = true;
 
@@ -249,36 +269,39 @@ const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|
 const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
 
 /* ===== DOM ===== */
-const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae'), aiAe=document.getElementById('aiAe');
-const deckCount=document.getElementById('deckCount'), discardCount=document.getElementById('discardCount');
-const flowCosts=document.getElementById('flowCosts'), flowGrid=document.getElementById('flowGrid'), flowScroll=document.getElementById('flowScroll');
-const playerSlots=document.getElementById('playerSlots'), aiSlots=document.getElementById('aiSlots'), glyphTray=document.getElementById('glyphTray');
-const rRibbon=document.getElementById('ribbon');
-const topLog=document.getElementById('topLog');
-const fabDraw=document.getElementById('fabDraw'), fabEnd=document.getElementById('fabEnd'), fabReset=document.getElementById('fabReset');
-
-/* Inspect panel */
-const inspect=document.getElementById('inspect'), insTitle=document.getElementById('insTitle'), insText=document.getElementById('insText'), insDots=document.getElementById('insDots');
-const btnInsPlay=document.getElementById('btnInspectPlay'), btnInsChan=document.getElementById('btnInspectChan'), btnInsClose=document.getElementById('btnInspectClose');
+const hp=qs('#hp'), aiHp=qs('#aiHp'), ae=qs('#ae'), aiAe=qs('#aiAe'), aiGlyphs=qs('#aiGlyphs');
+const deckCount=qs('#deckCount'), discardCount=qs('#discardCount');
+const flowCosts=qs('#flowCosts'), flowGrid=qs('#flowGrid'), flowScroll=qs('#flowScroll'), peekDots=qs('#peekDots');
+const playerSlots=qs('#playerSlots'), aiSlots=qs('#aiSlots'), glyphTray=qs('#glyphTray');
+const rRibbon=qs('#ribbon'), topLog=qs('#topLog');
+const fabDial=qs('#fabDial'), fabMain=qs('#fabMain'), fabDraw=qs('#fabDraw'), fabEnd=qs('#fabEnd'), fabReset=qs('#fabReset');
+const inspect=qs('#inspect'), insTitle=qs('#insTitle'), insText=qs('#insText'), insDots=qs('#insDots'), insArt=qs('#insArt');
+const turnTag=qs('#turnTag');
+const chromeEls = [
+  qsa('.hudFloat.left')[0],
+  qsa('.hudFloat.right')[0],
+  qs('.deckBar'),
+  fabDial
+];
 
 /* ===== STATE ===== */
 let S={};
-let rCards=[], focusIndex=-1;
-let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null;
-let turnLog=[], logHideTimer;
-let inspectIndex=-1;
+let rCards=[], isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null;
+let turnLog=[], logHideTimer, inspectIndex=-1;
+
+/* ===== HELPERS ===== */
+function qs(s, root=document){ return root.querySelector(s); }
+function qsa(s, root=document){ return Array.from(root.querySelectorAll(s)); }
+function uid(){return Math.random().toString(36).slice(2,9);}
+function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
+function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
 
 /* ===== TOAST ===== */
 function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
 function toastRender(){ topLog.innerHTML = turnLog.slice(-3).map(x=>`<div class="item">${x}</div>`).join(''); toastShow(); }
 function log(msg){ turnLog.push(msg); toastRender(); }
 function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
-
-/* ===== UTILS ===== */
-function uid(){return Math.random().toString(36).slice(2,9);}
-function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
-function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
 
 /* ===== INIT / TURN FLOW ===== */
 function initGame(){
@@ -314,9 +337,10 @@ function endTurn(){
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; aiAe.textContent=S.ai.ae||0;
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
-  document.getElementById('turnTag').textContent=`Turn ${S.turn}`;
+  aiGlyphs.textContent = S.ai.glyphs.length;
+  turnTag.textContent=`Turn ${S.turn}`;
 
-  // Glyph tray
+  // Glyph tray (yours)
   glyphTray.innerHTML = S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')
     || `<span style="font-size:11px;color:#7d8aa4;opacity:.8">No glyphs set.</span>`;
 
@@ -351,27 +375,65 @@ function render(){
     aiSlots.appendChild(d);
   });
 
-  // Aetherflow — synced scroller
+  // Aetherflow — synced scroller + affordability
   flowCosts.innerHTML = FLOW_PRICES.map(c=>`<div class="costChip">${c}</div>`).join('');
   flowGrid.innerHTML="";
-  for(let i=0;i<FLOW_PRICES.length;i++){
-    const c=S.flowRow[i];
-    const div=document.createElement('div');
-    if(!c){
-      div.className='marketCard placeholder';
-      div.innerHTML='— empty —';
-    }else{
-      div.className='marketCard';
-      const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:"";
-      div.innerHTML = `${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${FLOW_PRICES[i]}⚡)</button></div>`;
-      div.querySelector('button').onclick=()=>buyFlowCard(i);
+  for (let i = 0; i < FLOW_PRICES.length; i++) {
+    const c = S.flowRow[i];
+    const div = document.createElement('div');
+    div.className = 'marketCard';
+    if (!c) {
+      div.classList.add('placeholder');
+      div.innerHTML = '— empty —';
+    } else {
+      const cost = FLOW_PRICES[i];
+      const canBuy = S.ae >= cost;
+      if (canBuy) div.classList.add('afford'); else div.classList.remove('afford');
+      if (!canBuy) div.classList.add('na'); else div.classList.remove('na');
+
+      const badge = (c.v != null) ? `<span class="marketBadge">↺ +${c.v}⚡</span>` : "";
+      div.innerHTML = `
+        ${badge}
+        <h4>${c.n}</h4>
+        <p>${c.txt}</p>
+        <div class="actions">
+          <button ${canBuy ? "" : "disabled"}>Buy (${cost}⚡)</button>
+        </div>
+      `;
+      div.querySelector('button').onclick = () => buyFlowCard(i);
     }
     flowGrid.appendChild(div);
   }
+  renderPeekDots();
 
   renderRibbon();
 }
 function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
+
+/* ===== Peek dots for Aetherflow ===== */
+function renderPeekDots(){
+  peekDots.innerHTML='';
+  for(let i=0;i<FLOW_PRICES.length;i++){
+    const d=document.createElement('div'); d.className='peekDot'; d.dataset.idx=i;
+    peekDots.appendChild(d);
+  }
+  updatePeekDots();
+}
+function updatePeekDots(){
+  const dots = qsa('.peekDot', peekDots);
+  const center = flowScroll.scrollLeft + flowScroll.clientWidth/2;
+  // find the nearest column center by card positions
+  const cards = qsa('.cardGrid .marketCard', flowScroll);
+  let best = 0, bestDist = Infinity;
+  cards.forEach((el,i)=>{
+    const r = el.getBoundingClientRect();
+    const elCenter = (r.left + r.right)/2 + flowScroll.scrollLeft - flowScroll.getBoundingClientRect().left;
+    const d = Math.abs(elCenter - center);
+    if (d < bestDist){ bestDist = d; best = i; }
+  });
+  dots.forEach((d,i)=> d.classList.toggle('on', i===best));
+}
+flowScroll.addEventListener('scroll', ()=>{ updatePeekDots(); }, {passive:true});
 
 /* ===== RIBBON + Inspect ===== */
 function renderRibbon(){
@@ -394,32 +456,35 @@ function renderRibbon(){
     const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
 
     b.appendChild(h); b.appendChild(art); b.appendChild(f);
-    // click -> Inspect
+    // tap -> Inspect
     b.addEventListener('click',()=>openInspect(i));
     // drag for quick play
     prepDrag(b,i);
     rRibbon.appendChild(b);
   });
 
-  rCards=[...document.querySelectorAll('.rCard')];
+  rCards=qsa('.rCard');
 }
 
 /* Inspect modal */
 function openInspect(i){
   const c=S.hand[i]; if(!c) return;
-  inspectIndex=i;
-  insTitle.textContent=c.n;
-  insText.textContent=c.txt||'';
-  insDots.innerHTML = (c.t==='Spell') ? Array.from({length:c.p||1},(_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('') : '';
+  inspectIndex = i;
+  insTitle.textContent = c.n;
+  insText.textContent = c.txt || '';
+  insArt.src = resolveArt(c); insArt.alt = c.n + ' artwork';
+  insDots.innerHTML = (c.t === 'Spell')
+    ? Array.from({length: (c.p||1)}, (_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('')
+    : '';
   inspect.classList.add('show');
 }
 function closeInspect(){ inspect.classList.remove('show'); inspectIndex=-1; }
-btnInsClose.onclick=closeInspect;
-btnInsPlay.onclick = ()=>{ if(inspectIndex>-1){ playFromHandIndex(inspectIndex,null); closeInspect(); } };
-btnInsChan.onclick = ()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
+qs('#btnInspectClose').onclick=closeInspect;
+qs('#btnInspectPlay').onclick = ()=>{ if(inspectIndex>-1){ playFromHandIndex(inspectIndex,null); closeInspect(); } };
+qs('#btnInspectChan').onclick = ()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
 inspect.addEventListener('click',e=>{ if(e.target===inspect) closeInspect(); });
 
-/* drag helpers (unchanged behavior) */
+/* drag helpers */
 function prepDrag(card,i){
   card.addEventListener('dragstart',e=>e.preventDefault());
   card.addEventListener('pointerdown',e=>{
@@ -430,7 +495,7 @@ function prepDrag(card,i){
     e.preventDefault();
   });
   card.addEventListener('pointermove',e=>{
-    const slots=[...document.querySelectorAll('#playerSlots .slot')];
+    const slots=[...qsa('#playerSlots .slot')];
     if(!isPointerDown || dragFrom!==i) return;
     const moved=Math.hypot(e.movementX,e.movementY)>6;
     if(moved && !isDragging){ isDragging=true; clearTimeout(longPressTimer); startGhost(card,e); }
@@ -438,14 +503,14 @@ function prepDrag(card,i){
   });
   card.addEventListener('pointerup',e=>{
     clearTimeout(longPressTimer);
-    const slots=[...document.querySelectorAll('#playerSlots .slot')];
+    const slots=[...qsa('#playerSlots .slot')];
     if(isDragging){
       const slotIndex=finishGhost(e.clientX,e.clientY, slots);
       if(slotIndex!=null) playFromHandIndex(i, slotIndex);
       cleanupGhost(slots);
     } else { cleanupGhost(slots); }
   });
-  card.addEventListener('pointercancel',()=>cleanupGhost([...document.querySelectorAll('#playerSlots .slot')]));
+  card.addEventListener('pointercancel',()=>cleanupGhost([...qsa('#playerSlots .slot')]));
 }
 function startGhost(card,e){
   dragGhost=card.cloneNode(true);
@@ -553,10 +618,25 @@ function ensureMarketComposition(initial=false){
   if(initial) render();
 }
 
-/* ===== FAB Buttons ===== */
+/* ===== Speed-dial FAB ===== */
+fabMain.addEventListener('click', ()=> fabDial.classList.toggle('open'));
 fabDraw.onclick = ()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
 fabEnd.onclick  = ()=> endTurn();
 fabReset.onclick= ()=> initGame();
+
+/* ===== Smart-hide chrome while scrolling ===== */
+let lastY = window.scrollY, hideTimer;
+function updateSmartHide() {
+  const dy = window.scrollY - lastY; lastY = window.scrollY;
+  const goingDown = dy > 2;
+  chromeEls.forEach(el => el && el.classList.toggle('smartHide', goingDown));
+  clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => chromeEls.forEach(el => el && el.classList.remove('smartHide')), 300);
+}
+window.addEventListener('scroll', updateSmartHide, { passive: true });
+['touchstart','pointerdown','wheel','keydown'].forEach(evt =>
+  window.addEventListener(evt, () => chromeEls.forEach(el => el && el.classList.remove('smartHide')), { passive:true })
+);
 
 /* ===== Boot ===== */
 initGame();
