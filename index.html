@@ -3,55 +3,53 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>The Grey — Spellweavers (Light, refined)</title>
-<meta name="theme-color" content="#ece6d8" />
+<title>The Grey — Light NieR UI (stable)</title>
+<meta name="theme-color" content="#EEE8DC" />
 <style>
 /* =========================
-   NieR-like LIGHT THEME
+   Light parchment palette (NieR-like, monotone)
    ========================= */
 :root{
-  --bg:#ece6d8; --bg-grad:#f5efe4;
-  --ink:#1d1f21; --muted:#585e63; --accent:#9b8e69;
+  --bg:#EEE8DC; --bg-grad:#F6F1E7;
+  --ink:#222426; --muted:#64696E; --accent:#8A8174;
 
-  --panel:#fff; --panel-2:#faf6ee;
-  --line:#d8d2c6; --line-soft:#e8e1d3;
+  --panel:#FFFFFF; --panel-2:#FAF7F0;
+  --line:#D8D2C6; --line-soft:#E7E0D4;
 
-  --slot:#faf6ee; --chip-line:#d8d1c4; --fade:#ece6d8;
-
-  --card:#fff; --card-line:#d9d2c6;
+  --slot:#FAF7F0; --fade:#EEE8DC;
+  --card:#FFFFFF; --card-line:#DAD3C8;
 
   --card-w:120px; --card-h:172px; --card-radius:12px;
 
-  --shadow-soft:0 2px 10px rgba(90,78,58,.12);
-  --shadow-panel:0 1px 6px rgba(70,60,45,.08) inset, 0 1px 10px rgba(80,70,55,.05);
+  --shadow-soft:0 2px 10px rgba(60,52,44,.12);
+  --shadow-panel:0 1px 6px rgba(60,52,44,.08) inset, 0 1px 10px rgba(60,52,44,.05);
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
 body{
-  background: radial-gradient(1200px 700px at 50% -260px, rgba(120,100,70,.08), transparent 60%), var(--bg-grad);
-  color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-  letter-spacing:.005em; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  background: radial-gradient(1200px 700px at 50% -260px, rgba(90,78,65,.06), transparent 60%), var(--bg-grad);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
 }
 
-/* ===== Minimal HUD (icons only) ===== */
+/* ===== Minimal HUD icons (monotone) ===== */
 .hudIcon{
   position:fixed; top:10px; z-index:70; width:34px; height:34px;
   display:grid; place-items:center; border-radius:50%;
-  background:linear-gradient(180deg,#ffffff,#f3eee4); border:1px solid var(--line); color:#bf3d3d;
-  box-shadow:var(--shadow-soft); opacity:.75;
+  background:linear-gradient(180deg,#fff,#F3EFE6); border:1px solid var(--line);
+  box-shadow:var(--shadow-soft); opacity:.78;
 }
+.hudIcon svg{width:18px;height:18px;stroke:#6F6A60}
 .hudIcon.r{right:10px} .hudIcon.l{left:10px}
 .hudIcon + .hudIcon{ top:54px }
-.hudIcon .g{ font-size:17px; line-height:1 }
-.hudIcon.energy{ color:#c4952f }
-.hudIcon.ai{ right:10px; left:auto }
-.hudIcon.ai + .hudIcon{ right:10px; left:auto }
 
 /* ===== Toast ===== */
 .topLog{
   position:fixed; top:10px; left:50%; transform:translateX(-50%);
-  background:#fff; border:1px solid var(--line); color:#2c2f34; border-radius:12px;
-  padding:9px 12px; box-shadow:0 8px 18px rgba(70,60,45,.18); z-index:80; display:none;
+  background:#fff; border:1px solid var(--line); color:#2b2f33; border-radius:12px;
+  padding:9px 12px; box-shadow:0 8px 18px rgba(60,52,44,.18); z-index:80; display:none;
   max-width:92vw; font-size:12px; letter-spacing:.01em;
 }
 .topLog.show{display:block}
@@ -68,13 +66,13 @@ body{
 /* ===== Boards ===== */
 .slots{display:flex;gap:10px;flex-wrap:wrap}
 .slot{
-  flex:1 0 30%; background:var(--slot); border:2px dashed #cec6b7; border-radius:12px;
+  flex:1 0 30%; background:var(--slot); border:2px dashed #CEC7BA; border-radius:12px;
   padding:10px; min-height:146px; position:relative
 }
 .slot h5{font-size:12px;color:#6a6f76;margin-bottom:6px}
 .pips{display:flex;gap:4px;margin-top:6px}
-.pip{width:10px;height:10px;border-radius:999px;border:1px solid #b8b2a4;background:#efe9dc}
-.pip.on{background:#7a838c;border-color:#7a838c}
+.pip{width:10px;height:10px;border-radius:999px;border:1px solid #BBB3A6;background:#EFE9DC}
+.pip.on{background:#7A838C;border-color:#7A838C}
 
 /* ===== Glyphs ===== */
 .glyphTray{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
@@ -100,7 +98,7 @@ body{
 .costChip{min-width:42px;text-align:center;font-weight:800;letter-spacing:.04em;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--accent);font-size:12px}
 .marketCard{
   background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:150px;position:relative;
-  box-shadow:0 4px 14px rgba(70,60,45,.12)
+  box-shadow:0 4px 14px rgba(60,52,44,.12)
 }
 .marketCard h4{font-size:14px;color:var(--accent);margin-bottom:6px}
 .marketCard p{font-size:12px;color:var(--muted);margin:6px 0 8px}
@@ -109,7 +107,7 @@ body{
   padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)
 }
 .marketBadge{
-  position:absolute;top:8px;right:10px;border:1px solid var(--line);background:#fff;color:#554c38;
+  position:absolute;top:8px;right:10px;border:1px solid var(--line);background:#fff;color:#555048;
   padding:2px 6px;border-radius:8px;font-size:11px
 }
 .cardArt{
@@ -119,13 +117,13 @@ body{
 .cardArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 
 /* ===== Hand ribbon (compact & readable) ===== */
-.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#f2ece1,#f8f3ea);border-top:1px solid var(--line)}
+.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#F2ECE1,#F8F3EA);border-top:1px solid var(--line)}
 .ribbon{display:flex;align-items:flex-end;gap:6px;height:118px;overflow-x:auto;scrollbar-width:none}
 .ribbon::-webkit-scrollbar{display:none}
 .rCard{
-  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#fff;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(70,60,45,.18);transform:translateY(46%);display:flex;flex-direction:column;user-select:none
+  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#fff;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(60,52,44,.18);transform:translateY(46%);display:flex;flex-direction:column;user-select:none
 }
-.rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#f4eee3);border-bottom:1px solid var(--line);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#F4EEE3);border-bottom:1px solid var(--line);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rArt{height:78px;display:grid;place-items:center;background:#fff}
 .rArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 .rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25}
@@ -137,7 +135,7 @@ body{
 /* ===== Inspect modal ===== */
 .inspectBack{position:fixed;inset:0;z-index:75;background:rgba(20,20,20,.25);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
 .inspectBack.show{display:flex}
-.inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(70,60,45,.22);padding:12px 14px}
+.inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(60,52,44,.22);padding:12px 14px}
 .inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:var(--accent)}
 .inspectCard p{margin:0 0 8px;font-size:13px;color:#2b2f33}
 .inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line);background:#fff;display:grid;place-items:center}
@@ -146,13 +144,14 @@ body{
 .inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2225}
 
 /* ===== Deck / Discard + FAB ===== */
-.deckBar{position:fixed;left:12px;bottom:126px;z-index:50;display:flex;gap:8px}
+.deckBar{position:fixed;left:12px;bottom:126px;z-index:50;display:flex;gap:10px}
 .chipCirc{
   width:42px;height:42px;border-radius:999px;display:grid;place-items:center;
-  background:#fff;border:1px solid var(--line);color:#1f2326;font-size:18px;box-shadow:var(--shadow-soft);position:relative
+  background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-soft);position:relative
 }
+.chipCirc svg{width:18px;height:18px;stroke:#6F6A60}
 .chipCirc small{
-  position:absolute;bottom:-10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:1px 6px;font-size:10px
+  position:absolute;bottom:-10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:1px 6px;font-size:10px;color:#3a3d40
 }
 .fabDial{position:fixed;right:12px;bottom:126px;z-index:50;display:flex;flex-direction:column;gap:12px}
 .fab{width:46px;height:46px;border-radius:999px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:#1d1f21;font-size:18px;box-shadow:var(--shadow-soft)}
@@ -163,11 +162,19 @@ body{
 <body>
 
 <!-- Minimal HUD icons (tap shows values in toast) -->
-<button class="hudIcon l" id="btnYouHp" title="Your HP"><span class="g">❤️</span></button>
-<button class="hudIcon l" id="btnYouAe" title="Your Aether" style="color:#c4952f"><span class="g">⚡</span></button>
+<button class="hudIcon l" id="btnYouHp" title="Your HP" aria-label="Your HP">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
+</button>
+<button class="hudIcon l" id="btnYouAe" title="Your Aether" aria-label="Your Aether" style="top:54px">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/></svg>
+</button>
 
-<button class="hudIcon r ai" id="btnAiHp" title="AI HP"><span class="g">❤️</span></button>
-<button class="hudIcon r ai" id="btnAiAe" title="AI Aether" style="top:54px;color:#c4952f"><span class="g">⚡</span></button>
+<button class="hudIcon r" id="btnAiHp" title="AI HP" aria-label="AI HP">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
+</button>
+<button class="hudIcon r" id="btnAiAe" title="AI Aether" aria-label="AI Aether" style="top:54px">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/></svg>
+</button>
 
 <!-- Toast -->
 <div id="topLog" class="topLog" aria-live="polite"></div>
@@ -209,13 +216,19 @@ body{
 
 <!-- Deck / Discard + FAB -->
 <div class="deckBar">
-  <div class="chipCirc" id="chipDeck" title="Deck">📘<small id="deckCount">0</small></div>
-  <div class="chipCirc" id="chipDiscard" title="Discard">🗂<small id="discardCount">0</small></div>
+  <button class="chipCirc" id="chipDeck" title="Deck" aria-label="Deck">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/></svg>
+    <small id="deckCount">0</small>
+  </button>
+  <button class="chipCirc" id="chipDiscard" title="Discard" aria-label="Discard">
+    <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>
+    <small id="discardCount">0</small>
+  </button>
 </div>
 <div class="fabDial">
-  <button id="fabDraw"  class="fab" title="Draw">⇧</button>
-  <button id="fabEnd"   class="fab" title="End Turn">⏵</button>
-  <button id="fabReset" class="fab" title="Reset">↺</button>
+  <button id="fabDraw"  class="fab" title="Draw" aria-label="Draw">⇧</button>
+  <button id="fabEnd"   class="fab" title="End Turn" aria-label="End Turn">⏵</button>
+  <button id="fabReset" class="fab" title="Reset" aria-label="Reset">↺</button>
 </div>
 
 <!-- Hand ribbon -->
@@ -237,11 +250,14 @@ body{
 
 <script>
 /* =========================
-   Data
+   Constants (single source of truth)
    ========================= */
 const HAND_DRAW=5;
 const FLOW_PRICES=[4,3,2,2,2];
 
+/* =========================
+   Card Data
+   ========================= */
 const STARTER=[
   {n:'Apprentice Bolt',t:'Spell',txt:'Deal 1.',p:1,artKey:'apprentice-bolt'},
   {n:'Apprentice Bolt',t:'Spell',txt:'Deal 1.',p:1,artKey:'apprentice-bolt'},
@@ -268,10 +284,10 @@ const OFFENSE_CARDS=[
 const FLOW_POOL=[...ECON_CARDS,...OFFENSE_CARDS];
 
 /* =========================
-   Procedural SVG art (centered)
+   Procedural SVG art (centered, monotone-friendly)
    ========================= */
 function artSVG({motif='aether'}={}) {
-  const gold='#9b8e69', bone='#474b50';
+  const gold='#8A8174', bone='#5C5F63';
   const fx={
     fire:`<path d="M150 190c-18-38 12-64 26-90-4 30 18 46 8 78 34-14 48-48 44-92 36 38 32 86-22 122-22 16-44 24-56 26z" fill="${gold}" opacity=".85"/>`,
     lightning:`<path d="M160 120l-48 72h36l-40 60 88-98h-34l30-34z" fill="${bone}" opacity=".9"/>`,
@@ -286,7 +302,7 @@ function artSVG({motif='aether'}={}) {
   <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>
     <defs>
       <filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feComponentTransfer><feFuncA type='table' tableValues='0 .08'/></feComponentTransfer></filter>
-      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='#ffffff'/><stop offset='1' stop-color='#f7f2e9'/></linearGradient>
+      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='#ffffff'/><stop offset='1' stop-color='#F7F2E9'/></linearGradient>
     </defs>
     <rect width='100%' height='100%' fill='url(#v)'/>
     <rect width='100%' height='100%' filter='url(#g)' opacity='.12'/>
@@ -309,18 +325,18 @@ function resolveArt(c){const k=(c&&(c.artKey||slug(c.n)))||'card';return ART_MAP
 /* =========================
    DOM helpers
    ========================= */
-const topLog=qs('#topLog');
-const playerSlots=qs('#playerSlots'), aiSlots=qs('#aiSlots'), glyphTray=qs('#glyphTray');
-const rRibbon=qs('#ribbon');
-const inspect=qs('#inspect'), insTitle=qs('#insTitle'), insText=qs('#insText'), insArt=qs('#insArt');
+const topLog=$('#topLog');
+const playerSlots=$('#playerSlots'), aiSlots=$('#aiSlots'), glyphTray=$('#glyphTray');
+const rRibbon=$('#ribbon');
+const inspect=$('#inspect'), insTitle=$('#insTitle'), insText=$('#insText'), insArt=$('#insArt');
 const marketCells=[...document.querySelectorAll('[data-flow]')];
-const fabDraw=qs('#fabDraw'), fabEnd=qs('#fabEnd'), fabReset=qs('#fabReset');
-const deckCount=qs('#deckCount'), discardCount=qs('#discardCount');
-const btnYouHp=qs('#btnYouHp'), btnYouAe=qs('#btnYouAe'), btnAiHp=qs('#btnAiHp'), btnAiAe=qs('#btnAiAe');
+const fabDraw=$('#fabDraw'), fabEnd=$('#fabEnd'), fabReset=$('#fabReset');
+const deckCount=$('#deckCount'), discardCount=$('#discardCount');
+const btnYouHp=$('#btnYouHp'), btnYouAe=$('#btnYouAe'), btnAiHp=$('#btnAiHp'), btnAiAe=$('#btnAiAe');
 
 let S={}, turnLog=[], hideTimer, inspectIndex=-1;
 
-function qs(s,r=document){return r.querySelector(s)}
+function $(s,r=document){return r.querySelector(s)}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function uid(){return Math.random().toString(36).slice(2,9)}
 function makeStarterDeck(){return shuf(STARTER.map(x=>({...x,id:uid()})))}
@@ -331,7 +347,6 @@ function logResetTurn(){turnLog=[]; topLog.classList.remove('show')}
 /* =========================
    Game + AI
    ========================= */
-const HAND_DRAW=5, FLOW_PRICES=[4,3,2,2,2];
 function initGame(){
   S={hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
      ai:{hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[]},
@@ -375,7 +390,7 @@ function render(){
   // market
   for(let i=0;i<5;i++){
     const c=S.flowRow[i], el=marketCells[i];
-    if(!c){ el.className='marketCard placeholder'; el.textContent='— empty —'; continue; }
+    if(!c){ el.className='marketCard'; el.innerHTML=`<div class="cardArt"></div><p style="opacity:.5">— empty —</p>`; continue; }
     el.className='marketCard'; el.innerHTML='';
     const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:'';
     el.innerHTML=`${badge}<h4>${c.n}</h4>
@@ -408,7 +423,7 @@ function renderHand(){
 }
 
 /* =========================
-   Tap vs Drag (no long-press)
+   Tap vs Drag (8px threshold)
    ========================= */
 function prepPointer(card,i){
   let down=false,drag=false,ghost=null,startX=0,startY=0,downAt=0;
@@ -437,9 +452,8 @@ function prepPointer(card,i){
       const idx=dropIndex(e.clientX,e.clientY); if(idx!=null) playFromHandIndex(i,idx);
       if(ghost) ghost.remove(); unhot();
     }else{
-      // tap (short)
       const dur=performance.now()-downAt, moved=Math.hypot(e.clientX-startX,e.clientY-startY);
-      if(dur<250 && moved<6) openInspect(i);
+      if(dur<250 && moved<6) openInspect(i); // tap
     }
   }
   card.addEventListener('pointerup',end);
@@ -453,12 +467,11 @@ function dropIndex(x,y){const A=[...document.querySelectorAll('#playerSlots .slo
 /* =========================
    Inspect
    ========================= */
-let inspectIndex=-1;
-function openInspect(i){const c=S.hand[i]; if(!c) return; inspectIndex=i; insTitle.textContent=c.n; insText.textContent=c.txt||''; insArt.src=resolveArt(c); inspect.classList.add('show');}
-function closeInspect(){inspect.classList.remove('show');inspectIndex=-1;}
-document.getElementById('btnInspectClose').onclick=closeInspect;
-document.getElementById('btnInspectPlay').onclick=()=>{if(inspectIndex>-1){playFromHandIndex(inspectIndex);closeInspect();}}
-document.getElementById('btnInspectChan').onclick=()=>{if(inspectIndex>-1){channelFromHandIndex(inspectIndex);closeInspect();}}
+function openInspect(i){const c=S.hand[i]; if(!c) return; inspectIndex=i; $('#insTitle').textContent=c.n; $('#insText').textContent=c.txt||''; $('#insArt').src=resolveArt(c); $('#inspect').classList.add('show');}
+function closeInspect(){ $('#inspect').classList.remove('show'); inspectIndex=-1; }
+$('#btnInspectClose').onclick=closeInspect;
+$('#btnInspectPlay').onclick=()=>{ if(inspectIndex>-1){ playFromHandIndex(inspectIndex); closeInspect(); } };
+$('#btnInspectChan').onclick=()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
 
 /* =========================
    Actions & Resolve
