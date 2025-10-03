@@ -4,62 +4,112 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>The Grey — Spellweavers</title>
-<meta name="theme-color" content="#0b0d10" />
+<meta name="theme-color" content="#0b0c0d" />
 <style>
+/* ================= NieR: Automata–inspired palette ================= */
 :root{
-  --bg:#0b0d10;--panel:#0e1218;--ink:#efece7;--muted:#b9b4ac;
-  --line:#1e2631;--accent:#d7b77a;--chip:#121721;--chip-line:#223043;--slot:#0c1118;
-  --card:#111621;--card-line:#23344a;
+  /* graphite & onyx */
+  --bg:#0b0c0d;                 /* near-black background */
+  --panel:#121416;              /* charcoal panel */
+  --line:#1e2124;               /* graphite line */
+  --slot:#0f1214;               /* slot mat */
 
+  /* bone & parchment */
+  --ink:#e6e1d6;                /* bone text */
+  --muted:#bdb6aa;              /* parchment-muted */
+
+  /* antique gold (subtle) */
+  --accent:#cfc29c;             /* headers, highlights */
+
+  /* chips/cards */
+  --chip:#13171a;
+  --chip-line:#262c31;
+  --card:#14181b;
+  --card-line:#2a3137;
+
+  /* shared */
   --card-w:120px; --card-h:172px; --card-radius:12px;
   --transition:140ms ease;
 }
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
-.wrap{padding:12px;max-width:1100px;margin:auto}
 
-/* ===== Floating HUD chips (top corners) ===== */
+/* ===== Global ===== */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%}
+body{
+  background:radial-gradient(1200px 800px at 50% -200px, rgba(255,255,255,.06), transparent 60%) , var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+}
+/* subtle paper grain */
+body::after{
+  content:""; pointer-events:none; position:fixed; inset:0; z-index:0;
+  background-image:
+    radial-gradient(rgba(0,0,0,.35), transparent 60%),
+    url("data:image/svg+xml;utf8,\
+      <svg xmlns='http://www.w3.org/2000/svg' width='140' height='140' viewBox='0 0 140 140'>\
+        <filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncA type='table' tableValues='0 .03'/></feComponentTransfer></filter>\
+        <rect width='100%' height='100%' filter='url(%23n)'/>\
+      </svg>");
+  mix-blend-mode:soft-light; opacity:.35;
+}
+.wrap{padding:12px;max-width:1100px;margin:auto;position:relative;z-index:1}
+
+/* ===== Float HUD ===== */
 .hudFloat{
   position:fixed;top:10px;z-index:70;display:flex;flex-direction:column;gap:8px;
   transition: opacity .16s ease, transform .16s ease;
 }
 .hudFloat.left{left:10px}
 .hudFloat.right{right:10px;align-items:flex-end}
-.hchip{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:13px;box-shadow:0 6px 16px rgba(0,0,0,.35)}
-.hchip .icon{width:16px;height:16px;display:inline-grid;place-items:center}
+.hchip{
+  display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;
+  background:linear-gradient(180deg,#15191c,#0f1214);
+  border:1px solid var(--chip-line);color:var(--ink);font-size:13px;
+  box-shadow:0 6px 16px rgba(0,0,0,.35)
+}
+.hchip .icon{width:16px;height:16px;display:inline-grid;place-items:center;color:var(--accent)}
 
 /* ===== Sections ===== */
-.zone{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;box-shadow:0 6px 18px rgba(0,0,0,.25) inset}
-.subtleTitle{font-weight:700;letter-spacing:.02em;margin-bottom:6px;color:#cfd6e3}
+.zone{
+  background:linear-gradient(180deg,#161a1d,#121416);
+  border:1px solid var(--line);border-radius:14px;padding:10px;margin-bottom:10px;
+  box-shadow:0 6px 18px rgba(0,0,0,.25) inset, 0 2px 10px rgba(0,0,0,.15)
+}
+.subtleTitle{
+  font-weight:800;letter-spacing:.04em;margin-bottom:6px;color:var(--accent);text-shadow:0 1px 0 rgba(0,0,0,.35)
+}
 
-/* Boards */
+/* ===== Boards ===== */
 .slots{display:flex;gap:8px;flex-wrap:wrap}
-.slot{flex:1 0 30%;background:#0c1118;border:2px dashed #33465d;border-radius:12px;padding:8px;min-height:140px;position:relative;transition:transform .12s, background .12s, border-color .12s}
-.slot h5{font-size:12px;color:#a7a4a0;margin-bottom:6px}
-.slot.is-hot{ border-color:#6fa4ff; background:#0d1523; transform:translateY(-1px) }
+.slot{
+  flex:1 0 30%;background:var(--slot);border:2px dashed #2e3439;border-radius:12px;padding:8px;min-height:140px;position:relative;
+  transition:transform .12s, background .12s, border-color .12s
+}
+.slot h5{font-size:12px;color:var(--muted);margin-bottom:6px;letter-spacing:.02em}
+.slot.is-hot{ border-color:#9fb1bf; background:#121a1e; transform:translateY(-1px) }
 
 /* phase pips */
 .pips{display:flex;gap:4px;margin-top:4px}
-.pip{width:10px;height:10px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
-.pip.on{background:#6fa4ff;border-color:#6fa4ff}
+.pip{width:10px;height:10px;border-radius:999px;border:1px solid #3e4952;background:#0f1418}
+.pip.on{background:#98a8b5;border-color:#98a8b5}
 
 /* ===== Glyph tray ===== */
 .glyphTray{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 2px}
 .glyphTok{
   position:relative;display:inline-flex;align-items:center;justify-content:center;
-  width:44px;height:28px;border-radius:8px;background:#0f141d;border:1px solid #273246;color:#9fb8da;
+  width:44px;height:28px;border-radius:8px;background:#101417;border:1px solid #2b333a;color:#cfc9bb;
   font-size:11px;box-shadow:0 3px 10px rgba(0,0,0,.25)
 }
-.glyphTok::before{content:'✦';opacity:.85;font-size:12px}
+.glyphTok::before{content:'✦';opacity:.9;font-size:12px;color:var(--accent)}
 .glyphTok.own{cursor:pointer}
 .glyphPeek{
   position:absolute;left:50%;bottom:110%;transform:translateX(-50%);
-  background:#12141a;border:1px solid #2a2f3a;color:#cfe2ff;padding:6px 8px;border-radius:10px;
+  background:#14181b;border:1px solid #2b3137;color:#e9e4d8;padding:6px 8px;border-radius:10px;
   font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(0,0,0,.45);display:none;z-index:8
 }
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek,.glyphTok.own.peek .glyphPeek{display:block}
 
-/* ===== Aetherflow (synced horizontal scroller + snap + peek dots) ===== */
+/* ===== Aetherflow (snap + peek dots) ===== */
 .flowZone{display:flex;flex-direction:column;gap:8px}
 .flowScroller{overflow:auto;scrollbar-width:none;scroll-snap-type: x mandatory}
 .flowScroller::-webkit-scrollbar{display:none}
@@ -67,69 +117,100 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 .costGrid, .cardGrid{
   display:grid;grid-template-columns:repeat(5, 1fr);gap:10px;align-items:start
 }
-.costChip{justify-self:center;min-width:42px;text-align:center;font-weight:800;padding:4px 8px;border:1px solid #213145;border-radius:999px;background:#0b111a;color:#d7b77a;font-size:12px}
-.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;box-shadow:0 6px 16px rgba(0,0,0,.28);scroll-snap-align:start}
-.marketCard h4{font-size:14px;color:#d7b77a;margin-bottom:4px}
-.marketCard p{font-size:12px;color:#b9b4ac;margin-bottom:6px}
+.costChip{
+  justify-self:center;min-width:42px;text-align:center;font-weight:900;letter-spacing:.05em;
+  padding:3px 8px;border:1px solid #30363b;border-radius:999px;background:#0f1214;color:var(--accent);font-size:12px
+}
+.marketCard{
+  background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:110px;position:relative;
+  box-shadow:0 6px 16px rgba(0,0,0,.28);scroll-snap-align:start
+}
+.marketCard h4{font-size:14px;color:var(--accent);margin-bottom:4px;letter-spacing:.03em}
+.marketCard p{font-size:12px;color:var(--muted);margin-bottom:6px}
 .marketCard .actions{display:flex;gap:6px}
-.marketBadge{position:absolute;top:8px;right:10px;border:1px solid #2b3a51;background:#0b111a;color:#a9d0ff;padding:2px 6px;border-radius:8px;font-size:11px}
+.marketCard .actions button{padding:6px 10px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink)}
+.marketBadge{
+  position:absolute;top:8px;right:10px;border:1px solid #2b3a42;background:#0f1214;color:#cfc9bb;padding:2px 6px;border-radius:8px;font-size:11px
+}
 .placeholder{opacity:.35;display:grid;place-items:center;border-style:dashed}
-.marketCard.afford{ box-shadow: 0 8px 22px rgba(111,164,255,.22); border-color:#2e3e56 }
+.marketCard.afford{ box-shadow: 0 8px 22px rgba(200,196,172,.22); border-color:#3a454c }
 .marketCard.na .actions button{opacity:.55;cursor:not-allowed}
 
 /* Flow peek dots */
 .peekDots{display:flex;gap:6px;justify-content:center;margin-top:2px}
-.peekDot{width:6px;height:6px;border-radius:999px;background:#2a3241}
-.peekDot.on{background:#6fa4ff}
+.peekDot{width:6px;height:6px;border-radius:999px;background:#2d3439}
+.peekDot.on{background:#98a8b5}
 
 /* ===== Top toast log ===== */
-.topLog{position:fixed;top:8px;left:50%;transform:translateX(-50%);background:#111724;border:1px solid #273246;color:#cfe2ff;border-radius:12px;padding:8px 12px;box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:80;display:none;max-width:92vw;font-size:12px;line-height:1.35}
+.topLog{
+  position:fixed;top:8px;left:50%;transform:translateX(-50%);
+  background:#111417;border:1px solid #272d32;color:#efe9dc;border-radius:12px;padding:8px 12px;
+  box-shadow:0 10px 28px rgba(0,0,0,.45);z-index:80;display:none;max-width:92vw;font-size:12px;line-height:1.35
+}
 .topLog.show{display:block;animation:pop .18s ease-out}
-.topLog .item{opacity:.92}.topLog .item + .item{margin-top:4px;border-top:1px solid #233145;padding-top:4px}
+.topLog .item{opacity:.92}.topLog .item + .item{margin-top:4px;border-top:1px solid #23282d;padding-top:4px}
 @keyframes pop{from{transform:translateX(-50%) translateY(-6px);opacity:0}to{transform:translateX(-50%) translateY(0);opacity:1}}
 
 /* ===== Ribbon Hand ===== */
-.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:8px 6px calc(10px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#0e1218,#151b26);border-top:1px solid #1e2631;box-shadow:0 -2px 10px rgba(0,0,0,.4)}
-.ribbon{display:flex;align-items:flex-end;justify-content:flex-start;gap:4px;padding:0 6px;height:110px;overflow-x:auto;scrollbar-width:none;user-select:none;touch-action:pan-x;scroll-snap-type:x mandatory}
+.ribbon-wrap{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;padding:8px 6px calc(10px + env(safe-area-inset-bottom));
+  background:linear-gradient(0deg,#111518,#151a1d);border-top:1px solid #1d2226;box-shadow:0 -2px 10px rgba(0,0,0,.4)
+}
+.ribbon{
+  display:flex;align-items:flex-end;justify-content:flex-start;gap:4px;padding:0 6px;height:110px;overflow-x:auto;scrollbar-width:none;
+  user-select:none;touch-action:pan-x;scroll-snap-type:x mandatory
+}
 .ribbon::-webkit-scrollbar{display:none}
-.rCard{width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;scroll-snap-align:start}
-.rHead{padding:6px 8px 5px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#242a36,#1b202a);border-bottom:1px solid #2b3140;color:#7aa2ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rArt{position:relative;flex:1;background:#0f1217;display:grid;place-items:center}
-.rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.05) contrast(1.02)}
-.rArt .fallback{font-size:11px;opacity:.75;padding:6px;text-align:center}
-.rFoot{padding:6px 8px;font-size:10.5px;opacity:.9;border-top:1px solid #232836;background:#151821;line-height:1.25}
-.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0b111a;border:1px solid #2a3342;color:#a9d0ff;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.rCard{
+  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#171b1e;border:1px solid #2a3137;box-shadow:0 6px 18px rgba(0,0,0,.35);
+  transform:translateY(46%);transform-origin:bottom center;transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);
+  outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;scroll-snap-align:start
+}
+.rHead{padding:6px 8px 5px;font-size:11px;font-weight:900;letter-spacing:.04em;background:linear-gradient(180deg,#21262a,#191e22);border-bottom:1px solid #2b3137;color:#cfc29c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rArt{position:relative;flex:1;background:#0f1214;display:grid;place-items:center}
+.rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(.9) contrast(1.02)}
+.rArt .fallback{position:absolute;inset:0;background:#0f1214 url("data:image/svg+xml;utf8,\
+  <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>\
+    <rect width='100%' height='100%' fill='%23101417'/>\
+    <g fill='none' stroke='%23cfc29c' stroke-opacity='.7'>\
+      <circle cx='150' cy='180' r='80' stroke-width='2'/>\
+      <path d='M150 80 L205 176 L95 176 Z' stroke-width='2'/>\
+      <circle cx='150' cy='176' r='16' stroke-width='1.5'/>\
+    </g>\
+  </svg>") center/70% 70% no-repeat; display:none }
+.rFoot{padding:6px 8px;font-size:10.5px;color:var(--muted);border-top:1px solid #232a2f;background:#151a1d;line-height:1.25}
+.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#0f1214;border:1px solid #2a3340;color:#d9d2c4;box-shadow:0 2px 8px rgba(0,0,0,.25)}
 .badgeTL{left:6px}.badgeTR{right:6px}
 
-/* ===== Inspect panel (large readable card info + art) ===== */
+/* ===== Inspect panel ===== */
 .inspectBack{
-  position:fixed;inset:0;z-index:75;background:rgba(6,8,12,.52);
+  position:fixed;inset:0;z-index:75;background:rgba(12,14,16,.52);
   display:none;align-items:flex-end;justify-content:center;padding-bottom:128px
 }
 .inspectBack.show{display:flex}
 .inspectCard{
-  min-width:min(560px,92vw);max-width:92vw;background:#12141a;border:1px solid #2a2f3a;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);
+  min-width:min(560px,92vw);max-width:92vw;background:#13171a;border:1px solid #2a3036;border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.55);
   padding:12px 14px
 }
-.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:900;color:#d7b77a}
-.inspectCard p{margin:0 0 8px;font-size:13px;line-height:1.45;color:#cfd6e3}
-.inspectCard .artBox{height:160px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid #222a36;background:#0f1218;display:grid;place-items:center}
-.inspectCard .artBox img{width:100%;height:100%;object-fit:cover}
+.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:900;color:var(--accent);letter-spacing:.04em}
+.inspectCard p{margin:0 0 8px;font-size:13px;line-height:1.45;color:#efe9dc}
+.inspectCard .artBox{height:160px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid #22282d;background:#0f1214;display:grid;place-items:center}
+.inspectCard .artBox img{width:100%;height:100%;object-fit:cover;filter:saturate(.9)}
 .inspectDots{display:flex;gap:6px;margin-bottom:8px}
-.inspectDot{width:14px;height:14px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
-.inspectDot.on{background:#6fa4ff;border-color:#6fa4ff}
+.inspectDot{width:14px;height:14px;border-radius:999px;border:1px solid #3e4952;background:#0f1418}
+.inspectDot.on{background:#98a8b5;border-color:#98a8b5}
 .inspectActions{display:flex;gap:8px;justify-content:flex-end}
-.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid #273246;background:#0f141d;color:#cfe2ff;font-size:13px;cursor:pointer}
+.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink);font-size:13px;cursor:pointer}
 
 /* ===== Deck & Discard chips ===== */
 .deckBar{position:fixed;left:10px;bottom:120px;z-index:50;display:flex;gap:6px;transition: opacity .16s ease, transform .16s ease}
-.chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#0f141d;border:1px solid #273246;color:#cfe2ff;font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
-.chip svg{width:14px;height:14px;opacity:.9}
+.chip{display:flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;background:#101417;border:1px solid #2b3137;color:var(--ink);font-size:12px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
+.chip svg{width:14px;height:14px;opacity:.9;stroke:var(--accent)}
 .chip .narrow{font-variant-numeric:tabular-nums}
 
 /* ===== Speed-dial FAB ===== */
 .fabDial{position:fixed;right:10px;bottom:120px;z-index:50;display:flex;flex-direction:column;align-items:flex-end;gap:10px;transition: opacity .16s ease, transform .16s ease}
-.fab{width:48px;height:48px;border-radius:999px;background:#0f141d;border:1px solid #273246;display:grid;place-items:center;color:#cfe2ff;box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer}
+.fab{width:48px;height:48px;border-radius:999px;background:#101417;border:1px solid #2b3137;display:grid;place-items:center;color:var(--ink);box-shadow:0 8px 20px rgba(0,0,0,.45);cursor:pointer}
 .fab svg{width:22px;height:22px}
 .fab.small{width:42px;height:42px}
 .dialActions{display:grid;gap:8px;transform-origin:bottom right;transition:transform .14s ease, opacity .14s ease;opacity:0;transform:scale(.9);pointer-events:none}
@@ -186,11 +267,11 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 <!-- Deck & Discard chips -->
 <div class="deckBar" aria-label="Deck and Discard">
   <div class="chip" title="Deck">
-    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.4"/><rect x="8" y="6" width="12" height="18" rx="2" ry="2" stroke="#a9d0ff" stroke-width="1.2" opacity=".6"/></svg>
+    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="12" height="18" rx="2" ry="2" stroke-width="1.4"/><rect x="8" y="6" width="12" height="18" rx="2" ry="2" stroke-width="1.2" opacity=".6"/></svg>
     <span id="deckCount" class="narrow">0</span>
   </div>
   <div class="chip" title="Discard">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M6 12h12" stroke="#a9d0ff" stroke-width="1.4"/><path d="M8 16h8" stroke="#a9d0ff" stroke-width="1.4"/><rect x="5" y="4" width="14" height="16" rx="2" stroke="#a9d0ff" stroke-width="1.2"/></svg>
+    <svg viewBox="0 0 24 24" fill="none"><path d="M6 12h12" stroke-width="1.4"/><path d="M8 16h8" stroke-width="1.4"/><rect x="5" y="4" width="14" height="16" rx="2" stroke-width="1.2"/></svg>
     <span id="discardCount" class="narrow">0</span>
   </div>
 </div>
@@ -199,17 +280,17 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 <div class="fabDial" id="fabDial" aria-label="Turn controls">
   <div class="dialActions">
     <button id="fabDraw" class="fab small" title="Draw">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M7 10l5-5 5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M7 10l5-5 5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <button id="fabEnd" class="fab small" title="End Turn">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h10" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M13 7l5 5-5 5" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M5 12h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
     <button id="fabReset" class="fab small" title="Reset">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 3-6" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4v4h4" stroke="#cfe2ff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 12a8 8 0 1 0 3-6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M4 4v4h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
     </button>
   </div>
   <button id="fabMain" class="fab" title="Actions">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="#cfe2ff" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
   </button>
 </div>
 
@@ -264,7 +345,7 @@ const OFFENSE_CARDS = [
 const FLOW_POOL = [...ECON_CARDS, ...OFFENSE_CARDS];
 const FLOW_PRICES = [4,3,2,2,2];
 
-const ART_ROOT = 'assets/art/standard/';
+const ART_ROOT = 'assets/art/standard/';   // if a file is missing, we show stand-in art
 const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
 
@@ -340,9 +421,9 @@ function render(){
   aiGlyphs.textContent = S.ai.glyphs.length;
   turnTag.textContent=`Turn ${S.turn}`;
 
-  // Glyph tray (yours)
+  // Glyph tray (your side)
   glyphTray.innerHTML = S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')
-    || `<span style="font-size:11px;color:#7d8aa4;opacity:.8">No glyphs set.</span>`;
+    || `<span style="font-size:11px;color:var(--muted);opacity:.8">No glyphs set.</span>`;
 
   // Player board
   playerSlots.innerHTML="";
@@ -355,7 +436,7 @@ function render(){
           <p>${s.c.txt||''}</p>
           <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
         </div>
-        <button ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
+        <button ${s.advUsed?'disabled':''} style="padding:6px 10px;border-radius:10px;border:1px solid #2b3137;background:#101417;color:var(--ink)">Advance (1⚡)</button>`;
       if(!s.advUsed) d.querySelector('button').onclick=()=>advance(i);
     }
     playerSlots.appendChild(d);
@@ -422,7 +503,6 @@ function renderPeekDots(){
 function updatePeekDots(){
   const dots = qsa('.peekDot', peekDots);
   const center = flowScroll.scrollLeft + flowScroll.clientWidth/2;
-  // find the nearest column center by card positions
   const cards = qsa('.cardGrid .marketCard', flowScroll);
   let best = 0, bestDist = Infinity;
   cards.forEach((el,i)=>{
@@ -435,7 +515,7 @@ function updatePeekDots(){
 }
 flowScroll.addEventListener('scroll', ()=>{ updatePeekDots(); }, {passive:true});
 
-/* ===== RIBBON + Inspect ===== */
+/* ===== Ribbon + Inspect ===== */
 function renderRibbon(){
   rRibbon.innerHTML='';
   S.hand.forEach((c,i)=>{
@@ -445,10 +525,9 @@ function renderRibbon(){
 
     const art=document.createElement('div'); art.className='rArt';
     const img=document.createElement('img'); img.src=resolveArt(c); img.alt=c.n+' artwork'; img.loading='lazy';
-    const fb=document.createElement('div'); fb.className='fallback'; fb.textContent=c.t;
-    art.appendChild(img); art.appendChild(fb);
+    const fb=document.createElement('div'); fb.className='fallback'; art.appendChild(fb); art.appendChild(img);
     img.addEventListener('load',()=>{ fb.style.display='none'; });
-    img.addEventListener('error',()=>{ fb.style.display='grid'; img.style.display='none'; });
+    img.addEventListener('error',()=>{ fb.style.display='block'; img.style.display='none'; });
 
     if (c.v!=null){ const tr=document.createElement('div'); tr.className='badgeTR'; tr.textContent='↺ +'+c.v+'⚡'; art.appendChild(tr); }
     if (c.t==='Spell'){ const tl=document.createElement('div'); tl.className='badgeTL'; tl.textContent='●'.repeat(c.p||1); art.appendChild(tl); }
@@ -456,9 +535,7 @@ function renderRibbon(){
     const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
 
     b.appendChild(h); b.appendChild(art); b.appendChild(f);
-    // tap -> Inspect
     b.addEventListener('click',()=>openInspect(i));
-    // drag for quick play
     prepDrag(b,i);
     rRibbon.appendChild(b);
   });
@@ -473,6 +550,14 @@ function openInspect(i){
   insTitle.textContent = c.n;
   insText.textContent = c.txt || '';
   insArt.src = resolveArt(c); insArt.alt = c.n + ' artwork';
+  insArt.onerror = ()=>{ insArt.style.display='none'; insArt.parentElement.style.backgroundImage = "url('data:image/svg+xml;utf8,\
+    <svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 300 180\\'>\
+      <rect width=\\'100%\\' height=\\'100%\\' fill=\\'#101417\\'/>\
+      <g fill=\\'none\\' stroke=\\'#cfc29c\\' stroke-opacity=\\'.7\\'>\
+        <circle cx=\\'150\\' cy=\\'90\\' r=\\'56\\' stroke-width=\\'2\\'/>\
+        <path d=\\'M150 25 L190 95 L110 95 Z\\' stroke-width=\\'2\\'/>\
+        <circle cx=\\'150\\' cy=\\'95\\' r=\\'11\\' stroke-width=\\'1.5\\'/>\
+      </g></svg>')"; };
   insDots.innerHTML = (c.t === 'Spell')
     ? Array.from({length: (c.p||1)}, (_,k)=>`<span class="inspectDot ${k===0?'on':''}"></span>`).join('')
     : '';
@@ -484,7 +569,7 @@ qs('#btnInspectPlay').onclick = ()=>{ if(inspectIndex>-1){ playFromHandIndex(ins
 qs('#btnInspectChan').onclick = ()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
 inspect.addEventListener('click',e=>{ if(e.target===inspect) closeInspect(); });
 
-/* drag helpers */
+/* Drag helpers */
 function prepDrag(card,i){
   card.addEventListener('dragstart',e=>e.preventDefault());
   card.addEventListener('pointerdown',e=>{
@@ -527,7 +612,7 @@ function cleanupGhost(slots){
   slots.forEach(s=>s.classList.remove('is-hot'));
 }
 
-/* ===== GAMEPLAY ===== */
+/* ===== Gameplay ===== */
 function drawCard(){
   if(S.deck.length===0){
     if(S.disc.length===0){ log("No cards to draw."); return; }
@@ -590,7 +675,7 @@ function runResolve(who,c){
   }
 }
 
-/* ===== MARKET ===== */
+/* ===== Market ===== */
 function buyFlowCard(i){
   const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; }
   const cost=FLOW_PRICES[i];
