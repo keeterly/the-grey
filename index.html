@@ -11,9 +11,9 @@
   --line:#1e2631;--accent:#d7b77a;--chip:#121721;--chip-line:#223043;--slot:#0c1118;
   --card:#111621;--card-line:#23344a;
 
-  /* Constant card sizing */
+  /* Hand cards: constant sizing */
   --card-w:120px; --card-h:172px; --card-radius:12px;
-  --fan-lift:28px; --transition:140ms ease;
+  --transition:140ms ease;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh}
@@ -29,6 +29,7 @@ body{background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSys
 button,select{background:linear-gradient(180deg,#151c27,#0e141d);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:8px 10px;font-size:14px;cursor:pointer}
 button:disabled{opacity:.6;cursor:not-allowed}
 .hint{font-size:11px;color:#9ab;margin-top:6px}
+
 .costRow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px}
 .costRow div{flex:1 0 60px;text-align:center;font-weight:700;padding:4px;border:1px solid #213145;border-radius:8px;background:#0b111a;color:#d7b77a}
 .market{display:flex;flex-wrap:wrap;gap:8px;overflow-x:auto}
@@ -37,9 +38,15 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .card p{font-size:12px;color:#b9b4ac;margin-bottom:4px}
 .card .actions{display:flex;gap:6px;margin-top:6px}
 
+/* Boards */
 .slots{display:flex;gap:8px;flex-wrap:wrap}
 .slot{flex:1 0 30%;background:#0c1118;border:2px dashed #33465d;border-radius:12px;padding:8px;min-height:140px;position:relative}
 .slot h5{font-size:12px;color:#a7a4a0;margin-bottom:6px}
+
+/* Slotted spell phase pips */
+.pips{display:flex;gap:4px;margin-top:4px}
+.pip{width:10px;height:10px;border-radius:999px;border:1px solid #36475f;background:#0e1420}
+.pip.on{background:#6fa4ff;border-color:#6fa4ff}
 
 /* ===== Top toast log ===== */
 .topLog{
@@ -62,9 +69,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 }
 .ribbon{
   display:flex;align-items:flex-end;justify-content:flex-start;
-  gap:4px; /* minimal padding between cards */
-  padding:0 6px;
-  height:110px; /* constant, compact */
+  gap:4px; padding:0 6px; height:110px;
   overflow-x:auto;scrollbar-width:none;user-select:none;touch-action:pan-x
 }
 .ribbon::-webkit-scrollbar{display:none}
@@ -72,32 +77,23 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .rCard{
   width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);
   overflow:hidden;background:#13161d;border:1px solid #2a2f3a;box-shadow:0 6px 18px rgba(0,0,0,.35);
-  transform: translateY(46%); /* peeking */
-  transform-origin:bottom center;
+  transform: translateY(46%); transform-origin:bottom center;
   transition:transform var(--transition),filter var(--transition),box-shadow var(--transition);
   outline:none;display:flex;flex-direction:column;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none
 }
-.rCard *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
-body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:none!important}
-
 .rHead{padding:6px 8px 5px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#242a36,#1b202a);border-bottom:1px solid #2b3140;color:#7aa2ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rArt{position:relative;flex:1;background:#0f1217;display:grid;place-items:center}
 .rArt img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.05) contrast(1.02)}
 .rArt .fallback{font-size:11px;opacity:.75;padding:6px;text-align:center}
 .rFoot{padding:6px 8px;font-size:10.5px;opacity:.9;border-top:1px solid #232836;background:#151821;line-height:1.25}
-
-/* corner badges (only added if values exist) */
 .badgeTL,.badgeTR{
   position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;
   background:#0b111a;border:1px solid #2a3342;color:#a9d0ff;box-shadow:0 2px 8px rgba(0,0,0,.25)
 }
-.badgeTL{left:6px}
-.badgeTR{right:6px}
-
-/* focus lift */
+.badgeTL{left:6px} .badgeTR{right:6px}
 .rCard.is-focused{ transform: translateY(0) scale(1.05); z-index:5; filter:saturate(1.06) }
 
-/* quick preview / actions */
+/* preview / actions */
 .preview{
   position:absolute;left:50%;bottom:calc(100% + 10px);min-width:min(540px,92vw);max-width:92vw;
   padding:10px 12px;border-radius:12px;background:#12141a;border:1px solid #2a2f3a;box-shadow:0 12px 28px rgba(0,0,0,.45);
@@ -135,10 +131,8 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
       <button id="drawBtn">Draw</button>
       <button id="endBtn">End Turn</button>
       <button id="resetBtn">Reset</button>
-      <button id="chronoBtn" disabled>Chrono</button>
-      <button id="trickBtn" disabled>Gamble</button>
     </div>
-    <div class="hint">Spells slot to the board. Glyphs are set. Instants resolve or Channel for ⚡.</div>
+    <div class="hint">Deckbuilder ramp: starters are low-economy. Buy ⚡ or effects from Aetherflow. Spells slot & advance ●○○; Glyphs set; any card with <i>↺ +X⚡</i> can be Channelled for Aether. End turn auto-discards; start turn auto-draws.</div>
   </div>
 
   <!-- Aetherflow -->
@@ -169,28 +163,49 @@ body.no-select, body.no-select *{-webkit-user-select:none!important;user-select:
 </section>
 
 <script>
-/* ---------------- DATA (with a few extra test cards) ---------------- */
-const BASE = [
-  {n:'Flame Lash',   t:'Spell',   txt:'Deal 2 then 3.', p:2, artKey:'flame-lash'},
-  {n:'Ember',        t:'Spell',   txt:'Deal 2.', p:1, artKey:'ember'},
-  {n:'Frost Bolt',   t:'Spell',   txt:'Deal 1. Slow enemy next hit (sim).', p:2, artKey:'frost-bolt'},
-  {n:'Glacial Ward', t:'Glyph',   txt:'Prevent 1 next hit.', eff:'g_barrier', artKey:'glacial-ward'},
-  {n:'Mirror Ward',  t:'Glyph',   txt:'Reflect the next damage (sim).', eff:'g_mirror', artKey:'mirror-ward'},
-  {n:'Chain Spark',  t:'Instant', txt:'+2⚡ this turn (or Channel).', v:2, artKey:'chain-spark'},
-  {n:'Aether Surge', t:'Instant', txt:'+3⚡ this turn (or Channel).', v:3, artKey:'aether-surge'},
-  {n:'Quick Study',  t:'Instant', txt:'+1⚡ and draw (sim).', v:1, artKey:'quick-study'}
-];
-const FLOW = [
-  {n:'Hex+',      t:'Spell', txt:'Hex the foe.', p:2, eff:'hex_plus', artKey:'hex-plus'},
-  {n:'Stonewall', t:'Spell', txt:'+1 advance tax.', p:2, eff:'tax',    artKey:'stonewall'},
-  {n:'Bargain',   t:'Spell', txt:'Deal 3; you lose 2♥ (sim).', p:1, eff:'bargain', artKey:'bargain'}
+/* ---------------- CONFIG ---------------- */
+const HAND_DRAW = 5;           // draw at start of your turn
+const DISCARD_AT_END = true;   // auto-discard remaining hand at end
+
+/* ---------------- STARTER (low economy) ---------------- */
+const STARTER = [
+  {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
+  {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
+  {n:'Apprentice Bolt', t:'Spell',   txt:'Deal 1.', p:1, artKey:'apprentice-bolt'},
+  {n:'Kindle',          t:'Spell',   txt:'On resolve: +1⚡.', p:2, eff:'gain1', artKey:'kindle'},
+  {n:'Glacial Ward',    t:'Glyph',   txt:'Prevent 1 next hit.', eff:'g_barrier', artKey:'glacial-ward'},
+  {n:'Mirror Ward',     t:'Glyph',   txt:'Reflect next damage (sim).', eff:'g_mirror', artKey:'mirror-ward'},
+  {n:'Ward Sigil',      t:'Glyph',   txt:'Prevent 1 (sim).', eff:'g_barrier', artKey:'ward-sigil'},
+  {n:'Meditate',        t:'Instant', txt:'↺ +1⚡ (or play for +1⚡).', v:1, artKey:'meditate'}
 ];
 
+/* ---------------- MARKET (guarantee econ + offense) ---------------- */
+/* Economy: high/med/low Aether on Channel (no/weak effects) */
+const ECON_CARDS = [
+  {n:'Aether Pebble', t:'Instant', txt:'↺ +1⚡ (or play +1⚡).', v:1, artKey:'aether-pebble'},
+  {n:'Aether Shard',  t:'Instant', txt:'↺ +2⚡ (or play +2⚡).', v:2, artKey:'aether-shard'},
+  {n:'Aether Core',   t:'Instant', txt:'↺ +3⚡ (or play +3⚡).', v:3, artKey:'aether-core'}
+];
+/* Offense / Utility Spells (some with tiny ↺ value, some with none) */
+const OFFENSE_CARDS = [
+  {n:'Spark Javelin', t:'Spell', txt:'Deal 2.', p:1, v:1, artKey:'spark-javelin'}, // small ↺
+  {n:'Flame Lash',    t:'Spell', txt:'Deal 2 then 3.', p:2, v:0, artKey:'flame-lash'}, // strong effect, no ↺
+  {n:'Ember',         t:'Spell', txt:'Deal 2.', p:1, v:0, artKey:'ember'},
+  {n:'Frost Bolt',    t:'Spell', txt:'Deal 1; slow next hit (sim).', p:2, v:0, artKey:'frost-bolt'},
+  {n:'Siphon Hex',    t:'Spell', txt:'Drain 1⚡ from foe.', p:2, v:1, eff:'drain1', artKey:'siphon-hex'},
+  {n:'Stonewall',     t:'Spell', txt:'+1 advance tax (foe).', p:2, v:0, eff:'tax', artKey:'stonewall'}
+];
+/* Combine for the draw pile */
+const FLOW_POOL = [...ECON_CARDS, ...OFFENSE_CARDS];
+/* Market prices left→right */
+const FLOW_PRICES = [4,3,2,2,2];
+
+/* ---------------- ART HELPERS ---------------- */
 const ART_ROOT = 'assets/art/standard/';
 const slug = s => (s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
 const resolveArt = c => ART_ROOT + (c.artKey || slug(c.n||c.name||'card')) + '.jpg';
 
-/* ---------------- State/DOM ---------------- */
+/* ---------------- STATE & DOM ---------------- */
 const hp=document.getElementById('hp'), aiHp=document.getElementById('aiHp'), ae=document.getElementById('ae');
 const deckCount=document.getElementById('deckCount'), discardCount=document.getElementById('discardCount'), glyphCount=document.getElementById('glyphCount');
 const flowCosts=document.getElementById('flowCosts'), flowRow=document.getElementById('flowRow');
@@ -205,68 +220,118 @@ let rCards=[], focusIndex=-1;
 let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
 let turnLog=[], logHideTimer;
 
-/* ---------------- Helpers ---------------- */
-function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2500); }
+/* ---------------- TOAST / LOG ---------------- */
+function toastShow(){ topLog.classList.add('show'); clearTimeout(logHideTimer); logHideTimer=setTimeout(()=>{ topLog.classList.remove('show'); }, 2200); }
 function toastRender(){ topLog.innerHTML = turnLog.slice(-3).map(x=>`<div class="item">${x}</div>`).join(''); toastShow(); }
-
-function log(msg){
-  turnLog.push(msg);
-  toastRender();
-}
+function log(msg){ turnLog.push(msg); toastRender(); }
 function logResetTurn(){ turnLog=[]; topLog.classList.remove('show'); }
 
+/* ---------------- UTILS ---------------- */
 function uid(){return Math.random().toString(36).slice(2,9);}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
-function makeDeck(){return shuf(BASE.map(x=>Object.assign({id:uid()},x)));}
+function makeStarterDeck(){ return shuf(STARTER.map(x=>Object.assign({id:uid()},x))); }
+function makeFlowDeck(){ return shuf(FLOW_POOL.map(x=>Object.assign({id:uid()},x))); }
 
-/* ---------------- Game init/render ---------------- */
+/* ---------------- GAME INIT / TURN FLOW ---------------- */
 function initGame(){
-  S={hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
-     ai:{hp:5,ae:0,deck:makeDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[]},
-     flowDeck:shuf(FLOW.slice()),flowRow:[null,null,null,null,null],
-     flags:{preventOnce:false,preventAvailable:false},turn:1,taxes:0,lastInstant:null,blockedSlots:[]};
-  for(let i=0;i<5;i++){drawCard(); aiDraw();}
-  slideFlow(true); render(); log("Game started.");
+  S={
+    hp:5, ae:0,
+    deck: makeStarterDeck(),
+    hand:[], disc:[],
+    slots:[null,null,null], glyphs:[],
+    ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
+    flowDeck: makeFlowDeck(), flowRow:[null,null,null,null,null],
+    flags:{}, turn:1, taxes:0, lastInstant:null, blockedSlots:[]
+  };
+  ensureMarketComposition(true); // fill market, guarantee econ + offense
+  startTurn(true);
 }
 
+/* Start/End turn (auto draw/discard) */
+function startTurn(first=false){
+  if(!first) S.turn++;
+  logResetTurn();
+  // auto draw up to HAND_DRAW
+  while(S.hand.length < HAND_DRAW){ drawCard(); }
+  render();
+  log(first? "Game started." : `Start of Turn ${S.turn}: drew to ${HAND_DRAW}.`);
+}
+function endTurn(){
+  // reset adv flags
+  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  // slide market & guarantee composition
+  slideFlow();
+  // auto-discard remaining hand
+  if(DISCARD_AT_END && S.hand.length){
+    S.disc.push(...S.hand); const n=S.hand.length; S.hand.length=0;
+    log(`End Turn: discarded ${n} card${n>1?'s':''}.`);
+  } else {
+    log("End Turn.");
+  }
+  render();
+  setTimeout(()=>startTurn(false), 350); // simple pacing
+}
+
+/* ---------------- Render ---------------- */
 function render(){
   hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae;
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length; glyphCount.textContent=S.glyphs.length;
   document.getElementById('turnTag').textContent=`Turn ${S.turn}`;
 
-  // Flow
-  flowCosts.innerHTML=""; [4,3,2,2,2].forEach(c=>{const d=document.createElement('div'); d.textContent=c; flowCosts.appendChild(d);});
-  flowRow.innerHTML=""; S.flowRow.forEach((c,idx)=>{
+  // Flow prices
+  flowCosts.innerHTML=""; FLOW_PRICES.forEach(c=>{const d=document.createElement('div'); d.textContent=c; flowCosts.appendChild(d);});
+  // Flow row
+  flowRow.innerHTML="";
+  S.flowRow.forEach((c,idx)=>{
     const div=document.createElement('div');
     if(!c){ div.className='card'; div.innerHTML='<h4 style="opacity:.5">— empty —</h4>'; flowRow.appendChild(div); return; }
     div.className='card';
-    div.innerHTML=`<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${[4,3,2,2,2][idx]}⚡)</button></div>`;
-    div.querySelector('button').onclick=()=>buyFlowCard(idx); flowRow.appendChild(div);
+    // Badge: show ↺ +X⚡ if the card has v (channel value)
+    const badge = (c.v!=null) ? `<span class="badge" style="position:absolute;top:8px;right:10px">↺ +${c.v}⚡</span>` : '';
+    div.innerHTML=`${badge}<h4>${c.n}</h4><p>${c.txt}</p><div class="actions"><button>Buy (${FLOW_PRICES[idx]}⚡)</button></div>`;
+    div.querySelector('button').onclick=()=>buyFlowCard(idx);
+    flowRow.appendChild(div);
   });
 
   // Boards
-  playerSlots.innerHTML=""; S.slots.forEach((s,i)=>{
+  playerSlots.innerHTML="";
+  S.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>Slot ${i+1}</h5>`;
     if(s){
-      d.innerHTML+=`<div class="card" style="min-width:auto;max-width:none;padding:8px;margin-bottom:6px"><h4>${s.c.n}</h4><p>Phase ${s.ph}/${s.c.p}</p></div>
-      <button ${s.advUsed?'disabled':''}>Advance (${1+S.taxes}⚡)</button>`;
+      d.innerHTML += `
+        <div class="card" style="min-width:auto;max-width:none;padding:8px;margin-bottom:6px">
+          <h4>${s.c.n}</h4>
+          <p>${s.c.txt||''}</p>
+          <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
+        </div>
+        <button ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
       if(!s.advUsed) d.querySelector('button').onclick=()=>advance(i);
     }
     playerSlots.appendChild(d);
   });
 
-  aiSlots.innerHTML=""; S.ai.slots.forEach((s,i)=>{
+  aiSlots.innerHTML="";
+  S.ai.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>AI Slot ${i+1}</h5>`;
-    if(s){ d.innerHTML+=`<div class="card" style="min-width:auto;max-width:none;padding:8px"><h4>${s.c.n}</h4><p>Phase ${s.ph}/${s.c.p}</p></div>`;}
+    if(s){
+      d.innerHTML+=`
+        <div class="card" style="min-width:auto;max-width:none;padding:8px">
+          <h4>${s.c.n}</h4>
+          <div class="pips">${renderPips(s.ph, s.c.p||1)}</div>
+        </div>`;
+    }
     aiSlots.appendChild(d);
   });
 
   renderRibbon();
 }
 
+/* pips helper */
+function renderPips(cur,total){ let h=''; for(let i=1;i<=total;i++){ h+=`<span class="pip ${i<=cur?'on':''}"></span>`; } return h; }
+
 /* ---------------- Ribbon (side-by-side) ---------------- */
 function renderRibbon(){
-  rRibbon.innerHTML='';
+  const ribbon=document.getElementById('ribbon'); ribbon.innerHTML='';
   S.hand.forEach((c,i)=>{
     const b=document.createElement('button'); b.className='rCard'; b.type='button'; b.dataset.index=i;
 
@@ -279,28 +344,29 @@ function renderRibbon(){
     img.addEventListener('load',()=>{ fb.style.display='none'; });
     img.addEventListener('error',()=>{ fb.style.display='grid'; img.style.display='none'; });
 
-    /* optional corner badges (only if values exist) */
-    if (c.cost!=null){ const tl=document.createElement('div'); tl.className='badgeTL'; tl.textContent='Cost '+c.cost; art.appendChild(tl); }
-    if (c.v!=null){   const tr=document.createElement('div'); tr.className='badgeTR'; tr.textContent='+'+c.v+'⚡'; art.appendChild(tr); }
+    /* badges */
+    if (c.v!=null){ const tr=document.createElement('div'); tr.className='badgeTR'; tr.textContent='↺ +'+c.v+'⚡'; art.appendChild(tr); }
+    // tiny phase pips preview for spells
+    if (c.t==='Spell'){ const tl=document.createElement('div'); tl.className='badgeTL'; tl.textContent='●'.repeat(c.p||1); art.appendChild(tl); }
 
     const f=document.createElement('div'); f.className='rFoot'; f.textContent=c.txt||'';
 
     b.appendChild(h); b.appendChild(art); b.appendChild(f);
-    rRibbon.appendChild(b);
+    ribbon.appendChild(b);
   });
 
-  rCards=[...rRibbon.querySelectorAll('.rCard')];
+  rCards=[...document.querySelectorAll('.rCard')];
   focusIndex=-1; qaForIndex=-1;
-  hidePreview(); hideActions();
   wireRibbonEvents();
 }
 
-/* preview & actions */
+/* preview / actions */
 function showPreview(i){
   const c=S.hand[i]; if(!c) return hidePreview();
-  rPreview.innerHTML=`<h3>${c.n}</h3><p>${c.txt||''}</p>`;
+  const dots=(c.t==='Spell')?`<div style="margin-top:6px;opacity:.9">Phases: ${'●'.repeat(c.p||1)}</div>`:'';
+  rPreview.innerHTML=`<h3>${c.n}</h3><p>${c.txt||''}</p>${dots}`;
   rPreview.classList.add('visible');
-  const cr=rCards[i].getBoundingClientRect(), rr=rRibbon.getBoundingClientRect();
+  const cr=rCards[i].getBoundingClientRect(), rr=document.getElementById('ribbon').getBoundingClientRect();
   const cx=cr.left+cr.width/2, left=Math.min(rr.right-16, Math.max(rr.left+16, cx));
   const off=left-(rr.left+rr.width/2); rPreview.style.transform=`translateX(calc(-50% + ${off}px))`;
 }
@@ -308,15 +374,17 @@ function hidePreview(){ rPreview.classList.remove('visible'); }
 function showActions(i){
   const card=rCards[i]; if(!card) return;
   const rect=card.getBoundingClientRect();
-  rActions.style.left=(rect.left + rect.width/2)+'px';
-  rActions.style.bottom=(window.innerHeight - rect.top + 6)+'px';
-  rActions.classList.add('show'); qaForIndex=i;
+  const qa=document.getElementById('rActions');
+  qa.style.left=(rect.left + rect.width/2)+'px';
+  qa.style.bottom=(window.innerHeight - rect.top + 6)+'px';
+  qa.classList.add('show'); qaForIndex=i;
 }
-function hideActions(){ rActions.classList.remove('show'); qaForIndex=-1; }
+function hideActions(){ document.getElementById('rActions').classList.remove('show'); qaForIndex=-1; }
 
 /* interactions */
 function wireRibbonEvents(){
   const slots=[...document.querySelectorAll('#playerSlots .slot')];
+  const qa=document.getElementById('rActions'), actPlay=document.getElementById('actPlay'), actChan=document.getElementById('actChannel');
   actPlay.onclick = ()=>{ if(qaForIndex>-1) playFromHandIndex(qaForIndex,null); hideActions(); };
   actChan.onclick = ()=>{ if(qaForIndex>-1) channelFromHandIndex(qaForIndex); hideActions(); };
 
@@ -324,18 +392,13 @@ function wireRibbonEvents(){
   document.addEventListener('selectstart',e=>{ if(isPointerDown||isDragging) e.preventDefault(); });
 
   if (matchMedia('(hover:hover)').matches){
-    rCards.forEach((card,i)=> card.addEventListener('mouseenter',()=>{
-      rCards.forEach(el=>el.classList.remove('is-focused'));
-      focusIndex=i; card.classList.add('is-focused'); showPreview(i);
-    }));
-    rRibbon.addEventListener('mouseleave',()=>{
-      focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions();
-    });
+    rCards.forEach((card,i)=> card.addEventListener('mouseenter',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); }));
+    document.getElementById('ribbon').addEventListener('mouseleave',()=>{ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); });
   }
   rCards.forEach((card,i)=>{
     card.addEventListener('click',(e)=>{ if(isDragging){ e.preventDefault(); return; } rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showActions(i); });
     card.addEventListener('focus',()=>{ rCards.forEach(el=>el.classList.remove('is-focused')); focusIndex=i; card.classList.add('is-focused'); showPreview(i); });
-    card.addEventListener('blur', ()=>{ setTimeout(()=>{ if(!rRibbon.contains(document.activeElement)){ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); } },0); });
+    card.addEventListener('blur', ()=>{ setTimeout(()=>{ if(!document.getElementById('ribbon').contains(document.activeElement)){ focusIndex=-1; rCards.forEach(el=>el.classList.remove('is-focused')); hidePreview(); hideActions(); } },0); });
 
     card.addEventListener('pointerdown',(e)=>{
       isPointerDown=true; isDragging=false; dragFrom=i;
@@ -348,9 +411,7 @@ function wireRibbonEvents(){
     card.addEventListener('pointermove',(e)=>{
       if(!isPointerDown || dragFrom!==i) return;
       const moved=Math.hypot(e.movementX,e.movementY)>6;
-      if(moved && !isDragging){
-        isDragging=true; clearTimeout(longPressTimer); hidePreview(); hideActions(); startGhost(card,e);
-      }
+      if(moved && !isDragging){ isDragging=true; clearTimeout(longPressTimer); hidePreview(); hideActions(); startGhost(card,e); }
       if(isDragging){ positionGhost(e.clientX,e.clientY); updateDropTargets(e.clientX,e.clientY, slots); }
     });
     card.addEventListener('pointerup',(e)=>{
@@ -387,34 +448,141 @@ function cleanupGhost(slots){
   slots.forEach(s=>s.classList.remove('is-hot'));
 }
 
-/* ---------------- Game actions ---------------- */
-function drawCard(){ if(S.deck.length===0){ if(S.disc.length===0){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); } S.hand.push(S.deck.pop()); renderRibbon(); }
-function aiDraw(){ if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; } else return; } S.ai.hand.push(S.ai.deck.pop()); }
+/* ---------------- Core game actions ---------------- */
+function drawCard(){
+  if(S.deck.length===0){
+    if(S.disc.length===0){ log("No cards to draw."); return; }
+    S.deck = shuf(S.disc); S.disc = []; log("You reshuffle.");
+  }
+  S.hand.push(S.deck.pop());
+}
 function playFromHandIndex(idx, dropSlotIndex=null){
   const c=S.hand[idx]; if(!c) return;
   if(c.t==="Spell"){
     let slot=dropSlotIndex!=null?dropSlotIndex:S.slots.findIndex(x=>!x);
     if(slot<0){ log("No empty slot."); return; }
-    S.slots[slot]={c,ph:1,advUsed:false}; S.hand.splice(idx,1);
-    log(`You play ${c.n} to Slot ${slot+1}.`);
+    S.slots[slot]={c,ph:1,advUsed:false};
+    S.hand.splice(idx,1);
+    log(`Play ${c.n} → Slot ${slot+1}.`);
   } else if(c.t==="Glyph"){
-    S.glyphs.push(c); S.hand.splice(idx,1); log("You set a Glyph face-down.");
-  } else {
-    S.ae+=(c.v||0); log(`Instant: +${c.v||0}⚡`); S.disc.push(c); S.hand.splice(idx,1); S.lastInstant=c;
+    S.glyphs.push(c); S.hand.splice(idx,1);
+    log(`Set glyph: ${c.n}.`);
+  } else { // Instant
+    S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); S.lastInstant=c;
+    log(`Cast ${c.n}: +${c.v||0}⚡.`);
   }
   render();
 }
-function channelFromHandIndex(idx){ const c=S.hand[idx]; if(!c) return; S.ae+=(c.v||0); log(`Channel ${c.n}: +${c.v||0}⚡`); S.disc.push(c); S.hand.splice(idx,1); render(); }
-function advance(i){ const s=S.slots[i]; if(!s) return; const cost=1+S.taxes; if(S.ae<cost){ log(`Need ${cost}⚡ to advance.`); return; } S.ae-=cost; s.ph++; s.advUsed=true; if(s.ph>=s.c.p){ S.disc.push(s.c); S.slots[i]=null; log(`${s.c.n} resolves.`); } render(); }
-function buyFlowCard(i){ const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; } const cost=[4,3,2,2,2][i]; if(S.ae<cost){ log("Not enough ⚡."); return; } S.ae-=cost; S.disc.push(c); S.flowRow[i]=null; render(); }
-function slideFlow(initial){ if(!initial) S.flowRow.pop(); S.flowRow.unshift(S.flowDeck.pop()||null); render(); }
-function endTurn(){ S.slots.forEach(s=>{if(s)s.advUsed=false}); slideFlow(); S.turn++; render(); log("Turn ends."); setTimeout(()=>{ logResetTurn(); },600); }
-function aiDraw(){} /* demo AI omitted */
+function channelFromHandIndex(idx){
+  const c=S.hand[idx]; if(!c) return;
+  const v = c.v||0;
+  S.ae += v;
+  S.disc.push(c);
+  S.hand.splice(idx,1);
+  log(`Channel ${c.n}: +${v}⚡.`);
+  render();
+}
+function advance(i){
+  const s=S.slots[i]; if(!s) return;
+  if(S.ae<1){ log("Need 1⚡ to advance."); return; }
+  S.ae-=1; s.ph++; s.advUsed=true;
+  if(s.ph >= (s.c.p||1)){ resolvePlayer(i); }
+  render();
+}
+function resolvePlayer(idx){
+  const s=S.slots[idx]; if(!s) return;
+  runResolve('you', s.c);
+  S.disc.push(s.c);
+  S.slots[idx]=null;
+  render();
+}
+function runResolve(who,c){
+  // very light simulation hooks
+  switch(c.eff){
+    case 'gain1': if(who==='you'){ S.ae+=1; log(`${c.n} resolves: +1⚡.`); } break;
+    case 'drain1': if(who==='you'){ log(`${c.n}: drain 1⚡ (sim).`); } break;
+    case 'tax': if(who==='you'){ S.taxes=(S.taxes||0)+1; log(`${c.n}: foe’s next Advance costs +1⚡ (sim).`);} break;
+    default:
+      if(c.t==='Spell'){
+        // quick canned effects by name
+        if(c.n==='Flame Lash'){ log("Flame Lash deals 5 total (2+3) (sim)."); }
+        else if(c.n==='Ember'){ log("Ember deals 2 (sim)."); }
+        else if(c.n==='Spark Javelin'){ log("Spark Javelin deals 2 (sim)."); }
+        else if(c.n==='Frost Bolt'){ log("Frost Bolt deals 1; slows next hit (sim)."); }
+        else { log(`${c.n} resolves.`); }
+      } else { log(`${c.n} resolves.`); }
+  }
+}
+
+/* Market: buy & slide with composition guarantees */
+function buyFlowCard(i){
+  const c=S.flowRow[i]; if(!c){ log("Empty slot."); return; }
+  const cost=FLOW_PRICES[i];
+  if(S.ae<cost){ log("Not enough ⚡."); return; }
+  S.ae-=cost;
+  // glyphs would set; spells & instants go to discard by default
+  S.disc.push(c);
+  S.flowRow[i]=null;
+  log(`Bought ${c.n} for ${cost}⚡.`);
+  ensureMarketComposition(); // refill with guarantees
+  render();
+}
+function slideFlow(){
+  // shift right, drop the last
+  S.flowRow.pop();
+  // pull new top
+  S.flowRow.unshift(drawFromFlowDeck());
+  ensureMarketComposition();
+}
+function drawFromFlowDeck(){
+  if(S.flowDeck.length===0) S.flowDeck=makeFlowDeck();
+  return S.flowDeck.pop()||null;
+}
+
+/* Ensure market has at least one econ (v>0) and one offense spell */
+function ensureMarketComposition(initial=false){
+  // fill nulls first
+  for(let j=0;j<S.flowRow.length;j++){
+    if(S.flowRow[j]==null) S.flowRow[j]=drawFromFlowDeck();
+  }
+  // check presence
+  let hasEcon = S.flowRow.some(c=>c && c.v>0);
+  let hasOff  = S.flowRow.some(c=>c && c.t==='Spell');
+  // if missing econ, inject one
+  if(!hasEcon){
+    const econCard = shuf(ECON_CARDS.slice()).pop();
+    S.flowRow[ S.flowRow.length-1 ] = Object.assign({id:uid()}, econCard);
+  }
+  // if missing offense, inject one
+  if(!hasOff){
+    const offCard = shuf(OFFENSE_CARDS.slice()).pop();
+    S.flowRow[ 0 ] = Object.assign({id:uid()}, offCard);
+  }
+  if(initial) render();
+}
 
 /* ---------------- Buttons ---------------- */
-drawBtn.onclick=()=>{ drawCard(); };
-endBtn.onclick =()=>{ endTurn(); };
+drawBtn.onclick=()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
+endBtn.onclick =()=> endTurn();
 resetBtn.onclick=()=> initGame();
+
+/* ---------------- Drag Ghost (shared) ---------------- */
+let isPointerDown=false,isDragging=false,dragGhost=null,dragFrom=-1,longPressTimer=null,qaForIndex=-1;
+function startGhost(card,e){
+  dragGhost=card.cloneNode(true);
+  Object.assign(dragGhost.style,{position:'fixed',left:'0px',top:'0px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999,boxShadow:'0 12px 28px rgba(0,0,0,.45)'});
+  document.body.appendChild(dragGhost);
+  positionGhost(e.clientX,e.clientY);
+}
+function positionGhost(x,y){ if(dragGhost){ dragGhost.style.left=x+'px'; dragGhost.style.top=y+'px'; } }
+function updateDropTargets(x,y,slots){ const el=document.elementFromPoint(x,y); slots.forEach(s=> s.classList.toggle('is-hot', s===el || (el && s.contains(el)))); }
+function finishGhost(x,y,slots){ const el=document.elementFromPoint(x,y); const idx=slots.findIndex(s=> s===el || (el && s.contains(el))); return idx>-1 ? idx : null; }
+function cleanupGhost(slots){
+  if(dragGhost&&dragGhost.parentNode) dragGhost.parentNode.removeChild(dragGhost);
+  dragGhost=null; isDragging=false; isPointerDown=false; dragFrom=-1;
+  document.body.classList.remove('no-select'); hidePreview(); hideActions();
+  slots.forEach(s=>s.classList.remove('is-hot'));
+}
 
 /* ---------------- Boot ---------------- */
 initGame();
