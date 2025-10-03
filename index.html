@@ -3,34 +3,22 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>The Grey — Spellweavers (Light)</title>
-<meta name="theme-color" content="#e8e2d4" />
+<title>The Grey — Spellweavers (Light, refined)</title>
+<meta name="theme-color" content="#ece6d8" />
 <style>
 /* =========================
-   NieR-style LIGHT THEME
+   NieR-like LIGHT THEME
    ========================= */
 :root{
-  /* Parchment base with graphite ink + soft gold accents */
-  --bg:#ece6d8;            /* page */
-  --bg-grad:#f4efe4;       /* subtle vignette */
-  --ink:#1d1f21;           /* main text (graphite) */
-  --muted:#51565c;         /* muted graphite */
-  --accent:#9b8e69;        /* warm desaturated gold */
+  --bg:#ece6d8; --bg-grad:#f5efe4;
+  --ink:#1d1f21; --muted:#585e63; --accent:#9b8e69;
 
-  --panel:#f6f2e8;         /* zones & cards */
-  --panel-2:#f0eadf;       /* chips/hud */
-  --line:#d8d2c6;          /* hard edge line */
-  --line-soft:#e5decf;
+  --panel:#fff; --panel-2:#faf6ee;
+  --line:#d8d2c6; --line-soft:#e8e1d3;
 
-  --slot:#faf6ee;          /* slot bg */
+  --slot:#faf6ee; --chip-line:#d8d1c4; --fade:#ece6d8;
 
-  --chip:#f3ede2;
-  --chip-line:#d8d1c4;
-
-  --card:#faf6ee;
-  --card-line:#d9d2c6;
-
-  --fade:#ece6d8;
+  --card:#fff; --card-line:#d9d2c6;
 
   --card-w:120px; --card-h:172px; --card-radius:12px;
 
@@ -40,46 +28,50 @@
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{min-height:100%}
 body{
-  background:
-    radial-gradient(1200px 700px at 50% -240px, rgba(120,100,70,.08), transparent 60%),
-    var(--bg-grad);
-  color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,"Noto Sans",sans-serif;
-  letter-spacing:.005em;-webkit-font-smoothing:antialiased;overflow-x:hidden;
+  background: radial-gradient(1200px 700px at 50% -260px, rgba(120,100,70,.08), transparent 60%), var(--bg-grad);
+  color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+  letter-spacing:.005em; -webkit-font-smoothing:antialiased; overflow-x:hidden;
 }
 
-/* ========== HUD ========== */
-.hudFloat{position:fixed;top:12px;z-index:70;display:flex;flex-direction:column;gap:8px}
-.hudFloat.left{left:12px}
-.hudFloat.right{right:12px;align-items:flex-end}
-.hchip{
-  display:flex;align-items:center;gap:8px;
-  padding:8px 10px;border-radius:12px;
-  background:linear-gradient(180deg,var(--panel-2),#fff);
-  border:1px solid var(--chip-line);
-  color:var(--ink);font-size:13px;box-shadow:var(--shadow-soft)
+/* ===== Minimal HUD (icons only) ===== */
+.hudIcon{
+  position:fixed; top:10px; z-index:70; width:34px; height:34px;
+  display:grid; place-items:center; border-radius:50%;
+  background:linear-gradient(180deg,#ffffff,#f3eee4); border:1px solid var(--line); color:#bf3d3d;
+  box-shadow:var(--shadow-soft); opacity:.75;
 }
-.hchip .icon{width:16px;height:16px;display:grid;place-items:center;color:var(--accent)}
+.hudIcon.r{right:10px} .hudIcon.l{left:10px}
+.hudIcon + .hudIcon{ top:54px }
+.hudIcon .g{ font-size:17px; line-height:1 }
+.hudIcon.energy{ color:#c4952f }
+.hudIcon.ai{ right:10px; left:auto }
+.hudIcon.ai + .hudIcon{ right:10px; left:auto }
 
-/* ========== CONTAINERS ========== */
-.wrap{padding:14px;max-width:1100px;margin:auto;padding-bottom:170px}
+/* ===== Toast ===== */
+.topLog{
+  position:fixed; top:10px; left:50%; transform:translateX(-50%);
+  background:#fff; border:1px solid var(--line); color:#2c2f34; border-radius:12px;
+  padding:9px 12px; box-shadow:0 8px 18px rgba(70,60,45,.18); z-index:80; display:none;
+  max-width:92vw; font-size:12px; letter-spacing:.01em;
+}
+.topLog.show{display:block}
+
+/* ===== Layout containers ===== */
+.wrap{padding:14px; max-width:1100px; margin:auto; padding-bottom:170px}
 .zone{
-  background:linear-gradient(180deg,#fff,var(--panel));
-  border:1px solid var(--line);
-  border-radius:14px;padding:12px;margin-bottom:12px;
+  background:linear-gradient(180deg,#fff,var(--panel-2));
+  border:1px solid var(--line); border-radius:14px; padding:12px; margin:12px 0;
   box-shadow:var(--shadow-panel)
 }
-.title{font-weight:700;letter-spacing:.02em;color:var(--accent);margin-bottom:8px}
+.title{font-weight:700;color:var(--accent);margin-bottom:8px}
 
 /* ===== Boards ===== */
 .slots{display:flex;gap:10px;flex-wrap:wrap}
 .slot{
-  flex:1 0 30%;
-  background:var(--slot);
-  border:2px dashed #cec6b7;border-radius:12px;
-  padding:10px;min-height:146px;position:relative
+  flex:1 0 30%; background:var(--slot); border:2px dashed #cec6b7; border-radius:12px;
+  padding:10px; min-height:146px; position:relative
 }
-.slot h5{font-size:12px;color:#6a6f76;margin-bottom:6px;letter-spacing:.01em}
+.slot h5{font-size:12px;color:#6a6f76;margin-bottom:6px}
 .pips{display:flex;gap:4px;margin-top:6px}
 .pip{width:10px;height:10px;border-radius:999px;border:1px solid #b8b2a4;background:#efe9dc}
 .pip.on{background:#7a838c;border-color:#7a838c}
@@ -88,7 +80,7 @@ body{
 .glyphTray{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 8px}
 .glyphTok{
   position:relative;display:inline-flex;align-items:center;justify-content:center;
-  min-width:46px;height:28px;border-radius:8px;background:var(--panel-2);border:1px solid var(--chip-line);
+  min-width:46px;height:28px;border-radius:8px;background:#fff;border:1px solid var(--line);
   color:#3a3d40;font-size:11px;box-shadow:var(--shadow-soft);padding:0 8px
 }
 .glyphTok::before{content:'✦';opacity:.95;font-size:12px;color:var(--accent)}
@@ -100,34 +92,33 @@ body{
 }
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek{display:block}
 
-/* ===== Aetherflow ===== */
-.flowArea{position:relative}
+/* ===== Aetherflow (aligned) ===== */
 .flowWrap{overflow-x:auto;scrollbar-width:none;mask-image:linear-gradient(90deg,transparent 0,var(--fade) 24px,#fff calc(100% - 24px),transparent 100%)}
 .flowWrap::-webkit-scrollbar{display:none}
 .flowGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-width:820px}
 .costCell{display:flex;justify-content:center}
 .costChip{min-width:42px;text-align:center;font-weight:800;letter-spacing:.04em;padding:4px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--accent);font-size:12px}
 .marketCard{
-  background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:136px;position:relative;
+  background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:10px;min-height:150px;position:relative;
   box-shadow:0 4px 14px rgba(70,60,45,.12)
 }
-.marketCard h4{font-size:14px;color:var(--accent);margin-bottom:6px;letter-spacing:.01em}
-.marketCard p{font-size:12px;color:var(--muted);margin-bottom:8px}
+.marketCard h4{font-size:14px;color:var(--accent);margin-bottom:6px}
+.marketCard p{font-size:12px;color:var(--muted);margin:6px 0 8px}
 .marketCard .actions{display:flex;gap:8px}
 .marketCard .actions button{
-  padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);letter-spacing:.01em
+  padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)
 }
 .marketBadge{
   position:absolute;top:8px;right:10px;border:1px solid var(--line);background:#fff;color:#554c38;
-  padding:2px 6px;border-radius:8px;font-size:11px;letter-spacing:.01em
+  padding:2px 6px;border-radius:8px;font-size:11px
 }
-.placeholder{opacity:.45;display:grid;place-items:center;border-style:dashed}
+.cardArt{
+  height:128px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;
+  display:grid;place-items:center
+}
+.cardArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 
-/* ===== Toast ===== */
-.topLog{position:fixed;top:10px;left:50%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#2a2e33;border-radius:12px;padding:9px 12px;box-shadow:0 8px 18px rgba(70,60,45,.18);z-index:80;display:none;max-width:92vw;font-size:12px;letter-spacing:.01em}
-.topLog.show{display:block}
-
-/* ===== Hand ribbon ===== */
+/* ===== Hand ribbon (compact & readable) ===== */
 .ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#f2ece1,#f8f3ea);border-top:1px solid var(--line)}
 .ribbon{display:flex;align-items:flex-end;gap:6px;height:118px;overflow-x:auto;scrollbar-width:none}
 .ribbon::-webkit-scrollbar{display:none}
@@ -135,46 +126,48 @@ body{
   width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#fff;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(70,60,45,.18);transform:translateY(46%);display:flex;flex-direction:column;user-select:none
 }
 .rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#f4eee3);border-bottom:1px solid var(--line);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rArt{position:relative;flex:1;display:grid;place-items:center;background:linear-gradient(180deg,#f7f2e9,#fcfaf6)}
-.rArt img{width:100%;height:100%;object-fit:contain;display:block;filter:saturate(.9) contrast(1.02)}
-.rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25;letter-spacing:.01em}
-.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);color:#4a4e52;letter-spacing:.02em}
+.rArt{height:78px;display:grid;place-items:center;background:#fff}
+.rArt img{width:100%;height:100%;object-fit:contain;object-position:center}
+.rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25}
+
+/* badges (cost/aether pips) */
+.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);color:#4a4e52}
 .badgeTL{left:6px}.badgeTR{right:6px}
 
 /* ===== Inspect modal ===== */
 .inspectBack{position:fixed;inset:0;z-index:75;background:rgba(20,20,20,.25);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
 .inspectBack.show{display:flex}
 .inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(70,60,45,.22);padding:12px 14px}
-.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:var(--accent);letter-spacing:.01em}
-.inspectCard p{margin:0 0 8px;font-size:13px;color:#2b2f33;letter-spacing:.01em}
-.inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line);background:#fcfaf6;display:grid;place-items:center}
-.inspectCard .artBox img{width:100%;height:100%;object-fit:contain}
+.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:var(--accent)}
+.inspectCard p{margin:0 0 8px;font-size:13px;color:#2b2f33}
+.inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line);background:#fff;display:grid;place-items:center}
+.inspectCard .artBox img{width:100%;height:100%;object-fit:contain;object-position:center}
 .inspectActions{display:flex;gap:8px;justify-content:flex-end}
 .inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2225}
 
 /* ===== Deck / Discard + FAB ===== */
 .deckBar{position:fixed;left:12px;bottom:126px;z-index:50;display:flex;gap:8px}
-.chip{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);color:#1f2326;font-size:12px}
+.chipCirc{
+  width:42px;height:42px;border-radius:999px;display:grid;place-items:center;
+  background:#fff;border:1px solid var(--line);color:#1f2326;font-size:18px;box-shadow:var(--shadow-soft);position:relative
+}
+.chipCirc small{
+  position:absolute;bottom:-10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:1px 6px;font-size:10px
+}
 .fabDial{position:fixed;right:12px;bottom:126px;z-index:50;display:flex;flex-direction:column;gap:12px}
 .fab{width:46px;height:46px;border-radius:999px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:#1d1f21;font-size:18px;box-shadow:var(--shadow-soft)}
-
 /* slot highlight on drag */
 #playerSlots .slot.is-hot{outline:2px solid var(--accent);outline-offset:2px}
 </style>
 </head>
 <body>
 
-<!-- HUD -->
-<div class="hudFloat left">
-  <div class="hchip"><span class="icon">❤️</span><b id="hp">5</b></div>
-  <div class="hchip"><span class="icon">⚡</span><b id="ae">0</b></div>
-  <div class="hchip" style="padding:4px 8px"><span id="turnTag" style="font-size:12px">Turn 1</span></div>
-</div>
-<div class="hudFloat right">
-  <div class="hchip">AI&nbsp;<span class="icon">❤️</span><b id="aiHp">5</b></div>
-  <div class="hchip"><span class="icon">⚡</span><b id="aiAe">0</b></div>
-  <div class="hchip"><span class="icon">✦</span><b id="aiGlyphs">0</b></div>
-</div>
+<!-- Minimal HUD icons (tap shows values in toast) -->
+<button class="hudIcon l" id="btnYouHp" title="Your HP"><span class="g">❤️</span></button>
+<button class="hudIcon l" id="btnYouAe" title="Your Aether" style="color:#c4952f"><span class="g">⚡</span></button>
+
+<button class="hudIcon r ai" id="btnAiHp" title="AI HP"><span class="g">❤️</span></button>
+<button class="hudIcon r ai" id="btnAiAe" title="AI Aether" style="top:54px;color:#c4952f"><span class="g">⚡</span></button>
 
 <!-- Toast -->
 <div id="topLog" class="topLog" aria-live="polite"></div>
@@ -187,17 +180,16 @@ body{
   </div>
 
   <!-- Aetherflow -->
-  <div class="zone flowArea">
+  <div class="zone">
     <div class="title" style="text-align:center">Aetherflow</div>
     <div class="flowWrap">
       <div class="flowGrid">
-        <!-- cost row -->
         <div class="costCell"><div class="costChip">4</div></div>
         <div class="costCell"><div class="costChip">3</div></div>
         <div class="costCell"><div class="costChip">2</div></div>
         <div class="costCell"><div class="costChip">2</div></div>
         <div class="costCell"><div class="costChip">2</div></div>
-        <!-- cards -->
+
         <div class="marketCard" data-flow="0"></div>
         <div class="marketCard" data-flow="1"></div>
         <div class="marketCard" data-flow="2"></div>
@@ -217,8 +209,8 @@ body{
 
 <!-- Deck / Discard + FAB -->
 <div class="deckBar">
-  <div class="chip">Deck <span id="deckCount">0</span></div>
-  <div class="chip">Discard <span id="discardCount">0</span></div>
+  <div class="chipCirc" id="chipDeck" title="Deck">📘<small id="deckCount">0</small></div>
+  <div class="chipCirc" id="chipDiscard" title="Discard">🗂<small id="discardCount">0</small></div>
 </div>
 <div class="fabDial">
   <button id="fabDraw"  class="fab" title="Draw">⇧</button>
@@ -276,10 +268,10 @@ const OFFENSE_CARDS=[
 const FLOW_POOL=[...ECON_CARDS,...OFFENSE_CARDS];
 
 /* =========================
-   Procedural SVG art tuned for LIGHT
+   Procedural SVG art (centered)
    ========================= */
 function artSVG({motif='aether'}={}) {
-  const gold='#9b8e69', graphite='#25282b', bone='#474b50';
+  const gold='#9b8e69', bone='#474b50';
   const fx={
     fire:`<path d="M150 190c-18-38 12-64 26-90-4 30 18 46 8 78 34-14 48-48 44-92 36 38 32 86-22 122-22 16-44 24-56 26z" fill="${gold}" opacity=".85"/>`,
     lightning:`<path d="M160 120l-48 72h36l-40 60 88-98h-34l30-34z" fill="${bone}" opacity=".9"/>`,
@@ -294,7 +286,7 @@ function artSVG({motif='aether'}={}) {
   <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 420'>
     <defs>
       <filter id='g'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2'/><feComponentTransfer><feFuncA type='table' tableValues='0 .08'/></feComponentTransfer></filter>
-      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='#f7f2e9'/><stop offset='1' stop-color='#fff'/></linearGradient>
+      <linearGradient id='v' x1='0' x2='0' y1='0' y2='1'><stop offset='0' stop-color='#ffffff'/><stop offset='1' stop-color='#f7f2e9'/></linearGradient>
     </defs>
     <rect width='100%' height='100%' fill='url(#v)'/>
     <rect width='100%' height='100%' filter='url(#g)' opacity='.12'/>
@@ -317,75 +309,56 @@ function resolveArt(c){const k=(c&&(c.artKey||slug(c.n)))||'card';return ART_MAP
 /* =========================
    DOM helpers
    ========================= */
-const hp=qs('#hp'), aiHp=qs('#aiHp'), ae=qs('#ae'), aiAe=qs('#aiAe'), aiGlyphs=qs('#aiGlyphs');
-const deckCount=qs('#deckCount'), discardCount=qs('#discardCount');
+const topLog=qs('#topLog');
 const playerSlots=qs('#playerSlots'), aiSlots=qs('#aiSlots'), glyphTray=qs('#glyphTray');
-const rRibbon=qs('#ribbon'), topLog=qs('#topLog'), turnTag=qs('#turnTag');
+const rRibbon=qs('#ribbon');
 const inspect=qs('#inspect'), insTitle=qs('#insTitle'), insText=qs('#insText'), insArt=qs('#insArt');
 const marketCells=[...document.querySelectorAll('[data-flow]')];
 const fabDraw=qs('#fabDraw'), fabEnd=qs('#fabEnd'), fabReset=qs('#fabReset');
+const deckCount=qs('#deckCount'), discardCount=qs('#discardCount');
+const btnYouHp=qs('#btnYouHp'), btnYouAe=qs('#btnYouAe'), btnAiHp=qs('#btnAiHp'), btnAiAe=qs('#btnAiAe');
 
 let S={}, turnLog=[], hideTimer, inspectIndex=-1;
 
 function qs(s,r=document){return r.querySelector(s)}
-function qsa(s,r=document){return r.querySelectorAll(s)}
-function uid(){return Math.random().toString(36).slice(2,9)}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function uid(){return Math.random().toString(36).slice(2,9)}
 function makeStarterDeck(){return shuf(STARTER.map(x=>({...x,id:uid()})))}
 function makeFlowDeck(){return shuf(FLOW_POOL.map(x=>({...x,id:uid()})))}
 function log(m){turnLog.push(m); topLog.innerHTML=turnLog.slice(-3).map(x=>`<div>${x}</div>`).join(''); topLog.classList.add('show'); clearTimeout(hideTimer); hideTimer=setTimeout(()=>topLog.classList.remove('show'),2200)}
 function logResetTurn(){turnLog=[]; topLog.classList.remove('show')}
 
 /* =========================
-   Game core + AI
+   Game + AI
    ========================= */
+const HAND_DRAW=5, FLOW_PRICES=[4,3,2,2,2];
 function initGame(){
   S={hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
      ai:{hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[]},
      flowDeck:makeFlowDeck(),flowRow:[null,null,null,null,null],turn:1};
-  ensureMarket(true);
-  startTurn(true);
+  ensureMarket(true); startTurn(true);
 }
-function startTurn(first=false){
-  if(!first) S.turn++;
-  logResetTurn();
-  while(S.hand.length<HAND_DRAW) drawCard();
-  render();
-  log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`);
-}
-function endTurn(){
-  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
-  slideFlow();
-  if(S.hand.length){ S.disc.push(...S.hand); S.hand.length=0; log("End Turn: auto-discard hand."); }
-  render();
-  setTimeout(()=>aiTurn(),300);
-  setTimeout(()=>startTurn(false),800);
-}
-function drawCard(){
-  if(S.deck.length===0){
-    if(S.disc.length===0){ log("No cards to draw."); return; }
-    S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle.");
-  }
-  S.hand.push(S.deck.pop());
-}
+function startTurn(first=false){ if(!first) S.turn++; logResetTurn(); while(S.hand.length<HAND_DRAW) drawCard(); render(); log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`); }
+function endTurn(){ S.slots.forEach(s=>{ if(s) s.advUsed=false; }); slideFlow(); if(S.hand.length){ S.disc.push(...S.hand); S.hand.length=0; log("End Turn: auto-discard hand."); } render(); setTimeout(()=>aiTurn(),300); setTimeout(()=>startTurn(false),800); }
+function drawCard(){ if(S.deck.length===0){ if(S.disc.length===0){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); } S.hand.push(S.deck.pop()); }
 
 /* =========================
    Render
    ========================= */
+function pips(cur,total){let h='';for(let i=1;i<=total;i++)h+=`<span class="pip ${i<=cur?'on':''}"></span>`;return h;}
 function render(){
-  hp.textContent=S.hp; aiHp.textContent=S.ai.hp; ae.textContent=S.ae; aiAe.textContent=S.ai.ae||0;
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
-  aiGlyphs.textContent=S.ai.glyphs.length; turnTag.textContent=`Turn ${S.turn}`;
 
-  // player board
+  // Player board
   playerSlots.innerHTML='';
   S.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>Slot ${i+1}</h5>`;
     if(s){
       d.innerHTML+=`<div class="marketCard" style="min-width:auto;max-width:none;margin-bottom:8px">
-        <h4>${s.c.n}</h4><p>${s.c.txt||''}</p>
+        <h4>${s.c.n}</h4><div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
+        <p>${s.c.txt||''}</p>
         <div class="pips">${pips(s.ph,s.c.p||1)}</div></div>
-        <button style="padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2326" ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
+        <button style="padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff" ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
       if(!s.advUsed) d.querySelector('button').onclick=()=>advance(i);
     }
     playerSlots.appendChild(d);
@@ -395,20 +368,18 @@ function render(){
   aiSlots.innerHTML='';
   S.ai.slots.forEach((s,i)=>{
     const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>AI Slot ${i+1}</h5>`;
-    if(s) d.innerHTML+=`<div class="marketCard" style="min-width:auto"><h4>${s.c.n}</h4><div class="pips">${pips(s.ph,s.c.p||1)}</div></div>`;
+    if(s) d.innerHTML+=`<div class="marketCard" style="min-width:auto"><h4>${s.c.n}</h4><div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div><div class="pips">${pips(s.ph,s.c.p||1)}</div></div>`;
     aiSlots.appendChild(d);
   });
 
   // market
   for(let i=0;i<5;i++){
-    const c=S.flowRow[i]; const el=marketCells[i];
-    if(!c){ el.classList.add('placeholder'); el.textContent='— empty —'; continue; }
-    el.classList.remove('placeholder'); el.innerHTML='';
+    const c=S.flowRow[i], el=marketCells[i];
+    if(!c){ el.className='marketCard placeholder'; el.textContent='— empty —'; continue; }
+    el.className='marketCard'; el.innerHTML='';
     const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:'';
     el.innerHTML=`${badge}<h4>${c.n}</h4>
-      <div style="height:128px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;display:grid;place-items:center;margin-bottom:6px">
-        <img src="${resolveArt(c)}" alt="" style="width:100%;height:100%;object-fit:contain">
-      </div>
+      <div class="cardArt"><img src="${resolveArt(c)}" alt=""></div>
       <p>${c.txt||''}</p>
       <div class="actions"><button ${S.ae>=FLOW_PRICES[i]?'':'disabled'}>Buy (${FLOW_PRICES[i]}⚡)</button></div>`;
     el.querySelector('button').onclick=()=>buyFlow(i);
@@ -417,9 +388,9 @@ function render(){
   // glyphs
   glyphTray.innerHTML=S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')||`<span style="font-size:11px;color:#888e93">No glyphs set.</span>`;
 
+  // hand
   renderHand();
 }
-function pips(cur,total){let h='';for(let i=1;i<=total;i++)h+=`<span class="pip ${i<=cur?'on':''}"></span>`;return h;}
 function renderHand(){
   rRibbon.innerHTML='';
   S.hand.forEach((c,i)=>{
@@ -431,44 +402,63 @@ function renderHand(){
       <img src="${resolveArt(c)}" alt="${c.n}">
     </div>
     <div class="rFoot">${c.txt||''}</div>`;
-    card.addEventListener('click',()=>openInspect(i));
-    prepDrag(card,i);
+    prepPointer(card,i);
     rRibbon.appendChild(card);
   });
 }
 
 /* =========================
-   Inspect
+   Tap vs Drag (no long-press)
    ========================= */
-function openInspect(i){const c=S.hand[i]; if(!c) return; inspectIndex=i; insTitle.textContent=c.n; insText.textContent=c.txt||''; insArt.src=resolveArt(c); inspect.classList.add('show');}
-function closeInspect(){inspect.classList.remove('show');inspectIndex=-1;}
-qs('#btnInspectClose').onclick=closeInspect;
-qs('#btnInspectPlay').onclick=()=>{if(inspectIndex>-1){playFromHandIndex(inspectIndex);closeInspect();}}
-qs('#btnInspectChan').onclick=()=>{if(inspectIndex>-1){channelFromHandIndex(inspectIndex);closeInspect();}}
+function prepPointer(card,i){
+  let down=false,drag=false,ghost=null,startX=0,startY=0,downAt=0;
+  card.addEventListener('pointerdown',e=>{
+    down=true; drag=false; startX=e.clientX; startY=e.clientY; downAt=performance.now();
+    card.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  card.addEventListener('pointermove',e=>{
+    if(!down) return;
+    if(!drag){
+      const moved=Math.hypot(e.clientX-startX,e.clientY-startY);
+      if(moved>8){ // start drag
+        drag=true;
+        ghost=card.cloneNode(true);
+        Object.assign(ghost.style,{position:'fixed',left:e.clientX+'px',top:e.clientY+'px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999});
+        document.body.appendChild(ghost);
+      }
+    }else{
+      ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px';
+      highlightDrop(e.clientX,e.clientY);
+    }
+  });
+  function end(e){
+    if(!down) return; down=false; card.releasePointerCapture?.(e.pointerId);
+    if(drag){ // drop
+      const idx=dropIndex(e.clientX,e.clientY); if(idx!=null) playFromHandIndex(i,idx);
+      if(ghost) ghost.remove(); unhot();
+    }else{
+      // tap (short)
+      const dur=performance.now()-downAt, moved=Math.hypot(e.clientX-startX,e.clientY-startY);
+      if(dur<250 && moved<6) openInspect(i);
+    }
+  }
+  card.addEventListener('pointerup',end);
+  card.addEventListener('pointercancel',end);
+}
+function highlightDrop(x,y){[...document.querySelectorAll('#playerSlots .slot')].forEach(s=>s.classList.toggle('is-hot',hit(s,x,y))); }
+function unhot(){[...document.querySelectorAll('#playerSlots .slot')].forEach(s=>s.classList.remove('is-hot'))}
+function hit(el,x,y){const r=el.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom}
+function dropIndex(x,y){const A=[...document.querySelectorAll('#playerSlots .slot')];const i=A.findIndex(s=>hit(s,x,y));return i>-1?i:null}
 
 /* =========================
-   Drag to slot
+   Inspect
    ========================= */
-function prepDrag(card,i){
-  card.addEventListener('dragstart',e=>e.preventDefault());
-  let ghost=null,isDown=false,drag=false; let t;
-  card.addEventListener('pointerdown',e=>{isDown=true;drag=false;t=setTimeout(()=>{if(!drag)openInspect(i)},350);card.setPointerCapture(e.pointerId);e.preventDefault();});
-  card.addEventListener('pointermove',e=>{
-    if(!isDown) return;
-    if(Math.hypot(e.movementX,e.movementY)>6 && !drag){drag=true;clearTimeout(t);ghost=card.cloneNode(true);Object.assign(ghost.style,{position:'fixed',left:'0',top:'0',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999});document.body.appendChild(ghost);}
-    if(drag && ghost){ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px';highlightDrop(e.clientX,e.clientY);}
-  });
-  card.addEventListener('pointerup',e=>{
-    clearTimeout(t);
-    if(drag && ghost){const idx=dropIndex(e.clientX,e.clientY); if(idx!=null) playFromHandIndex(i,idx); ghost.remove(); unhot(); }
-    isDown=false; drag=false; ghost=null;
-  });
-  card.addEventListener('pointercancel',()=>{unhot(); isDown=false; drag=false; if(ghost)ghost.remove();});
-}
-function highlightDrop(x,y){[...qsa('#playerSlots .slot')].forEach(s=>s.classList.toggle('is-hot',hit(s,x,y))); }
-function unhot(){[...qsa('#playerSlots .slot')].forEach(s=>s.classList.remove('is-hot'))}
-function hit(el,x,y){const r=el.getBoundingClientRect();return x>=r.left&&x<=r.right&&y>=r.top&&y<=r.bottom}
-function dropIndex(x,y){const A=[...qsa('#playerSlots .slot')];const i=A.findIndex(s=>hit(s,x,y));return i>-1?i:null}
+let inspectIndex=-1;
+function openInspect(i){const c=S.hand[i]; if(!c) return; inspectIndex=i; insTitle.textContent=c.n; insText.textContent=c.txt||''; insArt.src=resolveArt(c); inspect.classList.add('show');}
+function closeInspect(){inspect.classList.remove('show');inspectIndex=-1;}
+document.getElementById('btnInspectClose').onclick=closeInspect;
+document.getElementById('btnInspectPlay').onclick=()=>{if(inspectIndex>-1){playFromHandIndex(inspectIndex);closeInspect();}}
+document.getElementById('btnInspectChan').onclick=()=>{if(inspectIndex>-1){channelFromHandIndex(inspectIndex);closeInspect();}}
 
 /* =========================
    Actions & Resolve
@@ -495,8 +485,7 @@ function runResolve(who,c){
         else if(c.n==='Spark Javelin'){log((who==='you'?'You':'AI')+" Spark Javelin deals 2 (sim).");}
         else if(c.n==='Frost Bolt'){log((who==='you'?'You':'AI')+" Frost Bolt slows (sim).");}
         else {log(`${c.n} resolves.`);}
-      } else {log(`${c.n} resolves.`);}
-  }
+  }}
 }
 
 /* =========================
@@ -505,19 +494,12 @@ function runResolve(who,c){
 function aiDraw(){ if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
 function aiTurn(){
   while(S.ai.hand.length<5) aiDraw();
-
   const idxSpell=S.ai.hand.findIndex(x=>x.t==='Spell');
-  if(idxSpell>-1){
-    const c=S.ai.hand.splice(idxSpell,1)[0];
-    const s=S.ai.slots.findIndex(x=>!x);
-    if(s>-1){ S.ai.slots[s]={c,ph:1,advUsed:false}; log("AI plays "+c.n); }
-  }
+  if(idxSpell>-1){ const c=S.ai.hand.splice(idxSpell,1)[0]; const s=S.ai.slots.findIndex(x=>!x); if(s>-1){ S.ai.slots[s]={c,ph:1,advUsed:false}; log("AI plays "+c.n); } }
   const idxInst=S.ai.hand.findIndex(x=>x.t==='Instant');
   if(idxInst>-1){ const r=S.ai.hand.splice(idxInst,1)[0]; S.ai.ae+=(r.v||0); S.ai.disc.push(r); log("AI channels "+r.n+" (+ "+(r.v||0)+"⚡)"); }
-
   const sIdx=S.ai.slots.findIndex(s=>s && !s.advUsed && S.ai.ae>0);
   if(sIdx>-1){ S.ai.ae--; S.ai.slots[sIdx].ph++; S.ai.slots[sIdx].advUsed=true; log("AI advances."); if(S.ai.slots[sIdx].ph>= (S.ai.slots[sIdx].c.p||1)){ runResolve('ai',S.ai.slots[sIdx].c); S.ai.disc.push(S.ai.slots[sIdx].c); S.ai.slots[sIdx]=null; } }
-
   for(let i=4;i>=0;i--){ const c=S.flowRow[i]; if(c && FLOW_PRICES[i] <= (S.ai.ae||0)){ S.ai.ae -= FLOW_PRICES[i]; S.ai.disc.push(c); S.flowRow[i]=null; log("AI buys "+c.n); break; } }
   ensureMarket(); render();
 }
@@ -533,6 +515,16 @@ function buyFlow(i){
   S.ae-=cost; S.disc.push(c); S.flowRow[i]=null; log(`Bought ${c.n} for ${cost}⚡.`); ensureMarket(); render();
 }
 function slideFlow(){ S.flowRow.pop(); S.flowRow.unshift(drawFlow()); }
+
+/* =========================
+   Deck/Discard & HUD taps
+   ========================= */
+document.getElementById('chipDeck').onclick = ()=> log(`Deck: ${S.deck.length}`);
+document.getElementById('chipDiscard').onclick = ()=> log(`Discard: ${S.disc.length}`);
+btnYouHp.onclick = ()=> log(`You ♥ ${S.hp}`);
+btnYouAe.onclick = ()=> log(`You ⚡ ${S.ae}`);
+btnAiHp.onclick = ()=> log(`AI ♥ ${S.ai.hp}`);
+btnAiAe.onclick = ()=> log(`AI ⚡ ${S.ai.ae||0}`);
 
 /* =========================
    Buttons
