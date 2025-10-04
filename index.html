@@ -32,29 +32,26 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+  padding-top:var(--hud-pad, 72px); /* reserved so floating HUD never covers */
 }
 
-/* ===== HUD (values + single row, never covers board) ===== */
-.hud{
-  position:sticky; top:0; z-index:70;
-  display:flex; align-items:center; justify-content:space-between; gap:12px;
-  padding:calc(6px + env(safe-area-inset-top, 0)) 12px 6px 12px;
-  background:linear-gradient(180deg,#fff,var(--panel-2));
-  border-bottom:1px solid var(--line);
+/* ===== Floating HUD (corner docks, horizontal, with values) ===== */
+.statDock{
+  position:fixed; top:calc(8px + env(safe-area-inset-top,0)); z-index:70;
+  display:flex; gap:10px; align-items:center;
 }
-.hud__side{display:flex; align-items:center; gap:10px}
+.statDock.left{ left:12px }
+.statDock.right{ right:12px; flex-direction:row-reverse; } /* AI HP appears at the corner edge */
+
 .stat{
   display:inline-flex; align-items:center; gap:6px;
-  padding:6px 8px; border-radius:10px; background:#fff; border:1px solid var(--line);
-  color:#6b6258; font-weight:700; letter-spacing:.02em;
+  padding:6px 8px; border-radius:999px; background:#fff;
+  border:1px solid var(--line); color:#6b6258; font-weight:700; letter-spacing:.02em;
   box-shadow:var(--shadow-soft)
 }
-.stat svg{width:18px;height:18px;stroke:#6f6a60}
+.stat svg{width:16px;height:16px;stroke:#6f6a60}
 .stat__label{opacity:.8}
 .stat__value{min-width:2ch;text-align:right}
-
-/* reserve space under sticky HUD so content never sits behind it */
-.wrap{padding:14px; max-width:1100px; margin:auto; padding-bottom:170px; padding-top:var(--hud-h,56px)}
 
 /* ===== Toast ===== */
 .topLog{
@@ -65,7 +62,10 @@ body{
 }
 .topLog.show{display:block}
 
-/* ===== Layout containers ===== */
+/* ===== Content wrap ===== */
+.wrap{padding:14px; max-width:1100px; margin:auto; padding-bottom:170px}
+
+/* ===== Zones ===== */
 .zone{
   background:linear-gradient(180deg,#fff,var(--panel-2));
   border:1px solid var(--line); border-radius:14px; padding:12px; margin:12px 0;
@@ -73,13 +73,23 @@ body{
 }
 .title{font-weight:700;color:var(--accent);margin-bottom:8px}
 
-/* ===== Boards ===== */
-.slots{display:flex;gap:10px;flex-wrap:wrap}
-.slot{
-  flex:1 0 30%; background:var(--slot); border:2px dashed #CEC7BA; border-radius:12px;
-  padding:10px; min-height:146px; position:relative
+/* ===== Boards (no size shift) ===== */
+.slots{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(220px,1fr));
+  gap:10px;
 }
-.slot h5{font-size:12px;color:#6a6f76;margin-bottom:6px}
+.slot{
+  background:var(--slot); border:2px dashed #CEC7BA; border-radius:12px;
+  padding:10px; position:relative;
+  height:240px;                 /* fixed height so grid never jumps */
+  display:flex; flex-direction:column; gap:8px; overflow:hidden;
+}
+.slot h5{font-size:12px;color:#6a6f76}
+.slot .slotBody{flex:1; min-height:0; overflow:hidden}
+.slot .actions{padding-top:6px}
+
+/* Pips */
 .pips{display:flex;gap:4px;margin-top:6px}
 .pip{width:10px;height:10px;border-radius:999px;border:1px solid #BBB3A6;background:#EFE9DC}
 .pip.on{background:#7A838C;border-color:#7A838C}
@@ -100,7 +110,7 @@ body{
 }
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek{display:block}
 
-/* ===== Aetherflow (aligned) ===== */
+/* ===== Aetherflow ===== */
 .flowWrap{overflow-x:auto;scrollbar-width:none;mask-image:linear-gradient(90deg,transparent 0,var(--fade) 24px,#fff calc(100% - 24px),transparent 100%)}
 .flowWrap::-webkit-scrollbar{display:none}
 .flowGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;min-width:820px}
@@ -183,29 +193,27 @@ body{
 </head>
 <body>
 
-<!-- HUD (single row with values; replaces stacked icons) -->
-<header class="hud" id="hud">
-  <div class="hud__side" id="hudLeft">
-    <div class="stat" aria-label="Your Health">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
-      <span class="stat__label">HP</span><span class="stat__value" id="hpValue">0</span>
-    </div>
-    <div class="stat" aria-label="Your Aether">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
-      <span class="stat__label">Æ</span><span class="stat__value" id="aeValue">0</span>
-    </div>
+<!-- Floating corner HUD -->
+<div class="statDock left" id="dockLeft">
+  <div class="stat" aria-label="Your Health">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
+    <span class="stat__label">HP</span><span class="stat__value" id="hpValue">0</span>
   </div>
-  <div class="hud__side" id="hudRight">
-    <div class="stat" aria-label="AI Aether">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
-      <span class="stat__label">AI Æ</span><span class="stat__value" id="aiAeValue">0</span>
-    </div>
-    <div class="stat" aria-label="AI Health">
-      <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
-      <span class="stat__label">AI HP</span><span class="stat__value" id="aiHpValue">0</span>
-    </div>
+  <div class="stat" aria-label="Your Aether">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
+    <span class="stat__label">Æ</span><span class="stat__value" id="aeValue">0</span>
   </div>
-</header>
+</div>
+<div class="statDock right" id="dockRight">
+  <div class="stat" aria-label="AI Health">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
+    <span class="stat__label">AI HP</span><span class="stat__value" id="aiHpValue">0</span>
+  </div>
+  <div class="stat" aria-label="AI Aether">
+    <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
+    <span class="stat__label">AI Æ</span><span class="stat__value" id="aiAeValue">0</span>
+  </div>
+</div>
 
 <!-- Toast -->
 <div id="topLog" class="topLog" aria-live="polite"></div>
@@ -403,14 +411,22 @@ function render(){
   // Player board
   playerSlots.innerHTML='';
   S.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>Slot ${i+1}</h5>`;
+    const d=document.createElement('div'); d.className='slot';
+    d.innerHTML=`<h5>Slot ${i+1}</h5><div class="slotBody"></div><div class="actions"></div>`;
     if(s){
-      d.innerHTML+=`<div class="marketCard" style="min-width:auto;max-width:none;margin-bottom:8px">
-        <h4>${s.c.n}</h4><div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
-        <p>${s.c.txt||''}</p>
-        <div class="pips">${pips(s.ph,s.c.p||1)}</div></div>
-        <button style="padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff" ${s.advUsed?'disabled':''}>Advance (1⚡)</button>`;
-      if(!s.advUsed) d.querySelector('button').onclick=()=>advance(i);
+      d.querySelector('.slotBody').innerHTML=
+        `<div class="marketCard" style="min-width:auto;max-width:none">
+          <h4>${s.c.n}</h4>
+          <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
+          <p>${s.c.txt||''}</p>
+          <div class="pips">${pips(s.ph,s.c.p||1)}</div>
+        </div>`;
+      const btn=document.createElement('button');
+      btn.textContent='Advance (1⚡)';
+      btn.style.cssText='padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff';
+      btn.disabled=!!s.advUsed;
+      if(!btn.disabled) btn.onclick=()=>advance(i);
+      d.querySelector('.actions').appendChild(btn);
     }
     playerSlots.appendChild(d);
   });
@@ -418,8 +434,16 @@ function render(){
   // AI board
   aiSlots.innerHTML='';
   S.ai.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className='slot'; d.innerHTML=`<h5>AI Slot ${i+1}</h5>`;
-    if(s) d.innerHTML+=`<div class="marketCard" style="min-width:auto"><h4>${s.c.n}</h4><div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div><div class="pips">${pips(s.ph,s.c.p||1)}</div></div>`;
+    const d=document.createElement('div'); d.className='slot';
+    d.innerHTML=`<h5>AI Slot ${i+1}</h5><div class="slotBody"></div>`;
+    if(s){
+      d.querySelector('.slotBody').innerHTML=
+        `<div class="marketCard" style="min-width:auto">
+          <h4>${s.c.n}</h4>
+          <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
+          <div class="pips">${pips(s.ph,s.c.p||1)}</div>
+        </div>`;
+    }
     aiSlots.appendChild(d);
   });
 
@@ -469,7 +493,6 @@ function prepPointer(card,i){
   });
   card.addEventListener('pointermove',e=>{
     if(!down) return;
-    // lock to X: ignore vertical for ghost movement
     if(!drag){
       const moved=Math.hypot(e.clientX-startX,e.clientY-startY);
       if(moved>8){
@@ -479,8 +502,7 @@ function prepPointer(card,i){
         document.body.appendChild(ghost);
       }
     }else{
-      ghost.style.left=e.clientX+'px';
-      ghost.style.top=e.clientY+'px';
+      ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px';
       highlightDrop(e.clientX,e.clientY);
     }
   });
@@ -568,7 +590,7 @@ function buyFlow(i){
 function slideFlow(){ S.flowRow.pop(); S.flowRow.unshift(drawFlow()); }
 
 /* =========================
-   Deck/Discard taps (still useful)
+   Deck/Discard taps
    ========================= */
 document.getElementById('chipDeck').onclick = ()=> log(`Deck: ${S.deck.length}`);
 document.getElementById('chipDiscard').onclick = ()=> log(`Discard: ${S.disc.length}`);
@@ -581,12 +603,21 @@ fabEnd.onclick =()=> endTurn();
 fabReset.onclick=()=> initGame();
 
 /* =========================
-   HUD height → padding (so AI board never hidden)
+   HUD padding based on floating docks
    ========================= */
-(function reserveTopForHUD(){
-  const hud=document.getElementById('hud');
-  const setPad=()=>document.documentElement.style.setProperty('--hud-h', (hud?.getBoundingClientRect().height||56)+'px');
-  setPad(); new ResizeObserver(setPad).observe(hud);
+(function reserveForFloatHUD(){
+  const left=document.getElementById('dockLeft');
+  const right=document.getElementById('dockRight');
+  const setPad=()=>{
+    const h=Math.max(
+      left?.getBoundingClientRect().bottom||0,
+      right?.getBoundingClientRect().bottom||0
+    ) + 8; // small breathing room
+    document.documentElement.style.setProperty('--hud-pad', h+'px');
+  };
+  setPad();
+  new ResizeObserver(setPad).observe(left);
+  new ResizeObserver(setPad).observe(right);
 })();
 
 /* =========================
