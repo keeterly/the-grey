@@ -3,20 +3,14 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>The Grey — Compact 3-Up Slots</title>
+<title>The Grey — Compact + Trance</title>
 <meta name="theme-color" content="#EEE8DC" />
 <style>
-/* =========================
-   Light parchment palette (NieR-like, monotone)
-   ========================= */
 :root{
   --bg:#EEE8DC; --bg-grad:#F6F1E7;
   --ink:#222426; --muted:#64696E; --accent:#8A8174;
-
   --panel:#FFFFFF; --panel-2:#FAF7F0;
-  --line:#D8D2C6;
-
-  --slot:#FAF7F0; --fade:#EEE8DC;
+  --line:#D8D2C6; --slot:#FAF7F0; --fade:#EEE8DC;
   --card:#FFFFFF; --card-line:#DAD3C8;
 
   --card-w:120px; --card-h:172px; --card-radius:12px;
@@ -32,140 +26,109 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
-  padding-top:var(--hud-pad, 68px); /* reserve space so HUD never covers */
+  padding-top:var(--hud-pad, 76px); /* reserved so floating HUD never covers */
 }
 
-/* ===== Floating HUD (compact corner pills with values) ===== */
-.statDock{
-  position:fixed; top:calc(6px + env(safe-area-inset-top,0)); z-index:70;
-  display:flex; gap:8px; align-items:center;
+/* ===== Compact floating HUD ===== */
+.hudRow{
+  position:fixed; top:10px; left:12px; right:12px; z-index:70;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
 }
-.statDock.left{ left:10px }
-.statDock.right{ right:10px; flex-direction:row-reverse }
-
-.stat{
-  display:inline-flex; align-items:center; gap:6px;
-  padding:6px 10px; border-radius:999px; background:#fff;
-  border:1px solid var(--line); color:#6b6258; font-weight:700; letter-spacing:.02em;
-  box-shadow:var(--shadow-soft); font-size:13px;
+.pill{
+  display:inline-flex; align-items:center; gap:0; background:#fff; border:1px solid var(--line);
+  border-radius:999px; padding:4px; box-shadow:var(--shadow-soft)
 }
-.stat svg{width:16px;height:16px;stroke:#6f6a60}
-.stat__label{opacity:.8}
-.stat__value{min-width:2ch;text-align:right}
+.seg{
+  display:inline-flex; align-items:center; gap:6px; padding:6px 10px; font-weight:800; color:#6b6258; font-size:13px;
+}
+.seg svg{width:16px;height:16px;stroke:#6f6a60}
+.sep{width:1px;height:18px;background:linear-gradient(180deg,#e9e2d7,#d8d1c6)}
 
-/* ===== Toast ===== */
+/* — Center Trance (YOU + AI stacked) — */
+.tranceDock{display:flex; align-items:center; justify-content:center; min-width:210px}
+.trance{
+  background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 10px;
+  box-shadow:var(--shadow-soft); color:#6b6258; font-weight:800; display:flex; flex-direction:column; gap:6px; min-width:210px
+}
+.trTop{display:flex; align-items:center; gap:8px; justify-content:center; font-size:12px; color:#7a7165}
+.trTop svg{width:16px;height:16px;stroke:#6f6a60}
+.trRow{display:flex; align-items:center; gap:8px}
+.trLabel{width:28px; text-align:right; font-size:11px; color:#8A8174; font-weight:800}
+.trBar{flex:1; height:8px; border-radius:999px; background:#EEE8DC; overflow:hidden; border:1px solid #e2dbcf; position:relative}
+.trFill{height:100%; width:0%; background:linear-gradient(90deg,#C7BCA8,#A09484)}
+.trCount{width:44px; text-align:left; font-size:11px; color:#6b6258; font-weight:800}
+.trReady{ box-shadow:0 0 0 2px rgba(138,129,116,.15) inset, 0 0 10px rgba(138,129,116,.25) inset; }
+.trBtn{cursor:pointer}
+.trBtn[disabled]{opacity:.5; cursor:default}
+
+/* Toast */
 .topLog{
   position:fixed; left:50%; transform:translateX(-50%);
-  top:calc(var(--hud-top,56px) + 6px);
+  top:calc(var(--hud-top,56px) + 8px);
   background:#fff; border:1px solid var(--line); color:#2b2f33; border-radius:12px;
-  padding:8px 10px; box-shadow:0 8px 18px rgba(60,52,44,.18); z-index:60; display:none;
+  padding:9px 12px; box-shadow:0 8px 18px rgba(60,52,44,.18); z-index:60; display:none;
   max-width:92vw; font-size:12px; letter-spacing:.01em;
 }
 .topLog.show{display:block}
 
-/* ===== Content wrap ===== */
+/* Content wrappers */
 .wrap{padding:12px; max-width:1100px; margin:auto; padding-bottom:170px; overflow-x:hidden}
-
-/* ===== Zones ===== */
-.zone{
-  background:linear-gradient(180deg,#fff,var(--panel-2));
-  border:1px solid var(--line); border-radius:14px; padding:10px; margin:10px 0;
-  box-shadow:var(--shadow-panel)
-}
+.zone{background:linear-gradient(180deg,#fff,var(--panel-2)); border:1px solid var(--line); border-radius:14px; padding:10px; margin:10px 0; box-shadow:var(--shadow-panel)}
 .title{font-weight:700;color:#8A8174;margin-bottom:8px}
 
-/* ===== Boards: compact 3-up row, fixed height (no jumping) ===== */
-.slots{
-  display:grid;
-  grid-template-columns:repeat(3, 1fr); /* always 3 across like your preferred layout */
-  gap:10px;
-}
+/* Slots — compact row, fixed height 146 */
+.slots{display:grid; grid-template-columns:repeat(3, 1fr); gap:10px}
 .slot{
   background:var(--slot); border:2px dashed #CEC7BA; border-radius:12px;
-  padding:8px; position:relative;
-  height:160px;                 /* compact, fixed height */
+  padding:8px; position:relative; height:146px;
   display:flex; flex-direction:column; gap:6px; overflow:hidden;
 }
 .slot h5{font-size:12px;color:#6a6f76}
 .slot .slotBody{flex:1; min-height:0; overflow:hidden}
 .slot .actions{padding-top:4px}
+.slot .marketCard{cursor:pointer} /* tap to inspect */
 
 /* Pips */
 .pips{display:flex;gap:4px;margin-top:4px}
 .pip{width:10px;height:10px;border-radius:999px;border:1px solid #BBB3A6;background:#EFE9DC}
 .pip.on{background:#7A838C;border-color:#7A838C}
 
-/* ===== Glyphs ===== */
+/* Glyphs */
 .glyphTray{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
-.glyphTok{
-  position:relative;display:inline-flex;align-items:center;justify-content:center;
-  min-width:46px;height:26px;border-radius:8px;background:#fff;border:1px solid var(--line);
-  color:#3a3d40;font-size:11px;box-shadow:var(--shadow-soft);padding:0 8px
-}
+.glyphTok{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:26px;border-radius:8px;background:#fff;border:1px solid var(--line);color:#3a3d40;font-size:11px;box-shadow:var(--shadow-soft);padding:0 8px}
 .glyphTok::before{content:'✦';opacity:.95;font-size:12px;color:var(--accent)}
 .glyphTok.own{cursor:pointer}
-.glyphPeek{
-  position:absolute;left:50%;bottom:110%;transform:translateX(-50%);
-  background:#fff;border:1px solid var(--line);color:#222;
-  padding:6px 8px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(60,50,40,.18);display:none
-}
+.glyphPeek{position:absolute;left:50%;bottom:110%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#222;padding:6px 8px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(60,50,40,.18);display:none}
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek{display:block}
 
-/* ===== Aetherflow ===== */
+/* Aetherflow */
 .flowWrap{overflow-x:auto;max-width:100%;scrollbar-width:none;mask-image:linear-gradient(90deg,transparent 0,var(--fade) 24px,#fff calc(100% - 24px),transparent 100%)}
 .flowWrap::-webkit-scrollbar{display:none}
 .flowGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;min-width:820px}
 .costCell{display:flex;justify-content:center}
-.costChip{min-width:38px;text-align:center;font-weight:800;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--accent);font-size:12px}
-.marketCard{
-  background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:8px;min-height:146px;position:relative;
-  box-shadow:0 4px 14px rgba(60,52,44,.12)
-}
-.marketCard h4{font-size:14px;color:var(--accent);margin-bottom:4px}
+.costChip{min-width:38px;text-align:center;font-weight:800;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--line);border-radius:999px;background:#fff;color:#8A8174;font-size:12px}
+.marketCard{background:var(--card);border:1px solid var(--card-line);border-radius:14px;padding:8px;min-height:146px;position:relative;box-shadow:0 4px 14px rgba(60,52,44,.12)}
+.marketCard h4{font-size:14px;color:#8A8174;margin-bottom:4px}
 .marketCard p{font-size:12px;color:var(--muted);margin:4px 0 6px}
 .marketCard .actions{display:flex;gap:8px}
-.marketCard .actions button{
-  padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f1f1f
-}
-.marketBadge{
-  position:absolute;top:6px;right:8px;border:1px solid var(--line);background:#fff;color:#555048;
-  padding:2px 6px;border-radius:8px;font-size:11px
-}
-.cardArt{
-  height:118px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;
-  display:grid;place-items:center
-}
+.marketCard .actions button{padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f1f1f}
+.marketBadge{position:absolute;top:6px;right:8px;border:1px solid var(--line);background:#fff;color:#555048;padding:2px 6px;border-radius:8px;font-size:11px}
+.cardArt{height:118px;border-radius:10px;overflow:hidden;border:1px solid var(--line);background:#fff;display:grid;place-items:center}
 .cardArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 
-/* ===== Hand ribbon (lock to X, no vertical roving) ===== */
-.ribbon-wrap{
-  position:fixed;left:0;right:0;bottom:0;z-index:40;
-  padding:10px 8px calc(12px + env(safe-area-inset-bottom)); 
-  background:linear-gradient(0deg,#F2ECE1,#F8F3EA); border-top:1px solid var(--line)
-}
-.ribbon{
-  display:flex; gap:6px; height:118px; 
-  overflow-x:auto; overflow-y:hidden; scrollbar-width:none;
-  touch-action:pan-x; overscroll-behavior-y:contain;
-  align-items:flex-start;
-}
+/* Ribbon */
+.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#F2ECE1,#F8F3EA);border-top:1px solid var(--line)}
+.ribbon{display:flex;gap:6px;height:118px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;touch-action:pan-x;overscroll-behavior-y:contain;align-items:flex-start}
 .ribbon::-webkit-scrollbar{display:none}
-.rCard{
-  width:var(--card-w); height:var(--card-h);
-  border-radius:var(--card-radius); overflow:hidden; background:#fff; border:1px solid var(--card-line);
-  box-shadow:0 6px 14px rgba(60,52,44,.18);
-  display:flex; flex-direction:column; user-select:none; -webkit-user-drag:none; touch-action:none;
-}
+.rCard{width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#fff;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(60,52,44,.18);display:flex;flex-direction:column;user-select:none;-webkit-user-drag:none;touch-action:none}
 .rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#F4EEE3);border-bottom:1px solid var(--line);color:#8A8174;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rArt{height:98px;display:grid;place-items:center;background:#fff;position:relative}
 .rArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 .rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25}
-
-/* badges (cost/aether pips) */
 .badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);color:#4a4e52}
 .badgeTL{left:6px}.badgeTR{right:6px}
 
-/* ===== Inspect modal ===== */
+/* Inspect */
 .inspectBack{position:fixed;inset:0;z-index:75;background:rgba(20,20,20,.25);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
 .inspectBack.show{display:flex}
 .inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(60,52,44,.22);padding:12px 14px}
@@ -176,44 +139,69 @@ body{
 .inspectActions{display:flex;gap:8px;justify-content:flex-end}
 .inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2225}
 
-/* ===== Deck / Discard + FAB ===== */
+/* Deck / Discard + FAB */
 .deckBar{position:fixed;left:12px;bottom:126px;z-index:50;display:flex;gap:10px}
-.chipCirc{
-  width:42px;height:42px;border-radius:999px;display:grid;place-items:center;
-  background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-soft);position:relative
-}
+.chipCirc{width:42px;height:42px;border-radius:999px;display:grid;place-items:center;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-soft);position:relative}
 .chipCirc svg{width:18px;height:18px;stroke:#6F6A60}
-.chipCirc small{
-  position:absolute;bottom:-10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:1px 6px;font-size:10px;color:#3a3d40
-}
+.chipCirc small{position:absolute;bottom:-10px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:1px 6px;font-size:10px;color:#3a3d40}
 .fabDial{position:fixed;right:12px;bottom:126px;z-index:50;display:flex;flex-direction:column;gap:12px}
 .fab{width:46px;height:46px;border-radius:999px;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:#1d1f21;font-size:18px;box-shadow:var(--shadow-soft)}
-/* slot highlight on drag */
 #playerSlots .slot.is-hot{outline:2px solid var(--accent);outline-offset:2px}
+
+/* Small Trance menu */
+.tranceMenu{position:fixed;z-index:80;left:50%;transform:translateX(-50%);top:calc(var(--hud-top,56px) + 56px);background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:0 10px 24px rgba(60,52,44,.2);padding:10px;display:none;min-width:240px}
+.tranceMenu.show{display:block}
+.tranceMenu h4{font-size:13px;margin-bottom:8px;color:#8A8174}
+.tranceMenu .row{display:flex;gap:8px;flex-wrap:wrap}
+.tranceMenu button{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.tranceMenu .sub{margin-top:8px;font-size:11px;color:#777}
 </style>
 </head>
 <body>
 
-<!-- Floating corner HUD -->
-<div class="statDock left" id="dockLeft">
-  <div class="stat" aria-label="Your Health">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
-    <span class="stat__label">HP</span><span class="stat__value" id="hpValue">0</span>
+<!-- HUD row -->
+<div class="hudRow" id="hud">
+  <!-- Player pill -->
+  <div class="pill" id="pillYou">
+    <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> HP <span id="hpValue">0</span></div>
+    <div class="sep"></div>
+    <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> Æ <span id="aeValue">0</span></div>
   </div>
-  <div class="stat" aria-label="Your Aether">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
-    <span class="stat__label">Æ</span><span class="stat__value" id="aeValue">0</span>
+
+  <!-- Center Trance (YOU + AI) -->
+  <div class="tranceDock">
+    <div class="trance" id="tranceBox">
+      <div class="trTop"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7"/></svg> TRANCE</div>
+      <div class="trRow">
+        <div class="trLabel">YOU</div>
+        <div class="trBar trBtn" id="youTranceBtn" title="Tap to spend if ready">
+          <div class="trFill" id="youTranceFill"></div>
+        </div>
+        <div class="trCount" id="youTranceCount">0/6</div>
+      </div>
+      <div class="trRow">
+        <div class="trLabel">AI</div>
+        <div class="trBar trBtn" id="aiTranceBtn" title="AI trance (view only)">
+          <div class="trFill" id="aiTranceFill"></div>
+        </div>
+        <div class="trCount" id="aiTranceCount">0/6</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI pill -->
+  <div class="pill" id="pillAi">
+    <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> AI HP <span id="aiHpValue">0</span></div>
+    <div class="sep"></div>
+    <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> AI Æ <span id="aiAeValue">0</span></div>
   </div>
 </div>
-<div class="statDock right" id="dockRight">
-  <div class="stat" aria-label="AI Health">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
-    <span class="stat__label">AI HP</span><span class="stat__value" id="aiHpValue">0</span>
-  </div>
-  <div class="stat" aria-label="AI Aether">
-    <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
-    <span class="stat__label">AI Æ</span><span class="stat__value" id="aiAeValue">0</span>
-  </div>
+
+<!-- Trance spend menu -->
+<div id="tranceMenu" class="tranceMenu" role="dialog" aria-modal="true">
+  <h4 id="tranceMenuTitle">Spend Trance</h4>
+  <div class="row" id="tranceMenuBtns"></div>
+  <div class="sub" id="tranceMenuHint"></div>
 </div>
 
 <!-- Toast -->
@@ -221,7 +209,7 @@ body{
 
 <div class="wrap">
   <!-- AI Board -->
-  <div class="zone" id="aiBoard">
+  <div class="zone">
     <div class="title">AI Board</div>
     <div class="slots" id="aiSlots"></div>
   </div>
@@ -324,7 +312,7 @@ const OFFENSE_CARDS=[
 const FLOW_POOL=[...ECON_CARDS,...OFFENSE_CARDS];
 
 /* =========================
-   Procedural SVG art
+   Procedural SVG art (same as before)
    ========================= */
 function artSVG({motif='aether'}={}) {
   const gold='#8A8174', bone='#5C5F63';
@@ -373,11 +361,18 @@ const inspect=$('#inspect'), insTitle=$('#insTitle'), insText=$('#insText'), ins
 const marketCells=[...document.querySelectorAll('[data-flow]')];
 const fabDraw=$('#fabDraw'), fabEnd=$('#fabEnd'), fabReset=$('#fabReset');
 const deckCount=$('#deckCount'), discardCount=$('#discardCount');
-
 const hpValue=$('#hpValue'), aeValue=$('#aeValue'), aiHpValue=$('#aiHpValue'), aiAeValue=$('#aiAeValue');
+
+/* Trance HUD */
+const youTrFill=$('#youTranceFill'), youTrCount=$('#youTranceCount'), aiTrFill=$('#aiTranceFill'), aiTrCount=$('#aiTranceCount');
+const youTrBtn=$('#youTranceBtn'), aiTrBtn=$('#aiTranceBtn');
+const tranceMenu=$('#tranceMenu'), tranceMenuTitle=$('#tranceMenuTitle'), tranceMenuBtns=$('#tranceMenuBtns'), tranceMenuHint=$('#tranceMenuHint');
 
 let S={}, turnLog=[], hideTimer, inspectIndex=-1;
 
+/* =========================
+   Utilities
+   ========================= */
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function uid(){return Math.random().toString(36).slice(2,9)}
 function makeStarterDeck(){return shuf(STARTER.map(x=>({...x,id:uid()})))}
@@ -386,17 +381,102 @@ function log(m){turnLog.push(m); topLog.innerHTML=turnLog.slice(-3).map(x=>`<div
 function logResetTurn(){turnLog=[]; topLog.classList.remove('show')}
 
 /* =========================
+   Spellweavers & Trance
+   ========================= */
+const WEAVERS={
+  Emberwright:{
+    cap:6,
+    hint:'Gain: first time you deal damage each turn (+1). Spend: Ignite (next Advance 0 Æ) • Kindle (draw 1, auto-discard oldest if needed).',
+    gains:{ onDamage:1 },
+    spend:[
+      {n:'Ignite (0 Æ Advance)', fn:(who)=>{ if(who==='you') S.freeAdvYou++; else S.freeAdvAi++; log(`${who==='you'?'You':'AI'} ignite: next Advance costs 0 Æ.`);} },
+      {n:'Kindle (draw 1)', fn:(who)=>{ if(who==='you'){ drawCard(); if(S.hand.length>HAND_DRAW){ S.disc.push(S.hand.shift()); log('Kindle: drew 1, auto-discard oldest.'); } render(); } else { aiDraw(); log('AI kindles (draws).'); } } }
+    ]
+  },
+  Frostseer:{
+    cap:6,
+    hint:'Gain: when you slow/freeze or prevent damage (+1). Spend: Stasis (freeze foe Advances for 1 turn) • Ward (gain Barrier glyph).',
+    gains:{ onFrost:1 },
+    spend:[
+      {n:'Stasis (freeze foe)', fn:(who)=>{ if(who==='you'){ S.aiFrozen=1; log('You cast Stasis: AI cannot Advance next turn.'); } else { S.youFrozen=1; log('AI casts Stasis: you cannot Advance next turn.'); } } },
+      {n:'Ward (barrier)', fn:(who)=>{ const g={n:'Barrier',t:'Glyph',txt:'Prevent 1 next hit.',eff:'g_barrier',id:uid(),artKey:'glacial-ward'}; if(who==='you'){ S.glyphs.push(g); log('You gain Barrier.'); } else { S.ai.glyphs=S.ai.glyphs||[]; S.ai.glyphs.push(g); log('AI gains Barrier.'); } render(); } }
+    ]
+  },
+  Stormbinder:{
+    cap:6,
+    hint:'Gain: when you channel Æ (+1). Spend: Overcharge (+2 Æ) • Pulse (deal 1, drain 1 Æ).',
+    gains:{ onChannel:1 },
+    spend:[
+      {n:'Overcharge (+2 Æ)', fn:(who)=>{ if(who==='you'){ S.ae+=2; } else { S.ai.ae=(S.ai.ae||0)+2; } log(`${who==='you'?'You':'AI'} overcharge: +2 Æ.`); render(); } },
+      {n:'Pulse (1 dmg, drain 1)', fn:(who)=>{ if(who==='you'){ S.ai.hp--; S.ai.ae=Math.max(0,(S.ai.ae||0)-1); log('Pulse: AI -1 HP, drain 1 Æ.'); } else { S.hp--; S.ae=Math.max(0,S.ae-1); log('AI Pulse: you -1 HP, drain 1 Æ.'); } render(); } }
+    ]
+  }
+};
+// choose player/ai weavers here (swap freely)
+const PLAYER_WEAVER='Emberwright';
+const AI_WEAVER='Stormbinder';
+
+function gainTrance(who,kind,amt=1){
+  const W=who==='you'?WEAVERS[S.trance.you.weaver]:WEAVERS[S.trance.ai.weaver];
+  if(!W) return;
+  const add = (W.gains && W.gains[kind]) ? (amt||1) : 0;
+  if(add<=0) return;
+  const T = who==='you'?S.trance.you:S.trance.ai;
+  if(T.cur>=T.cap) return;
+  T.cur = Math.min(T.cap, T.cur+add);
+  if(T.cur===T.cap) log(`${who==='you'?'You':'AI'} Trance is READY.`);
+  renderTrance();
+}
+function spendTrance(who,idx){
+  const T=who==='you'?S.trance.you:S.trance.ai;
+  const W=WEAVERS[T.weaver];
+  if(!W || T.cur<T.cap) return;
+  const opt=W.spend[idx]; if(!opt) return;
+  opt.fn(who);
+  T.cur=0; renderTrance();
+}
+
+/* =========================
    Game + AI
    ========================= */
 function initGame(){
-  S={hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[],
-     ai:{hp:5,ae:0,deck:makeStarterDeck(),hand:[],disc:[],slots:[null,null,null],glyphs:[]},
-     flowDeck:makeFlowDeck(),flowRow:[null,null,null,null,null],turn:1};
-  ensureMarket(true); startTurn(true);
+  S={
+    hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[],
+    ai:{hp:5, ae:0, deck:makeStarterDeck(), hand:[], disc:[], slots:[null,null,null], glyphs:[]},
+    flowDeck:makeFlowDeck(), flowRow:[null,null,null,null,null], turn:1,
+    trance:{
+      you:{cur:0,cap:WEAVERS[PLAYER_WEAVER].cap,weaver:PLAYER_WEAVER},
+      ai:{cur:0,cap:WEAVERS[AI_WEAVER].cap,weaver:AI_WEAVER}
+    },
+    freeAdvYou:0, freeAdvAi:0,
+    youFrozen:0, aiFrozen:0
+  };
+  ensureMarket(true); startTurn(true); reserveForHUD();
 }
-function startTurn(first=false){ if(!first) S.turn++; logResetTurn(); while(S.hand.length<HAND_DRAW) drawCard(); render(); log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`); }
-function endTurn(){ S.slots.forEach(s=>{ if(s) s.advUsed=false; }); slideFlow(); if(S.hand.length){ S.disc.push(...S.hand); S.hand.length=0; log("End Turn: auto-discard hand."); } render(); setTimeout(()=>aiTurn(),300); setTimeout(()=>startTurn(false),800); }
-function drawCard(){ if(S.deck.length===0){ if(S.disc.length===0){ log("No cards to draw."); return; } S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle."); } S.hand.push(S.deck.pop()); }
+function startTurn(first=false){
+  if(!first) S.turn++;
+  logResetTurn();
+  while(S.hand.length<HAND_DRAW) drawCard();
+  // thaw freezes at start of the frozen side's turn
+  if(S.youFrozen>0){ S.youFrozen=0; log('Your Stasis ends.'); }
+  render();
+  log(`Turn ${S.turn} — drew to ${HAND_DRAW}.`);
+}
+function endTurn(){
+  S.slots.forEach(s=>{ if(s) s.advUsed=false; });
+  slideFlow();
+  if(S.hand.length){ S.disc.push(...S.hand); S.hand.length=0; log("End Turn: auto-discard hand."); }
+  render();
+  setTimeout(()=>aiTurn(),250);
+  setTimeout(()=>startTurn(false),700);
+}
+function drawCard(){
+  if(S.deck.length===0){
+    if(S.disc.length===0){ log("No cards to draw."); return; }
+    S.deck=shuf(S.disc); S.disc=[]; log("You reshuffle.");
+  }
+  S.hand.push(S.deck.pop());
+}
 
 /* =========================
    Render
@@ -408,6 +488,7 @@ function render(){
   // HUD numbers
   hpValue.textContent=S.hp; aeValue.textContent=S.ae;
   aiHpValue.textContent=S.ai.hp; aiAeValue.textContent=S.ai.ae||0;
+  renderTrance();
 
   // Player board
   playerSlots.innerHTML='';
@@ -415,13 +496,15 @@ function render(){
     const d=document.createElement('div'); d.className='slot';
     d.innerHTML=`<h5>Slot ${i+1}</h5><div class="slotBody"></div><div class="actions"></div>`;
     if(s){
-      d.querySelector('.slotBody').innerHTML=
-        `<div class="marketCard" style="min-width:auto;max-width:none">
-          <h4>${s.c.n}</h4>
-          <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
-          <p>${s.c.txt||''}</p>
-          <div class="pips">${pips(s.ph,s.c.p||1)}</div>
-        </div>`;
+      const panel = document.createElement('div');
+      panel.className='marketCard';
+      panel.innerHTML = `<h4>${s.c.n}</h4>
+        <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
+        <p>${s.c.txt||''}</p>
+        <div class="pips">${pips(s.ph,s.c.p||1)}</div>`;
+      panel.onclick=()=>inspectFromSlot('you',i); // TAP card = Inspect
+      d.querySelector('.slotBody').appendChild(panel);
+
       const btn=document.createElement('button');
       btn.textContent='Advance (1⚡)';
       btn.style.cssText='padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#fff';
@@ -438,12 +521,11 @@ function render(){
     const d=document.createElement('div'); d.className='slot';
     d.innerHTML=`<h5>AI Slot ${i+1}</h5><div class="slotBody"></div>`;
     if(s){
-      d.querySelector('.slotBody').innerHTML=
-        `<div class="marketCard" style="min-width:auto">
-          <h4>${s.c.n}</h4>
-          <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
-          <div class="pips">${pips(s.ph,s.c.p||1)}</div>
-        </div>`;
+      const panel=document.createElement('div');
+      panel.className='marketCard';
+      panel.innerHTML = `<h4>${s.c.n}</h4><div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div><div class="pips">${pips(s.ph,s.c.p||1)}</div>`;
+      panel.onclick=()=>inspectFromSlot('ai',i); // view AI card
+      d.querySelector('.slotBody').appendChild(panel);
     }
     aiSlots.appendChild(d);
   });
@@ -461,7 +543,7 @@ function render(){
     el.querySelector('button').onclick=()=>buyFlow(i);
   }
 
-  // glyphs
+  // glyphs (player-only visible)
   glyphTray.innerHTML=S.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')||`<span style="font-size:11px;color:#888e93">No glyphs set.</span>`;
 
   // hand
@@ -484,7 +566,7 @@ function renderHand(){
 }
 
 /* =========================
-   Tap vs Drag (8px threshold, X-locked ghost)
+   Tap vs Drag
    ========================= */
 function prepPointer(card,i){
   let down=false,drag=false,ghost=null,startX=0,startY=0,downAt=0;
@@ -531,6 +613,11 @@ function dropIndex(x,y){const A=[...document.querySelectorAll('#playerSlots .slo
    ========================= */
 function openInspect(i){const c=S.hand[i]; if(!c) return; inspectIndex=i; $('#insTitle').textContent=c.n; $('#insText').textContent=c.txt||''; $('#insArt').src=resolveArt(c); $('#inspect').classList.add('show');}
 function closeInspect(){ $('#inspect').classList.remove('show'); inspectIndex=-1; }
+function inspectFromSlot(who,slotIndex){
+  const s = (who==='you'?S.slots:S.ai.slots)[slotIndex];
+  if(!s) return;
+  $('#insTitle').textContent=s.c.n; $('#insText').textContent=s.c.txt||''; $('#insArt').src=resolveArt(s.c); $('#inspect').classList.add('show');
+}
 $('#btnInspectClose').onclick=closeInspect;
 $('#btnInspectPlay').onclick=()=>{ if(inspectIndex>-1){ playFromHandIndex(inspectIndex); closeInspect(); } };
 $('#btnInspectChan').onclick=()=>{ if(inspectIndex>-1){ channelFromHandIndex(inspectIndex); closeInspect(); } };
@@ -542,25 +629,56 @@ function playFromHandIndex(idx,slotIdx=null){
   const c=S.hand[idx]; if(!c) return;
   if(c.t==='Spell'){let s=(slotIdx!=null?slotIdx:S.slots.findIndex(x=>!x)); if(s<0){log("No empty slot."); return;} S.slots[s]={c,ph:1,advUsed:false}; S.hand.splice(idx,1); log(`Play ${c.n} → Slot ${s+1}.`);}
   else if(c.t==='Glyph'){S.glyphs.push(c); S.hand.splice(idx,1); log(`Set glyph: ${c.n}.`);}
-  else{S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); log(`Cast ${c.n}: +${c.v||0}⚡.`);}
+  else{ // Instant / Channel
+    S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); log(`Cast ${c.n}: +${c.v||0}⚡.`);
+    // Trance gain hook: channel
+    if(S.trance.you.weaver==='Stormbinder') gainTrance('you','onChannel',1);
+  }
   render();
 }
-function channelFromHandIndex(idx){const c=S.hand[idx]; if(!c) return; S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); log(`Channel ${c.n}: +${c.v||0}⚡.`); render();}
-function advance(i){const s=S.slots[i]; if(!s) return; if(S.ae<1){log("Need 1⚡ to advance."); return;} S.ae-=1; s.ph++; s.advUsed=true; if(s.ph>=(s.c.p||1)) resolvePlayer(i); render();}
-function resolvePlayer(i){const s=S.slots[i]; if(!s) return; runResolve('you',s.c); S.disc.push(s.c); S.slots[i]=null; render();}
+function channelFromHandIndex(idx){
+  const c=S.hand[idx]; if(!c) return;
+  S.ae+=(c.v||0); S.disc.push(c); S.hand.splice(idx,1); log(`Channel ${c.n}: +${c.v||0}⚡.`);
+  if(S.trance.you.weaver==='Stormbinder') gainTrance('you','onChannel',1);
+  render();
+}
+function advance(i){
+  if(S.youFrozen>0){ log("You are frozen and cannot Advance this turn."); return; }
+  const s=S.slots[i]; if(!s) return;
+  const cost = (S.freeAdvYou>0)?0:1;
+  if(S.ae<cost){log(`Need ${cost}⚡ to advance.`); return;}
+  S.ae-=cost; if(cost===0) S.freeAdvYou=Math.max(0,S.freeAdvYou-1);
+  s.ph++; s.advUsed=true;
+  if(s.ph>=(s.c.p||1)) resolvePlayer(i);
+  render();
+}
+function resolvePlayer(i){
+  const s=S.slots[i]; if(!s) return;
+  runResolve('you',s.c);
+  S.disc.push(s.c); S.slots[i]=null; render();
+}
 function runResolve(who,c){
   switch(c.eff){
     case 'gain1': if(who==='you'){S.ae+=1; log(`${c.n} resolves: +1⚡.`);} else {S.ai.ae+=1; log(`AI gains +1⚡.`);} break;
     case 'drain1': if(who==='you'){S.ai.ae=Math.max(0,S.ai.ae-1); log(`${c.n}: drain 1⚡ (AI).`);} else {S.ae=Math.max(0,S.ae-1); log(`AI drains 1⚡.`);} break;
-    case 'tax': if(who==='you'){log(`${c.n}: foe’s next Advance +1⚡ (sim).`);} else {log(`AI taxes your next Advance (sim).`);} break;
+    case 'tax': log(`${c.n}: tax (sim).`); break;
     default:
       if(c.t==='Spell'){
-        if(c.n==='Flame Lash'){log((who==='you'?'You':'AI')+" Flame Lash deals 5 total (sim).");}
-        else if(c.n==='Ember'){log((who==='you'?'You':'AI')+" Ember deals 2 (sim).");}
-        else if(c.n==='Spark Javelin'){log((who==='you'?'You':'AI')+" Spark Javelin deals 2 (sim).");}
-        else if(c.n==='Frost Bolt'){log((who==='you'?'You':'AI')+" Frost Bolt slows (sim).");}
-        else {log(`${c.n} resolves.`);}
-  }}
+        if(c.n==='Flame Lash'){ log((who==='you'?'You':'AI')+" Flame Lash deals 5 total (sim)."); tranceOnDamage(who); }
+        else if(c.n==='Ember'){ log((who==='you'?'You':'AI')+" Ember deals 2 (sim)."); tranceOnDamage(who); }
+        else if(c.n==='Spark Javelin'){ log((who==='you'?'You':'AI')+" Spark Javelin deals 2 (sim)."); tranceOnDamage(who); }
+        else if(c.n==='Frost Bolt'){ log((who==='you'?'You':'AI')+" Frost Bolt slows (sim)."); tranceOnFrost(who); }
+        else { log(`${c.n} resolves.`); }
+      }
+  }
+}
+function tranceOnDamage(who){
+  const weaver = (who==='you'?S.trance.you.weaver:S.trance.ai.weaver);
+  if(weaver==='Emberwright') gainTrance(who,'onDamage',1);
+}
+function tranceOnFrost(who){
+  const weaver = (who==='you'?S.trance.you.weaver:S.trance.ai.weaver);
+  if(weaver==='Frostseer') gainTrance(who,'onFrost',1);
 }
 
 /* =========================
@@ -569,13 +687,55 @@ function runResolve(who,c){
 function aiDraw(){ if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuf(S.ai.disc); S.ai.disc=[]; log("AI reshuffles."); } else return; } S.ai.hand.push(S.ai.deck.pop()); }
 function aiTurn(){
   while(S.ai.hand.length<5) aiDraw();
+
+  // if AI trance ready, try spend
+  const T=S.trance.ai; const W=WEAVERS[T.weaver];
+  if(T.cur>=T.cap && W){ // basic heuristic: prefer first option unless Overcharge leads to buy
+    if(T.weaver==='Stormbinder'){
+      // Overcharge if it lets AI buy any flow 3/4 right now
+      let canBuy=false; for(let i=0;i<5;i++){ if(S.flowRow[i] && FLOW_PRICES[i]<=((S.ai.ae||0)+2)){ canBuy=true; break; } }
+      spendTrance('ai', canBuy?0:1);
+    }else{
+      spendTrance('ai',0);
+    }
+  }
+
+  // Play a spell if possible
   const idxSpell=S.ai.hand.findIndex(x=>x.t==='Spell');
-  if(idxSpell>-1){ const c=S.ai.hand.splice(idxSpell,1)[0]; const s=S.ai.slots.findIndex(x=>!x); if(s>-1){ S.ai.slots[s]={c,ph:1,advUsed:false}; log("AI plays "+c.n); } }
+  if(idxSpell>-1){
+    const c=S.ai.hand.splice(idxSpell,1)[0];
+    const s=S.ai.slots.findIndex(x=>!x);
+    if(s>-1){ S.ai.slots[s]={c,ph:1,advUsed:false}; log("AI plays "+c.n); }
+  }
+  // Channel if possible
   const idxInst=S.ai.hand.findIndex(x=>x.t==='Instant');
-  if(idxInst>-1){ const r=S.ai.hand.splice(idxInst,1)[0]; S.ai.ae+=(r.v||0); S.ai.disc.push(r); log("AI channels "+r.n+" (+ "+(r.v||0)+"⚡)"); }
-  const sIdx=S.ai.slots.findIndex(s=>s && !s.advUsed && S.ai.ae>0);
-  if(sIdx>-1){ S.ai.ae--; S.ai.slots[sIdx].ph++; S.ai.slots[sIdx].advUsed=true; log("AI advances."); if(S.ai.slots[sIdx].ph>= (S.ai.slots[sIdx].c.p||1)){ runResolve('ai',S.ai.slots[sIdx].c); S.ai.disc.push(S.ai.slots[sIdx].c); S.ai.slots[sIdx]=null; } }
-  for(let i=4;i>=0;i--){ const c=S.flowRow[i]; if(c && FLOW_PRICES[i] <= (S.ai.ae||0)){ S.ai.ae -= FLOW_PRICES[i]; S.ai.disc.push(c); S.flowRow[i]=null; log("AI buys "+c.n); break; } }
+  if(idxInst>-1){
+    const r=S.ai.hand.splice(idxInst,1)[0];
+    S.ai.ae=(S.ai.ae||0)+(r.v||0); S.ai.disc.push(r);
+    log("AI channels "+r.n+" (+ "+(r.v||0)+"⚡)");
+    if(S.trance.ai.weaver==='Stormbinder') gainTrance('ai','onChannel',1);
+  }
+
+  // Advance (respect freeze and free-advance)
+  if(S.aiFrozen>0){ S.aiFrozen=0; log('AI is frozen and skips advancing.'); }
+  else{
+    const sIdx=S.ai.slots.findIndex(s=>s && !s.advUsed && (S.ai.ae>0 || S.freeAdvAi>0));
+    if(sIdx>-1){
+      const cost=(S.freeAdvAi>0)?0:1;
+      if((S.ai.ae||0)>=cost){
+        S.ai.ae-=cost; if(cost===0) S.freeAdvAi=Math.max(0,S.freeAdvAi-1);
+        S.ai.slots[sIdx].ph++; S.ai.slots[sIdx].advUsed=true; log("AI advances.");
+        if(S.ai.slots[sIdx].ph>=(S.ai.slots[sIdx].c.p||1)){
+          runResolve('ai',S.ai.slots[sIdx].c); S.ai.disc.push(S.ai.slots[sIdx].c); S.ai.slots[sIdx]=null;
+        }
+      }
+    }
+  }
+
+  // Buy from market if possible (rightmost first)
+  for(let i=4;i>=0;i--){
+    const c=S.flowRow[i]; if(c && FLOW_PRICES[i] <= (S.ai.ae||0)){ S.ai.ae -= FLOW_PRICES[i]; S.ai.disc.push(c); S.flowRow[i]=null; log("AI buys "+c.n); break; }
+  }
   ensureMarket(); render();
 }
 
@@ -590,6 +750,39 @@ function buyFlow(i){
   S.ae-=cost; S.disc.push(c); S.flowRow[i]=null; log(`Bought ${c.n} for ${cost}⚡.`); ensureMarket(); render();
 }
 function slideFlow(){ S.flowRow.pop(); S.flowRow.unshift(drawFlow()); }
+
+/* =========================
+   Trance HUD + Menu
+   ========================= */
+function renderTrance(){
+  const Y=S.trance.you, A=S.trance.ai;
+  const yPct = Math.round((100*Y.cur)/Y.cap), aPct=Math.round((100*A.cur)/A.cap);
+  youTrFill.style.width = yPct+'%'; aiTrFill.style.width = aPct+'%';
+  youTrCount.textContent=`${Y.cur}/${Y.cap}`; aiTrCount.textContent=`${A.cur}/${A.cap}`;
+  const box=$('#tranceBox');
+  box.classList.toggle('trReady', Y.cur>=Y.cap || A.cur>=A.cap);
+}
+youTrBtn.addEventListener('click',()=>{
+  const Y=S.trance.you; const W=WEAVERS[Y.weaver];
+  tranceMenuTitle.textContent=`Spend Trance — ${Y.weaver}`;
+  tranceMenuBtns.innerHTML='';
+  (W.spend||[]).forEach((opt,idx)=>{
+    const b=document.createElement('button'); b.textContent=opt.n; b.disabled=(Y.cur<Y.cap);
+    b.onclick=()=>{ spendTrance('you',idx); tranceMenu.classList.remove('show'); };
+    tranceMenuBtns.appendChild(b);
+  });
+  tranceMenuHint.textContent=W.hint||'';
+  tranceMenu.classList.add('show');
+});
+aiTrBtn.addEventListener('click',()=>{
+  const A=S.trance.ai; const W=WEAVERS[A.weaver];
+  tranceMenuTitle.textContent=`AI Trance — ${A.weaver}`;
+  tranceMenuBtns.innerHTML='';
+  (W.spend||[]).forEach((opt)=>{ const b=document.createElement('button'); b.textContent=opt.n; b.disabled=true; tranceMenuBtns.appendChild(b); });
+  tranceMenuHint.textContent=W.hint||'';
+  tranceMenu.classList.add('show');
+});
+document.addEventListener('click',(e)=>{ if(!tranceMenu.contains(e.target) && !youTrBtn.contains(e.target) && !aiTrBtn.contains(e.target)) tranceMenu.classList.remove('show'); });
 
 /* =========================
    Deck/Discard taps
@@ -607,19 +800,17 @@ fabReset.onclick=()=> initGame();
 /* =========================
    HUD padding & toast placement
    ========================= */
-(function reserveForFloatHUD(){
-  const left=document.getElementById('dockLeft');
-  const right=document.getElementById('dockRight');
+function reserveForHUD(){
+  const hud=document.getElementById('hud');
   const setPad=()=>{
-    const h=Math.max(left?.getBoundingClientRect().bottom||0, right?.getBoundingClientRect().bottom||0);
+    const h=hud?.getBoundingClientRect().bottom||0;
     const pad = Math.max(56, Math.ceil(h) + 6);
     document.documentElement.style.setProperty('--hud-pad', pad+'px');
     document.documentElement.style.setProperty('--hud-top', Math.ceil(h)+'px');
   };
   setPad();
-  new ResizeObserver(setPad).observe(left);
-  new ResizeObserver(setPad).observe(right);
-})();
+  new ResizeObserver(setPad).observe(hud);
+}
 
 /* =========================
    Boot
