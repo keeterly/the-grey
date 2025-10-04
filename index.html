@@ -34,16 +34,27 @@ body{
   overflow-x:hidden;
 }
 
-/* ===== Minimal HUD icons (monotone) ===== */
-.hudIcon{
-  position:fixed; top:10px; z-index:70; width:34px; height:34px;
-  display:grid; place-items:center; border-radius:50%;
-  background:linear-gradient(180deg,#fff,#F3EFE6); border:1px solid var(--line);
-  box-shadow:var(--shadow-soft); opacity:.78;
+/* ===== HUD (values + single row, never covers board) ===== */
+.hud{
+  position:sticky; top:0; z-index:70;
+  display:flex; align-items:center; justify-content:space-between; gap:12px;
+  padding:calc(6px + env(safe-area-inset-top, 0)) 12px 6px 12px;
+  background:linear-gradient(180deg,#fff,var(--panel-2));
+  border-bottom:1px solid var(--line);
 }
-.hudIcon svg{width:18px;height:18px;stroke:#6F6A60}
-.hudIcon.r{right:10px} .hudIcon.l{left:10px}
-.hudIcon + .hudIcon{ top:54px }
+.hud__side{display:flex; align-items:center; gap:10px}
+.stat{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:6px 8px; border-radius:10px; background:#fff; border:1px solid var(--line);
+  color:#6b6258; font-weight:700; letter-spacing:.02em;
+  box-shadow:var(--shadow-soft)
+}
+.stat svg{width:18px;height:18px;stroke:#6f6a60}
+.stat__label{opacity:.8}
+.stat__value{min-width:2ch;text-align:right}
+
+/* reserve space under sticky HUD so content never sits behind it */
+.wrap{padding:14px; max-width:1100px; margin:auto; padding-bottom:170px; padding-top:var(--hud-h,56px)}
 
 /* ===== Toast ===== */
 .topLog{
@@ -55,7 +66,6 @@ body{
 .topLog.show{display:block}
 
 /* ===== Layout containers ===== */
-.wrap{padding:14px; max-width:1100px; margin:auto; padding-bottom:170px}
 .zone{
   background:linear-gradient(180deg,#fff,var(--panel-2));
   border:1px solid var(--line); border-radius:14px; padding:12px; margin:12px 0;
@@ -116,15 +126,27 @@ body{
 }
 .cardArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 
-/* ===== Hand ribbon (compact & readable) ===== */
-.ribbon-wrap{position:fixed;left:0;right:0;bottom:0;z-index:40;padding:10px 8px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(0deg,#F2ECE1,#F8F3EA);border-top:1px solid var(--line)}
-.ribbon{display:flex;align-items:flex-end;gap:6px;height:118px;overflow-x:auto;scrollbar-width:none}
+/* ===== Hand ribbon (lock to X, no vertical roving) ===== */
+.ribbon-wrap{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  padding:10px 8px calc(12px + env(safe-area-inset-bottom)); 
+  background:linear-gradient(0deg,#F2ECE1,#F8F3EA); border-top:1px solid var(--line)
+}
+.ribbon{
+  display:flex; gap:6px; height:118px; 
+  overflow-x:auto; overflow-y:hidden; scrollbar-width:none;
+  touch-action:pan-x; overscroll-behavior-y:contain;
+  align-items:flex-start;
+}
 .ribbon::-webkit-scrollbar{display:none}
 .rCard{
-  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);overflow:hidden;background:#fff;border:1px solid var(--card-line);box-shadow:0 6px 14px rgba(60,52,44,.18);transform:translateY(46%);display:flex;flex-direction:column;user-select:none
+  width:var(--card-w); height:var(--card-h);
+  border-radius:var(--card-radius); overflow:hidden; background:#fff; border:1px solid var(--card-line);
+  box-shadow:0 6px 14px rgba(60,52,44,.18);
+  display:flex; flex-direction:column; user-select:none; -webkit-user-drag:none; touch-action:none;
 }
-.rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#F4EEE3);border-bottom:1px solid var(--line);color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rArt{height:78px;display:grid;place-items:center;background:#fff}
+.rHead{padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;background:linear-gradient(180deg,#ffffff,#F4EEE3);border-bottom:1px solid var(--line);color:#8A8174;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rArt{height:98px;display:grid;place-items:center;background:#fff;position:relative}
 .rArt img{width:100%;height:100%;object-fit:contain;object-position:center}
 .rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25}
 
@@ -136,7 +158,7 @@ body{
 .inspectBack{position:fixed;inset:0;z-index:75;background:rgba(20,20,20,.25);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
 .inspectBack.show{display:flex}
 .inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(60,52,44,.22);padding:12px 14px}
-.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:var(--accent)}
+.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:#8A8174}
 .inspectCard p{margin:0 0 8px;font-size:13px;color:#2b2f33}
 .inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line);background:#fff;display:grid;place-items:center}
 .inspectCard .artBox img{width:100%;height:100%;object-fit:contain;object-position:center}
@@ -161,27 +183,36 @@ body{
 </head>
 <body>
 
-<!-- Minimal HUD icons (tap shows values in toast) -->
-<button class="hudIcon l" id="btnYouHp" title="Your HP" aria-label="Your HP">
-  <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
-</button>
-<button class="hudIcon l" id="btnYouAe" title="Your Aether" aria-label="Your Aether" style="top:54px">
-  <svg viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/></svg>
-</button>
-
-<button class="hudIcon r" id="btnAiHp" title="AI HP" aria-label="AI HP">
-  <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
-</button>
-<button class="hudIcon r" id="btnAiAe" title="AI Aether" aria-label="AI Aether" style="top:54px">
-  <svg viewBox="0 0 24 24" fill="none"><path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/></svg>
-</button>
+<!-- HUD (single row with values; replaces stacked icons) -->
+<header class="hud" id="hud">
+  <div class="hud__side" id="hudLeft">
+    <div class="stat" aria-label="Your Health">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
+      <span class="stat__label">HP</span><span class="stat__value" id="hpValue">0</span>
+    </div>
+    <div class="stat" aria-label="Your Aether">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
+      <span class="stat__label">Æ</span><span class="stat__value" id="aeValue">0</span>
+    </div>
+  </div>
+  <div class="hud__side" id="hudRight">
+    <div class="stat" aria-label="AI Aether">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg>
+      <span class="stat__label">AI Æ</span><span class="stat__value" id="aiAeValue">0</span>
+    </div>
+    <div class="stat" aria-label="AI Health">
+      <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg>
+      <span class="stat__label">AI HP</span><span class="stat__value" id="aiHpValue">0</span>
+    </div>
+  </div>
+</header>
 
 <!-- Toast -->
 <div id="topLog" class="topLog" aria-live="polite"></div>
 
 <div class="wrap">
   <!-- AI Board -->
-  <div class="zone">
+  <div class="zone" id="aiBoard">
     <div class="title">AI Board</div>
     <div class="slots" id="aiSlots"></div>
   </div>
@@ -325,6 +356,7 @@ function resolveArt(c){const k=(c&&(c.artKey||slug(c.n)))||'card';return ART_MAP
 /* =========================
    DOM helpers
    ========================= */
+function $(s,r=document){return r.querySelector(s)}
 const topLog=$('#topLog');
 const playerSlots=$('#playerSlots'), aiSlots=$('#aiSlots'), glyphTray=$('#glyphTray');
 const rRibbon=$('#ribbon');
@@ -332,11 +364,11 @@ const inspect=$('#inspect'), insTitle=$('#insTitle'), insText=$('#insText'), ins
 const marketCells=[...document.querySelectorAll('[data-flow]')];
 const fabDraw=$('#fabDraw'), fabEnd=$('#fabEnd'), fabReset=$('#fabReset');
 const deckCount=$('#deckCount'), discardCount=$('#discardCount');
-const btnYouHp=$('#btnYouHp'), btnYouAe=$('#btnYouAe'), btnAiHp=$('#btnAiHp'), btnAiAe=$('#btnAiAe');
+
+const hpValue=$('#hpValue'), aeValue=$('#aeValue'), aiHpValue=$('#aiHpValue'), aiAeValue=$('#aiAeValue');
 
 let S={}, turnLog=[], hideTimer, inspectIndex=-1;
 
-function $(s,r=document){return r.querySelector(s)}
 function shuf(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
 function uid(){return Math.random().toString(36).slice(2,9)}
 function makeStarterDeck(){return shuf(STARTER.map(x=>({...x,id:uid()})))}
@@ -363,6 +395,10 @@ function drawCard(){ if(S.deck.length===0){ if(S.disc.length===0){ log("No cards
 function pips(cur,total){let h='';for(let i=1;i<=total;i++)h+=`<span class="pip ${i<=cur?'on':''}"></span>`;return h;}
 function render(){
   deckCount.textContent=S.deck.length; discardCount.textContent=S.disc.length;
+
+  // HUD numbers
+  hpValue.textContent=S.hp; aeValue.textContent=S.ae;
+  aiHpValue.textContent=S.ai.hp; aiAeValue.textContent=S.ai.ae||0;
 
   // Player board
   playerSlots.innerHTML='';
@@ -429,31 +465,33 @@ function prepPointer(card,i){
   let down=false,drag=false,ghost=null,startX=0,startY=0,downAt=0;
   card.addEventListener('pointerdown',e=>{
     down=true; drag=false; startX=e.clientX; startY=e.clientY; downAt=performance.now();
-    card.setPointerCapture(e.pointerId); e.preventDefault();
+    card.setPointerCapture?.(e.pointerId); e.preventDefault();
   });
   card.addEventListener('pointermove',e=>{
     if(!down) return;
+    // lock to X: ignore vertical for ghost movement
     if(!drag){
       const moved=Math.hypot(e.clientX-startX,e.clientY-startY);
-      if(moved>8){ // start drag
+      if(moved>8){
         drag=true;
         ghost=card.cloneNode(true);
         Object.assign(ghost.style,{position:'fixed',left:e.clientX+'px',top:e.clientY+'px',transform:'translate(-50%,-50%) scale(1.02)',pointerEvents:'none',opacity:.95,zIndex:999});
         document.body.appendChild(ghost);
       }
     }else{
-      ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px';
+      ghost.style.left=e.clientX+'px';
+      ghost.style.top=e.clientY+'px';
       highlightDrop(e.clientX,e.clientY);
     }
   });
   function end(e){
     if(!down) return; down=false; card.releasePointerCapture?.(e.pointerId);
-    if(drag){ // drop
+    if(drag){
       const idx=dropIndex(e.clientX,e.clientY); if(idx!=null) playFromHandIndex(i,idx);
       if(ghost) ghost.remove(); unhot();
     }else{
       const dur=performance.now()-downAt, moved=Math.hypot(e.clientX-startX,e.clientY-startY);
-      if(dur<250 && moved<6) openInspect(i); // tap
+      if(dur<250 && moved<6) openInspect(i);
     }
   }
   card.addEventListener('pointerup',end);
@@ -530,14 +568,10 @@ function buyFlow(i){
 function slideFlow(){ S.flowRow.pop(); S.flowRow.unshift(drawFlow()); }
 
 /* =========================
-   Deck/Discard & HUD taps
+   Deck/Discard taps (still useful)
    ========================= */
 document.getElementById('chipDeck').onclick = ()=> log(`Deck: ${S.deck.length}`);
 document.getElementById('chipDiscard').onclick = ()=> log(`Discard: ${S.disc.length}`);
-btnYouHp.onclick = ()=> log(`You ♥ ${S.hp}`);
-btnYouAe.onclick = ()=> log(`You ⚡ ${S.ae}`);
-btnAiHp.onclick = ()=> log(`AI ♥ ${S.ai.hp}`);
-btnAiAe.onclick = ()=> log(`AI ⚡ ${S.ai.ae||0}`);
 
 /* =========================
    Buttons
@@ -545,6 +579,15 @@ btnAiAe.onclick = ()=> log(`AI ⚡ ${S.ai.ae||0}`);
 fabDraw.onclick=()=>{ if(S.hand.length<HAND_DRAW){ drawCard(); render(); log("Manual draw."); } };
 fabEnd.onclick =()=> endTurn();
 fabReset.onclick=()=> initGame();
+
+/* =========================
+   HUD height → padding (so AI board never hidden)
+   ========================= */
+(function reserveTopForHUD(){
+  const hud=document.getElementById('hud');
+  const setPad=()=>document.documentElement.style.setProperty('--hud-h', (hud?.getBoundingClientRect().height||56)+'px');
+  setPad(); new ResizeObserver(setPad).observe(hud);
+})();
 
 /* =========================
    Boot
