@@ -18,7 +18,7 @@ function getTranslateXY(el){
 (() => {
   const DRAG_THRESHOLD = 6;    // px before we lift
   const DAMP = 0.34;           // responsiveness (0.28–0.38 feels good)
-  const MAX_STEP = 42;         // clamp per-frame movement
+  const MAX_STEP = 50;         // clamp per-frame movement
   let raf;
 
   // One drag layer for all drags
