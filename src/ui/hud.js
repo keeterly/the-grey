@@ -1,3 +1,5 @@
+import { animateDiscardHand, animateDrawHand } from './animations.js';
+
 export function wireHUD(game, weavers){
   const S=()=>game.getState();
   const youBtn=document.getElementById('youTranceBtn');
