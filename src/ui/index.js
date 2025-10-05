@@ -144,20 +144,7 @@ function wireButtons(){
 /* Public init */
 export function init(game){
   G = game;
-  setGame(G);
-  cacheRoots();
-  wireButtons();
-  refreshUI();
 
-  // hide boot-check if present
-  const boot = document.querySelector('.bootCheck');
-  if (boot) boot.style.display = 'none';
-
-  // Let drag.js know we’re ready
-  if (window.DragCards?.refresh) window.DragCards.refresh();
-
-  console.log('[UI] v3.9+ — animations restored, typed highlights, fixed rows');
-}
 
   // TEMP: seed some test cards if state is empty
   if (!G.state.hand?.length) {
@@ -175,4 +162,23 @@ export function init(game){
     G.state.deck = [{n:'Test Draw'}, {n:'Apprentice Bolt'}];
     G.state.disc = [];
   }
+
+
+  
+  setGame(G);
+  cacheRoots();
+  wireButtons();
+  refreshUI();
+
+  // hide boot-check if present
+  const boot = document.querySelector('.bootCheck');
+  if (boot) boot.style.display = 'none';
+
+  // Let drag.js know we’re ready
+  if (window.DragCards?.refresh) window.DragCards.refresh();
+
+  console.log('[UI] v3.9+ — animations restored, typed highlights, fixed rows');
+}
+
+  
 
