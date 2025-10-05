@@ -1,8 +1,8 @@
 // =========================================================
-// THE GREY — UI (v3.12)
-// - Wider + lower Arena-like hand (less obstruction)
-// - Deck/Discard/Aether gem counters updated
-// - Honors precise drop slot from drag.js (data-drop-slot)
+// THE GREY — UI (v3.14)
+// - Lower/wider hand (doesn’t block board)
+// - Press-and-hold preview handled by drag.js (just keep support)
+// - ENSURE_MARKET on buy
 // =========================================================
 
 const $  = (s, r=document) => r.querySelector(s);
@@ -104,26 +104,22 @@ async function animateDrawHand() {
   requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- hand fan (wider + lower) ---------- */
+/* ---------- hand fan (lower + wider) ---------- */
 function fanHandFallback() {
-  if (window.Anim?.fanHand) {
-    window.Anim.fanHand(elRibbon, { spacing: 36, maxAngle: 10, maxLift: 10, baseY: 36 });
-    return;
-  }
   const cards = $$('.handCard', elRibbon);
   const n = cards.length;
   if (!n) return;
 
   const wrapW = elRibbon.clientWidth || 800;
-  const maxSpread = Math.max(24, Math.min(52, Math.floor(wrapW / Math.max(n + 2, 4))));
+  const spacing = Math.max(30, Math.min(60, Math.floor(wrapW / Math.max(n + 2, 4)))); // a bit wider
   const angleMax  = 10;
-  const liftScale = 9;
-  const baseY     = 36;       // LOWER: push hand down so it doesn’t obscure the board
+  const liftScale = 8;
+  const baseY     = 58;   // LOWER again so hand sits further down
   const mid = (n - 1) / 2;
 
   cards.forEach((c, i) => {
     const t = (i - mid);
-    const x = t * maxSpread;
+    const x = t * spacing;
     const y = baseY - Math.abs(t) * (liftScale / Math.max(1, n/6));
     const a = (t / mid || 0) * angleMax;
     c.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
@@ -144,7 +140,7 @@ function renderMarket() {
     cardEl.onclick = async () => {
       await animateBuyToDiscard(cardEl);
       G.dispatch({ type: 'BUY_FLOW', index: i });
-      G.dispatch({ type: 'ENSURE_MARKET' }); // refill immediately
+      G.dispatch({ type: 'ENSURE_MARKET' });
       renderAll();
     };
     cell.appendChild(cardEl);
@@ -217,7 +213,6 @@ function renderPlayerSlots() {
     elPlayerSlots.appendChild(cell);
   }
 }
-
 function renderAiSlots() {
   elAiSlots.innerHTML = '';
   for (let i = 0; i < 3; i++) {
@@ -309,5 +304,5 @@ export function init(game) {
   const boot = document.querySelector('.bootCheck');
   if (boot) boot.style.display = 'none';
 
-  console.log('[UI] v3.12 — lower hand, no-damp drag, icons + gem floating');
+  console.log('[UI] v3.14 — lower+wide hand, buy refills, preview via drag.js');
 }
