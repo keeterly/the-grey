@@ -173,6 +173,10 @@ function resolveCard(S,who,slotIndex){
   }
   if(who==='you'){ S.disc.push(c); S.slots[slotIndex]=null; }
   else { S.ai.disc.push(c); S.ai.slots[slotIndex]=null; }
+
+  // FX ping for UI
+  S._fx = { ping: (S._fx?.ping||0)+1, type:'resolve', who, slot: slotIndex };
+
 }
 function tranceOnDamage(S,who){
   const weaver = (who==='you'?S.trance.you.weaver:S.trance.ai.weaver);
