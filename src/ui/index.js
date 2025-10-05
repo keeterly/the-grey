@@ -1,23 +1,17 @@
 // =========================================================
 // THE GREY — UI (compat DOM + controls + animations)
-// - No TRANCE UI (clean top bar)
-// - Hand fan: natural, responsive (with local JS fallback)
-// - Glyphs render in the dedicated 4th slot (face-down)
-// - Drag writes dataset.dropSlot; we honor exact spell slot
-// - Aetherflow refills immediately after a buy
+// - Wider Arena-like hand fan (with local fallback)
+// - Updates deck/discard and AE gem
+// - Honors exact drop slot (from drag.js)
 // =========================================================
 
-/* utilities */
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-/* cached roots */
 let elRibbon, elPlayerSlots, elAiSlots, elMarketCells;
-
-/* game ref */
 let G = null;
 
-/* ---------- card element ---------- */
+/* ---------- card factory ---------- */
 function makeCardEl(card, variant) {
   const el = document.createElement('div');
   el.className = 'card';
@@ -68,9 +62,7 @@ function flyElement(el, toRect, {duration=350, scale=0.92, easing='cubic-bezier(
   return ghost.animate([
     { transform: `translate(0,0) scale(1)`, opacity: 1 },
     { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: .85 }
-  ], { duration, easing }).finished.then(() => {
-    ghost.remove();
-  });
+  ], { duration, easing }).finished.then(() => ghost.remove());
 }
 
 async function animateBuyToDiscard(sourceEl) {
@@ -118,33 +110,33 @@ async function animateDrawHand() {
   requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- local fan fallback (never stack) ---------- */
+/* ---------- hand fan (Arena-like) ---------- */
 function fanHandFallback() {
-  // Use global helper if present
+  // Prefer global helper if present
   if (window.Anim?.fanHand) {
-    window.Anim.fanHand(elRibbon, { spacing: 28, maxAngle: 12, maxLift: 14 });
+    window.Anim.fanHand(elRibbon, { spacing: 34, maxAngle: 10, maxLift: 12 });
     return;
   }
-
   const cards = $$('.handCard', elRibbon);
   const n = cards.length;
   if (!n) return;
 
-  // Compute card width from first card
   const sampleRect = cards[0].getBoundingClientRect();
   const cw = sampleRect.width || 180;
   const wrapW = elRibbon.clientWidth || 800;
 
-  // Max spacing that keeps visible within wrapper
-  const maxSpread = Math.max(18, Math.min(40, Math.floor((wrapW - cw) / Math.max(n - 1, 1))));
-  const angleMax = 12; // degrees total from leftmost to rightmost
+  // a touch wider than before
+  const maxSpread = Math.max(22, Math.min(48, Math.floor((wrapW - cw) / Math.max(n - 1, 1))));
+  const angleMax  = 10;
+  const liftBase  = 8;
+  const liftScale = 10;
   const mid = (n - 1) / 2;
 
   cards.forEach((c, i) => {
-    const t = (i - mid);                // -mid..mid
-    const x = t * maxSpread;            // horizontal spread
-    const y = -Math.abs(t) * 8 - 6;     // slight lift
-    const a = (t / mid || 0) * angleMax;// angle spread
+    const t = (i - mid);
+    const x = t * maxSpread;
+    const y = -Math.abs(t) * (liftScale / Math.max(1, n/6)) - liftBase;
+    const a = (t / mid || 0) * angleMax;
     c.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
     c.style.zIndex = String(100 + i);
   });
@@ -185,7 +177,7 @@ function renderHand() {
       if (c.t === 'Instant') {
         G.dispatch({ type: 'CHANNEL_FROM_HAND', index: idx });
       } else if (c.t === 'Glyph') {
-        // Glyphs always set; UI shows one facedown in slot 4
+        // glyphs are set; UI shows top glyph face-down in slot 4
         G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: null });
       } else {
         let s = dropSlot;
@@ -201,7 +193,7 @@ function renderHand() {
   requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- Player Board (3 spells + 1 glyph slot) ---------- */
+/* ---------- Player Board ---------- */
 function renderPlayerSlots() {
   elPlayerSlots.innerHTML = '';
   for (let i = 0; i < 4; i++) {
@@ -215,7 +207,6 @@ function renderPlayerSlots() {
       if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'slot'));
       else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
     } else {
-      // glyph slot – show top glyph face-down if any
       if ((G.state.glyphs||[]).length > 0) {
         const face = document.createElement('div');
         face.className = 'card glyphCard faceDown';
@@ -230,7 +221,6 @@ function renderPlayerSlots() {
       }
     }
 
-    // Click to advance (spell slots only)
     cell.onclick = () => {
       if (i < 3 && G.state.slots[i]) {
         G.dispatch({ type: 'ADVANCE', slot: i });
@@ -255,10 +245,15 @@ function renderAiSlots() {
   }
 }
 
-/* ---------- Deck/Discard counts ---------- */
+/* ---------- Counts & gem ---------- */
 function renderCounts() {
-  $('#deckCount')    && ($('#deckCount').textContent    = String(G.state.deck.length));
-  $('#discardCount') && ($('#discardCount').textContent = String(G.state.disc.length));
+  const deckCt = $('#deckCount');
+  const discCt = $('#discardCount');
+  const aeGem  = $('#aeGemCount');
+
+  if (deckCt) deckCt.textContent = String(G.state.deck.length);
+  if (discCt) discCt.textContent = String(G.state.disc.length);
+  if (aeGem)  aeGem.textContent  = String(G.state.ae || 0);
 }
 
 /* ---------- full redraw ---------- */
@@ -269,10 +264,7 @@ function renderAll() {
   renderAiSlots();
   renderCounts();
 
-  // Drag needs the fresh DOM
-  if (window.DragCards && typeof window.DragCards.refresh === 'function') {
-    window.DragCards.refresh();
-  }
+  if (window.DragCards?.refresh) window.DragCards.refresh();
 }
 
 /* ---------- buttons ---------- */
@@ -313,7 +305,6 @@ function wireButtons() {
     }
   };
 
-  // re-fan on resize
   window.addEventListener('resize', () => requestAnimationFrame(fanHandFallback));
 }
 
@@ -328,16 +319,14 @@ export function init(game) {
 
   wireButtons();
 
-  // boot
   G.dispatch({ type:'ENSURE_MARKET' });
   G.dispatch({ type:'START_TURN', first:true });
 
   renderAll();
   fanHandFallback();
 
-  // hide boot check if present
   const boot = document.querySelector('.bootCheck');
   if (boot) boot.style.display = 'none';
 
-  console.log('[UI] v3.11 — DOM + animations + drag-aware slots');
+  console.log('[UI] v3.11 — Arena hand, drag-aware slots, counts + AE gem wired');
 }
