@@ -139,13 +139,27 @@ export function reduce(S, action){
   }
 }
 
-export function drawCard(S){
-  if(S.deck.length===0){
-    if(S.disc.length===0){ S._log.push("No cards to draw."); return; }
-    S.deck=shuffle(S.disc); S.disc=[]; S._log.push("You reshuffle.");
+export function drawCard(S) {
+  if (!S.deck) S.deck = [];
+  if (!S.hand) S.hand = [];
+  if (!S.disc) S.disc = [];
+
+  if (S.deck.length === 0) {
+    if (S.disc.length === 0) {
+      S._log.push("No cards to draw.");
+      return;
+    }
+    S.deck = shuffle(S.disc);
+    S.disc = [];
+    S._log.push("You reshuffle.");
   }
-  S.hand.push(S.deck.pop());
+
+  if (S.deck.length > 0) {
+    const card = S.deck.pop();
+    if (card) S.hand.push(card);
+  }
 }
+
 
 export function aiDraw(S){
   if(S.ai.deck.length===0){
