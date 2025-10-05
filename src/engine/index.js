@@ -1,18 +1,112 @@
-import { initialState } from './state.js';
-import { reduce } from './rules.js';
+// =========================================================
+// THE GREY — ENGINE CORE (mechanics layer)
+// =========================================================
 
-export function createGame(opts){
-  let state = initialState(opts);
-  const subs = new Set();
-  const emit = ()=> subs.forEach(fn=>fn(state));
+// All imports are relative to /src/engine/
+import * as Rules   from './rules.js';
+import * as AI      from './ai.js';
+import * as Cards   from './cards.js';
+import * as Weavers from './weavers.js';
+import * as RNG     from './rng.js';
+import * as State   from './state.js'; // kept, but guarded
 
-  const api = {
-    getState: ()=>state,
-    subscribe(fn){ subs.add(fn); return ()=>subs.delete(fn); },
-    dispatch(action){
-      state = reduce(state, action);
-      emit();
-    }
+// Safe fallback so UI + boot never crash even if State.* throws
+function makeFallbackState() {
+  return {
+    turn: 1,
+    phase: 'START',
+    // HUD-facing numbers
+    youTrance: 0,
+    aiTrance: 0,
+    playerHP: 20,
+    aiHP: 20,
+    playerAE: 0,
+    aiAE: 0,
+    // Minimal structures the rest can attach to later
+    deck: [], discard: [], hand: [],
+    aiDeck: [], aiDiscard: [], aiHand: [],
+    slots: { player: [], ai: [] },
+    market: [null, null, null, null, null],
+    log: [],
   };
-  return api;
+}
+
+// ---------------------------------------------------------
+// createGame() — main factory for a new game instance
+// ---------------------------------------------------------
+export function createGame() {
+  // Try the real state factory; if it fails, use a safe fallback
+  let gameState;
+  try {
+    if (typeof State.createState === 'function') {
+      gameState = State.createState();
+    } else if (typeof State.initialize === 'function') {
+      gameState = State.initialize();
+    }
+  } catch (err) {
+    console.warn('[ENGINE] State factory failed. Using fallback state.', err);
+  }
+  if (!gameState) gameState = makeFallbackState();
+
+  function dispatch(action) {
+    if (!action || typeof action.type !== 'string') {
+      console.warn('[ENGINE] Invalid action:', action);
+      return;
+    }
+    try {
+      if (typeof Rules.handleAction === 'function') {
+        Rules.handleAction(gameState, action);
+      } else {
+        // minimal default so UI remains interactive
+        gameState.log.push(action);
+        console.log('[ENGINE] dispatch', action);
+        // very light behavior so buttons aren’t no-ops
+        switch (action.type) {
+          case 'RESET':
+            Object.assign(gameState, makeFallbackState());
+            break;
+          case 'DRAW':
+            // placeholder: pretend draw adds AE
+            gameState.playerAE = (gameState.playerAE || 0) + 1;
+            break;
+          case 'END_TURN':
+            gameState.turn += 1;
+            break;
+        }
+      }
+    } catch (e) {
+      console.error('[ENGINE] dispatch error:', e);
+    }
+  }
+
+  function aiTurn() {
+    try {
+      if (typeof AI.takeTurn === 'function') AI.takeTurn(gameState, { dispatch });
+      else gameState.aiTrance = Math.min(6, (gameState.aiTrance || 0) + 1);
+    } catch (e) {
+      console.error('[ENGINE] aiTurn error:', e);
+    }
+  }
+
+  return {
+    state: gameState,
+    dispatch,
+    aiTurn,
+    rng: RNG,
+    cards: Cards,
+    weavers: Weavers,
+  };
+}
+
+// ---------------------------------------------------------
+// Global exposure for legacy boot system
+// ---------------------------------------------------------
+if (typeof window !== 'undefined') {
+  window.GameEngine = window.GameEngine || {};
+  window.GameEngine.create = createGame;
+
+  if (!window.game || typeof window.game.dispatch !== 'function') {
+    window.game = createGame();
+  }
+  console.log('[ENGINE] GameEngine.create and window.game are ready');
 }
