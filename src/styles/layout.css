@@ -66,3 +66,177 @@
   pointer-events:none;                    /* cards handle their own events */
 }
 .wrap{ padding-bottom: calc(var(--card-h) * .75 + 120px); } /* space for fan */
+
+/* === Layout Fixes for The Grey (2025-10-06) === */
+
+body {
+  margin: 0;
+  background: #f5f1e8;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #222;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* HUD */
+.hudRow {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0.5rem auto 1rem;
+  padding: 0 1rem;
+  position: relative;
+}
+
+.tranceDock {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+/* Zones */
+.wrap {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin: 0 auto 2rem;
+}
+
+.zone {
+  background: #fcfbf8;
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  padding: 0.75rem 1rem 1rem;
+}
+
+.title {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.slots,
+.flowGrid,
+.glyphTray {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+
+.slotCell,
+.marketCard {
+  width: 160px;
+  height: 220px;
+  background: #f9f6f1;
+  border: 1px dashed rgba(0,0,0,0.08);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+/* Glyph tray smaller column */
+.glyphTray {
+  justify-content: flex-start;
+  margin-top: 0.5rem;
+}
+
+.glyphTray .card {
+  width: 130px;
+  height: 180px;
+}
+
+/* Aetherflow row */
+.flowWrap {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.flowGrid {
+  position: relative;
+  gap: 1rem;
+}
+.costCell {
+  position: absolute;
+  top: -0.9rem;
+}
+.costChip {
+  background: #f4ead8;
+  color: #7a6042;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* Hand ribbon */
+.ribbon-wrap {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 260px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+.ribbon {
+  display: flex;
+  gap: 1rem;
+  transform: translateY(-40px);
+  pointer-events: all;
+  justify-content: center;
+  align-items: flex-end;
+}
+
+/* Deck + FAB */
+.deckBar {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: row;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.fabDial.topRight {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.aeGem {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 4rem;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #f2c46d;
+  color: #432c09;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
