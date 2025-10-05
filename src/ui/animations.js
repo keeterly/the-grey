@@ -48,19 +48,22 @@ function flyClone(fromEl, toEl, {scaleTo=1, dur=380, delay=0} = {}){
 export function fanHand(container){
   const cards = Array.from(container.querySelectorAll('.handCard'));
   const n = cards.length;
-  const spread = Math.min(18, 6 + n*1.2);        // degrees
-  const lift   = Math.min(30, 6 + n*1.2);        // px
-  const mid = (n-1)/2;
+  if (n === 0) return;
 
-  cards.forEach((el,i)=>{
-    const a = (i - mid) * spread * 0.02;         // small rotation
-    const x = (i - mid) * 22;                    // horizontal spacing
-    const y = -Math.abs(i - mid) * (lift/n);     // slight arch
+  const spread = Math.min(10, 4 + n * 0.8);   // tighter angle
+  const lift   = Math.min(16, 4 + n * 1.0);   // smaller curve
+  const mid = (n - 1) / 2;
+
+  cards.forEach((el, i) => {
+    const a = (i - mid) * spread * 0.015;     // slight tilt
+    const x = (i - mid) * 30;                 // moderate spacing
+    const y = -Math.abs(i - mid) * (lift / n); // gentle lift curve
 
     el.style.zIndex = String(100 + i);
     el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${a}turn)`;
   });
 }
+
 
 export async function animateDrawHand({deckBtn, ribbon}){
   // fan first so destinations exist
