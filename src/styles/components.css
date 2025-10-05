@@ -171,3 +171,30 @@ body{
   /* no changes needed, just reaffirm stacking */
   z-index: 2;
 }
+
+/* Real-element drag layer */
+.drag-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* The real card while dragging (actual node, not a clone) */
+.card.is-dragging {
+  position: fixed;
+  left: 0;
+  top: 0;
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
+  cursor: grabbing;
+  will-change: transform, filter;
+}
+
+/* Avoid browser-native drag imagery */
+.card {
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+}
+
