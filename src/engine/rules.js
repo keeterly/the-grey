@@ -1,10 +1,6 @@
 // /src/engine/rules.js
 
-function drawNewFlowCard(state){
-  const pool = state.flowDeck || [];
-  if (pool.length === 0) return null;
-  return pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
-}
+
 
 
 import { FLOW_PRICES, HAND_DRAW } from './cards.js';
@@ -12,7 +8,11 @@ import { shuffle } from './rng.js';
 import { WEAVERS } from './weavers.js';
 import { initialState, makeFlowDeck } from './state.js';
 
-
+function drawNewFlowCard(state){
+  const pool = state.flowDeck || [];
+  if (pool.length === 0) return null;
+  return pool.splice(Math.floor(Math.random() * pool.length), 1)[0];
+}
 
 
 export function reduce(S, action){
