@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>The Grey — Modular</title>
+<link rel="stylesheet" href="./src/styles/theme.css">
+<link rel="stylesheet" href="./src/styles/layout.css">
+<link rel="stylesheet" href="./src/styles/components.css">
+<meta name="theme-color" content="#EEE8DC" />
+</head>
+<body>
+  <!-- HUD -->
+  <div class="hudRow" id="hud">
+    <div class="pill" id="pillYou">
+      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> HP <span id="hpValue">0</span></div>
+      <div class="sep"></div>
+      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> Æ <span id="aeValue">0</span></div>
+    </div>
+    <div class="tranceDock">
+      <div class="trance" id="tranceBox">
+        <div class="trTop"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7"/></svg> TRANCE</div>
+        <div class="trRow">
+          <div class="trLabel">YOU</div>
+          <div class="trBar trBtn" id="youTranceBtn"><div class="trFill" id="youTranceFill"></div></div>
+          <div class="trCount" id="youTranceCount">0/6</div>
+        </div>
+        <div class="trRow">
+          <div class="trLabel">AI</div>
+          <div class="trBar trBtn" id="aiTranceBtn"><div class="trFill" id="aiTranceFill"></div></div>
+          <div class="trCount" id="aiTranceCount">0/6</div>
+        </div>
+      </div>
+    </div>
+    <div class="pill" id="pillAi">
+      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> AI HP <span id="aiHpValue">0</span></div>
+      <div class="sep"></div>
+      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> AI Æ <span id="aiAeValue">0</span></div>
+    </div>
+  </div>
+
+  <!-- Trance menu -->
+  <div id="tranceMenu" class="tranceMenu" role="dialog" aria-modal="true">
+    <h4 id="tranceMenuTitle">Spend Trance</h4>
+    <div class="row" id="tranceMenuBtns"></div>
+    <div class="sub" id="tranceMenuHint"></div>
+  </div>
+
+  <!-- Toast -->
+  <div id="topLog" class="topLog" aria-live="polite"></div>
+
+  <div class="wrap">
+    <!-- AI Board -->
+    <div class="zone">
+      <div class="title">AI Board</div>
+      <div class="slots" id="aiSlots"></div>
+    </div>
+
+    <!-- Aetherflow -->
+    <div class="zone">
+      <div class="title" style="text-align:center">Aetherflow</div>
+      <div class="flowWrap">
+        <div class="flowGrid">
+          <div class="costCell"><div class="costChip">4</div></div>
+          <div class="costCell"><div class="costChip">3</div></div>
+          <div class="costCell"><div class="costChip">2</div></div>
+          <div class="costCell"><div class="costChip">2</div></div>
+          <div class="costCell"><div class="costChip">2</div></div>
+
+          <div class="marketCard" data-flow="0"></div>
+          <div class="marketCard" data-flow="1"></div>
+          <div class="marketCard" data-flow="2"></div>
+          <div class="marketCard" data-flow="3"></div>
+          <div class="marketCard" data-flow="4"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Player Board -->
+    <div class="zone">
+      <div class="title">Your Board</div>
+      <div class="glyphTray" id="glyphTray"></div>
+      <div class="slots" id="playerSlots"></div>
+    </div>
+  </div>
+
+  <!-- Deck / Discard + FAB -->
+  <div class="deckBar">
+    <button class="chipCirc" id="chipDeck" aria-label="Deck">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/></svg>
+      <small id="deckCount">0</small>
+    </button>
+    <button class="chipCirc" id="chipDiscard" aria-label="Discard">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>
+      <small id="discardCount">0</small>
+    </button>
+  </div>
+  <div class="fabDial">
+    <button id="fabDraw"  class="fab" aria-label="Draw">⇧</button>
+    <button id="fabEnd"   class="fab" aria-label="End Turn">⏵</button>
+    <button id="fabReset" class="fab" aria-label="Reset">↺</button>
+  </div>
+
+  <!-- Ribbon -->
+  <section class="ribbon-wrap"><div class="ribbon" id="ribbon"></div></section>
+
+  <!-- Inspect -->
+  <div id="inspect" class="inspectBack" role="dialog" aria-modal="true">
+    <div class="inspectCard">
+      <h3 id="insTitle">Card</h3>
+      <div class="artBox"><img id="insArt" alt="" loading="lazy"></div>
+      <p id="insText"></p>
+      <div class="inspectActions">
+        <button id="btnInspectPlay">Play/Set</button>
+        <button id="btnInspectChan">Channel</button>
+        <button id="btnInspectClose" aria-label="Close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/ui/index.js"></script>
+</body>
+</html>
