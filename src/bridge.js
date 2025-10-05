@@ -1,31 +1,33 @@
 // =========================================================
-// THE GREY — BRIDGE LAYER
-// Connects mechanics (engine) with visuals (UI)
+// THE GREY — BRIDGE LAYER (ESM → window + UI init)
 // =========================================================
 
 import { createGame } from './engine/index.js';
 import { init as initUI } from './ui/index.js';
+import * as Drag from './ui/drag.js';
 
-// ---------------------------------------------------------
-// exposeToWindow — makes engine/UI globals for legacy boot
-// ---------------------------------------------------------
 export function exposeToWindow() {
+  const game = createGame();
+
+  // Expose Drag for the boot checker
+  const dragAPI = Drag.DragCards || Drag.default || null;
+  if (typeof window !== 'undefined') {
+    window.game = game;
+    window.GameEngine = { create: createGame };
+    window.UI = { init: initUI };
+    if (dragAPI) window.DragCards = dragAPI;
+  }
+
+  // Initialize UI
   try {
-    const game = createGame();
-
-    if (typeof window !== 'undefined') {
-      window.game = game;
-      window.GameEngine = { create: createGame };
-      window.UI = { init: initUI };
-    }
-
     initUI(game);
     console.log('[BRIDGE] Game + UI initialized and exposed to window.');
-    return game;
   } catch (err) {
-    console.error('[BRIDGE] Failed to initialize:', err);
+    console.error('[BRIDGE] initUI failed:', err);
   }
+
+  return game;
 }
 
-// Auto-run when imported
+// Auto-run
 exposeToWindow();
