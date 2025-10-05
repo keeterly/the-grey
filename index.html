@@ -15,20 +15,30 @@
   <meta name="theme-color" content="#EEE8DC" />
 </head>
 <body>
-  <!-- HUD (unchanged) -->
+  <!-- HUD -->
   <div class="hudRow" id="hud">
     <div class="pill" id="pillYou">
       <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> HP <span id="hpValue">0</span></div>
       <div class="sep"></div>
       <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> Æ <span id="aeValue">0</span></div>
     </div>
+
     <div class="tranceDock">
       <div class="trance" id="tranceBox">
         <div class="trTop"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="7"/></svg> TRANCE</div>
-        <div class="trRow"><div class="trLabel">YOU</div><div class="trBar trBtn" id="youTranceBtn"><div class="trFill" id="youTranceFill"></div></div><div class="trCount" id="youTranceCount">0/6</div></div>
-        <div class="trRow"><div class="trLabel">AI</div><div class="trBar  trBtn" id="aiTranceBtn"><div class="trFill" id="aiTranceFill"></div></div><div class="trCount" id="aiTranceCount">0/6</div></div>
+        <div class="trRow">
+          <div class="trLabel">YOU</div>
+          <div class="trBar trBtn" id="youTranceBtn"><div class="trFill" id="youTranceFill"></div></div>
+          <div class="trCount" id="youTranceCount">0/6</div>
+        </div>
+        <div class="trRow">
+          <div class="trLabel">AI</div>
+          <div class="trBar trBtn" id="aiTranceBtn"><div class="trFill" id="aiTranceFill"></div></div>
+          <div class="trCount" id="aiTranceCount">0/6</div>
+        </div>
       </div>
     </div>
+
     <div class="pill" id="pillAi">
       <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> AI HP <span id="aiHpValue">0</span></div>
       <div class="sep"></div>
@@ -66,7 +76,7 @@
       </div>
     </div>
 
-    <!-- Player Board (3 spell + 1 glyph) -->
+    <!-- Player Board -->
     <div class="zone">
       <div class="title">Your Board</div>
       <div class="slots fixedRow" id="playerSlots"></div>
@@ -85,6 +95,8 @@
       <small id="discardCount">0</small>
     </button>
   </div>
+
+  <!-- Top-right controls (restored) -->
   <div class="fabDial topRight">
     <button id="btnDraw"  class="fab" aria-label="Draw">⇧</button>
     <button id="btnEnd"   class="fab" aria-label="End Turn">⏵</button>
@@ -108,7 +120,7 @@
     </div>
   </div>
 
-  <!-- Version stamp -->
+  <!-- Build stamp -->
   <script>
     (async () => {
       try {
@@ -122,13 +134,13 @@
     })();
   </script>
 
-  <!-- ESM entry (no HTML comments inside this block) -->
+  <!-- ESM entry -->
   <script type="module">
-    import { exposeToWindow } from "./bridge.js"; // bridge.js is at project root
+    import { exposeToWindow } from "./bridge.js";
     exposeToWindow();
   </script>
 
-  <!-- Classic debug (expects globals created by bridge) -->
+  <!-- Classic debug (globals provided by bridge) -->
   <script defer src="./assets/js/boot-debug.js"></script>
 </body>
 </html>
