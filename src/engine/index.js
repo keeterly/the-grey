@@ -1,87 +1,101 @@
 // =========================================================
-// THE GREY — ENGINE CORE (mechanics layer)
-// Uses your real initialState() and reduce(), with guards.
-// Also supports reducers that RETURN a new state (e.g. RESET).
-// After END_TURN, runs simple AI and then starts a new turn
-// for the player (draw fresh hand).
+// THE GREY — ENGINE ENTRY (factory + boot sequence)
+// - Uses your real initialState() + Rules.reduce()
+// - Compatible with reducers that return a NEW state object
+// - Boots the game: ENSURE_MARKET then START_TURN {first:true}
+// - Exposes reset() and window.GameEngine.create for the UI/bridge
 // =========================================================
 
 import * as Rules   from './rules.js';
-import * as AI      from './ai.js';
 import * as Cards   from './cards.js';
 import * as Weavers from './weavers.js';
 import * as RNG     from './rng.js';
 import { initialState } from './state.js';
 
-function defaultWeavers() {
-  return {
-    playerWeaver: Weavers.defaultPlayer || 'Default',
-    aiWeaver:     Weavers.defaultAI     || 'AI'
-  };
-}
+// Pick sensible defaults that exist in your WEAVERS table:
+const DEFAULT_PLAYER_WEAVER = Weavers.defaultPlayer || 'Stormbinder';
+const DEFAULT_AI_WEAVER     = Weavers.defaultAI     || 'Stormbinder';
 
-function makeFallbackState() {
-  const { playerWeaver, aiWeaver } = defaultWeavers();
-  return {
-    hp:5, ae:0, deck:[], hand:[], disc:[], slots:[null,null,null], glyphs:[],
-    ai:{ hp:5, ae:0, deck:[], hand:[], disc:[], slots:[null,null,null], glyphs:[] },
-    flowDeck:[], flowRow:[null,null,null,null,null], turn:1,
-    trance:{ you:{ cur:0, cap:6, weaver:playerWeaver }, ai:{ cur:0, cap:6, weaver:aiWeaver } },
-    freeAdvYou:0, freeAdvAi:0,
-    youFrozen:0, aiFrozen:0,
-    _log:[]
-  };
-}
-
-// Keep same state object identity for UI bindings
+// Replace state object in-place when reducer returns a new one
 function mergeStateInPlace(cur, next) {
-  for (const k of Object.keys(cur)) { if (!(k in next)) delete cur[k]; }
-  for (const k of Object.keys(next)) { cur[k] = next[k]; }
+  for (const k of Object.keys(cur)) if (!(k in next)) delete cur[k];
+  for (const k of Object.keys(next)) cur[k] = next[k];
 }
 
-export function createGame() {
+export function createGame(opts = {}) {
+  const playerWeaver = opts.playerWeaver || DEFAULT_PLAYER_WEAVER;
+  const aiWeaver     = opts.aiWeaver     || DEFAULT_AI_WEAVER;
+
   let S;
-  try {
-    S = initialState(defaultWeavers());
-  } catch (err) {
-    console.warn('[ENGINE] initialState failed, using fallback:', err);
-    S = makeFallbackState();
+
+  // Safe reducer wrapper that supports "return new state" style reducers
+  function reduceSafe(state, action) {
+    const out = Rules.reduce(state, action);
+    if (out && out !== state && typeof out === 'object') {
+      mergeStateInPlace(state, out);
+    }
+    return state;
   }
 
   function dispatch(action) {
     if (!action || typeof action.type !== 'string') {
-      console.warn('[ENGINE] Invalid action:', action); return;
+      console.warn('[ENGINE] Invalid action:', action);
+      return S;
     }
     try {
-      const maybeNew = Rules.reduce(S, action);
-      if (maybeNew && maybeNew !== S && typeof maybeNew === 'object') {
-        mergeStateInPlace(S, maybeNew);
-      }
-
-      // After END_TURN: run simple AI sequence, then start player's next turn (fresh hand)
-      if (action.type === 'END_TURN') {
-        if (typeof AI.takeTurn === 'function') {
-          Rules.reduce(S, { type: 'AI_DRAW' });
-          Rules.reduce(S, { type: 'AI_PLAY_SPELL' });
-          Rules.reduce(S, { type: 'AI_CHANNEL' });
-          Rules.reduce(S, { type: 'AI_ADVANCE' });
-          Rules.reduce(S, { type: 'AI_BUY', index: 0 });
-          Rules.reduce(S, { type: 'AI_SPEND_TRANCE' });
-        }
-        // Player next turn: draws a fresh hand in your rules' START_TURN
-        Rules.reduce(S, { type: 'START_TURN', first: false });
-      }
-    } catch (e) {
-      console.error('[ENGINE] dispatch error:', e, action);
+      return reduceSafe(S, action);
+    } catch (err) {
+      console.error('[ENGINE] dispatch error:', err, action);
+      return S;
     }
   }
 
-  return { state: S, dispatch, cards: Cards, weavers: Weavers, rng: RNG };
+  function bootFreshState() {
+    try {
+      S = initialState({ playerWeaver, aiWeaver });
+    } catch (err) {
+      console.warn('[ENGINE] initialState failed; creating minimal fallback.', err);
+      S = {
+        hp:5, ae:0, deck:[], hand:[], disc:[], slots:[null,null,null], glyphs:[],
+        ai:{ hp:5, ae:0, deck:[], hand:[], disc:[], slots:[null,null,null], glyphs:[] },
+        flowDeck:[], flowRow:[null,null,null,null,null], turn:1,
+        trance:{ you:{cur:0,cap:6,weaver:playerWeaver}, ai:{cur:0,cap:6,weaver:aiWeaver} },
+        _log:[]
+      };
+    }
+
+    // Optional INIT for logs/metrics
+    dispatch({ type: 'INIT' });
+
+    // Make sure Aetherflow is filled
+    dispatch({ type: 'ENSURE_MARKET' });
+
+    // Start player turn (your rules typically draw opening hand here)
+    dispatch({ type: 'START_TURN', first: true });
+
+    return S;
+  }
+
+  // Initial boot
+  bootFreshState();
+
+  // Public API expected by bridge/UI
+  const game = {
+    get state() { return S; },
+    dispatch,
+    reset() { bootFreshState(); },
+    cards: Cards,
+    weavers: Weavers,
+    rng: RNG,
+  };
+
+  return game;
 }
 
+// Global exposure for bridge/index.html
 if (typeof window !== 'undefined') {
   window.GameEngine = window.GameEngine || {};
-  window.GameEngine.create = createGame;
-  if (!window.game || typeof window.game.dispatch !== 'function') window.game = createGame();
-  console.log('[ENGINE] GameEngine.create and window.game are ready');
+  window.GameEngine.create = (opts) => createGame(opts);
+  if (!window.game) window.game = createGame();
+  console.log('[ENGINE] GameEngine.create ready; window.game initialized.');
 }
