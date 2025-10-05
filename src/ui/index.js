@@ -1,9 +1,10 @@
 // =========================================================
-// THE GREY — UI ENTRY (v2.4)
-// Focus: MTG Arena-style discard animation (staggered arcs,
-// speed-up then slow-down). Also keeps MTG proportions,
-// hand/market dimension parity, drag refresh, and proper
-// turn/reset flow from earlier versions.
+// THE GREY — UI ENTRY (v2.5)
+// • MTG Arena-style animations:
+//    - Discard stream (hand → discard) with staggered arcs
+//    - Draw stream (deck → hand) with staggered arcs
+// • MTG proportions (63:88) + shared card size
+// • Proper reset & turn flow; drag refresh after each render
 // =========================================================
 
 export function init(game) {
@@ -17,21 +18,19 @@ export function init(game) {
   const DEFAULT_WEAVER_YOU = 'Default';
   const DEFAULT_WEAVER_AI  = 'AI';
 
-  // track previous hand ids for draw animation
+  // track previous hand ids for detecting new draws
   let prevHandIds = [];
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
+  const rectOf = (el)=> el.getBoundingClientRect();
 
   // ----- animation primitives -----
-  function rectOf(el){ return el.getBoundingClientRect(); }
-
-  // Curved “arena-like” flight: mid keyframe lifts above the line and then eases down
   function flyArc(fromEl, toEl, {
-    duration = 950,           // slower, cinematic
+    duration = 900,
     delay = 0,
     scaleEnd = 0.72,
-    lift = 0.18,              // how much the arc lifts (fraction of distance)
-    rotate = 8,               // slight card tilt to feel physical
-    easing = 'cubic-bezier(.12,.72,.18,1)' // quick-up, slow-down
+    lift = 0.18,
+    rotate = 8,
+    easing = 'cubic-bezier(.12,.72,.18,1)' // quick up, slow down
   } = {}) {
     if (!fromEl || !toEl) return;
 
@@ -55,20 +54,16 @@ export function init(game) {
     const dx = to.left + (to.width - from.width)/2 - from.left;
     const dy = to.top  + (to.height - from.height)/2 - from.top;
 
-    // Arc height scales with distance (clamped)
     const dist   = Math.hypot(dx, dy);
     const arcPx  = Math.min(220, Math.max(70, dist * lift));
 
-    // Randomize slight left/right arc & rotation for natural variation
     const side = Math.random() < 0.5 ? -1 : 1;
     const rot  = side * rotate;
 
     const anim = ghost.animate([
       { transform: `translate(0px, 0px) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
-      // accelerate up & forward to an apex
       { transform: `translate(${dx*0.6}px, ${dy*0.55 - arcPx}px) rotate(${rot}deg) scale(1.05)`,
         opacity: 0.9, offset: 0.55 },
-      // decelerate into target
       { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`,
         opacity: 0.12, offset: 1 }
     ], { duration, delay, easing, fill: 'forwards' });
@@ -76,20 +71,14 @@ export function init(game) {
     anim.onfinish = () => ghost.remove();
   }
 
-  // Draw animation (deck -> card)
-  function flyDeckToCard(deckEl, cardEl, { duration = 720 } = {}) {
-    flyArc(deckEl, cardEl, { duration, scaleEnd: 1.0, lift: 0.12, rotate: 4, easing: 'cubic-bezier(.16,.72,.18,1)' });
-  }
-
-  // Stream a bunch of cards to discard with a stagger and mild randomization
+  // Discard stream (hand → discard) with stagger
   function animateDiscardStream(fromCardEls, discardTargetEl) {
     if (!fromCardEls?.length || !discardTargetEl) return;
-    const base = 600;   // base duration per card
-    const extra = 420;  // extra time for drama at the end
-    const stagger = 70; // ms between launches
+    const base = 600;   // base per card
+    const extra = 420;  // extend tail
+    const stagger = 70; // ms between cards
 
     fromCardEls.forEach((el, i) => {
-      // first cards move a bit faster; later ones linger longer
       const d = base + (i / Math.max(1, fromCardEls.length-1)) * extra;
       flyArc(el, discardTargetEl, {
         duration: d,
@@ -98,6 +87,26 @@ export function init(game) {
         lift: 0.20,
         rotate: 10,
         easing: 'cubic-bezier(.10,.70,.18,1)'
+      });
+    });
+  }
+
+  // Draw stream (deck → each new hand card) with stagger
+  function animateDrawStream(deckEl, newCardEls) {
+    if (!deckEl || !newCardEls?.length) return;
+    const base = 540;  // a bit snappier than discard
+    const extra = 240;
+    const stagger = 80;
+
+    newCardEls.forEach((cardEl, i) => {
+      const d = base + (i / Math.max(1, newCardEls.length-1)) * extra;
+      flyArc(deckEl, cardEl, {
+        duration: d,
+        delay: i * stagger,
+        scaleEnd: 1.0,
+        lift: 0.14,
+        rotate: 6,
+        easing: 'cubic-bezier(.18,.75,.2,1)'
       });
     });
   }
@@ -160,11 +169,11 @@ export function init(game) {
   function renderHand(S) {
     const ribbon = $('#ribbon');
     if (!ribbon) return;
+
     const beforeIds = prevHandIds.slice(0);
-
     ribbon.innerHTML = '';
-    const hand = S.hand || [];
 
+    const hand = S.hand || [];
     hand.forEach((c, i) => {
       const el = document.createElement('div');
       el.className = 'cardFrame handCard';
@@ -187,17 +196,19 @@ export function init(game) {
       ribbon.appendChild(el);
     });
 
-    // Animate new draws (ids that weren't previously in hand)
+    // Staggered draw animation: new ids compared to previous
     const afterIds = cardIds(hand);
-    const deckBtn = $('#chipDeck');
-    if (deckBtn) {
-      afterIds.forEach(id => {
-        if (!beforeIds.includes(id)) {
-          const cardEl = ribbon.querySelector(`.handCard[data-card-id="${id}"]`);
-          if (cardEl) flyDeckToCard(deckBtn, cardEl, { duration: 720 });
-        }
-      });
+    const newIds = afterIds.filter(id => !beforeIds.includes(id));
+    if (newIds.length) {
+      const deckBtn = $('#chipDeck');
+      if (deckBtn) {
+        const newCardEls = newIds
+          .map(id => ribbon.querySelector(`.handCard[data-card-id="${id}"]`))
+          .filter(Boolean);
+        animateDrawStream(deckBtn, newCardEls);
+      }
     }
+
     prevHandIds = afterIds;
   }
 
@@ -279,7 +290,7 @@ export function init(game) {
     const orig = game.dispatch;
 
     game.dispatch = (action) => {
-      // Capture all current hand card elements BEFORE state changes
+      // Capture current hand nodes before END_TURN changes state
       let capturedHandEls = null;
       let discardTarget = null;
       if (action && action.type === 'END_TURN') {
@@ -289,10 +300,10 @@ export function init(game) {
 
       const result = orig(action);
 
-      // Re-render immediately so counts/market/slots reflect state
+      // Re-render so state reflects immediately
       draw();
 
-      // If we ended turn, stream those captured cards into discard
+      // Stream captured cards to discard after rerender
       if (capturedHandEls && discardTarget) {
         animateDiscardStream(capturedHandEls, discardTarget);
       }
@@ -319,13 +330,13 @@ export function init(game) {
     .forEach(([sel,fn]) => { const el = $(sel); if (el) el.onclick = fn; });
 
   draw();
-  console.log('[UI] init v2.4 — Arena-style discard stream + arc easing.');
+  console.log('[UI] init v2.5 — Arena-style draw & discard streams with arc easing.');
 }
 
 // ---------------------- styles ----------------------
 const style = document.createElement('style');
 style.textContent = `
-  :root { --card-w: 160px; } /* one width for hand & aetherflow */
+  :root { --card-w: 160px; }
 
   .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:10px; gap:10px; }
 
