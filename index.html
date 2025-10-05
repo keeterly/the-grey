@@ -131,6 +131,26 @@
 })();
 </script>
 
+<!-- in <head> -->
+<base href="/the-grey/">
+<!-- cache-busting example v=YOUR_SHORT_SHA -->
+<link rel="stylesheet" href="./assets/css/app.css?v=__SHA__">
+
+<!-- in <body> ... your markup ... then before </body> -->
+
+<!-- Engine/mechanics (state, rules) -->
+<script src="./assets/js/engine.js?v=__SHA__"></script>
+
+<!-- UI renderer (draws boards, hand, aetherflow) -->
+<script src="./assets/js/ui.js?v=__SHA__"></script>
+
+<!-- Drag handler from earlier fix -->
+<script src="./assets/js/drag.js?v=__SHA__"></script>
+
+<!-- Boot/debug (last) -->
+<script src="./assets/js/boot-debug.js?v=__SHA__"></script>
+
+  
 
 </body>
 </html>
