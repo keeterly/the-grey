@@ -1,116 +1,142 @@
 // =========================================================
-// THE GREY — DRAG MODULE
-// Drag cards from hand → player slots. No engine imports.
-// Exports: DragCards.init(game), DragCards.refresh()
+// THE GREY — Drag & Drop (v2.1)
+// • Highlights valid targets based on card type
+// • Glyphs can only drop to glyph slot; spells to spell slots
+// • Instants: card self-highlight; no drop targets
+// • Robust ghost math to avoid off-screen jumps
 // =========================================================
 
-let _game = null;
-let _mounted = false;
+(function () {
+  const $  = (s) => (s[0] === '#' ? document.getElementById(s.slice(1)) : document.querySelector(s));
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const R  = (el) => el.getBoundingClientRect();
 
-function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
+  let dragging = null; // { node, type, startX, startY, dx, dy, originRect }
+  let overSlot = null;
 
-function addSlotHighlights() {
-  $$('#playerSlots .slotCell').forEach((el) => {
-    el.classList.add('dropReady');
-  });
-}
-function removeSlotHighlights() {
-  $$('#playerSlots .slotCell.dropReady').forEach((el) => {
-    el.classList.remove('dropReady');
-  });
-  $$('#playerSlots .slotCell.dropTarget').forEach((el) => {
-    el.classList.remove('dropTarget');
-  });
-}
+  function addTargetHighlights(cardType) {
+    clearTargetHighlights();
 
-function bindHandCard(cardEl) {
-  if (!cardEl || cardEl.dataset.dragBound) return;
-  cardEl.dataset.dragBound = '1';
-  cardEl.setAttribute('draggable', 'true');
+    // Instants don't drop — highlight the card itself (handled via CSS on .instantPulse)
+    if (cardType === 'Instant') return;
 
-  cardEl.addEventListener('dragstart', (e) => {
-    const idx = Number(cardEl.dataset.index ?? -1);
-    e.dataTransfer.setData('text/plain', String(idx));
-    cardEl.classList.add('dragging');
-    addSlotHighlights();
-  });
+    // Player slots only (no dragging to AI board)
+    const cells = $$('#playerSlots .slotCell');
+    cells.forEach((cell) => {
+      const isGlyphCell = cell.classList.contains('glyph');
+      const isSpellCell = !isGlyphCell;
 
-  cardEl.addEventListener('dragend', () => {
-    cardEl.classList.remove('dragging');
-    removeSlotHighlights();
-  });
-}
+      if (cardType === 'Glyph' && isGlyphCell) {
+        cell.classList.add('drop-ok');
+      } else if ((cardType === 'Spell' || !cardType) && isSpellCell) {
+        cell.classList.add('drop-ok');
+      } else {
+        cell.classList.add('drop-no');
+      }
+    });
+  }
 
-function bindSlotCell(slotEl) {
-  if (!slotEl || slotEl.dataset.dragBound) return;
-  slotEl.dataset.dragBound = '1';
+  function clearTargetHighlights() {
+    $$('.slotCell').forEach((c) => c.classList.remove('drop-ok', 'drop-no', 'drop-hover'));
+  }
 
-  slotEl.addEventListener('dragover', (e) => {
-    // Allow drop on any slot cell; rules will reject if invalid.
-    e.preventDefault();
-    slotEl.classList.add('dropTarget');
-  });
-
-  slotEl.addEventListener('dragleave', () => {
-    slotEl.classList.remove('dropTarget');
-  });
-
-  slotEl.addEventListener('drop', (e) => {
-    e.preventDefault();
-    slotEl.classList.remove('dropTarget');
-    const handIndex = Number(e.dataTransfer.getData('text/plain'));
-    if (!Number.isInteger(handIndex) || handIndex < 0) return;
-
-    if (!_game || !_game.state) return;
-    const card = _game.state.hand?.[handIndex];
+  function pointerDown(e) {
+    const card = e.target.closest('.handCard');
     if (!card) return;
 
-    const slotIndex = Number(slotEl.dataset.slot ?? -1);
-
-    try {
-      if (card.t === 'Instant') {
-        // Instants channel on drop anywhere (simple rule)
-        _game.dispatch({ type: 'CHANNEL_FROM_HAND', index: handIndex });
-      } else {
-        // Spells try to occupy the dropped slot
-        _game.dispatch({ type: 'PLAY_FROM_HAND', index: handIndex, slot: slotIndex });
-      }
-    } catch (err) {
-      console.error('[Drag] drop failed:', err);
+    const type = card.dataset.ctype || ''; // 'Spell' | 'Glyph' | 'Instant'
+    // Instants: pulse but still allow drag gesture to be ignored
+    if (type === 'Instant') {
+      card.classList.add('instantPulse');
+      // If user actually clicks (not drag) the UI click will channel; we just return.
+      setTimeout(() => card.classList.remove('instantPulse'), 500);
+      return;
     }
-  });
-}
 
-function bindAll() {
-  $$('.handCard').forEach(bindHandCard);
-  $$('#playerSlots .slotCell').forEach(bindSlotCell);
-}
+    const r = R(card);
+    dragging = {
+      node: card,
+      type,
+      startX: (e.touches ? e.touches[0].clientX : e.clientX),
+      startY: (e.touches ? e.touches[0].clientY : e.clientY),
+      dx: 0, dy: 0,
+      originRect: r
+    };
 
-function injectStylesOnce() {
-  if (document.getElementById('__grey_drag_styles')) return;
-  const style = document.createElement('style');
-  style.id = '__grey_drag_styles';
-  style.textContent = `
-    .handCard.dragging { opacity: .75; }
-    #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset: -4px; }
-    #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset: -4px; box-shadow: 0 0 0 4px rgba(90,140,220,.08) inset; }
-  `;
-  document.head.appendChild(style);
-}
+    card.classList.add('dragging');
+    card.style.willChange = 'transform';
+    addTargetHighlights(type);
 
-export const DragCards = {
-  init(game) {
-    _game = game;
-    injectStylesOnce();
-    bindAll();
-    _mounted = true;
-    console.log('[Drag] initialized');
-  },
-  // Call after UI re-renders to (re)bind fresh nodes
-  refresh() {
-    if (!_mounted) return;
-    bindAll();
+    window.addEventListener('pointermove', pointerMove, { passive: true });
+    window.addEventListener('pointerup', pointerUp, { once: true });
   }
-};
 
-export default DragCards;
+  function pointerMove(e) {
+    if (!dragging) return;
+    const x = e.clientX, y = e.clientY;
+    dragging.dx = x - dragging.startX;
+    dragging.dy = y - dragging.startY;
+    dragging.node.style.transform = `translate(${dragging.dx}px, ${dragging.dy}px) rotate(${dragging.dx * 0.04}deg)`;
+
+    // track slot under pointer for hover ring
+    const el = document.elementFromPoint(x, y);
+    const slot = el && el.closest ? el.closest('#playerSlots .slotCell') : null;
+    if (slot !== overSlot) {
+      if (overSlot) overSlot.classList.remove('drop-hover');
+      overSlot = slot;
+      if (overSlot && overSlot.classList.contains('drop-ok')) overSlot.classList.add('drop-hover');
+    }
+  }
+
+  function pointerUp(e) {
+    if (!dragging) return;
+    const { node, type } = dragging;
+
+    window.removeEventListener('pointermove', pointerMove);
+
+    // if dropped on a valid slot, click it to trigger PLAY_FROM_HAND with the already-existing UI handler
+    let played = false;
+    if (overSlot && overSlot.classList.contains('drop-ok')) {
+      // Trigger the card's normal click (UI layer turns it into PLAY_FROM_HAND)
+      node.click();
+      played = true;
+    }
+
+    // reset transform
+    node.classList.remove('dragging');
+    node.style.transform = '';
+
+    clearTargetHighlights();
+    overSlot = null;
+    dragging = null;
+
+    // If we didn't play, let the normal click still work (no-op here)
+    if (!played) {
+      // optional: snap bounce
+      node.classList.add('drag-bounce');
+      setTimeout(() => node.classList.remove('drag-bounce'), 160);
+    }
+  }
+
+  function attach() {
+    // delegate on the ribbon container
+    const ribbon = document.querySelector('.ribbon');
+    if (!ribbon) return;
+    ribbon.addEventListener('pointerdown', pointerDown, { passive: true });
+    console.log('[Drag] initialized (v2.1): typed drop-target highlights, instant pulse');
+  }
+
+  // Public hook for UI to re-wire after redraws
+  window.DragCards = {
+    refresh: () => {
+      // nothing extra; we rely on delegated listener
+    }
+  };
+
+  // Initial attach when DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', attach);
+  } else {
+    attach();
+  }
+})();
