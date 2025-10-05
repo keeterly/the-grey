@@ -1,34 +1,34 @@
 // =========================================================
-// THE GREY — UI ENTRY (v3.9)
+// THE GREY — UI ENTRY (v4.0, "Cleaner Look")
 // =========================================================
 //
-// • Fixed card/row layout (MTG 63×88 ratio) — row heights never shift
-// • 3 spell slots + 1 glyph slot (both sides). Glyphs face-down; badge shows count
-// • Draw fan: deck → hand (real hand DOM nodes)
-// • Discard fan: hand → discard (reverse of draw) before END_TURN dispatch
-// • Player BUY anim: market → your discard (ghost) then state
-// • AI visible flights (play/channel/buy/advance), first paint suppressed
-// • Top-right controls; bottom FABs hidden via CSS
-// • Aethergem (minimal diamond) bottom-right, shimmer on Æ gain
-// • Clickable deck/discard open fixed-size modals
+// • Market buy: fly → center pop (glow pause) → player discard
+// • Fixed MTG rows, aligned backgrounds
+// • Big Aethergem pulse with flare on Æ gain
+// • New top header: centered buttons; trance bar removed
+// • HP rows (hearts): grey when lost; gold glow when Trance ready
+// • Heart tooltip: shows Trance effects (active vs inactive)
+// • 3 spell slots + 1 glyph, draw/discard fans, AI visible flights
 //
+// Drop-in replacement for /src/ui/index.js
 // =========================================================
 
 export function init(game) {
+  // ----------------- Helpers -----------------
   const $  = (sel) => (sel[0] === '#' ? document.getElementById(sel.slice(1)) : document.querySelector(sel));
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const R  = (el) => el.getBoundingClientRect();
   const T  = (el, v) => { if (el) el.textContent = String(v); };
-  const pct= (n, d)=> `${(100 * (n ?? 0)) / (d || 1)}%`;
   const clamp = (n, a, b)=> Math.max(a, Math.min(b, n));
   const wait = (ms)=> new Promise(res=> setTimeout(res, ms));
 
   const DEFAULT_WEAVER_YOU = 'Default';
   const DEFAULT_WEAVER_AI  = 'AI';
+  const MAX_HP = 5;
 
-  // ----- Snapshots / flags -----
+  // change trackers
   let prevHandIds   = [];
-  let prevAISig     = [];  // per-slot signature "id:ph"
+  let prevAISig     = [];
   let prevAIHand    = 0;
   let prevFlowCards = [];
   let prevFlowRects = [];
@@ -38,58 +38,40 @@ export function init(game) {
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
   const slotSig = (s) => !s ? null : `${s.c?.id ?? s.c?.n ?? 'X'}:${s.ph ?? 1}`;
 
-  // ---------- Anchors ----------
-  function aiDeckAnchor() {
-    let a = $('#aiDeckAnchor');
-    const slots = $('#aiSlots');
-    if (!slots) return null;
-    if (!a) {
-      a = document.createElement('div');
-      a.id = 'aiDeckAnchor';
-      a.style.position='fixed';
-      a.style.width='10px'; a.style.height='16px';
-      a.style.pointerEvents='none';
-      a.style.zIndex = 2;
-      document.body.appendChild(a);
-    }
-    const r = R(slots);
-    a.style.left = `${r.right - Math.min(120, r.width*0.15)}px`;
-    a.style.top  = `${r.top - 18}px`;
-    return a;
-  }
-  function aiAeAnchor() {
-    return $('#aiAeValue') || $('#pillAi') || $('#aiTranceFill') || null;
-  }
-  function aiDiscardAnchor() {
-    let d = $('#aiDiscardChip');
-    const ref = $('#aiSlots') || $('#pillAi') || $('#aiTranceFill');
-    if (!ref) return null;
-    if (!d) {
-      d = document.createElement('button');
-      d.id = 'aiDiscardChip';
-      d.className = 'chipCirc ai';
-      d.setAttribute('aria-label','AI Discard');
-      d.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>`;
-      d.style.position = 'fixed';
-      d.style.zIndex = 3;
-      document.body.appendChild(d);
-    }
-    const r = R(ref);
-    d.style.left = `${r.right + 10}px`;
-    d.style.top  = `${r.top + 6}px`;
-    return d;
-  }
+  // ----------------- DOM Boot -----------------
+  buildTopHeader();     // centered controls + HP hearts
+  ensureAetherGem();    // bottom-right diamond
 
-  // ---------- Fancy ghost card ----------
-  function makeGhostFromCard(card, fromRect) {
+  // Pile viewers (deck/discard chips should exist in your HTML)
+  const deckBtn = $('#chipDeck');
+  const discBtn = $('#chipDiscard');
+  if (deckBtn) deckBtn.onclick = () => openPile('Deck',    (game.state?.deck)||[]);
+  if (discBtn) discBtn.onclick = () => openPile('Discard', (game.state?.disc)||[]);
+
+  // Button actions
+  const onDraw  = () => game.dispatch({ type:'DRAW' });
+  const onEnd   = () => game.dispatch({ type:'END_TURN' });
+  const onReset = () => {
+    try {
+      game.dispatch({ type:'RESET', playerWeaver: DEFAULT_WEAVER_YOU, aiWeaver: DEFAULT_WEAVER_AI });
+      game.dispatch({ type:'ENSURE_MARKET' });
+      game.dispatch({ type:'START_GAME' });
+      game.dispatch({ type:'START_TURN', first:true });
+    } catch(e){ console.error('[UI] reset failed', e); }
+  };
+  $('#btnDraw') ?.addEventListener('click', onDraw);
+  $('#btnEnd')  ?.addEventListener('click', onEnd);
+  $('#btnReset')?.addEventListener('click', onReset);
+
+  // ----------------- Ghost & Anim -----------------
+  function makeGhostFromCard(card, fromRect, wide=false) {
     const g = document.createElement('div');
     g.className = 'cardFrame ghostFly';
     Object.assign(g.style, {
       position: 'fixed',
       left: `${fromRect.left}px`,
       top:  `${fromRect.top}px`,
-      width: `${Math.max(140, fromRect.width)}px`,
-      height: 'auto',
+      width: wide ? 'var(--card-w)' : `${Math.max(140, fromRect.width)}px`,
       margin: 0, zIndex: 9999, opacity: '1', pointerEvents: 'none'
     });
     g.innerHTML = `
@@ -117,8 +99,6 @@ export function init(game) {
       { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: .08, offset: 1 }
     ];
   }
-
-  // ---------- Draw / Discard (real nodes) ----------
   function animateDrawFan(deckBtn, newEls) {
     if (!deckBtn || !newEls?.length) return;
     const deck = R(deckBtn);
@@ -144,7 +124,7 @@ export function init(game) {
       const dy = to.top  - r.top;
       const spread = (i - last/2) * 12;
       el.style.transition='none'; void el.offsetWidth;
-      el.style.transition=`transform .85s cubic-bezier(.26,.7,.32,1.12), opacity .85s ease`;
+      el.style.transition=`transform .9s cubic-bezier(.26,.7,.32,1.06), opacity .9s ease`;
       el.style.transform =`translate(${dx}px, ${dy}px) scale(.72) rotate(${spread*.2}deg)`;
       el.style.opacity  ='.06';
       const done=()=>{ el.style.transition=''; el.style.transform=''; el.style.opacity=''; el.removeEventListener('transitionend',done); resolve(); };
@@ -153,42 +133,129 @@ export function init(game) {
     return Promise.all(promises);
   }
 
-  // ---------- Aether shimmer ----------
-  function maybeShimmerAE(newAE){
-    const gem = $('#aetherGem');
-    if (!gem) return;
-    if (newAE > prevAE){
-      gem.classList.remove('shimmer'); // restart
-      void gem.offsetWidth;
-      gem.classList.add('shimmer');
-      setTimeout(()=> gem.classList.remove('shimmer'), 700);
+  // ---- “Center pop” helper for BUY impact ----
+  async function centerPopThen(toEl, ghostEl, { pause=420, scale=1.24 }={}) {
+    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    const vw = Math.max(document.documentElement.clientWidth,  window.innerWidth  || 0);
+    const cx = vw/2, cy = vh/2;
+
+    const gr = R(ghostEl);
+    const dx = cx - (gr.left + gr.width/2);
+    const dy = cy - (gr.top  + gr.height/2);
+
+    // fly to center + enlarge and glow
+    await new Promise((resolve)=>{
+      ghostEl.style.transition = 'transform .42s cubic-bezier(.22,.8,.25,1), filter .42s ease';
+      ghostEl.style.transform  = `translate(${dx}px, ${dy}px) scale(${scale})`;
+      ghostEl.style.filter     = `drop-shadow(0 10px 40px rgba(255,190,80,.55)) saturate(1.08)`;
+      setTimeout(resolve, 420);
+    });
+
+    // pause (hold)
+    await wait(pause);
+
+    // fly to target
+    await new Promise((resolve)=>{
+      const frames = pathFrames(R(ghostEl), toEl, { scaleEnd:.72 });
+      ghostEl.animate(frames, { duration: 760, easing:'cubic-bezier(.2,.75,.25,1)', fill:'forwards' })
+        .onfinish = ()=>{ ghostEl.remove(); resolve(); };
+    });
+  }
+
+  // ----------------- Anchors for AI ghosts -----------------
+  function aiDeckAnchor() {
+    let a = $('#aiDeckAnchor');
+    const slots = $('#aiSlots');
+    if (!slots) return null;
+    if (!a) {
+      a = document.createElement('div');
+      a.id = 'aiDeckAnchor';
+      a.style.position='fixed';
+      a.style.width='10px'; a.style.height='16px';
+      a.style.pointerEvents='none';
+      a.style.zIndex = 2;
+      document.body.appendChild(a);
     }
-    prevAE = newAE;
+    const r = R(slots);
+    a.style.left = `${r.right - Math.min(120, r.width*0.15)}px`;
+    a.style.top  = `${r.top - 18}px`;
+    return a;
+  }
+  function aiAeAnchor() {
+    return $('#aiHpRow') || $('#aiSlots') || null;
+  }
+  function aiDiscardAnchor() {
+    let d = $('#aiDiscardChip');
+    const ref = $('#aiSlots') || $('#aiHpRow');
+    if (!ref) return null;
+    if (!d) {
+      d = document.createElement('button');
+      d.id = 'aiDiscardChip';
+      d.className = 'chipCirc ai';
+      d.setAttribute('aria-label','AI Discard');
+      d.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>`;
+      d.style.position = 'fixed';
+      d.style.zIndex = 3;
+      document.body.appendChild(d);
+    }
+    const r = R(ref);
+    d.style.left = `${r.right + 10}px`;
+    d.style.top  = `${r.top + 6}px`;
+    return d;
   }
 
-  // ---------- HUD / counts ----------
+  // ----------------- HUD & Rows -----------------
   function renderHUD(S){
-    T($('#hpValue'),   S.hp ?? 0);
-    T($('#aeValue'),   S.ae ?? 0);
-    T($('#aiHpValue'), S.ai?.hp ?? 0);
-    T($('#aiAeValue'), S.ai?.ae ?? 0);
-
-    const you=S.trance?.you||{cur:0,cap:6}, ai=S.trance?.ai||{cur:0,cap:6};
-    $('#youTranceFill').style.width = pct(you.cur, you.cap||6);
-    $('#aiTranceFill').style.width  = pct(ai.cur,  ai.cap ||6);
-    T($('#youTranceCount'), `${you.cur ?? 0}/${you.cap ?? 6}`);
-    T($('#aiTranceCount'),  `${ai.cur ?? 0}/${ai.cap ?? 6}`);
-
-    // Aethergem number + shimmer on gain
-    T($('#aetherGemNum'), S.ae ?? 0);
-    maybeShimmerAE(S.ae ?? 0);
-  }
-  function renderCounts(S){
     T($('#deckCount'),    S.deck?.length ?? 0);
     T($('#discardCount'), S.disc?.length ?? 0);
+
+    // hearts for you + ai
+    drawHearts($('#youHpRow'), S.hp ?? 0, S.trance?.you);
+    drawHearts($('#aiHpRow'),  S.ai?.hp ?? 0, S.trance?.ai);
+
+    // aether gem
+    T($('#aetherGemNum'), S.ae ?? 0);
+    if ((S.ae ?? 0) > prevAE) bigGemPulse();
+    prevAE = S.ae ?? 0;
+  }
+  function drawHearts(row, hp, trance) {
+    if (!row) return;
+    const max = MAX_HP;
+    const ready = (trance?.cur ?? 0) >= (trance?.cap ?? 6);
+    const effects = ready ? (trance?.effects ?? ['Trance Ready']) : (trance?.effects ?? ['Trance Inactive']);
+
+    row.innerHTML = '';
+    for (let i=0;i<max;i++){
+      const h = document.createElement('div');
+      h.className = 'heart';
+      if (i >= hp) h.classList.add('lost');
+      if (ready)  h.classList.add('glow');
+      h.setAttribute('data-i', i);
+      h.title = ready ? 'Trance Active' : 'Trance Inactive';
+      h.onclick = (e)=> showTranceTooltip(e.currentTarget, ready, effects);
+      row.appendChild(h);
+    }
+  }
+  function showTranceTooltip(anchor, ready, effects){
+    let tip = $('#tranceTip');
+    if (!tip) {
+      tip = document.createElement('div');
+      tip.id = 'tranceTip';
+      document.body.appendChild(tip);
+    }
+    tip.className = 'tranceTip';
+    tip.innerHTML = `
+      <div class="tt-head">${ready? 'Trance Effects' : 'Trance (inactive)'}</div>
+      <ul class="tt-list">${(effects||[]).map(s=>`<li>${s}</li>`).join('')}</ul>`;
+    const r = R(anchor);
+    tip.style.left = `${r.left + r.width/2}px`;
+    tip.style.top  = `${r.bottom + 8}px`;
+    tip.classList.add('open');
+    document.addEventListener('click', closeTipOnce, { once:true });
+    function closeTipOnce(){ tip?.classList.remove('open'); }
   }
 
-  // ---------- Market ----------
+  // ----------------- Flow & Slots & Hand -----------------
   function renderFlow(S){
     const cells = $$('.marketCard');
     prevFlowCards = [];
@@ -210,15 +277,10 @@ export function init(game) {
           <div class="cardBottom"><div class="cardVal">${(c.v!=null?('+'+c.v+'⚡'):'')}${(c.p!=null?(' · '+c.p+'ϟ'):'')}</div></div>`;
         el.appendChild(card);
 
-        // BUY handler (player)
-        el.onclick = () => {
-          try { game.dispatch({ type:'BUY_FLOW', index:i }); } catch(e){ console.error('[UI] buy', e); }
-        };
+        el.onclick = () => { try { game.dispatch({ type:'BUY_FLOW', index:i }); } catch(e){ console.error('[UI] buy', e); } };
       }
     }
   }
-
-  // ---------- Hand ----------
   function renderHand(S){
     const ribbon = $('#ribbon');
     const beforeIds = prevHandIds.slice(0);
@@ -251,21 +313,19 @@ export function init(game) {
     prevHandIds = afterIds;
   }
 
-  // ---------- Glyph helpers ----------
   const GLYPH_BACK = `
     <div class="cardFrame glyphBack">
       <div class="cardTop"><div class="cardTitle">Glyph</div><div class="cardSub">Face Down</div></div>
       <div class="cardBottom"><div class="cardVal">✶</div></div>
     </div>`;
 
-  function renderGlyphSlot(side, glyphs) {
+  function renderGlyphSlot(glyphs) {
     const wrap = document.createElement('div');
     wrap.className = 'glyphSlot';
     if (!glyphs || glyphs.length === 0) {
       wrap.innerHTML = '<div class="slotGhost">Empty</div>';
       return wrap;
     }
-    // stack face-down, count badge
     wrap.innerHTML = GLYPH_BACK;
     const badge = document.createElement('div');
     badge.className = 'glyphCount';
@@ -274,7 +334,6 @@ export function init(game) {
     return wrap;
   }
 
-  // ---------- Slots (3 spell + 1 glyph) ----------
   function renderSlots(S){
     const youEl=$('#playerSlots'), aiEl=$('#aiSlots');
 
@@ -298,10 +357,9 @@ export function init(game) {
         cell.onclick=()=>{ if (s) game.dispatch({ type:'ADVANCE', slot:i }); };
         youEl.appendChild(cell);
       }
-      // glyph slot as 4th
       const glyphCell = document.createElement('div');
       glyphCell.className = 'slotCell glyph';
-      glyphCell.appendChild(renderGlyphSlot('you', S.glyphs||[]));
+      glyphCell.appendChild(renderGlyphSlot(S.glyphs||[]));
       youEl.appendChild(glyphCell);
     }
 
@@ -325,12 +383,12 @@ export function init(game) {
       }
       const glyphCell = document.createElement('div');
       glyphCell.className = 'slotCell ai glyph';
-      glyphCell.appendChild(renderGlyphSlot('ai', (S.ai?.glyphs)||[]));
+      glyphCell.appendChild(renderGlyphSlot((S.ai?.glyphs)||[]));
       aiEl.appendChild(glyphCell);
     }
   }
 
-  // ---------- Modal (pile viewer) ----------
+  // ----------------- Modal (pile viewer) -----------------
   let modal=null;
   function ensureModal(){
     if (modal) return modal;
@@ -368,34 +426,33 @@ export function init(game) {
   }
   function closeModal(){ if (modal) modal.classList.remove('open'); }
 
-  // ---------- Render tick ----------
+  // ----------------- Draw Tick + AI turn -----------------
   async function draw(){
     const S = game.state || {};
 
-    // capture old AI/flow BEFORE render
+    // capture before
     const oldAISig  = prevAISig.slice(0);
     const oldAIHand = prevAIHand;
     const oldFlow   = prevFlowCards.map(c=> c ? ({...c}) : null);
     const oldRects  = prevFlowRects.slice(0);
 
     renderHUD(S);
-    renderCounts(S);
     renderFlow(S);
     renderHand(S);
     renderSlots(S);
 
-    // update AFTER render
+    // update after
     prevAISig  = (S.ai?.slots||[]).map(slotSig);
     prevAIHand = (S.ai?.hand?.length ?? 0);
 
-    // ----- AI Ghosts by diff (skip on first paint) -----
+    // AI ghosts (skip first paint)
     if (!firstPaint) {
       try{
         const deckA = aiDeckAnchor();
         const aeA   = aiAeAnchor();
         const aiDisc= aiDiscardAnchor();
 
-        // PLAY (empty→filled)
+        // play
         const aiCells = $$('#aiSlots .slotCell');
         for (let i=0;i<prevAISig.length;i++){
           if (oldAISig[i]===null && prevAISig[i]!==null) {
@@ -411,9 +468,9 @@ export function init(game) {
             }
           }
         }
-        // CHANNEL (hand-- and no new slot)
-        const newSlotAdded = prevAISig.some((sig,i)=> oldAISig[i]===null && sig!==null);
-        if (!newSlotAdded && prevAIHand < oldAIHand) {
+        // channel
+        const newSlot = prevAISig.some((sig,i)=> oldAISig[i]===null && sig!==null);
+        if (!newSlot && prevAIHand < oldAIHand) {
           const deckA2 = aiDeckAnchor();
           if (deckA2 && aeA){
             const fr = R(deckA2);
@@ -424,7 +481,7 @@ export function init(game) {
             ).onfinish = ()=> ghost.remove();
           }
         }
-        // BUY (flow card disappears) -> market→AI discard
+        // buy
         const flowCells = $$('.marketCard');
         for (let i=0;i<oldFlow.length;i++){
           if (oldFlow[i] && !prevFlowCards[i]) {
@@ -438,7 +495,7 @@ export function init(game) {
             }
           }
         }
-        // ADVANCE (ph changed) -> pulse
+        // advance pulse
         for (let i=0;i<prevAISig.length;i++){
           const a=prevAISig[i], b=oldAISig[i];
           if (a && b && a!==b){
@@ -449,35 +506,28 @@ export function init(game) {
       }catch(e){ console.warn('[UI] AI ghost diff failed', e); }
     }
 
-    // rebind drags (safe no-op if absent)
+    // refresh drag
     if (window.DragCards?.refresh) window.DragCards.refresh();
 
     firstPaint = false;
   }
 
-  // ---------- AI turn helper ----------
   async function runAiTurn(){
-    game.dispatch({ type:'AI_DRAW'  }); await draw();
-    await wait(220);
-    game.dispatch({ type:'AI_PLAY_SPELL' }); await draw();
-    await wait(260);
-    game.dispatch({ type:'AI_CHANNEL' }); await draw();
-    await wait(220);
-    game.dispatch({ type:'AI_ADVANCE' }); await draw();
-    await wait(260);
-    game.dispatch({ type:'AI_BUY' });    await draw();
-    await wait(220);
-    game.dispatch({ type:'AI_SPEND_TRANCE' }); await draw();
-    await wait(200);
+    game.dispatch({ type:'AI_DRAW'  }); await draw(); await wait(220);
+    game.dispatch({ type:'AI_PLAY_SPELL' }); await draw(); await wait(260);
+    game.dispatch({ type:'AI_CHANNEL' }); await draw(); await wait(220);
+    game.dispatch({ type:'AI_ADVANCE' }); await draw(); await wait(260);
+    game.dispatch({ type:'AI_BUY' });    await draw(); await wait(220);
+    game.dispatch({ type:'AI_SPEND_TRANCE' }); await draw(); await wait(200);
   }
 
-  // ---------- Dispatch wrapper (pre-anims) ----------
+  // ----------------- Dispatch wrapper -----------------
   if (game && typeof game.dispatch==='function' && !game.__uiWrapped){
     const orig = game.dispatch;
 
     game.dispatch = async (action) => {
 
-      // Pre-animate player BUY: market → player discard
+      // BUY: fly → center pop → discard, then state
       if (action?.type === 'BUY_FLOW' && typeof action.index === 'number') {
         const idx = action.index;
         const flowCell = $$('.marketCard')[idx];
@@ -486,18 +536,20 @@ export function init(game) {
         const discardBtn = $('#chipDiscard');
 
         if (c && fromRect && discardBtn) {
-          const ghost = makeGhostFromCard(c, fromRect);
+          const ghost = makeGhostFromCard(c, fromRect, true);
+          // first, fly to original center (smooth out if starting far)
           await new Promise((resolve)=>{
             ghost.animate(
-              pathFrames(fromRect, discardBtn, { scaleEnd:.72 }),
-              { duration: 780, easing: 'cubic-bezier(.18,.75,.25,1)', fill:'forwards' }
-            ).onfinish = () => { ghost.remove(); resolve(); };
+              pathFrames(fromRect, document.body, { scaleEnd:1 }),
+              { duration: 300, easing:'cubic-bezier(.2,.7,.2,1)', fill:'forwards' }
+            ).onfinish = resolve;
           });
+          await centerPopThen(discardBtn, ghost, { pause: 420, scale: 1.28 });
         }
         const res = orig(action); await draw(); return res;
       }
 
-      // Pre-animate END_TURN: discard hand (real nodes), then AI, then start our turn
+      // END_TURN: discard fan, AI, then START_TURN
       if (action?.type === 'END_TURN') {
         const liveHand = Array.from(document.querySelectorAll('.ribbon .handCard'));
         const discardBtn = $('#chipDiscard');
@@ -508,7 +560,7 @@ export function init(game) {
         return res;
       }
 
-      // Pre-animate PLAY_FROM_HAND (spell or glyph): hand → slot/glyph
+      // PLAY_FROM_HAND: hand → slot or glyph
       if (action?.type === 'PLAY_FROM_HAND' && typeof action.index === 'number') {
         const handEl = document.querySelector(`.ribbon .handCard[data-index="${action.index}"]`);
         const fromRect = handEl ? R(handEl) : null;
@@ -548,85 +600,73 @@ export function init(game) {
     game.__uiWrapped = true;
   }
 
-  // ---------- Top-right controls & Aethergem ----------
-  ensureHudExtras();
-
-  const onDraw  = () => game.dispatch({ type:'DRAW' });
-  const onEnd   = () => game.dispatch({ type:'END_TURN' });
-  const onReset = () => {
-    try {
-      game.dispatch({ type:'RESET', playerWeaver: DEFAULT_WEAVER_YOU, aiWeaver: DEFAULT_WEAVER_AI });
-      game.dispatch({ type:'ENSURE_MARKET' });
-      game.dispatch({ type:'START_GAME' });
-      game.dispatch({ type:'START_TURN', first:true });
-    } catch(e){ console.error('[UI] reset failed', e); }
-  };
-
-  const btnDraw  = $('#btnDraw');  if (btnDraw)  btnDraw.onclick  = onDraw;
-  const btnEnd   = $('#btnEnd');   if (btnEnd)   btnEnd.onclick   = onEnd;
-  const btnReset = $('#btnReset'); if (btnReset) btnReset.onclick = onReset;
-
-  // Pile viewers
-  const deckBtn = $('#chipDeck');
-  const discBtn = $('#chipDiscard');
-  if (deckBtn) deckBtn.onclick = () => openPile('Deck', (game.state?.deck)||[]);
-  if (discBtn) discBtn.onclick = () => openPile('Discard', (game.state?.disc)||[]);
-
-  // first paint
+  // ----------------- First paint -----------------
   draw();
-  console.log('[UI] v3.9 — fixed rows, 3+glyph slots, play/discard/buy anms, top-right controls, diamond Aethergem, fixed modals');
-}
+  console.log('[UI] v4.0 — centered controls, hearts, big gem pulse, center-pop buy, aligned rows');
 
-// ---------- Top-right controls & Aethergem elements ----------
-function ensureHudExtras(){
-  if (!document.getElementById('uiTopRight')) {
-    const wrap = document.createElement('div');
-    wrap.id = 'uiTopRight';
-    wrap.innerHTML = `
-      <div class="uiButtons">
+  // ----------------- UI builders -----------------
+  function buildTopHeader(){
+    if ($('#topHeader')) return;
+    const bar = document.createElement('div');
+    bar.id = 'topHeader';
+    bar.innerHTML = `
+      <div id="youHpRow" class="hpRow left"></div>
+      <div class="topCtrls">
         <button id="btnReset" title="Reset">↺</button>
         <button id="btnDraw"  title="Draw">⇧</button>
         <button id="btnEnd"   title="End Turn">⏵</button>
-      </div>`;
-    document.body.appendChild(wrap);
+      </div>
+      <div id="aiHpRow" class="hpRow right"></div>`;
+    document.body.appendChild(bar);
   }
-  if (!document.getElementById('aetherGem')) {
-    const gem = document.createElement('div');
-    gem.id = 'aetherGem';
-    gem.innerHTML = `<div class="diamond"><span id="aetherGemNum">0</span></div>`;
-    document.body.appendChild(gem);
+
+  function ensureAetherGem(){
+    if (!$('#aetherGem')) {
+      const gem = document.createElement('div');
+      gem.id = 'aetherGem';
+      gem.innerHTML = `<div class="diamond"><span id="aetherGemNum">0</span><div class="flare"></div></div>`;
+      document.body.appendChild(gem);
+    }
+  }
+  function bigGemPulse(){
+    const gem = $('#aetherGem');
+    if (!gem) return;
+    gem.classList.remove('shimmer'); // restart
+    void gem.offsetWidth;
+    gem.classList.add('shimmer');
+    setTimeout(()=> gem.classList.remove('shimmer'), 950);
   }
 }
 
-// -------------------- styles --------------------
+// ----------------- Embedded styles -----------------
 const style = document.createElement('style');
 style.textContent = `
   :root {
-    --card-w: 160px; /* MTG ratio 63×88 — width controls everything */
-    --row-pad: 12px;
+    --card-w: 160px;                     /* MTG 63×88 aspect */
     --card-h: calc(var(--card-w) * 88 / 63);
+    --row-pad: 12px;
     --zone-h: calc(var(--card-h) + var(--row-pad) * 2);
   }
 
-  /* Hide old FAB icons that overlapped the Aethergem */
-  .fabDial { display: none !important; }
+  /* Remove old trance meter region if still present */
+  .tranceDock, .tranceMenu { display:none !important; }
 
-  /* Fixed-height zones matching card height */
+  /* Fixed-height zones perfectly aligned */
   .zone { min-height: var(--zone-h); max-height: var(--zone-h); }
   .flowWrap { min-height: var(--zone-h); max-height: var(--zone-h); }
+  .wrap > .zone { display:block; }
 
-  /* Aetherflow consistent grid */
+  /* Aetherflow grid */
   .flowGrid { display:grid; grid-template-columns: repeat(5, var(--card-w)); justify-content:center; gap:16px; }
   .marketCard { width: var(--card-w); height: var(--card-h); display:flex; align-items:center; justify-content:center; }
   .marketCard.empty { background: transparent; border-radius: 12px; border: 1px dashed rgba(0,0,0,.08); }
 
   /* Hand ribbon */
-  .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:10px; gap:10px; }
+  .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:12px; gap:10px; }
 
   .cardFrame {
     aspect-ratio: 63 / 88;
     width: var(--card-w);
-    height: auto;
     border-radius: 12px;
     background: #fff;
     border: 1px solid rgba(0,0,0,.10);
@@ -635,31 +675,22 @@ style.textContent = `
   }
   .cardTop { padding: 8px 10px 0; }
   .cardBottom { padding: 0 10px 8px; }
-
-  .handCard { cursor:pointer; transition:transform .2s, box-shadow .2s; background: linear-gradient(180deg,#fff 0%,#faf7ef 100%); }
-  .handCard:hover { transform: translateY(-4px); box-shadow: 0 10px 18px rgba(0,0,0,.22); }
-
-  .marketCardPanel { background: linear-gradient(180deg,#fff 0%,#f6f6ff 100%); }
-
   .cardTitle { font-weight:700; font-size:15px; line-height:1.15; color:#262626; }
   .cardSub   { font-size:12.5px; color:#616161; margin-top:2px; }
   .cardVal   { font-size:13px; color:#b21d1d; margin-top:4px; }
+  .handCard  { cursor:pointer; transition:transform .2s, box-shadow .2s; background: linear-gradient(180deg,#fff 0%,#faf7ef 100%); }
+  .handCard:hover { transform: translateY(-4px); box-shadow: 0 10px 18px rgba(0,0,0,.22); }
+  .marketCardPanel { background: linear-gradient(180deg,#fff 0%,#f6f6ff 100%); }
 
-  /* 3 spell slots + 1 glyph slot */
+  /* 3 spells + 1 glyph (both sides) */
   #playerSlots, #aiSlots {
-    display:grid;
-    grid-template-columns: repeat(4, var(--card-w));
-    gap: 16px;
-    padding: var(--row-pad);
-    justify-content:center;
-    min-height: var(--zone-h);
-    max-height: var(--zone-h);
-    align-items:center;
+    display:grid; grid-template-columns: repeat(4, var(--card-w));
+    gap: 16px; padding: var(--row-pad); justify-content:center;
+    min-height: var(--zone-h); max-height: var(--zone-h); align-items:center;
   }
   .slotCell {
     display:flex; align-items:center; justify-content:center;
-    width: var(--card-w);
-    height: var(--card-h);
+    width: var(--card-w); height: var(--card-h);
     border-radius:16px; background:#fffaf4;
     border:1px solid rgba(0,0,0,.06); box-shadow:0 2px 6px rgba(0,0,0,.05) inset;
     transition: transform .15s, box-shadow .15s;
@@ -683,54 +714,78 @@ style.textContent = `
     background:#222; color:#fff; font-size:11px; padding:2px 6px; border-radius:10px;
   }
 
-  /* Drag affordances */
-  #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset:-4px; }
-  #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset:-4px; box-shadow:0 0 0 4px rgba(90,140,220,.08) inset; }
+  /* Fancy ghost */
+  .ghostFly { border-radius:12px; overflow:hidden; will-change: transform, opacity, filter; }
 
-  .ghostFly { border-radius:12px; overflow:hidden; will-change: transform, opacity; }
-
-  /* Top-right controls */
-  #uiTopRight { position:fixed; top:10px; right:10px; z-index:5000; }
-  #uiTopRight .uiButtons { display:flex; gap:8px; }
-  #uiTopRight .uiButtons button {
-    width:36px; height:36px; border-radius:10px; border:1px solid rgba(0,0,0,.12);
-    background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.12); cursor:pointer; font-size:16px;
+  /* Top header (cleaner look) */
+  #topHeader {
+    position: fixed; top: 8px; left: 0; right: 0; z-index: 5000;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items:center;
+    pointer-events:none;
   }
-  #uiTopRight .uiButtons button:hover { transform:translateY(-1px); }
+  .topCtrls { pointer-events:auto; display:flex; gap:10px; justify-content:center; }
+  .topCtrls button {
+    width:38px; height:38px; border-radius:12px; border:1px solid rgba(0,0,0,.12);
+    background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.14); cursor:pointer; font-size:16px;
+  }
+  .topCtrls button:hover { transform:translateY(-1px); }
 
-  /* Aethergem (diamond) bottom-right above hand */
+  .hpRow { display:flex; gap:8px; align-items:center; justify-content:flex-start; padding:0 12px; }
+  .hpRow.right { justify-content:flex-end; }
+  .heart {
+    width:22px; height:22px; border-radius:50%;
+    background: radial-gradient(circle at 40% 35%, #ff6d6d 0%, #d73c3c 60%, #942727 100%);
+    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 2px 6px rgba(0,0,0,.25);
+    position:relative; cursor:pointer; transition: transform .12s;
+  }
+  .heart:hover { transform: translateY(-1px) scale(1.05); }
+  .heart.lost { background: linear-gradient(180deg,#dfdfdf,#bfbfbf); box-shadow: 0 0 0 1px rgba(0,0,0,.12) inset; }
+  .heart.glow { animation: heartGlow 1.2s ease-in-out infinite; }
+  @keyframes heartGlow {
+    0%   { box-shadow: 0 0 0 0 rgba(240,170,40,.0), 0 2px 6px rgba(0,0,0,.25); }
+    50%  { box-shadow: 0 0 14px 6px rgba(255,200,80,.55), 0 2px 10px rgba(0,0,0,.3); }
+    100% { box-shadow: 0 0 0 0 rgba(240,170,40,.0), 0 2px 6px rgba(0,0,0,.25); }
+  }
+
+  /* Trance tooltip */
+  #tranceTip { position:fixed; transform:translateX(-50%); background:#fff; border:1px solid rgba(0,0,0,.1);
+    border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.25); padding:10px 12px; z-index:8000;
+    opacity:0; pointer-events:none; transition:opacity .18s ease; }
+  #tranceTip.open { opacity:1; pointer-events:auto; }
+  .tt-head{ font-weight:700; margin-bottom:6px; }
+  .tt-list{ margin:0; padding-left:18px; }
+
+  /* Aethergem (diamond + flare) */
   #aetherGem {
     position:fixed; right:18px; bottom:110px; z-index:4000;
-    width:56px; height:56px; display:flex; align-items:center; justify-content:center;
-    filter: drop-shadow(0 4px 10px rgba(0,0,0,.22));
+    width:64px; height:64px; display:flex; align-items:center; justify-content:center;
     pointer-events:none;
   }
   #aetherGem .diamond {
-    width: 44px; height: 44px; transform: rotate(45deg);
+    width: 52px; height: 52px; transform: rotate(45deg);
     background: linear-gradient(135deg, #f9e29a 0%, #f2c65b 50%, #e29b2e 100%);
-    border: 2px solid #8d5a1a; border-radius: 8px;
-    display:flex; align-items:center; justify-content:center;
+    border: 2px solid #8d5a1a; border-radius: 10px;
+    display:flex; align-items:center; justify-content:center; position:relative;
   }
   #aetherGem .diamond span {
-    transform: rotate(-45deg); font-weight:800; color:#3b2a14; text-shadow:0 1px 0 rgba(255,255,255,.6);
+    transform: rotate(-45deg); font-weight:800; color:#3b2a14; text-shadow:0 1px 0 rgba(255,255,255,.6); font-size:16px;
   }
-  #aetherGem.shimmer .diamond { animation: gemShimmer .7s ease both; }
-  @keyframes gemShimmer {
-    0% { box-shadow:0 0 0 0 rgba(255,240,180,0); }
-    50% { box-shadow:0 0 18px 6px rgba(255,220,140,.55); }
-    100% { box-shadow:0 0 0 0 rgba(255,240,180,0); }
+  #aetherGem .diamond .flare {
+    position:absolute; inset:-6px; border-radius:12px; transform: rotate(-45deg);
+    background: radial-gradient(closest-side, rgba(255,220,140,.55), rgba(255,220,140,0));
+    opacity:0; filter: blur(2px);
+  }
+  #aetherGem.shimmer .diamond .flare { animation: gemFlare .95s ease both; }
+  @keyframes gemFlare {
+    0% { opacity:0; transform: rotate(-45deg) scale(.9); }
+    30%{ opacity:.9; transform: rotate(-45deg) scale(1.1); }
+    100%{ opacity:0; transform: rotate(-45deg) scale(1.25); }
   }
 
-  /* Chips (AI floating discard) */
-  .chipCirc.ai {
-    width:36px; height:36px; border-radius:999px;
-    display:inline-flex; align-items:center; justify-content:center;
-    background:#f0f3ff; border:1px solid rgba(0,0,0,.08);
-    box-shadow:0 2px 6px rgba(0,0,0,.12);
-  }
-  .chipCirc.ai svg { width:18px; height:18px; stroke:#444; }
+  /* Hide old bottom FABs */
+  .fabDial { display: none !important; }
 
-  /* Modal (fixed matching size) */
+  /* Modal (fixed size) */
   #pileModal { position:fixed; inset:0; z-index:10000; display:none; }
   #pileModal.open { display:block; }
   .pm-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.28); backdrop-filter:saturate(120%) blur(1px); }
