@@ -119,5 +119,21 @@
   </div>
 
   <script type="module" src="./src/ui/index.js"></script>
+  <script>
+(async () => {
+  try {
+    const r = await fetch('./stamp.json', { cache: 'no-store' });
+    if (r.ok) {
+      const v = await r.json();
+      console.log(`[THE GREY] branch=${v.branch} commit=${v.commit} builtAt=${v.builtAt}`);
+    } else {
+      console.log('[THE GREY] No stamp.json found');
+    }
+  } catch (e) {
+    console.log('[THE GREY] Unable to read stamp.json', e);
+  }
+})();
+</script>
+
 </body>
 </html>
