@@ -8,14 +8,8 @@
 
   /**
    * Fan the hand with a subtle, natural curve (tight spread).
-   * - Smaller angles, smoother lift, consistent spacing.
-   * - Keeps text readable and prevents extreme overlap.
-   *
    * @param {HTMLElement} container  .ribbon element
-   * @param {Object} [opt]
-   *   .spacing  px per card (default 28)
-   *   .maxAngle total angle across hand in degrees (default 12)
-   *   .maxLift  maximum upward arc in px (default 14)
+   * @param {Object} [opt] { spacing, maxAngle, maxLift }
    */
   function fanHand(container, opt = {}) {
     const cards = Array.from(container.querySelectorAll('.handCard'));
@@ -33,7 +27,7 @@
       const fromMid = i - mid;
 
       // Angle: small tilt toward edges
-      const angle = (fromMid) * angleStep; // degrees
+      const angle = (fromMid) * angleStep;
 
       // Horizontal spacing
       const x = fromMid * spacing;
@@ -42,18 +36,11 @@
       const t = Math.abs(fromMid) / (mid || 1);
       const y = -maxLift * (1 - (t * t)); // peak in middle
 
-      // Stacking: center cards win, but never drop below 100
       el.style.zIndex = String(200 + i);
-
-      // Smooth transform
       el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}deg)`;
     });
   }
 
-  /**
-   * Reset hand transforms (used when leaving the ribbon or
-   * after a tight animation).
-   */
   function unfanHand(container) {
     const cards = container.querySelectorAll('.handCard');
     cards.forEach((el) => {
@@ -62,7 +49,7 @@
     });
   }
 
-  // Optional: tiny entrance “settle” animation for the hand
+  // Tiny entrance “settle” animation for the hand
   function settleHand(container) {
     const cards = Array.from(container.querySelectorAll('.handCard'));
     cards.forEach((el, i) => {
@@ -76,10 +63,5 @@
     });
   }
 
-  // Expose globals
-  window.Anim = {
-    fanHand,
-    unfanHand,
-    settleHand
-  };
+  window.Anim = { fanHand, unfanHand, settleHand };
 })();
