@@ -3,11 +3,13 @@
 // - Emits .card, .handCard, .marketCard, .slotCell, .zone, .title, etc.
 // - Wires Draw / End Turn / Reset buttons (btnDraw, btnEnd, btnReset)
 // - Hooks market buy, hand play/channel, slot click
+// - Adds data-accept hints for typed drop targets (Spell/Glyph)
 // =========================================================
 
 /* utilities */
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const sleep = (ms) => new Promise(res => setTimeout(res, ms));
 
 /* cached roots */
 let elRibbon, elPlayerSlots, elGlyphTray, elAiSlots, elMarketCells;
@@ -15,35 +17,56 @@ let elRibbon, elPlayerSlots, elGlyphTray, elAiSlots, elMarketCells;
 /* game ref */
 let G = null;
 
+/* ---------- helpers to read state safely ---------- */
+function S() {
+  // ensure shapes so UI never explodes even if engine is minimal
+  const s = G?.state || {};
+  s.deck     = Array.isArray(s.deck)     ? s.deck     : [];
+  s.hand     = Array.isArray(s.hand)     ? s.hand     : [];
+  s.disc     = Array.isArray(s.disc)     ? s.disc     : [];
+  s.glyphs   = Array.isArray(s.glyphs)   ? s.glyphs   : [];
+  s.flowRow  = Array.isArray(s.flowRow)  ? s.flowRow  : [null,null,null,null,null];
+  s.slots    = Array.isArray(s.slots)    ? s.slots    : [null,null,null];
+  s.ai       = typeof s.ai==='object'    ? s.ai       : { slots:[null,null,null] };
+  s.ai.slots = Array.isArray(s.ai.slots) ? s.ai.slots : [null,null,null];
+  return s;
+}
+
 /* ---------- card element factory (matches CSS) ---------- */
 function makeCardEl(card, variant) {
   // variant: 'hand' | 'flow' | 'slot' | 'aiSlot'
   const el = document.createElement('div');
   el.className = 'card';
-
-  if (variant === 'hand') el.classList.add('handCard');
-  if (variant === 'flow') el.classList.add('marketCard');
-  if (variant === 'slot') el.classList.add('slotCard');
+  if (variant === 'hand')   el.classList.add('handCard');
+  if (variant === 'flow')   el.classList.add('marketCard');
+  if (variant === 'slot')   el.classList.add('slotCard');
   if (variant === 'aiSlot') el.classList.add('slotCard');
 
-  // dataset for drag.js + actions
-  el.dataset.cid    = card.id || '';
-  el.dataset.ctype  = card.t || '';
-  el.dataset.cname  = card.n || '';
-  el.dataset.cost   = String(card.p || 1);
+  // data for drag/actions
+  el.dataset.cid   = card?.id || '';
+  el.dataset.ctype = card?.t  || '';
+  el.dataset.cname = card?.n  || '';
+  el.dataset.cost  = String(card?.p ?? 1);
 
   // basic content (your CSS styles this)
+  const name = card?.n || 'Card';
+  const type = card?.t || '';
+  const v    = Number.isFinite(card?.v) ? card.v : null;
+  const p    = Number.isFinite(card?.p) ? card.p : null;
+
+  el.setAttribute('aria-label', `${name} ${type}`);
+
   el.innerHTML = `
     <div class="cHead">
-      <div class="cName">${card.n || 'Card'}</div>
-      <div class="cType">${card.t || ''}</div>
+      <div class="cName">${name}</div>
+      <div class="cType">${type}</div>
     </div>
     <div class="cBody">
-      ${card.txt ? `<div class="cText">${card.txt}</div>` : ''}
+      ${card?.txt ? `<div class="cText">${card.txt}</div>` : ''}
     </div>
     <div class="cStats">
-      ${('v' in card) ? `<span class="stat v">+${card.v||0}⚡</span>` : ''}
-      ${('p' in card) ? `<span class="stat p">${card.p||1}↯</span>` : ''}
+      ${v !== null ? `<span class="stat v">+${v}⚡</span>` : ''}
+      ${p !== null ? `<span class="stat p">${p}↯</span>` : ''}
     </div>
   `;
   return el;
@@ -51,19 +74,29 @@ function makeCardEl(card, variant) {
 
 /* ---------- render: Aetherflow market ---------- */
 function renderMarket() {
-  // five market cells in .flowGrid -> ".marketCard[data-flow=i]"
+  const st = S();
   for (let i = 0; i < 5; i++) {
     const cell = elMarketCells[i];
     if (!cell) continue;
     cell.innerHTML = '';
-    const c = G.state.flowRow[i];
-    if (!c) continue;
+    cell.dataset.flowIndex = String(i);
+
+    const c = st.flowRow[i];
+    if (!c) {
+      // keep an empty box so sizing matches CSS
+      const ghost = document.createElement('div');
+      ghost.className = 'marketGhost';
+      cell.appendChild(ghost);
+      continue;
+    }
 
     const cardEl = makeCardEl(c, 'flow');
+    // BUY_FLOW (player buy)
     cardEl.onclick = () => {
-      // BUY_FLOW (player buy)
-      G.dispatch({ type: 'BUY_FLOW', index: i });
-      renderAll();
+      if (typeof G.dispatch === 'function') {
+        G.dispatch({ type: 'BUY_FLOW', index: i });
+        renderAll();
+      }
     };
     cell.appendChild(cardEl);
   }
@@ -71,18 +104,26 @@ function renderMarket() {
 
 /* ---------- render: player hand (ribbon) ---------- */
 function renderHand() {
+  const st = S();
   elRibbon.innerHTML = '';
-  G.state.hand.forEach((c, idx) => {
+
+  st.hand.forEach((c, idx) => {
     const cardEl = makeCardEl(c, 'hand');
+    cardEl.dataset.handIndex = String(idx);
 
     // primary: click == PLAY / SET / CHANNEL
     cardEl.onclick = (e) => {
       e.stopPropagation();
+      if (typeof G.dispatch !== 'function') return;
+
       if (c.t === 'Instant') {
         G.dispatch({ type: 'CHANNEL_FROM_HAND', index: idx });
+      } else if (c.t === 'Glyph') {
+        // glyphs go to tray (engine handles as set from hand)
+        G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: null });
       } else {
-        // default to placing in first empty spell slot (UI drag will override when dropping on slot)
-        const s = G.state.slots.findIndex(x => !x);
+        // default to first empty spell slot
+        const s = st.slots.findIndex(x => !x);
         G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: (s >= 0 ? s : null) });
       }
       renderAll();
@@ -94,23 +135,32 @@ function renderHand() {
 
 /* ---------- render: player board (3 spell + 1 glyph) ---------- */
 function renderPlayerSlots() {
-  // structure: 4 slot cells: 3 spell + 1 glyph to the right
+  const st = S();
   elPlayerSlots.innerHTML = '';
+
   for (let i = 0; i < 4; i++) {
     const cell = document.createElement('div');
     cell.className = 'slotCell';
-    if (i === 3) cell.classList.add('glyph'); // right-most is glyph slot
+    cell.dataset.slotIndex = String(i);
 
-    const slot = (i < 3 ? G.state.slots[i] : null); // glyphs are a tray below, not in slots
+    if (i === 3) {
+      // right-most is glyph slot
+      cell.classList.add('glyph');
+      cell.dataset.accept = 'Glyph';
+    } else {
+      cell.dataset.accept = 'Spell,Instant';
+    }
+
+    const slot = (i < 3 ? st.slots[i] : null); // glyphs are in tray, not here
     if (slot && slot.c) {
       cell.appendChild(makeCardEl(slot.c, 'slot'));
     } else {
       cell.innerHTML = `<div class="emptyCell">Empty</div>`;
     }
 
-    // allow clicking an occupied slot to "advance" (UX shortcut)
+    // allow clicking an occupied spell slot to "advance"
     cell.onclick = () => {
-      if (i < 3 && G.state.slots[i]) {
+      if (i < 3 && st.slots[i] && typeof G.dispatch === 'function') {
         G.dispatch({ type: 'ADVANCE', slot: i });
         renderAll();
       }
@@ -121,7 +171,7 @@ function renderPlayerSlots() {
 
   // glyph tray (face-down)
   elGlyphTray.innerHTML = '';
-  G.state.glyphs.forEach(g => {
+  st.glyphs.forEach(() => {
     const face = document.createElement('div');
     face.className = 'card glyphCard faceDown';
     face.innerHTML = `
@@ -135,11 +185,13 @@ function renderPlayerSlots() {
 
 /* ---------- render: AI board (3 spell slots) ---------- */
 function renderAiSlots() {
+  const st = S();
   elAiSlots.innerHTML = '';
   for (let i = 0; i < 3; i++) {
     const cell = document.createElement('div');
     cell.className = 'slotCell ai';
-    const slot = G.state.ai.slots[i];
+    cell.dataset.slotIndex = String(i);
+    const slot = st.ai.slots[i];
     if (slot && slot.c) {
       cell.appendChild(makeCardEl(slot.c, 'aiSlot'));
     } else {
@@ -151,8 +203,9 @@ function renderAiSlots() {
 
 /* ---------- top HUD counters ---------- */
 function renderCounts() {
-  $('#deckCount').textContent    = String(G.state.deck.length);
-  $('#discardCount').textContent = String(G.state.disc.length);
+  const st = S();
+  const d = $('#deckCount');     if (d) d.textContent = String(st.deck.length);
+  const c = $('#discardCount');  if (c) c.textContent = String(st.disc.length);
 }
 
 /* ---------- full redraw ---------- */
@@ -162,6 +215,25 @@ function renderAll() {
   renderPlayerSlots();
   renderAiSlots();
   renderCounts();
+
+  // Let drag.js re-scan DOM for draggable/targets
+  if (window.DragCards && typeof window.DragCards.refresh === 'function') {
+    window.DragCards.refresh();
+  }
+}
+
+/* ---------- AI turn helper ---------- */
+async function runAiTurn() {
+  if (typeof G.dispatch !== 'function') return;
+  // small delays so any CSS animations have time to breathe
+  const step = 60;
+
+  G.dispatch({ type:'AI_DRAW' });       renderAll(); await sleep(step);
+  G.dispatch({ type:'AI_PLAY_SPELL' }); renderAll(); await sleep(step);
+  G.dispatch({ type:'AI_CHANNEL' });    renderAll(); await sleep(step);
+  G.dispatch({ type:'AI_ADVANCE' });    renderAll(); await sleep(step);
+  G.dispatch({ type:'AI_BUY' });        renderAll(); await sleep(step);
+  G.dispatch({ type:'AI_SPEND_TRANCE' }); renderAll(); await sleep(step);
 }
 
 /* ---------- button wiring ---------- */
@@ -170,46 +242,38 @@ function wireButtons() {
   const btnEnd   = $('#btnEnd');
   const btnReset = $('#btnReset');
 
-  if (btnDraw)  btnDraw.onclick  = async () => { G.dispatch({ type:'DRAW' }); renderAll(); };
+  if (btnDraw)  btnDraw.onclick  = () => { if (G?.dispatch) { G.dispatch({ type:'DRAW' }); renderAll(); } };
 
   if (btnEnd)   btnEnd.onclick   = async () => {
-    // player end
+    if (!G?.dispatch) return;
+    // Player end: discard hand + slide flow etc. (engine handles)
     G.dispatch({ type:'END_TURN' });
     renderAll();
 
-    // simple AI turn sequence
-    G.dispatch({ type:'AI_DRAW' });
-    G.dispatch({ type:'AI_PLAY_SPELL' });
-    G.dispatch({ type:'AI_CHANNEL' });
-    G.dispatch({ type:'AI_ADVANCE' });
-    G.dispatch({ type:'AI_BUY' });
-    G.dispatch({ type:'AI_SPEND_TRANCE' });
+    // AI turn
+    await runAiTurn();
 
-    // back to player
+    // Back to player
     G.dispatch({ type:'START_TURN' });
     renderAll();
   };
 
   if (btnReset) btnReset.onclick = () => {
-    // soft reset via RESET action if your rules support it
-    // fallback: new game
-    if (typeof G.reset === 'function') G.reset();
-    else if (typeof G.create === 'function') window.game = G = G.create();
-    else {
-      // use engine factory if available on window
-      if (window.GameEngine && typeof window.GameEngine.create === 'function') {
-        window.game = G = window.GameEngine.create();
-      }
+    // “soft” reset if engine supports reset or re-create via GameEngine
+    if (typeof G.reset === 'function') {
+      G.reset();
+    } else if (window.GameEngine && typeof window.GameEngine.create === 'function') {
+      window.game = G = window.GameEngine.create();
     }
     renderAll();
   };
 
-  // deck / discard modals (if you have modal code elsewhere, just keep the IDs)
+  // deck / discard stubs (replace with your modals)
   const deckBtn = $('#chipDeck');
-  if (deckBtn) deckBtn.onclick = () => console.log('[UI] Deck:', G.state.deck);
+  if (deckBtn) deckBtn.onclick = () => console.log('[UI] Deck:', S().deck);
 
   const discBtn = $('#chipDiscard');
-  if (discBtn) discBtn.onclick = () => console.log('[UI] Discard:', G.state.disc);
+  if (discBtn) discBtn.onclick = () => console.log('[UI] Discard:', S().disc);
 }
 
 /* ---------- init ---------- */
@@ -221,19 +285,15 @@ export function init(game) {
   elPlayerSlots  = $('#playerSlots');
   elGlyphTray    = $('#glyphTray');
   elAiSlots      = $('#aiSlots');
+  // the five cells are real DOM elements already in HTML
   elMarketCells  = $$('.marketCard');
 
   wireButtons();
   renderAll();
 
-  // Let drag.js know we’re ready (it attaches globally)
-  if (window.DragCards && typeof window.DragCards.refresh === 'function') {
-    window.DragCards.refresh();
-  }
-
   // Optional: hide the diagnostic “boot check” if present
   const boot = document.querySelector('.bootCheck');
   if (boot) boot.style.display = 'none';
 
-  console.log('[UI] v4.1 — compat DOM + controls wired');
+  console.log('[UI] v4.2 — compat DOM + typed highlights + safer ghosts');
 }
