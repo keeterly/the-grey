@@ -115,3 +115,111 @@ console.log('[BOOT] Debug check disabled.');
   if (ribbon) ribbon.addEventListener('pointerdown', onPointerDown);
 })();
 
+
+(() => {
+  const DRAG_THRESHOLD = 6;
+  const dragLayer = document.querySelector('.drag-layer') || (() => {
+    const dl = document.createElement('div');
+    dl.className = 'drag-layer';
+    document.body.appendChild(dl);
+    return dl;
+  })();
+
+  let st = null;
+
+  function onDown(e){
+    const card = e.target.closest('.ribbon .card');
+    if (!card || e.button !== 0) return;
+    e.preventDefault();
+    card.setPointerCapture?.(e.pointerId);
+
+    const r = card.getBoundingClientRect();
+    st = {
+      card,
+      startX: e.clientX,
+      startY: e.clientY,
+      // store offset inside the card where the pointer is
+      offsetX: e.clientX - (r.left + window.scrollX),
+      offsetY: e.clientY - (r.top  + window.scrollY),
+      lifted: false,
+      originParent: card.parentNode,
+      originNext: card.nextSibling,
+      placeholder: null,
+      isInstant: card.classList.contains('is-instant'),
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp, { once:true });
+    window.addEventListener('pointercancel', onUp, { once:true });
+  }
+
+  function lift(){
+    if (!st || st.lifted) return;
+    const { card, originParent, originNext } = st;
+
+    const r = card.getBoundingClientRect();
+    // placeholder keeps fan spacing
+    const ph = document.createElement('div');
+    ph.style.width  = r.width + 'px';
+    ph.style.height = r.height + 'px';
+    ph.style.marginLeft = getComputedStyle(card).marginLeft;
+    st.placeholder = ph;
+    if (originNext) originParent.insertBefore(ph, originNext);
+    else originParent.appendChild(ph);
+
+    // move the REAL node into drag layer
+    dragLayer.appendChild(card);
+    card.classList.add('is-dragging');
+
+    // *** INIT COORDS RIGHT AWAY (prevents jump to 0,0) ***
+    const x = r.left + window.scrollX;
+    const y = r.top  + window.scrollY;
+    card.style.setProperty('--drag-x', x + 'px');
+    card.style.setProperty('--drag-y', y + 'px');
+
+    if (st.isInstant) card.classList.add('pulsing');
+
+    st.lifted = true;
+  }
+
+  function onMove(e){
+    if (!st) return;
+    const dx = e.clientX - st.startX;
+    const dy = e.clientY - st.startY;
+    if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
+    if (!st.lifted) return;
+
+    // position = pointer - offset + page scroll
+    const x = e.clientX - st.offsetX;
+    const y = e.clientY - st.offsetY;
+    st.card.style.setProperty('--drag-x', x + 'px');
+    st.card.style.setProperty('--drag-y', y + 'px');
+  }
+
+  function onUp(){
+    window.removeEventListener('pointermove', onMove);
+    if (!st) return;
+
+    const { card, originParent, originNext, placeholder, isInstant } = st;
+
+    if (st.lifted){
+      // TODO: your drop/slot logic here
+      if (originNext) originParent.insertBefore(card, originNext);
+      else originParent.appendChild(card);
+      if (placeholder) placeholder.remove();
+      card.classList.remove('is-dragging');
+
+      const previewOpen = !!document.querySelector('.preview-overlay');
+      if (!previewOpen && isInstant) card.classList.remove('pulsing');
+    }
+    st = null;
+  }
+
+  // disable native HTML5 drag ghost
+  document.addEventListener('dragstart', (e)=> e.preventDefault());
+
+  // delegate from ribbon so new cards work too
+  const ribbon = document.getElementById('ribbon');
+  if (ribbon) ribbon.addEventListener('pointerdown', onDown);
+})();
+
