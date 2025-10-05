@@ -1,13 +1,16 @@
+// /src/ui/hud.js
 import { animateDiscardHand, animateDrawHand } from './animations.js';
 
 export function wireHUD(game, weavers){
-  const S=()=>game.getState();
-  const youBtn=document.getElementById('youTranceBtn');
-  const aiBtn=document.getElementById('aiTranceBtn');
-  const menu=document.getElementById('tranceMenu');
-  const title=document.getElementById('tranceMenuTitle');
-  const row=document.getElementById('tranceMenuBtns');
-  const hint=document.getElementById('tranceMenuHint');
+  const S = () => game.getState();
+
+  // Trance UI
+  const youBtn = document.getElementById('youTranceBtn');
+  const aiBtn  = document.getElementById('aiTranceBtn');
+  const menu   = document.getElementById('tranceMenu');
+  const title  = document.getElementById('tranceMenuTitle');
+  const row    = document.getElementById('tranceMenuBtns');
+  const hint   = document.getElementById('tranceMenuHint');
 
   youBtn.addEventListener('click',()=>{
     const T=S().trance.you; const W=weavers[T.weaver];
@@ -31,32 +34,36 @@ export function wireHUD(game, weavers){
     menu.classList.add('show');
   });
 
-  document.addEventListener('click',(e)=>{ if(!menu.contains(e.target) && !youBtn.contains(e.target) && !aiBtn.contains(e.target)) menu.classList.remove('show'); });
+  document.addEventListener('click',(e)=>{
+    if(!menu.contains(e.target) && !youBtn.contains(e.target) && !aiBtn.contains(e.target)){
+      menu.classList.remove('show');
+    }
+  });
 
-  document.getElementById('chipDeck').onclick = ()=> game.dispatch({type:'DRAW'});
+  // HUD chips (optional extra actions)
+  document.getElementById('chipDeck').onclick    = ()=> game.dispatch({type:'DRAW'});
   document.getElementById('chipDiscard').onclick = ()=> {};
 
   // FABs
-document.getElementById('fabDraw').onclick = ()=> game.dispatch({type:'DRAW'});
+  document.getElementById('fabDraw').onclick = ()=> game.dispatch({type:'DRAW'});
 
-document.getElementById('fabEnd').onclick  = async ()=> {
-  // 1) Animate discarding current hand (visual only)
-  await animateDiscardHand();
+  document.getElementById('fabEnd').onclick  = async ()=> {
+    // 1) Visual discard of current hand
+    await animateDiscardHand();
 
-  // 2) Do the normal turn swap (rules/AI)
-  game.dispatch({type:'END_TURN'});
-  game.dispatch({type:'AI_TURN'});
-  game.dispatch({type:'START_TURN'});
+    // 2) Normal flow
+    game.dispatch({type:'END_TURN'});
+    game.dispatch({type:'AI_TURN'});
+    game.dispatch({type:'START_TURN'});
 
-  // 3) Animate new hand coming in
-  await animateDrawHand();
-};
+    // 3) Visual draw of new hand
+    await animateDrawHand();
+  };
 
-document.getElementById('fabReset').onclick= ()=> {
-  const st=S();
-  game.dispatch({type:'RESET', playerWeaver:st.trance.you.weaver, aiWeaver:st.trance.ai.weaver});
-  game.dispatch({type:'ENSURE_MARKET'});
-  game.dispatch({type:'START_TURN', first:true});
-};
-
+  document.getElementById('fabReset').onclick = ()=> {
+    const st=S();
+    game.dispatch({type:'RESET', playerWeaver:st.trance.you.weaver, aiWeaver:st.trance.ai.weaver});
+    game.dispatch({type:'ENSURE_MARKET'});
+    game.dispatch({type:'START_TURN', first:true});
+  };
 }
