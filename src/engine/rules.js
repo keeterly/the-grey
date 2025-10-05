@@ -10,12 +10,21 @@ export function reduce(S, action){
     case 'INIT': return S;
     case 'RESET': return initialState({ playerWeaver: action.playerWeaver, aiWeaver: action.aiWeaver });
 
-    case 'START_TURN': {
-      S.turn += (action.first?0:1);
-      while(S.hand.length < HAND_DRAW) drawCard(S);
-      if(S.youFrozen>0){ S.youFrozen=0; L('Your Stasis ends.'); }
-      return S;
-    }
+   case 'START_TURN': {
+  S.turn += (action.first?0:1);
+
+  // draw up to HAND_DRAW with a safety to prevent infinite loops
+  let safety = 20;
+  while (S.hand.length < HAND_DRAW && safety-- > 0) {
+    const before = S.hand.length;
+    drawCard(S);
+    if (S.hand.length === before) break; // nothing was drawn (deck+disc empty)
+  }
+
+  if (S.youFrozen>0){ S.youFrozen=0; L('Your Stasis ends.'); }
+  return S;
+}
+
 
     case 'END_TURN': {
       S.slots.forEach(s=>{ if(s) s.advUsed=false; });
@@ -139,26 +148,21 @@ export function reduce(S, action){
   }
 }
 
-export function drawCard(S) {
+export function drawCard(S){
   if (!S.deck) S.deck = [];
   if (!S.disc) S.disc = [];
   if (!S.hand) S.hand = [];
 
   if (S.deck.length === 0) {
-    if (S.disc.length === 0) {
-      S._log.push("No cards to draw.");
-      return;
-    }
-    // reshuffle discard into deck
-    S.deck = shuffle(S.disc);
-    S.disc = [];
+    if (S.disc.length === 0) { S._log.push("No cards to draw."); return; }
+    S.deck = shuffle(S.disc); S.disc = [];
     S._log.push("You reshuffle.");
   }
 
-  // draw only if deck has a card left
-  const card = S.deck.pop();
-  if (card) S.hand.push(card);
+  const c = S.deck.pop();
+  if (c) S.hand.push(c);
 }
+
 
 
 
