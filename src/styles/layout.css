@@ -1,12 +1,12 @@
-/* --- Layout / grids / fixed row heights --- */
+/* Layout skeleton + fixed heights (kept separate from visuals) */
 :root{
-  --card-w: 220px;          /* keep in sync with components.css */
+  --card-w: 220px;
   --card-ratio: 1.4;
   --card-h: calc(var(--card-w) * var(--card-ratio));
-  --g: 18px;                /* grid gap */
+  --g: 18px;
 }
 
-/* Aetherflow: 5 cards, fixed row height = card height */
+/* Aetherflow (5-wide, fixed row height) */
 .flowWrap{ overflow:hidden; }
 .flowGrid{
   display:grid;
@@ -18,17 +18,7 @@
 .flowGrid .marketCard{ width:var(--card-w); height:var(--card-h); }
 .flowGrid .costCell{ height:24px; margin-bottom:10px; }
 
-/* Player board: 3 spell + 1 glyph to the right, fixed height */
-#playerSlots{
-  display:grid;
-  grid-template-columns: repeat(3, var(--card-w)) var(--card-w);
-  gap: var(--g);
-  justify-content:center;
-}
-#playerSlots .slotCell{ width:var(--card-w); height:var(--card-h); }
-#playerSlots .slotCell.glyph{ grid-column:4; }
-
-/* AI board: 3 spell slots, fixed height */
+/* AI board: 3 spell slots in one fixed-height row */
 #aiSlots{
   display:grid;
   grid-template-columns: repeat(3, var(--card-w));
@@ -37,18 +27,42 @@
 }
 #aiSlots .slotCell{ width:var(--card-w); height:var(--card-h); }
 
-/* Hand ribbon at bottom, not clipped; cards fan within it */
+/* Player board (title on its own line; row = glyph + 3 spell slots) */
+.zone:has(#playerSlots){
+  display:grid;                           /* grid only for this zone */
+  justify-content:center;
+  grid-template-columns: var(--card-w) repeat(3, var(--card-w));
+  grid-auto-rows: auto;
+  row-gap: 12px;
+  column-gap: var(--g);
+}
+.zone:has(#playerSlots) .title{
+  grid-column: 1 / -1;
+  margin-bottom: 4px;
+}
+.glyphTray{
+  grid-column: 1;
+  display:grid;
+  grid-template-columns: var(--card-w);
+  grid-auto-rows: var(--card-h);
+  gap: var(--g);
+  justify-items:center;
+}
+#playerSlots{
+  grid-column: 2 / span 3;
+  display:grid;
+  grid-template-columns: repeat(3, var(--card-w));
+  gap: var(--g);
+  justify-items:center;
+}
+#playerSlots .slotCell,
+.glyphTray .slotCell{ width:var(--card-w); height:var(--card-h); }
+
+/* Hand ribbon (not clipped) */
 .ribbon-wrap{ position:fixed; left:0; right:0; bottom:0; z-index:30; }
 .ribbon{
   position:relative; height: calc(var(--card-h) * .65 + 36px);
-  padding: 0 120px;         /* breathing room left/right */
-  backdrop-filter: blur(3px);
+  padding: 0 120px;
+  pointer-events:none;                    /* cards handle their own events */
 }
-.handFan{ position:absolute; left:50%; bottom:10px; transform:translateX(-50%); }
-
-/* Each .handCard gets absolutely positioned by JS (fan math), so ensure it has
-   enough space to extend upward without being clipped by panel margins. */
-.wrap{ padding-bottom: calc(var(--card-h) * .75 + 120px); }
-
-/* Generic helpers */
-.emptyCell{ color:#bcb4a7; font-weight:600; }
+.wrap{ padding-bottom: calc(var(--card-h) * .75 + 120px); } /* space for fan */
