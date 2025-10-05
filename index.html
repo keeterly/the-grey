@@ -102,7 +102,24 @@
   </div>
   <div class="fabDial">
     <button id="fabDraw"  class="fab" aria-label="Draw">⇧</button>
-    <button id="fabEnd"   class="fab" aria-label="End Turn">⏵</button>
+    <button id="fabEnd" class="fab" aria-label="End Turn">⏵</button>
+<script>
+  document.getElementById('fabEnd').onclick = async () => {
+    await animateDiscardHand();
+    game.dispatch({ type: 'END_TURN' });
+
+    // === AI TURN SEQUENCE ===
+    game.dispatch({ type: 'AI_DRAW' });
+    game.dispatch({ type: 'AI_PLAY_SPELL' });
+    game.dispatch({ type: 'AI_CHANNEL' });
+    game.dispatch({ type: 'AI_ADVANCE' });
+    game.dispatch({ type: 'AI_BUY' });
+    game.dispatch({ type: 'AI_SPEND_TRANCE' });
+
+    game.dispatch({ type: 'START_TURN' });
+    await animateDrawHand();
+  };
+</script>
     <button id="fabReset" class="fab" aria-label="Reset">↺</button>
   </div>
 
