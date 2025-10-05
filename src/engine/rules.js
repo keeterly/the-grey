@@ -27,11 +27,21 @@ export function reduce(S, action){
 
 
     case 'END_TURN': {
-      S.slots.forEach(s=>{ if(s) s.advUsed=false; });
-      slideFlow(S);
-      if(S.hand.length){ S.disc.push(...S.hand); S.hand.length=0; L("End Turn: auto-discard hand."); }
-      return S;
-    }
+  // Flow shift: move each card one slot cheaper (rightward)
+  const row = state.flowRow.slice();
+  for (let i = row.length - 1; i > 0; i--) {
+    row[i] = row[i - 1];
+  }
+  // Draw a new expensive card (slot 0)
+  row[0] = drawNewFlowCard(state);
+
+  return { 
+    ...state,
+    flowRow: row,
+    turn: state.turn + 1
+  };
+}
+
 
     case 'DRAW': { drawCard(S); return S; }
 
