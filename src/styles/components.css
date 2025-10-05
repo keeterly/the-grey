@@ -197,5 +197,14 @@ body{
   transition: none !important;
 }
 
+/* Press = same pose as hover, so the card doesn't "drop" when you hold */
+.ribbon .card.is-pressing {
+  transform: translateY(-14px) scale(1.02) !important;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
+  transition: none !important; /* freeze while we measure */
+}
+
+/* While actually dragging, transitions should be off */
+.card.is-dragging { transition: none !important; }
 
 
