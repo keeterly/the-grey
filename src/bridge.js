@@ -1,11 +1,11 @@
 // =========================================================
-// THE GREY — Bridge (v3)
-// Wires Engine + UI, and loads Drag for its side-effects.
+// THE GREY — Bridge (v3.1 for GitHub Pages build)
+// Wires Engine + UI, ensures drag loads for side-effects.
 // =========================================================
 
-import { createGame } from '../engine/index.js';
-import * as UI from './index.js';
-import './drag.js'; // load; no default import expected
+import { createGame } from './engine/index.js';  // ✅ no /src prefix
+import * as UI from './ui/index.js';             // ✅
+import './ui/drag.js';                           // ✅
 
 (() => {
   const game =
@@ -13,7 +13,7 @@ import './drag.js'; // load; no default import expected
       ? window.game
       : createGame();
 
-  window.game = game;            // expose for console/testing
+  window.game = game;
   UI.init(game);
 
   console.log('[BRIDGE] Game + UI + Drag initialized and exposed to window.');
