@@ -1,8 +1,8 @@
 // =========================================================
-// THE GREY — UI (compat DOM + controls + animations)
-// - Wider Arena-like hand fan (with local fallback)
-// - Updates deck/discard and AE gem
-// - Honors exact drop slot (from drag.js)
+// THE GREY — UI (v3.12)
+// - Wider + lower Arena-like hand (less obstruction)
+// - Deck/Discard/Aether gem counters updated
+// - Honors precise drop slot from drag.js (data-drop-slot)
 // =========================================================
 
 const $  = (s, r=document) => r.querySelector(s);
@@ -41,19 +41,16 @@ function makeCardEl(card, variant) {
   return el;
 }
 
-/* ---------- micro-animations ---------- */
+/* ---------- lightweight anim helpers ---------- */
 function flyElement(el, toRect, {duration=350, scale=0.92, easing='cubic-bezier(.2,.8,.2,1)'} = {}) {
   const from = el.getBoundingClientRect();
   const ghost = el.cloneNode(true);
-  ghost.style.position = 'fixed';
-  ghost.style.pointerEvents = 'none';
-  ghost.style.margin = '0';
-  ghost.style.left = `${from.left}px`;
-  ghost.style.top  = `${from.top}px`;
-  ghost.style.width  = `${from.width}px`;
-  ghost.style.height = `${from.height}px`;
-  ghost.style.zIndex = '9999';
-  ghost.style.transformOrigin = '50% 50%';
+  Object.assign(ghost.style, {
+    position:'fixed', pointerEvents:'none', margin:'0',
+    left:`${from.left}px`, top:`${from.top}px`,
+    width:`${from.width}px`, height:`${from.height}px`,
+    zIndex:'9999', transformOrigin:'50% 50%'
+  });
   document.body.appendChild(ghost);
 
   const dx = toRect.left - from.left;
@@ -67,8 +64,7 @@ function flyElement(el, toRect, {duration=350, scale=0.92, easing='cubic-bezier(
 
 async function animateBuyToDiscard(sourceEl) {
   const chip = $('#chipDiscard') || $('#chipDeck') || document.body;
-  const r = chip.getBoundingClientRect();
-  await flyElement(sourceEl, r, { duration: 420, scale: 0.88 });
+  await flyElement(sourceEl, chip.getBoundingClientRect(), { duration: 420, scale: 0.88 });
 }
 
 async function animateDiscardHand() {
@@ -90,17 +86,15 @@ async function animateDrawHand() {
     const to = el.getBoundingClientRect();
     const ghost = el.cloneNode(true);
     ghost.classList.remove('handCard');
-    ghost.style.position = 'fixed';
-    ghost.style.left = `${r.left}px`;
-    ghost.style.top  = `${r.top}px`;
-    ghost.style.width  = `${to.width}px`;
-    ghost.style.height = `${to.height}px`;
-    ghost.style.zIndex = '9999';
-    ghost.style.pointerEvents = 'none';
+    Object.assign(ghost.style, {
+      position:'fixed', left:`${r.left}px`, top:`${r.top}px`,
+      width:`${to.width}px`, height:`${to.height}px`,
+      zIndex:'9999', pointerEvents:'none'
+    });
     document.body.appendChild(ghost);
     ghost.animate(
       [
-        { transform: 'translate(0,0) scale(.9)',   opacity: .0 },
+        { transform: 'translate(0,0) scale(.9)', opacity: .0 },
         { transform: `translate(${to.left - r.left}px, ${to.top - r.top}px) scale(1)`, opacity: 1 }
       ],
       { duration: 260 + i*24, easing: 'cubic-bezier(.2,.8,.2,1)' }
@@ -110,39 +104,34 @@ async function animateDrawHand() {
   requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- hand fan (Arena-like) ---------- */
+/* ---------- hand fan (wider + lower) ---------- */
 function fanHandFallback() {
-  // Prefer global helper if present
   if (window.Anim?.fanHand) {
-    window.Anim.fanHand(elRibbon, { spacing: 34, maxAngle: 10, maxLift: 12 });
+    window.Anim.fanHand(elRibbon, { spacing: 36, maxAngle: 10, maxLift: 10, baseY: 36 });
     return;
   }
   const cards = $$('.handCard', elRibbon);
   const n = cards.length;
   if (!n) return;
 
-  const sampleRect = cards[0].getBoundingClientRect();
-  const cw = sampleRect.width || 180;
   const wrapW = elRibbon.clientWidth || 800;
-
-  // a touch wider than before
-  const maxSpread = Math.max(22, Math.min(48, Math.floor((wrapW - cw) / Math.max(n - 1, 1))));
+  const maxSpread = Math.max(24, Math.min(52, Math.floor(wrapW / Math.max(n + 2, 4))));
   const angleMax  = 10;
-  const liftBase  = 8;
-  const liftScale = 10;
+  const liftScale = 9;
+  const baseY     = 36;       // LOWER: push hand down so it doesn’t obscure the board
   const mid = (n - 1) / 2;
 
   cards.forEach((c, i) => {
     const t = (i - mid);
     const x = t * maxSpread;
-    const y = -Math.abs(t) * (liftScale / Math.max(1, n/6)) - liftBase;
+    const y = baseY - Math.abs(t) * (liftScale / Math.max(1, n/6));
     const a = (t / mid || 0) * angleMax;
     c.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
     c.style.zIndex = String(100 + i);
   });
 }
 
-/* ---------- Aetherflow ---------- */
+/* ---------- Market ---------- */
 function renderMarket() {
   for (let i = 0; i < 5; i++) {
     const cell = elMarketCells[i];
@@ -155,7 +144,7 @@ function renderMarket() {
     cardEl.onclick = async () => {
       await animateBuyToDiscard(cardEl);
       G.dispatch({ type: 'BUY_FLOW', index: i });
-      G.dispatch({ type: 'ENSURE_MARKET' }); // immediate refill
+      G.dispatch({ type: 'ENSURE_MARKET' }); // refill immediately
       renderAll();
     };
     cell.appendChild(cardEl);
@@ -167,7 +156,6 @@ function renderHand() {
   elRibbon.innerHTML = '';
   G.state.hand.forEach((c, idx) => {
     const cardEl = makeCardEl(c, 'hand');
-
     cardEl.onclick = (e) => {
       e.stopPropagation();
       const drop = cardEl.dataset.dropSlot;
@@ -177,7 +165,6 @@ function renderHand() {
       if (c.t === 'Instant') {
         G.dispatch({ type: 'CHANNEL_FROM_HAND', index: idx });
       } else if (c.t === 'Glyph') {
-        // glyphs are set; UI shows top glyph face-down in slot 4
         G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: null });
       } else {
         let s = dropSlot;
@@ -186,14 +173,13 @@ function renderHand() {
       }
       renderAll();
     };
-
     elRibbon.appendChild(cardEl);
   });
 
   requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- Player Board ---------- */
+/* ---------- Player / AI ---------- */
 function renderPlayerSlots() {
   elPlayerSlots.innerHTML = '';
   for (let i = 0; i < 4; i++) {
@@ -232,7 +218,6 @@ function renderPlayerSlots() {
   }
 }
 
-/* ---------- AI Board ---------- */
 function renderAiSlots() {
   elAiSlots.innerHTML = '';
   for (let i = 0; i < 3; i++) {
@@ -245,15 +230,11 @@ function renderAiSlots() {
   }
 }
 
-/* ---------- Counts & gem ---------- */
+/* ---------- Counts ---------- */
 function renderCounts() {
-  const deckCt = $('#deckCount');
-  const discCt = $('#discardCount');
-  const aeGem  = $('#aeGemCount');
-
-  if (deckCt) deckCt.textContent = String(G.state.deck.length);
-  if (discCt) discCt.textContent = String(G.state.disc.length);
-  if (aeGem)  aeGem.textContent  = String(G.state.ae || 0);
+  $('#deckCount').textContent    = String(G.state.deck.length);
+  $('#discardCount').textContent = String(G.state.disc.length);
+  $('#aeGemCount').textContent   = String(G.state.ae || 0);
 }
 
 /* ---------- full redraw ---------- */
@@ -328,5 +309,5 @@ export function init(game) {
   const boot = document.querySelector('.bootCheck');
   if (boot) boot.style.display = 'none';
 
-  console.log('[UI] v3.11 — Arena hand, drag-aware slots, counts + AE gem wired');
+  console.log('[UI] v3.12 — lower hand, no-damp drag, icons + gem floating');
 }
