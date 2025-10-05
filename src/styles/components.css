@@ -42,6 +42,7 @@ body{
 
 /* Card */
 .card{
+  position: relative;                 /* needed for pulse ::after */
   width:var(--card-w); height:var(--card-h);
   border-radius:18px; background:linear-gradient(#fff,#faf8f4);
   box-shadow:var(--shadow);
@@ -63,10 +64,31 @@ body{
 /* Variants */
 .handCard{ position:absolute; bottom:0; transform-origin:50% 100%; }
 .handCard.dragging{ pointer-events:none; z-index:1000; }
-.instantPulse{ animation:instant .5s ease; }
-@keyframes instant { from{ box-shadow:0 0 0 0 rgba(255,140,0,.6); }
-                     to{ box-shadow:0 0 0 18px transparent; } }
 
+/* (legacy helper, safe to keep) */
+.instantPulse{ animation:instant .5s ease; }
+@keyframes instant {
+  from{ box-shadow:0 0 0 0 rgba(255,140,0,.6); }
+  to  { box-shadow:0 0 0 18px transparent; }
+}
+
+/* NEW: Instant pulsing that does NOT override card's own box-shadow
+   (glow lives on a pseudo-element layer) */
+@keyframes goldPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
+  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
+  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
+}
+.card.is-instant.pulsing::after{
+  content:"";
+  position:absolute; inset:-2px;
+  border-radius:inherit;
+  pointer-events:none;
+  /* animated halo ring; keeps the base card box-shadow intact */
+  animation: goldPulse 1.4s ease-out infinite;
+}
+
+/* Slots */
 .slotCell{
   width:var(--card-w); height:var(--card-h);
   border-radius:18px; background:var(--panel-soft);
@@ -105,7 +127,6 @@ body{
 /* Helpers */
 .emptyCell{ color:#bcb4a7; font-weight:600; }
 
-
 /* Cards in the ribbon: start slightly low (peek) and only rise on hover */
 .ribbon .card {
   pointer-events: auto;           /* re-enable on card level */
@@ -123,4 +144,30 @@ body{
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
 }
 
+/* ---------- PREVIEW OVERLAY (25% bigger) ---------- */
 
+.preview-overlay{
+  position: fixed; inset: 0;
+  background: rgba(10,10,8,.55);
+  backdrop-filter: blur(2px);
+  display: grid; place-items: center;
+  z-index: 100;
+}
+
+.preview-card{
+  transform: translateY(-8px) scale(1.25); /* 25% larger */
+  transform-origin: center;
+  transition: transform 150ms ease;
+  max-width: min(96vw, 800px);
+}
+
+/* Strong, consistent shadow while previewed */
+.preview-card .card{
+  box-shadow: 0 12px 34px rgba(0,0,0,.28);
+}
+
+/* Ensure instant pulse also shows in preview (same ::after glow works) */
+.preview-card .card.is-instant.pulsing::after{
+  /* no changes needed, just reaffirm stacking */
+  z-index: 2;
+}
