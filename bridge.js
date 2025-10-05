@@ -1,30 +1,23 @@
-// bridge.js (root)
-// Wires Engine -> UI. No engine imports inside UI modules.
-
-import { createGame } from './src/engine/index.js';
-import * as UI from './src/ui/index.js';
-
+// Minimal bridge that ensures window.game exists and nudges UI once ready.
 export function exposeToWindow() {
-  // create or reuse game
-  const game = window.game || createGame();
-  window.game = game;
-
-  // init animated UI
-  UI.init(game);
-
-  // expose anim helpers lazily if something else wants them
-  window.animateDiscardHand = async (...args) => {
-    const m = await import('./src/ui/animations.js');
-    return m.animateDiscardHand(...args);
+  const kick = () => {
+    try {
+      if (!window.game && window.GameEngine?.create) {
+        window.game = window.GameEngine.create();
+      }
+      // If classic UI has already loaded, init now
+      if (window.UI && typeof window.UI.init === 'function' && window.game) {
+        window.UI.init(window.game);
+      }
+    } catch (e) {
+      console.warn('[BRIDGE] exposeToWindow error:', e);
+    }
   };
-  window.animateDrawHand = async (...args) => {
-    const m = await import('./src/ui/animations.js');
-    return m.animateDrawHand(...args);
-  };
-}
 
-// auto-boot once
-if (!window.__greyBooted) {
-  window.__greyBooted = true;
-  exposeToWindow();
+  // Try when DOM is ready, and also after a tick for scripts that attach late
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(kick, 0));
+  } else {
+    setTimeout(kick, 0);
+  }
 }
