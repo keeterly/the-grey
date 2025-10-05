@@ -1,98 +1,54 @@
-/* Page scaffold */
-.wrap{ padding: 8px 10px 120px; }
-.zone{ margin: 18px auto; max-width: 1120px; }
-.title{ font-weight: 700; color:#6c655c; margin: 6px 6px 10px; }
-
-/* Fixed card metrics */
+/* --- Layout / grids / fixed row heights --- */
 :root{
-  --card-w: 220px;
-  --card-h: calc(var(--card-w) * 1.398); /* MTG-ish ratio */
-  --card-gap: 18px;
-  --row-pad: 14px;
+  --card-w: 220px;          /* keep in sync with components.css */
+  --card-ratio: 1.4;
+  --card-h: calc(var(--card-w) * var(--card-ratio));
+  --g: 18px;                /* grid gap */
 }
 
-/* Fixed rows: AI board / Aetherflow / Player board / Glyph tray */
-.fixedRow{
-  min-height: var(--card-h);
-  display: grid;
-  align-items: center;
-  grid-auto-flow: column;
-  grid-auto-columns: var(--card-w);
-  gap: var(--card-gap);
-  padding: var(--row-pad);
-  background: linear-gradient(#fbf7f0,#f4ede3);
-  border-radius: 14px;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
-  overflow: visible;
-}
-
-/* Slot grids */
-#aiSlots{ grid-template-columns: repeat(3, var(--card-w)); }
-#playerSlots{ grid-template-columns: repeat(4, var(--card-w)); }
-.glyphTray{ grid-template-columns: repeat(4, var(--card-w)); margin-top: 10px; }
-
-/* Slot placeholders exactly card-sized */
-.slotCell,
-.marketCard{
-  width: var(--card-w);
-  height: var(--card-h);
-  border-radius: 18px;
-}
-
-.slotCell{
-  background: #f3eee6;
-  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
-  display:flex; align-items:center; justify-content:center;
-  position: relative;
-}
-.slotCell.glyph{
-  outline: 2px dashed rgba(120,120,120,.35);
-  outline-offset: -8px;
-}
-.emptyCell{ opacity:.45; font-size: 13px; }
-
-/* Aetherflow grid: 5 exact card cells + cost chips row */
-.flowWrap{ overflow: visible; }
+/* Aetherflow: 5 cards, fixed row height = card height */
+.flowWrap{ overflow:hidden; }
 .flowGrid{
-  display: grid;
+  display:grid;
   grid-template-columns: repeat(5, var(--card-w));
-  grid-template-rows: 24px var(--card-h);
-  gap: var(--card-gap);
-  align-items: start;
+  grid-auto-rows: var(--card-h);
+  gap: var(--g);
+  justify-content:center;
 }
-.costCell{ height: 24px; display:flex; align-items:center; justify-content:center; }
-.costChip{
-  display:inline-flex; align-items:center; justify-content:center;
-  width:28px; height:22px; font: 600 12px/1.1 ui-sans-serif,system-ui;
-  background:#f4e9d2; border-radius:999px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08);
-}
+.flowGrid .marketCard{ width:var(--card-w); height:var(--card-h); }
+.flowGrid .costCell{ height:24px; margin-bottom:10px; }
 
-/* Hand ribbon (not clipped) */
-.ribbon-wrap{
-  position: sticky; bottom: 0;
-  z-index: 20;
-  background: linear-gradient(transparent, rgba(238,232,220,.88) 28%);
-  padding-top: 24px;
+/* Player board: 3 spell + 1 glyph to the right, fixed height */
+#playerSlots{
+  display:grid;
+  grid-template-columns: repeat(3, var(--card-w)) var(--card-w);
+  gap: var(--g);
+  justify-content:center;
 }
+#playerSlots .slotCell{ width:var(--card-w); height:var(--card-h); }
+#playerSlots .slotCell.glyph{ grid-column:4; }
+
+/* AI board: 3 spell slots, fixed height */
+#aiSlots{
+  display:grid;
+  grid-template-columns: repeat(3, var(--card-w));
+  gap: var(--g);
+  justify-content:center;
+}
+#aiSlots .slotCell{ width:var(--card-w); height:var(--card-h); }
+
+/* Hand ribbon at bottom, not clipped; cards fan within it */
+.ribbon-wrap{ position:fixed; left:0; right:0; bottom:0; z-index:30; }
 .ribbon{
-  display:flex; gap: var(--card-gap);
-  padding: 12px 18px 18px;
-  min-height: calc(var(--card-h) * 0.78);
-  overflow: visible;
+  position:relative; height: calc(var(--card-h) * .65 + 36px);
+  padding: 0 120px;         /* breathing room left/right */
+  backdrop-filter: blur(3px);
 }
+.handFan{ position:absolute; left:50%; bottom:10px; transform:translateX(-50%); }
 
-/* Drag highlights */
-.slotCell.drop-ok{ box-shadow: inset 0 0 0 2px #54b073; }
-.slotCell.drop-ok.drop-hover{ box-shadow: inset 0 0 0 3px #2c8a51; }
-.slotCell.drop-no{ opacity:.35; filter: grayscale(.4); }
+/* Each .handCard gets absolutely positioned by JS (fan math), so ensure it has
+   enough space to extend upward without being clipped by panel margins. */
+.wrap{ padding-bottom: calc(var(--card-h) * .75 + 120px); }
 
-/* FABs – top-right (restored) */
-.fabDial.topRight{
-  position: fixed;
-  right: 22px; top: 14px;
-  display:flex; flex-direction: column; gap: 10px;
-  z-index: 40;
-}
-
-/* Hide boot-check badge (we’re good) */
-.bootCheck{ display:none !important; }
+/* Generic helpers */
+.emptyCell{ color:#bcb4a7; font-weight:600; }
