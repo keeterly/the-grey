@@ -1,68 +1,69 @@
-/* ==========================================================
-   THE GREY — Layout
-   Keeps consistent card row heights and section spacing
-   ========================================================== */
+/* Zones */
+.zone{ margin: 18px auto; max-width: 1120px; }
+.title{ font-weight: 700; color:#6c655c; margin: 6px 6px 10px; }
 
-body {
-  margin: 0;
-  background: #f5f1e8;
-  font-family: "Inter", system-ui, sans-serif;
-  color: #1a1a1a;
-  overflow-x: hidden;
-}
-
-.wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-  padding: 20px;
-}
-
-.zone {
-  background: #faf7f1;
-  border-radius: 12px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.08);
-  padding: 8px 16px 16px;
-}
-
-.zone .title {
-  font-weight: 600;
-  color: #3b352b;
-  margin-bottom: 8px;
-}
-
-/* keep height fixed to card aspect ratio */
-.slots {
+/* Fixed card rows (AI board, Aetherflow, Player board, Glyph tray) */
+.fixedRow{
+  min-height: var(--card-h);
   display: grid;
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  align-items: center;
+  grid-auto-flow: column;
+  grid-auto-columns: var(--card-w);
+  gap: 18px;
+  padding: 14px;
+  background: linear-gradient(#faf7f2,#f5efe6);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+  overflow: visible; /* important for hand hover/ghost */
+}
+
+/* Player slots: 3 spell + 1 glyph cell */
+#playerSlots{ grid-template-columns: repeat(4, var(--card-w)); }
+#aiSlots{ grid-template-columns: repeat(3, var(--card-w)); }
+
+.slotCell{
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: var(--card-radius);
+  background: #f3eee6;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.06);
+  display:flex; align-items:center; justify-content:center;
+  position: relative;
+}
+.slotCell.glyph{ outline: 2px dashed rgba(120,120,120,.35); outline-offset: -8px; }
+
+.emptyCell{ opacity:.45; font-size: 13px; }
+
+/* Aetherflow */
+.flowWrap{ overflow: visible; }
+.flowGrid{
+  display: grid;
+  grid-template-columns: repeat(5, var(--card-w));
+  grid-auto-rows: var(--card-h);
   gap: 18px;
   align-items: start;
-  height: calc((min(22vw, 220px)) * 88 / 63);
+}
+.costCell{ height: 0; display:flex; align-items: center; justify-content: center; }
+.costChip{ display:inline-flex; align-items:center; justify-content:center; width:28px; height:22px; font: 600 12px/1.1 ui-sans-serif,system-ui; background:#f4e9d2; border-radius:999px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+
+/* Market placeholders should be exact card footprint */
+.marketCard{ width: var(--card-w); height: var(--card-h); }
+
+/* Hand ribbon */
+.ribbon-wrap{ position: sticky; bottom: 0; z-index: 20; background: linear-gradient(transparent, rgba(238,232,220,.85) 28%); padding-top: 24px; }
+.ribbon{
+  display:flex; gap:18px; padding: 12px 18px 18px;
+  min-height: calc(var(--card-h) * 0.72);
+  transform-origin: 50% 100%;
+  overflow: visible; /* allow fanned transforms */
 }
 
-/* Aetherflow rows — same fixed height */
-.flowGrid {
-  height: calc((min(22vw, 220px)) * 88 / 63);
-}
+/* Drag highlights */
+.slotCell.drop-ok{ box-shadow: inset 0 0 0 2px #54b073; }
+.slotCell.drop-ok.drop-hover{ box-shadow: inset 0 0 0 3px #2c8a51; }
+.slotCell.drop-no{ opacity:.35; filter: grayscale(.4); }
 
-/* Make ribbon visible (prevent clipping) */
-.ribbon-wrap {
-  position: sticky;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(180deg, rgba(245,241,232,0), #f5f1e8 60%);
-  padding-bottom: 6px;
-  overflow: visible;
-  z-index: 5;
-}
-
-.ribbon {
-  overflow: visible !important;
-}
-
-/* Ensure HUD + FAB float above */
-.hudRow, .fabDial {
-  z-index: 10;
-  position: relative;
+/* FABs top-right (out of the way of the gem) */
+.fabDial.topRight{
+  position: fixed; right: 22px; top: 14px; display:flex; flex-direction: column; gap: 10px; z-index: 30;
 }
