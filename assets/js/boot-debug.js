@@ -4,7 +4,7 @@ console.log('[BOOT] Debug check disabled.');
 // === REAL-CARD POINTER DRAG (snappy + robust) ===============================
 (() => {
   const DRAG_THRESHOLD = 6;        // px before we "lift"
-  const DAMP = 0.32;               // responsiveness (0.25-0.38 feels good)
+  const DAMP = 0.35;               // responsiveness (0.25-0.38 feels good)
   const MAX_STEP = 48;             // clamp per-frame px to avoid rubberband
   let raf;
 
