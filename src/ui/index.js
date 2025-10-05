@@ -658,7 +658,38 @@ style.textContent = `
     50%{ transform: translateY(-3px); }
     100%{ transform: translateY(0); }
   }
+
+/* Hide legacy HUD (old HP/AE and trance meter) */
+.hudRow, .tranceDock, .pill { display: none !important; }
+
+/* Runic hearts (stroke-only “rune” hearts) */
+.hpRow .heart{
+  width: 22px;
+  height: 22px;
+  margin: 0 6px;
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: .95;
+  transition: transform .2s ease, filter .2s ease, opacity .2s ease;
+  /* Rune heart outline via inline SVG (gold stroke) */
+  background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'>\
+<path d='M12 20s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9z' fill='none' stroke='%23846c3a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>\
+</svg>");
+}
+.hpRow .heart.lost { filter: grayscale(1) opacity(.35); }
+.hpRow .heart.glow {
+  animation: runePulse 1.6s ease-in-out infinite;
+}
+@keyframes runePulse {
+  0%   { filter: drop-shadow(0 0 0 rgba(255,200,110,0)); transform: translateY(0); }
+  50%  { filter: drop-shadow(0 0 10px rgba(255,200,110,.55)); transform: translateY(-1px); }
+  100% { filter: drop-shadow(0 0 0 rgba(255,200,110,0)); transform: translateY(0); }
+}
+
+  
 `;
+
 document.head.appendChild(style);
 
 if (typeof window !== 'undefined') {
