@@ -152,5 +152,16 @@
 
   <!-- Diagnostics -->
   <script defer src="./assets/js/boot-debug.js"></script>
+
+
+  <!-- Drag globals (if you use the global window.DragCards helper) -->
+<script defer src="./src/ui/drag.js"></script>
+
+<!-- Boot diagnostics (optional) -->
+<script defer src="./assets/js/boot-debug.js"></script>
+
+<!-- Single ESM entry: wires Engine -> UI -->
+<script type="module" src="./bridge.js"></script>
+
 </body>
 </html>
