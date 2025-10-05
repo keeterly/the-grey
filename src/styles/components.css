@@ -1,6 +1,6 @@
 :root{
-  --card-w: 220px;                    /* MTG-ish ratio & sizes */
-  --card-h: calc(var(--card-w)*1.398);/* 63×88mm ~= 1.397 */
+  --card-w: 220px;
+  --card-h: calc(var(--card-w)*1.398);
   --card-radius: 18px;
 }
 
