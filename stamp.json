@@ -1,6 +1,5 @@
-/stamp.json
 {
   "branch": "2.0",
-  "commit": "PUT_7_CHAR_SHA_HERE",
+  "commit": "REPLACE_WITH_SHORT_SHA",
   "builtAt": "2025-10-05T00:00:00Z"
 }
