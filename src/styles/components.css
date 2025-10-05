@@ -180,7 +180,12 @@ body{
   filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
   cursor: grabbing;
   will-change: transform, filter;
+  transition: none !important;
 }
+
+
+
+
 
 /* Prevent native ghost image (scoped to ribbon cards) */
 .ribbon .card, .ribbon .card *{
@@ -188,3 +193,5 @@ body{
   user-select: none;
   touch-action: none;
 }
+
+
