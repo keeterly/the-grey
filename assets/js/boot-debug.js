@@ -39,72 +39,77 @@ function getTranslateXY(el){
     window.removeEventListener('blur', onUp, { capture:false });
   };
 
-  function onDown(e){
-    const card = e.target.closest('.ribbon .card');
-    if (!card || e.button !== 0) return;
+  // ——— keep getTranslateXY() and other helpers as-is ———
 
-    e.preventDefault();
-    try { card.setPointerCapture(e.pointerId); } catch {}
+function onDown(e){
+  const card = e.target.closest('.ribbon .card');
+  if (!card || e.button !== 0) return;
 
-    // Neutralize hover during measurement to avoid lift nudge
-    card.classList.add('is-dragging');
-    const rectBefore = card.getBoundingClientRect();
-    const { tx, ty } = getTranslateXY(card);     // ribbon translate (peek/hover)
-    card.classList.remove('is-dragging');
+  e.preventDefault();
+  try { card.setPointerCapture(e.pointerId); } catch {}
 
-    // Position WITHOUT the ribbon transform so it won't jump on lift
-    const rawLeft = rectBefore.left + window.scrollX - tx;
-    const rawTop  = rectBefore.top  + window.scrollY - ty;
+  // DO NOT add .is-dragging here (it would jump to 0,0 before vars are set)
+  const rect = card.getBoundingClientRect();
+  const { tx, ty } = getTranslateXY(card); // current ribbon translate
 
-    st = {
-      pid: e.pointerId,
-      card,
-      startX: e.clientX,
-      startY: e.clientY,
-      offsetX: e.clientX - rawLeft,
-      offsetY: e.clientY - rawTop,
-      curX: rawLeft,
-      curY: rawTop,
-      targetX: rawLeft,
-      targetY: rawTop,
-      lifted: false,
-      originParent: card.parentNode,
-      originNext: card.nextSibling,
-      placeholder: null,
-      isInstant: card.classList.contains('is-instant'),
-    };
+  // Position WITHOUT the ribbon transform so lift doesn't nudge
+  const rawLeft = rect.left + window.scrollX - tx;
+  const rawTop  = rect.top  + window.scrollY - ty;
 
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    window.addEventListener('blur', onUp); // tab switch, etc.
-  }
+  st = {
+    pid: e.pointerId,
+    card,
+    startX: e.clientX,
+    startY: e.clientY,
+    offsetX: e.clientX - rawLeft,
+    offsetY: e.clientY - rawTop,
+    curX: rawLeft,
+    curY: rawTop,
+    targetX: rawLeft,
+    targetY: rawTop,
+    lifted: false,
+    originParent: card.parentNode,
+    originNext: card.nextSibling,
+    placeholder: null,
+    isInstant: card.classList.contains('is-instant'),
+  };
 
-  function lift(){
-    if (!st || st.lifted) return;
-    const { card, originParent, originNext } = st;
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  window.addEventListener('blur', onUp);
+}
 
-    // Keep fan spacing with a placeholder
-    const r = card.getBoundingClientRect();
-    const ph = document.createElement('div');
-    ph.style.width = r.width + 'px';
-    ph.style.height = r.height + 'px';
-    ph.style.marginLeft = getComputedStyle(card).marginLeft;
-    st.placeholder = ph;
-    if (originNext) originParent.insertBefore(ph, originNext);
-    else originParent.appendChild(ph);
+function lift(){
+  if (!st || st.lifted) return;
+  const { card, originParent, originNext } = st;
 
-    // Move REAL node to drag layer and initialize coords
-    dragLayer.appendChild(card);
-    card.classList.add('is-dragging');
-    if (st.isInstant) card.classList.add('pulsing');
+  // keep fan spacing with a placeholder
+  const r = card.getBoundingClientRect();
+  const ph = document.createElement('div');
+  ph.style.width = r.width + 'px';
+  ph.style.height = r.height + 'px';
+  ph.style.marginLeft = getComputedStyle(card).marginLeft;
+  st.placeholder = ph;
+  if (originNext) originParent.insertBefore(ph, originNext);
+  else originParent.appendChild(ph);
 
-    card.style.setProperty('--drag-x', st.curX + 'px');
-    card.style.setProperty('--drag-y', st.curY + 'px');
+  // IMPORTANT ORDER:
+  // 1) set vars
+  card.style.setProperty('--drag-x', st.curX + 'px');
+  card.style.setProperty('--drag-y', st.curY + 'px');
 
-    st.lifted = true;
-    smoothFollow();
-  }
+  // 2) add class (so transform uses the vars immediately)
+  card.classList.add('is-dragging');
+  if (st.isInstant) card.classList.add('pulsing');
+
+  // 3) move to drag layer
+  dragLayer.appendChild(card);
+
+  st.lifted = true;
+  smoothFollow();
+}
+
 
   function smoothFollow(){
     cancelAnimationFrame(raf);
