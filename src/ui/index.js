@@ -1,20 +1,12 @@
 // =========================================================
-// THE GREY — UI ENTRY (v4.0, "Cleaner Look")
-// =========================================================
-//
-// • Market buy: fly → center pop (glow pause) → player discard
-// • Fixed MTG rows, aligned backgrounds
-// • Big Aethergem pulse with flare on Æ gain
-// • New top header: centered buttons; trance bar removed
-// • HP rows (hearts): grey when lost; gold glow when Trance ready
-// • Heart tooltip: shows Trance effects (active vs inactive)
-// • 3 spell slots + 1 glyph, draw/discard fans, AI visible flights
-//
-// Drop-in replacement for /src/ui/index.js
+// THE GREY — UI ENTRY (v4.1)
+// • Adds typed drop-target highlighting (pairs with drag.js v2.1)
+// • Instants self-pulse when picked up
+// • Hides boot check
+// • Safer ghost math (viewport clamp + fallbacks) to avoid off-screen jumps
 // =========================================================
 
 export function init(game) {
-  // ----------------- Helpers -----------------
   const $  = (sel) => (sel[0] === '#' ? document.getElementById(sel.slice(1)) : document.querySelector(sel));
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const R  = (el) => el.getBoundingClientRect();
@@ -26,7 +18,6 @@ export function init(game) {
   const DEFAULT_WEAVER_AI  = 'AI';
   const MAX_HP = 5;
 
-  // change trackers
   let prevHandIds   = [];
   let prevAISig     = [];
   let prevAIHand    = 0;
@@ -38,17 +29,18 @@ export function init(game) {
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
   const slotSig = (s) => !s ? null : `${s.c?.id ?? s.c?.n ?? 'X'}:${s.ph ?? 1}`;
 
-  // ----------------- DOM Boot -----------------
-  buildTopHeader();     // centered controls + HP hearts
-  ensureAetherGem();    // bottom-right diamond
+  // Hide boot check overlay if present
+  const boot = document.querySelector('.bootCheck');
+  if (boot) boot.style.display = 'none';
 
-  // Pile viewers (deck/discard chips should exist in your HTML)
+  buildTopHeader();
+  ensureAetherGem();
+
   const deckBtn = $('#chipDeck');
   const discBtn = $('#chipDiscard');
   if (deckBtn) deckBtn.onclick = () => openPile('Deck',    (game.state?.deck)||[]);
   if (discBtn) discBtn.onclick = () => openPile('Discard', (game.state?.disc)||[]);
 
-  // Button actions
   const onDraw  = () => game.dispatch({ type:'DRAW' });
   const onEnd   = () => game.dispatch({ type:'END_TURN' });
   const onReset = () => {
@@ -63,7 +55,20 @@ export function init(game) {
   $('#btnEnd')  ?.addEventListener('click', onEnd);
   $('#btnReset')?.addEventListener('click', onReset);
 
-  // ----------------- Ghost & Anim -----------------
+  // ---------- Ghost helpers (stutter/off-screen safe) ----------
+  function safeRect(el, fallbackCenter=false) {
+    try {
+      if (el) return R(el);
+    } catch {}
+    const vw = Math.max(document.documentElement.clientWidth,  window.innerWidth  || 0);
+    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+    const w = 160, h = w * 88 / 63;
+    if (fallbackCenter) {
+      return { left: vw/2 - w/2, top: vh/2 - h/2, width:w, height:h, right: vw/2 + w/2, bottom: vh/2 + h/2 };
+    }
+    return { left: 10, top: 10, width:w, height:h, right: 10+w, bottom: 10+h };
+  }
+
   function makeGhostFromCard(card, fromRect, wide=false) {
     const g = document.createElement('div');
     g.className = 'cardFrame ghostFly';
@@ -71,8 +76,9 @@ export function init(game) {
       position: 'fixed',
       left: `${fromRect.left}px`,
       top:  `${fromRect.top}px`,
-      width: wide ? 'var(--card-w)' : `${Math.max(140, fromRect.width)}px`,
-      margin: 0, zIndex: 9999, opacity: '1', pointerEvents: 'none'
+      width: `${Math.max(140, fromRect.width)}px`,
+      margin: 0, zIndex: 9999, opacity: '1', pointerEvents: 'none',
+      willChange: 'transform, opacity, filter'
     });
     g.innerHTML = `
       <div class="cardTop">
@@ -85,84 +91,54 @@ export function init(game) {
     document.body.appendChild(g);
     return g;
   }
+
   function pathFrames(fromRect, toEl, { lift=0.18, rotate=8, scaleEnd=0.96 }={}) {
-    const to = R(toEl);
-    const dx = to.left - fromRect.left;
-    const dy = to.top  - fromRect.top;
+    const toRect = safeRect(toEl, true);
+    const vw = Math.max(document.documentElement.clientWidth,  window.innerWidth  || 0);
+    const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+
+    // clamp deltas to viewport (avoid wild off-screen)
+    let dx = toRect.left - fromRect.left;
+    let dy = toRect.top  - fromRect.top;
+    dx = clamp(dx, -vw, vw);
+    dy = clamp(dy, -vh, vh);
+
     const dist = Math.hypot(dx,dy);
     const arc = clamp(dist*lift, 80, 260);
     const side= Math.random()<.5 ? -1 : 1;
     const rot = side*rotate;
+
     return [
       { transform: `translate(0,0) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
       { transform: `translate(${dx*.55}px, ${dy*.45-arc}px) rotate(${rot}deg) scale(1.06)`, opacity: .95, offset: .55 },
       { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: .08, offset: 1 }
     ];
   }
-  function animateDrawFan(deckBtn, newEls) {
-    if (!deckBtn || !newEls?.length) return;
-    const deck = R(deckBtn);
-    newEls.forEach((el, i) => {
-      const t = R(el);
-      const dx = deck.left - t.left;
-      const dy = deck.top  - t.top;
-      el.style.transform  = `translate(${dx}px, ${dy}px) scale(.2) rotate(-12deg)`;
-      el.style.opacity    = '0';
-      el.style.transition = 'none'; void el.offsetWidth;
-      const delay = i*130;
-      el.style.transition = `transform .8s cubic-bezier(.2,.8,.3,1), opacity .8s ease`;
-      setTimeout(()=>{ el.style.transform='translate(0,0) scale(1) rotate(0)'; el.style.opacity='1'; }, delay);
-    });
-  }
-  function animateDiscardFanSameNodes(handEls, discardBtn) {
-    if (!handEls?.length || !discardBtn) return Promise.resolve();
-    const to = R(discardBtn);
-    const last = handEls.length - 1;
-    const promises = handEls.map((el,i)=> new Promise((resolve)=>{
-      const r = R(el);
-      const dx = to.left - r.left;
-      const dy = to.top  - r.top;
-      const spread = (i - last/2) * 12;
-      el.style.transition='none'; void el.offsetWidth;
-      el.style.transition=`transform .9s cubic-bezier(.26,.7,.32,1.06), opacity .9s ease`;
-      el.style.transform =`translate(${dx}px, ${dy}px) scale(.72) rotate(${spread*.2}deg)`;
-      el.style.opacity  ='.06';
-      const done=()=>{ el.style.transition=''; el.style.transform=''; el.style.opacity=''; el.removeEventListener('transitionend',done); resolve(); };
-      setTimeout(()=> el.addEventListener('transitionend',done,{once:true}), 0);
-    }));
-    return Promise.all(promises);
-  }
 
-  // ---- “Center pop” helper for BUY impact ----
   async function centerPopThen(toEl, ghostEl, { pause=420, scale=1.24 }={}) {
     const vh = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
     const vw = Math.max(document.documentElement.clientWidth,  window.innerWidth  || 0);
     const cx = vw/2, cy = vh/2;
 
-    const gr = R(ghostEl);
+    const gr = safeRect(ghostEl);
     const dx = cx - (gr.left + gr.width/2);
     const dy = cy - (gr.top  + gr.height/2);
 
-    // fly to center + enlarge and glow
     await new Promise((resolve)=>{
       ghostEl.style.transition = 'transform .42s cubic-bezier(.22,.8,.25,1), filter .42s ease';
       ghostEl.style.transform  = `translate(${dx}px, ${dy}px) scale(${scale})`;
       ghostEl.style.filter     = `drop-shadow(0 10px 40px rgba(255,190,80,.55)) saturate(1.08)`;
       setTimeout(resolve, 420);
     });
-
-    // pause (hold)
     await wait(pause);
-
-    // fly to target
     await new Promise((resolve)=>{
-      const frames = pathFrames(R(ghostEl), toEl, { scaleEnd:.72 });
+      const frames = pathFrames(safeRect(ghostEl), toEl, { scaleEnd:.72 });
       ghostEl.animate(frames, { duration: 760, easing:'cubic-bezier(.2,.75,.25,1)', fill:'forwards' })
         .onfinish = ()=>{ ghostEl.remove(); resolve(); };
     });
   }
 
-  // ----------------- Anchors for AI ghosts -----------------
+  // --------- AI anchors (unchanged logic, now safer) ----------
   function aiDeckAnchor() {
     let a = $('#aiDeckAnchor');
     const slots = $('#aiSlots');
@@ -172,18 +148,15 @@ export function init(game) {
       a.id = 'aiDeckAnchor';
       a.style.position='fixed';
       a.style.width='10px'; a.style.height='16px';
-      a.style.pointerEvents='none';
-      a.style.zIndex = 2;
+      a.style.pointerEvents='none'; a.style.zIndex = 2;
       document.body.appendChild(a);
     }
-    const r = R(slots);
+    const r = safeRect(slots);
     a.style.left = `${r.right - Math.min(120, r.width*0.15)}px`;
     a.style.top  = `${r.top - 18}px`;
     return a;
   }
-  function aiAeAnchor() {
-    return $('#aiHpRow') || $('#aiSlots') || null;
-  }
+  function aiAeAnchor() { return $('#aiHpRow') || $('#aiSlots') || null; }
   function aiDiscardAnchor() {
     let d = $('#aiDiscardChip');
     const ref = $('#aiSlots') || $('#aiHpRow');
@@ -194,26 +167,21 @@ export function init(game) {
       d.className = 'chipCirc ai';
       d.setAttribute('aria-label','AI Discard');
       d.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>`;
-      d.style.position = 'fixed';
-      d.style.zIndex = 3;
+      d.style.position = 'fixed'; d.style.zIndex = 3;
       document.body.appendChild(d);
     }
-    const r = R(ref);
+    const r = safeRect(ref);
     d.style.left = `${r.right + 10}px`;
     d.style.top  = `${r.top + 6}px`;
     return d;
   }
 
-  // ----------------- HUD & Rows -----------------
+  // ---------- HUD / rows ----------
   function renderHUD(S){
     T($('#deckCount'),    S.deck?.length ?? 0);
     T($('#discardCount'), S.disc?.length ?? 0);
-
-    // hearts for you + ai
     drawHearts($('#youHpRow'), S.hp ?? 0, S.trance?.you);
     drawHearts($('#aiHpRow'),  S.ai?.hp ?? 0, S.trance?.ai);
-
-    // aether gem
     T($('#aetherGemNum'), S.ae ?? 0);
     if ((S.ae ?? 0) > prevAE) bigGemPulse();
     prevAE = S.ae ?? 0;
@@ -251,11 +219,10 @@ export function init(game) {
     tip.style.left = `${r.left + r.width/2}px`;
     tip.style.top  = `${r.bottom + 8}px`;
     tip.classList.add('open');
-    document.addEventListener('click', closeTipOnce, { once:true });
-    function closeTipOnce(){ tip?.classList.remove('open'); }
+    document.addEventListener('click', () => tip.classList.remove('open'), { once:true });
   }
 
-  // ----------------- Flow & Slots & Hand -----------------
+  // ---------- Flow / Hand / Slots ----------
   function renderFlow(S){
     const cells = $$('.marketCard');
     prevFlowCards = [];
@@ -266,7 +233,7 @@ export function init(game) {
       el.innerHTML=''; el.classList.toggle('empty', !c);
       el.onclick = null;
       prevFlowCards[i] = c ? { n:c.n, t:c.t, v:c.v, p:c.p, id:c.id } : null;
-      prevFlowRects[i] = R(el);
+      prevFlowRects[i] = safeRect(el);
       if (c){
         const card=document.createElement('div');
         card.className='cardFrame marketCardPanel';
@@ -276,11 +243,11 @@ export function init(game) {
           <div class="cardTop"><div class="cardTitle">${c.n}</div><div class="cardSub">${c.t||''}</div></div>
           <div class="cardBottom"><div class="cardVal">${(c.v!=null?('+'+c.v+'⚡'):'')}${(c.p!=null?(' · '+c.p+'ϟ'):'')}</div></div>`;
         el.appendChild(card);
-
         el.onclick = () => { try { game.dispatch({ type:'BUY_FLOW', index:i }); } catch(e){ console.error('[UI] buy', e); } };
       }
     }
   }
+
   function renderHand(S){
     const ribbon = $('#ribbon');
     const beforeIds = prevHandIds.slice(0);
@@ -289,7 +256,9 @@ export function init(game) {
     hand.forEach((c,i)=>{
       const el = document.createElement('div');
       el.className = 'cardFrame handCard';
-      el.dataset.index=i; el.dataset.cardId=c?.id ?? '';
+      el.dataset.index   = i;
+      el.dataset.cardId  = c?.id ?? '';
+      el.dataset.ctype   = c?.t   ?? '';
       el.innerHTML=`
         <div class="cardTop"><div class="cardTitle">${c.n}</div><div class="cardSub">${c.t||''}</div></div>
         <div class="cardBottom"><div class="cardVal">${(c.v!=null?('+'+c.v+'⚡'):'')}${(c.p!=null?(' · '+c.p+'ϟ'):'')}</div></div>`;
@@ -388,7 +357,7 @@ export function init(game) {
     }
   }
 
-  // ----------------- Modal (pile viewer) -----------------
+  // ---------- Modal ----------
   let modal=null;
   function ensureModal(){
     if (modal) return modal;
@@ -426,11 +395,45 @@ export function init(game) {
   }
   function closeModal(){ if (modal) modal.classList.remove('open'); }
 
-  // ----------------- Draw Tick + AI turn -----------------
+  // ---------- Anim pieces reused ----------
+  function animateDrawFan(deckBtn, newEls) {
+    if (!deckBtn || !newEls?.length) return;
+    const deck = R(deckBtn);
+    newEls.forEach((el, i) => {
+      const t = R(el);
+      const dx = deck.left - t.left;
+      const dy = deck.top  - t.top;
+      el.style.transform  = `translate(${dx}px, ${dy}px) scale(.2) rotate(-12deg)`;
+      el.style.opacity    = '0';
+      el.style.transition = 'none'; void el.offsetWidth;
+      const delay = i*130;
+      el.style.transition = `transform .8s cubic-bezier(.2,.8,.3,1), opacity .8s ease`;
+      setTimeout(()=>{ el.style.transform='translate(0,0) scale(1) rotate(0)'; el.style.opacity='1'; }, delay);
+    });
+  }
+  function animateDiscardFanSameNodes(handEls, discardBtn) {
+    if (!handEls?.length || !discardBtn) return Promise.resolve();
+    const to = R(discardBtn);
+    const last = handEls.length - 1;
+    const promises = handEls.map((el,i)=> new Promise((resolve)=>{
+      const r = R(el);
+      const dx = to.left - r.left;
+      const dy = to.top  - r.top;
+      const spread = (i - last/2) * 12;
+      el.style.transition='none'; void el.offsetWidth;
+      el.style.transition=`transform .9s cubic-bezier(.26,.7,.32,1.06), opacity .9s ease`;
+      el.style.transform =`translate(${dx}px, ${dy}px) scale(.72) rotate(${spread*.2}deg)`;
+      el.style.opacity  ='.06';
+      const done=()=>{ el.style.transition=''; el.style.transform=''; el.style.opacity=''; el.removeEventListener('transitionend',done); resolve(); };
+      setTimeout(()=> el.addEventListener('transitionend',done,{once:true}), 0);
+    }));
+    return Promise.all(promises);
+  }
+
+  // ---------- Draw loop ----------
   async function draw(){
     const S = game.state || {};
 
-    // capture before
     const oldAISig  = prevAISig.slice(0);
     const oldAIHand = prevAIHand;
     const oldFlow   = prevFlowCards.map(c=> c ? ({...c}) : null);
@@ -441,11 +444,9 @@ export function init(game) {
     renderHand(S);
     renderSlots(S);
 
-    // update after
     prevAISig  = (S.ai?.slots||[]).map(slotSig);
     prevAIHand = (S.ai?.hand?.length ?? 0);
 
-    // AI ghosts (skip first paint)
     if (!firstPaint) {
       try{
         const deckA = aiDeckAnchor();
@@ -459,7 +460,7 @@ export function init(game) {
             const target = aiCells[i]?.querySelector('.slotPanel') || aiCells[i];
             const slot = (S.ai?.slots||[])[i];
             if (deckA && target && slot?.c){
-              const fr = R(deckA);
+              const fr = safeRect(deckA, true);
               const ghost = makeGhostFromCard(slot.c, fr);
               ghost.animate(
                 pathFrames(fr, target, { scaleEnd:.95 }),
@@ -473,7 +474,7 @@ export function init(game) {
         if (!newSlot && prevAIHand < oldAIHand) {
           const deckA2 = aiDeckAnchor();
           if (deckA2 && aeA){
-            const fr = R(deckA2);
+            const fr = safeRect(deckA2, true);
             const ghost = makeGhostFromCard({ n:'Channel', t:'Instant', v:1 }, fr);
             ghost.animate(
               pathFrames(fr, aeA, { scaleEnd:.45 }),
@@ -485,7 +486,7 @@ export function init(game) {
         const flowCells = $$('.marketCard');
         for (let i=0;i<oldFlow.length;i++){
           if (oldFlow[i] && !prevFlowCards[i]) {
-            const fromRect = oldRects[i] || R(flowCells[i]);
+            const fromRect = oldRects[i] || safeRect(flowCells[i], true);
             if (aiDisc) {
               const ghost = makeGhostFromCard(oldFlow[i], fromRect);
               ghost.animate(
@@ -506,9 +507,7 @@ export function init(game) {
       }catch(e){ console.warn('[UI] AI ghost diff failed', e); }
     }
 
-    // refresh drag
     if (window.DragCards?.refresh) window.DragCards.refresh();
-
     firstPaint = false;
   }
 
@@ -521,13 +520,10 @@ export function init(game) {
     game.dispatch({ type:'AI_SPEND_TRANCE' }); await draw(); await wait(200);
   }
 
-  // ----------------- Dispatch wrapper -----------------
   if (game && typeof game.dispatch==='function' && !game.__uiWrapped){
     const orig = game.dispatch;
 
     game.dispatch = async (action) => {
-
-      // BUY: fly → center pop → discard, then state
       if (action?.type === 'BUY_FLOW' && typeof action.index === 'number') {
         const idx = action.index;
         const flowCell = $$('.marketCard')[idx];
@@ -537,7 +533,7 @@ export function init(game) {
 
         if (c && fromRect && discardBtn) {
           const ghost = makeGhostFromCard(c, fromRect, true);
-          // first, fly to original center (smooth out if starting far)
+          // smooth first hop
           await new Promise((resolve)=>{
             ghost.animate(
               pathFrames(fromRect, document.body, { scaleEnd:1 }),
@@ -549,7 +545,6 @@ export function init(game) {
         const res = orig(action); await draw(); return res;
       }
 
-      // END_TURN: discard fan, AI, then START_TURN
       if (action?.type === 'END_TURN') {
         const liveHand = Array.from(document.querySelectorAll('.ribbon .handCard'));
         const discardBtn = $('#chipDiscard');
@@ -560,7 +555,6 @@ export function init(game) {
         return res;
       }
 
-      // PLAY_FROM_HAND: hand → slot or glyph
       if (action?.type === 'PLAY_FROM_HAND' && typeof action.index === 'number') {
         const handEl = document.querySelector(`.ribbon .handCard[data-index="${action.index}"]`);
         const fromRect = handEl ? R(handEl) : null;
@@ -600,11 +594,9 @@ export function init(game) {
     game.__uiWrapped = true;
   }
 
-  // ----------------- First paint -----------------
   draw();
-  console.log('[UI] v4.0 — centered controls, hearts, big gem pulse, center-pop buy, aligned rows');
+  console.log('[UI] v4.1 — typed highlights, instant pulse, safer ghosts, boot-check hidden');
 
-  // ----------------- UI builders -----------------
   function buildTopHeader(){
     if ($('#topHeader')) return;
     const bar = document.createElement('div');
@@ -631,172 +623,41 @@ export function init(game) {
   function bigGemPulse(){
     const gem = $('#aetherGem');
     if (!gem) return;
-    gem.classList.remove('shimmer'); // restart
-    void gem.offsetWidth;
+    gem.classList.remove('shimmer'); void gem.offsetWidth;
     gem.classList.add('shimmer');
     setTimeout(()=> gem.classList.remove('shimmer'), 950);
   }
 }
 
-// ----------------- Embedded styles -----------------
+// ------------- Styles & highlights -------------
 const style = document.createElement('style');
 style.textContent = `
-  :root {
-    --card-w: 160px;                     /* MTG 63×88 aspect */
-    --card-h: calc(var(--card-w) * 88 / 63);
-    --row-pad: 12px;
-    --zone-h: calc(var(--card-h) + var(--row-pad) * 2);
+  /* Hide boot check completely */
+  .bootCheck { display: none !important; }
+
+  /* Drop target highlighting */
+  .slotCell.drop-ok    { outline: 2px solid rgba(72, 140, 255, .65); box-shadow: 0 8px 20px rgba(72,140,255,.20); }
+  .slotCell.drop-hover { outline-color: rgba(72, 140, 255, 1);  box-shadow: 0 10px 30px rgba(72,140,255,.28); transform: translateY(-2px) scale(1.02); }
+  .slotCell.drop-no    { outline: 2px dashed rgba(0,0,0,.12); filter: grayscale(.2) opacity(.8); }
+
+  /* Instant pick-up pulse */
+  .handCard.instantPulse {
+    animation: instantPulse .5s ease both;
+    box-shadow: 0 12px 24px rgba(255,160,60,.25), 0 0 0 4px rgba(255,190,120,.35);
+  }
+  @keyframes instantPulse {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.06); }
+    100% { transform: scale(1); }
   }
 
-  /* Remove old trance meter region if still present */
-  .tranceDock, .tranceMenu { display:none !important; }
-
-  /* Fixed-height zones perfectly aligned */
-  .zone { min-height: var(--zone-h); max-height: var(--zone-h); }
-  .flowWrap { min-height: var(--zone-h); max-height: var(--zone-h); }
-  .wrap > .zone { display:block; }
-
-  /* Aetherflow grid */
-  .flowGrid { display:grid; grid-template-columns: repeat(5, var(--card-w)); justify-content:center; gap:16px; }
-  .marketCard { width: var(--card-w); height: var(--card-h); display:flex; align-items:center; justify-content:center; }
-  .marketCard.empty { background: transparent; border-radius: 12px; border: 1px dashed rgba(0,0,0,.08); }
-
-  /* Hand ribbon */
-  .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:12px; gap:10px; }
-
-  .cardFrame {
-    aspect-ratio: 63 / 88;
-    width: var(--card-w);
-    border-radius: 12px;
-    background: #fff;
-    border: 1px solid rgba(0,0,0,.10);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-    display:flex; flex-direction:column; justify-content:space-between;
+  /* Small snap bounce when canceled */
+  .drag-bounce { animation: dragBounce .16s ease; }
+  @keyframes dragBounce {
+    0% { transform: translateY(0); }
+    50%{ transform: translateY(-3px); }
+    100%{ transform: translateY(0); }
   }
-  .cardTop { padding: 8px 10px 0; }
-  .cardBottom { padding: 0 10px 8px; }
-  .cardTitle { font-weight:700; font-size:15px; line-height:1.15; color:#262626; }
-  .cardSub   { font-size:12.5px; color:#616161; margin-top:2px; }
-  .cardVal   { font-size:13px; color:#b21d1d; margin-top:4px; }
-  .handCard  { cursor:pointer; transition:transform .2s, box-shadow .2s; background: linear-gradient(180deg,#fff 0%,#faf7ef 100%); }
-  .handCard:hover { transform: translateY(-4px); box-shadow: 0 10px 18px rgba(0,0,0,.22); }
-  .marketCardPanel { background: linear-gradient(180deg,#fff 0%,#f6f6ff 100%); }
-
-  /* 3 spells + 1 glyph (both sides) */
-  #playerSlots, #aiSlots {
-    display:grid; grid-template-columns: repeat(4, var(--card-w));
-    gap: 16px; padding: var(--row-pad); justify-content:center;
-    min-height: var(--zone-h); max-height: var(--zone-h); align-items:center;
-  }
-  .slotCell {
-    display:flex; align-items:center; justify-content:center;
-    width: var(--card-w); height: var(--card-h);
-    border-radius:16px; background:#fffaf4;
-    border:1px solid rgba(0,0,0,.06); box-shadow:0 2px 6px rgba(0,0,0,.05) inset;
-    transition: transform .15s, box-shadow .15s;
-  }
-  .slotCell:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
-  .slotCell.empty { color:#9a9a9a; font-size:12px; }
-  .slotCell.ai { background:#f7f7fb; }
-  .slotCell.advUsed { opacity:.85; }
-  .slotCell.pulse { animation: slotPulse .52s ease-out; }
-  @keyframes slotPulse {
-    0% { box-shadow:0 0 0 0 rgba(90,140,220,0); }
-    50%{ box-shadow:0 0 0 8px rgba(90,140,220,.18); }
-    100%{ box-shadow:0 0 0 0 rgba(90,140,220,0); }
-  }
-
-  .slotCell.glyph { background: #fbfbff; }
-  .glyphSlot { position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
-  .glyphBack { width:100%; height:100%; background:linear-gradient(180deg,#fff 0%, #eef1ff 100%); }
-  .glyphCount {
-    position:absolute; right:6px; bottom:6px;
-    background:#222; color:#fff; font-size:11px; padding:2px 6px; border-radius:10px;
-  }
-
-  /* Fancy ghost */
-  .ghostFly { border-radius:12px; overflow:hidden; will-change: transform, opacity, filter; }
-
-  /* Top header (cleaner look) */
-  #topHeader {
-    position: fixed; top: 8px; left: 0; right: 0; z-index: 5000;
-    display: grid; grid-template-columns: 1fr auto 1fr; align-items:center;
-    pointer-events:none;
-  }
-  .topCtrls { pointer-events:auto; display:flex; gap:10px; justify-content:center; }
-  .topCtrls button {
-    width:38px; height:38px; border-radius:12px; border:1px solid rgba(0,0,0,.12);
-    background:#fff; box-shadow:0 2px 8px rgba(0,0,0,.14); cursor:pointer; font-size:16px;
-  }
-  .topCtrls button:hover { transform:translateY(-1px); }
-
-  .hpRow { display:flex; gap:8px; align-items:center; justify-content:flex-start; padding:0 12px; }
-  .hpRow.right { justify-content:flex-end; }
-  .heart {
-    width:22px; height:22px; border-radius:50%;
-    background: radial-gradient(circle at 40% 35%, #ff6d6d 0%, #d73c3c 60%, #942727 100%);
-    box-shadow: 0 1px 0 rgba(255,255,255,.5) inset, 0 2px 6px rgba(0,0,0,.25);
-    position:relative; cursor:pointer; transition: transform .12s;
-  }
-  .heart:hover { transform: translateY(-1px) scale(1.05); }
-  .heart.lost { background: linear-gradient(180deg,#dfdfdf,#bfbfbf); box-shadow: 0 0 0 1px rgba(0,0,0,.12) inset; }
-  .heart.glow { animation: heartGlow 1.2s ease-in-out infinite; }
-  @keyframes heartGlow {
-    0%   { box-shadow: 0 0 0 0 rgba(240,170,40,.0), 0 2px 6px rgba(0,0,0,.25); }
-    50%  { box-shadow: 0 0 14px 6px rgba(255,200,80,.55), 0 2px 10px rgba(0,0,0,.3); }
-    100% { box-shadow: 0 0 0 0 rgba(240,170,40,.0), 0 2px 6px rgba(0,0,0,.25); }
-  }
-
-  /* Trance tooltip */
-  #tranceTip { position:fixed; transform:translateX(-50%); background:#fff; border:1px solid rgba(0,0,0,.1);
-    border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,.25); padding:10px 12px; z-index:8000;
-    opacity:0; pointer-events:none; transition:opacity .18s ease; }
-  #tranceTip.open { opacity:1; pointer-events:auto; }
-  .tt-head{ font-weight:700; margin-bottom:6px; }
-  .tt-list{ margin:0; padding-left:18px; }
-
-  /* Aethergem (diamond + flare) */
-  #aetherGem {
-    position:fixed; right:18px; bottom:110px; z-index:4000;
-    width:64px; height:64px; display:flex; align-items:center; justify-content:center;
-    pointer-events:none;
-  }
-  #aetherGem .diamond {
-    width: 52px; height: 52px; transform: rotate(45deg);
-    background: linear-gradient(135deg, #f9e29a 0%, #f2c65b 50%, #e29b2e 100%);
-    border: 2px solid #8d5a1a; border-radius: 10px;
-    display:flex; align-items:center; justify-content:center; position:relative;
-  }
-  #aetherGem .diamond span {
-    transform: rotate(-45deg); font-weight:800; color:#3b2a14; text-shadow:0 1px 0 rgba(255,255,255,.6); font-size:16px;
-  }
-  #aetherGem .diamond .flare {
-    position:absolute; inset:-6px; border-radius:12px; transform: rotate(-45deg);
-    background: radial-gradient(closest-side, rgba(255,220,140,.55), rgba(255,220,140,0));
-    opacity:0; filter: blur(2px);
-  }
-  #aetherGem.shimmer .diamond .flare { animation: gemFlare .95s ease both; }
-  @keyframes gemFlare {
-    0% { opacity:0; transform: rotate(-45deg) scale(.9); }
-    30%{ opacity:.9; transform: rotate(-45deg) scale(1.1); }
-    100%{ opacity:0; transform: rotate(-45deg) scale(1.25); }
-  }
-
-  /* Hide old bottom FABs */
-  .fabDial { display: none !important; }
-
-  /* Modal (fixed size) */
-  #pileModal { position:fixed; inset:0; z-index:10000; display:none; }
-  #pileModal.open { display:block; }
-  .pm-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.28); backdrop-filter:saturate(120%) blur(1px); }
-  .pm-sheet { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-    width: 920px; height: 620px; background:#fff; border-radius:16px; box-shadow:0 12px 60px rgba(0,0,0,.35);
-    display:flex; flex-direction:column; }
-  .pm-head { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid rgba(0,0,0,.07); }
-  .pm-title { font-weight:700; }
-  .pm-close { background:transparent; border:0; font-size:24px; line-height:1; cursor:pointer; }
-  .pm-grid { padding:16px; display:grid; grid-template-columns: repeat(auto-fill, minmax(var(--card-w), 1fr)); gap:12px; overflow:auto; }
-  .pmCard { background:linear-gradient(180deg,#fff 0%, #f7f7ff 100%); }
 `;
 document.head.appendChild(style);
 
