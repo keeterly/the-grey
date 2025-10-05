@@ -1,5 +1,4 @@
-/* THE GREY — real-card drag (no long-press modal) */
-
+// === REAL-CARD DRAG — press matches hover, snap-back if no drop, preview-safe ===
 function getTranslateXY(el){
   const t = getComputedStyle(el).transform;
   if (!t || t === 'none') return {tx:0, ty:0};
@@ -8,10 +7,13 @@ function getTranslateXY(el){
 }
 
 (() => {
-  const DRAG_THRESHOLD = 6;   // px to lift
-  const DAMP = 0.36;          // 0.32–0.40 = responsive
-  const MAX_STEP = 42;        // per-frame clamp
+  const DRAG_THRESHOLD = 6;
+  const DAMP = 0.36;
+  const MAX_STEP = 42;
   let raf;
+
+  // If your preview uses a different root, add it here
+  const PREVIEW_SELECTORS = '.preview-overlay, .preview-card';
 
   const dragLayer = document.querySelector('.drag-layer') || (() => {
     const d = document.createElement('div');
@@ -31,20 +33,23 @@ function getTranslateXY(el){
   };
 
   function onDown(e){
+    // If any preview UI exists, ignore drag completely
+    if (document.querySelector(PREVIEW_SELECTORS)) return;
+
     const card = e.target.closest('.ribbon .card');
     if (!card || e.button !== 0) return;
 
     e.preventDefault();
     try { card.setPointerCapture(e.pointerId); } catch {}
 
-    // Freeze transitions only; DO NOT force a new transform
-    card.classList.add('grab-intent');
+    // Make press visually identical to hover (prevents the "lowering")
+    card.classList.add('is-pressing');
 
-    // Measure current visual position (including hover/peek translate)
+    // Measure the CURRENT visual position (press pose already applied)
     const rect = card.getBoundingClientRect();
     const { tx, ty } = getTranslateXY(card);
 
-    // Compute raw page coords so moving to the drag layer doesn't shift
+    // Compute raw page coords so moving to drag layer doesn't shift
     const rawLeft = rect.left + window.scrollX - tx;
     const rawTop  = rect.top  + window.scrollY - ty;
 
@@ -76,7 +81,7 @@ function getTranslateXY(el){
     if (!st || st.lifted) return;
     const { card, originParent, originNext } = st;
 
-    // Keep ribbon spacing with a placeholder
+    // Keep hand spacing with a placeholder
     const r = card.getBoundingClientRect();
     const ph = document.createElement('div');
     ph.style.width = r.width + 'px';
@@ -86,11 +91,11 @@ function getTranslateXY(el){
     if (originNext) originParent.insertBefore(ph, originNext);
     else originParent.appendChild(ph);
 
-    // ORDER: set vars → add class → move node (prevents 0,0 jump)
+    // IMPORTANT ORDER: set coords → switch classes → move node
     card.style.setProperty('--drag-x', st.curX + 'px');
     card.style.setProperty('--drag-y', st.curY + 'px');
 
-    card.classList.remove('grab-intent');
+    card.classList.remove('is-pressing');
     card.classList.add('is-dragging');
     if (st.isInstant) card.classList.add('pulsing');
 
@@ -108,7 +113,7 @@ function getTranslateXY(el){
       const dx = Math.max(-MAX_STEP, Math.min(MAX_STEP, st.targetX - st.curX));
       const dy = Math.max(-MAX_STEP, Math.min(MAX_STEP, st.targetY - st.curY));
 
-      st.curX += dx * 0.00001 + dx * DAMP;
+      st.curX += dx * 0.00001 + dx * DAMP; // tiny bias avoids stall on exact hit
       st.curY += dy * 0.00001 + dy * DAMP;
 
       st.card.style.setProperty('--drag-x', st.curX + 'px');
@@ -120,6 +125,9 @@ function getTranslateXY(el){
   }
 
   function onMove(e){
+    // If a preview just opened between down/move, abort drag cleanly
+    if (document.querySelector(PREVIEW_SELECTORS)) { cancelDrag(); return; }
+
     if (!st) return;
     const dx = e.clientX - st.startX;
     const dy = e.clientY - st.startY;
@@ -132,16 +140,38 @@ function getTranslateXY(el){
     st.targetY = e.clientY - st.offsetY;
   }
 
+  function snapBack(){
+    const { card, originParent, originNext, placeholder, isInstant } = st;
+    // Return node to hand immediately (no sticking in drag layer)
+    if (originNext) originParent.insertBefore(card, originNext);
+    else originParent.appendChild(card);
+    placeholder && placeholder.remove();
+    card.classList.remove('is-dragging', 'is-pressing');
+    if (isInstant) card.classList.remove('pulsing');
+  }
+
+  function cancelDrag(){
+    if (!st) return;
+    try { st.card.releasePointerCapture?.(st.pid); } catch {}
+    cancelAnimationFrame(raf);
+
+    if (st.lifted) snapBack();
+    else st.card.classList.remove('is-pressing');
+
+    st = null;
+    tidyUp();
+  }
+
   function onUp(e){
     if (!st) { tidyUp(); return; }
 
     try { st.card.releasePointerCapture?.(st.pid); } catch {}
     cancelAnimationFrame(raf);
 
-    const { card, originParent, originNext, placeholder, isInstant } = st;
+    const { card } = st;
 
     if (st.lifted){
-      // Accurate hit test: hide dragged card briefly
+      // Accurate hit test: hide the dragged card briefly
       const prevVis = card.style.visibility;
       card.style.visibility = 'hidden';
       const hit = document.elementFromPoint(e.clientX, e.clientY);
@@ -150,12 +180,12 @@ function getTranslateXY(el){
       const dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
 
       if (dropSlot){
-        // Optional snap feedback
+        // (Optional) quick visual snap
         const r = dropSlot.getBoundingClientRect();
         card.style.setProperty('--drag-x', (r.left + window.scrollX) + 'px');
         card.style.setProperty('--drag-y', (r.top  + window.scrollY) + 'px');
 
-        // Dispatch to your game logic (ensure these data-* exist)
+        // Tell the game (ensure data-* exist)
         try {
           game?.dispatch?.({
             type: 'DROP_CARD',
@@ -167,26 +197,20 @@ function getTranslateXY(el){
         }
       }
 
-      // Return node to hand (state will re-render)
-      if (originNext) originParent.insertBefore(card, originNext);
-      else originParent.appendChild(card);
-      if (placeholder) placeholder.remove();
-
-      card.classList.remove('is-dragging');
-      if (isInstant) card.classList.remove('pulsing');
+      // Always snap back to the hand DOM (state will re-render)
+      snapBack();
     } else {
-      // never lifted: just clear the measurement flag
-      st.card.classList.remove('grab-intent');
+      // Never lifted → plain press
+      st.card.classList.remove('is-pressing');
     }
 
     st = null;
     tidyUp();
   }
 
-  // Kill native ghost drag images
+  // Block native ghost image
   document.addEventListener('dragstart', (e) => e.preventDefault());
 
-  // Delegate from ribbon
   const ribbon = document.getElementById('ribbon');
   if (ribbon) ribbon.addEventListener('pointerdown', onDown);
 })();
