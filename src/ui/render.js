@@ -1,154 +1,180 @@
-// /src/ui/render.js
-import { resolveArt } from './assets.js';
-import { FLOW_PRICES } from '../engine/cards.js';
+// =========================================================
+// THE GREY — UI Render (structured DOM that your CSS expects)
+// - Emits .card, .handCard, .marketCard, .slotCell, .glyph
+// - Keeps rows fixed height (cards define height)
+// - Typed drop hints via data-accept attributes
+// =========================================================
 
-const $=(s,r=document)=>r.querySelector(s);
+let G = null;
+const $  = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-const topLog     = $('#topLog');
-const playerSlots= $('#playerSlots');
-const aiSlots    = $('#aiSlots');
-const glyphTray  = $('#glyphTray');
-const rRibbon    = $('#ribbon');
-const marketCells= [...document.querySelectorAll('[data-flow]')];
+/* cached roots (filled by cacheRoots) */
+let elRibbon, elPlayerSlots, elGlyphTray, elAiSlots, elMarketCells;
 
-const hpValue  = $('#hpValue');
-const aeValue  = $('#aeValue');
-const aiHpValue= $('#aiHpValue');
-const aiAeValue= $('#aiAeValue');
+export function setGame(game){ G = game; }
 
-const youTrFill = $('#youTranceFill');
-const youTrCount= $('#youTranceCount');
-const aiTrFill  = $('#aiTranceFill');
-const aiTrCount = $('#aiTranceCount');
+/* Cache DOM roots once (index.html’s structure) */
+export function cacheRoots(){
+  elRibbon      = $('.ribbon');
+  elPlayerSlots = $('#playerSlots');
+  elGlyphTray   = $('#glyphTray');
+  elAiSlots     = $('#aiSlots');
+  elMarketCells = $$('.marketCard');
+}
 
-let __lastFxPing = 0;
+/* Safe state view */
+function S(){
+  const s = G?.state || {};
+  s.deck     = Array.isArray(s.deck)    ? s.deck    : [];
+  s.disc     = Array.isArray(s.disc)    ? s.disc    : [];
+  s.hand     = Array.isArray(s.hand)    ? s.hand    : [];
+  s.glyphs   = Array.isArray(s.glyphs)  ? s.glyphs  : [];
+  s.flowRow  = Array.isArray(s.flowRow) ? s.flowRow : [null,null,null,null,null];
+  s.slots    = Array.isArray(s.slots)   ? s.slots   : [null,null,null];
+  s.ai       = typeof s.ai==='object'   ? s.ai      : { slots:[null,null,null] };
+  s.ai.slots = Array.isArray(s.ai.slots)? s.ai.slots: [null,null,null];
+  return s;
+}
 
-export function render(state, dispatch){
-  // Toast
-  if(state._log.length){
-    topLog.innerHTML = state._log.slice(-3).map(x=>`<div>${x}</div>`).join('');
-    topLog.classList.add('show');
-    clearTimeout(window.__hideToast);
-    window.__hideToast=setTimeout(()=>topLog.classList.remove('show'), 2200);
-  }
+/* Basic card element */
+export function makeCardEl(card, variant){
+  const el = document.createElement('div');
+  el.className = 'card';
+  if (variant === 'hand')   el.classList.add('handCard');
+  if (variant === 'flow')   el.classList.add('marketCard');
+  if (variant === 'slot')   el.classList.add('slotCard');
+  if (variant === 'aiSlot') el.classList.add('slotCard');
 
-  // HUD
-  hpValue.textContent   = state.hp;
-  aeValue.textContent   = state.ae;
-  aiHpValue.textContent = state.ai.hp;
-  aiAeValue.textContent = state.ai.ae||0;
+  el.dataset.cid   = card?.id || '';
+  el.dataset.ctype = card?.t  || '';
+  el.dataset.cname = card?.n  || '';
+  el.dataset.cost  = String(card?.p ?? 1);
 
-  const yPct=Math.round(100*state.trance.you.cur/(state.trance.you.cap||6));
-  const aPct=Math.round(100*state.trance.ai.cur/(state.trance.ai.cap||6));
-  youTrFill.style.width=yPct+'%';
-  aiTrFill.style.width =aPct+'%';
-  youTrCount.textContent=`${state.trance.you.cur}/${state.trance.you.cap||6}`;
-  aiTrCount.textContent =`${state.trance.ai.cur}/${state.trance.ai.cap||6}`;
-  $('#tranceBox').classList.toggle('trReady',
-    state.trance.you.cur>=state.trance.you.cap || state.trance.ai.cur>=state.trance.ai.cap
-  );
+  const name = card?.n || 'Card';
+  const type = card?.t || '';
+  const v    = Number.isFinite(card?.v) ? card.v : null;
+  const p    = Number.isFinite(card?.p) ? card.p : null;
 
-  // Player board
-  playerSlots.innerHTML='';
-  state.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className='slot';
-    d.innerHTML=`<h5>Slot ${i+1}</h5><div class="slotBody"></div><div class="actions"></div>`;
-    if(s){
-      const panel=document.createElement('div');
-      panel.className='marketCard';
-      panel.innerHTML=`<h4>${s.c.n}</h4>
-        <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
-        <p>${s.c.txt||''}</p>
-        <div class="pips">${pips(s.ph,s.c.p||1)}</div>`;
-      // tap to inspect
-      panel.onclick=()=>inspectFromSlot('you',i,state);
+  el.innerHTML = `
+    <div class="cHead">
+      <div class="cName">${name}</div>
+      <div class="cType">${type}</div>
+    </div>
+    <div class="cBody">
+      ${card?.txt ? `<div class="cText">${card.txt}</div>` : ''}
+    </div>
+    <div class="cStats">
+      ${v !== null ? `<span class="stat v">+${v}⚡</span>` : ''}
+      ${p !== null ? `<span class="stat p">${p}↯</span>` : ''}
+    </div>
+  `;
+  return el;
+}
 
-      d.querySelector('.slotBody').appendChild(panel);
+/* Market (Aetherflow) */
+export function renderMarket(onBuy){
+  const st = S();
+  for (let i = 0; i < 5; i++) {
+    const cell = elMarketCells[i];
+    if (!cell) continue;
+    cell.innerHTML = '';
+    cell.dataset.flowIndex = String(i);
 
-      const btn=document.createElement('button');
-      btn.textContent='Advance (1⚡)';
-      btn.style.cssText='padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:#fff';
-      btn.disabled=!!s.advUsed;
-      if(!btn.disabled) btn.onclick=()=>dispatch({type:'ADVANCE', slot:i});
-      d.querySelector('.actions').appendChild(btn);
-    }
-    playerSlots.appendChild(d);
-  });
-
-  // AI board
-  aiSlots.innerHTML='';
-  state.ai.slots.forEach((s,i)=>{
-    const d=document.createElement('div'); d.className='slot';
-    d.innerHTML=`<h5>AI Slot ${i+1}</h5><div class="slotBody"></div>`;
-    if(s){
-      const panel=document.createElement('div');
-      panel.className='marketCard';
-      panel.innerHTML=`<h4>${s.c.n}</h4>
-        <div class="cardArt"><img src="${resolveArt(s.c)}" alt=""></div>
-        <div class="pips">${pips(s.ph,s.c.p||1)}</div>`;
-      // tap to inspect
-      panel.onclick=()=>inspectFromSlot('ai',i,state);
-
-      d.querySelector('.slotBody').appendChild(panel);
-    }
-    aiSlots.appendChild(d);
-  });
-
-  // FX: resolve glow
-  if (state._fx && state._fx.type === 'resolve' && state._fx.ping !== __lastFxPing) {
-    const container = (state._fx.who === 'you' ? playerSlots : aiSlots);
-    const slotEl = container.children[state._fx.slot];
-    if (slotEl) {
-      slotEl.classList.add('slot-glow');
-      setTimeout(()=> slotEl.classList.remove('slot-glow'), 700);
-    }
-    __lastFxPing = state._fx.ping;
-  }
-
-  // Market
-  for(let i=0;i<5;i++){
-    const c=state.flowRow[i], el=marketCells[i];
-    if(!c){
-      el.className='marketCard';
-      el.innerHTML=`<div class="cardArt"></div><p style="opacity:.5">— empty —</p>`;
+    const c = st.flowRow[i];
+    if (!c) {
+      const ghost = document.createElement('div');
+      ghost.className = 'marketGhost';
+      cell.appendChild(ghost);
       continue;
     }
-    el.className='marketCard'; el.innerHTML='';
-    const badge=(c.v!=null)?`<span class="marketBadge">↺ +${c.v}⚡</span>`:'';
-    el.innerHTML=`${badge}<h4>${c.n}</h4>
-      <div class="cardArt"><img src="${resolveArt(c)}" alt=""></div>
-      <p>${c.txt||''}</p>
-      <div class="actions"><button ${state.ae>=FLOW_PRICES[i]?'':'disabled'}>Buy (${FLOW_PRICES[i]}⚡)</button></div>`;
-    el.querySelector('button').onclick=()=>dispatch({type:'BUY_FLOW', index:i});
+    const cardEl = makeCardEl(c, 'flow');
+    if (onBuy) cardEl.onclick = () => onBuy(i, cardEl);
+    cell.appendChild(cardEl);
+  }
+}
+
+/* Player hand (ribbon) */
+export function renderHand(onPlayFromHand){
+  const st = S();
+  elRibbon.innerHTML = '';
+  st.hand.forEach((c, idx) => {
+    const cardEl = makeCardEl(c, 'hand');
+    cardEl.dataset.handIndex = String(idx);
+    if (onPlayFromHand) cardEl.onclick = (e)=>{ e.stopPropagation(); onPlayFromHand(c, idx, cardEl); };
+    elRibbon.appendChild(cardEl);
+  });
+}
+
+/* Player slots (3 spell + 1 glyph) */
+export function renderPlayerSlots(onAdvance){
+  const st = S();
+  elPlayerSlots.innerHTML = '';
+  for (let i = 0; i < 4; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'slotCell';
+    cell.dataset.slotIndex = String(i);
+
+    if (i === 3) { cell.classList.add('glyph'); cell.dataset.accept='Glyph'; }
+    else         { cell.dataset.accept='Spell,Instant'; }
+
+    const slot = (i < 3 ? st.slots[i] : null);
+    if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'slot'));
+    else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
+
+    if (onAdvance && i<3 && st.slots[i]) cell.onclick = () => onAdvance(i);
+    elPlayerSlots.appendChild(cell);
   }
 
-  // Glyphs
-  glyphTray.innerHTML=state.glyphs.map(g=>`<button class="glyphTok own"><span class="glyphPeek">${g.n}: ${g.txt||'Glyph'}</span></button>`).join('')||
-    `<span style="font-size:11px;color:#888e93">No glyphs set.</span>`;
+  elGlyphTray.innerHTML = '';
+  st.glyphs.forEach(() => {
+    const face = document.createElement('div');
+    face.className = 'card glyphCard faceDown';
+    face.innerHTML = `
+      <div class="cHead"><div class="cName">Glyph</div><div class="cType">Face Down</div></div>
+      <div class="cBody"></div>
+      <div class="cStats"></div>
+    `;
+    elGlyphTray.appendChild(face);
+  });
 }
 
-export function updateHUDPadding(){
-  const hud=document.getElementById('hud');
-  const setPad=()=>{
-    const h=hud?.getBoundingClientRect().bottom||0;
-    const pad = Math.max(56, Math.ceil(h) + 6);
-    document.documentElement.style.setProperty('--hud-pad', pad+'px');
-    document.documentElement.style.setProperty('--hud-top', Math.ceil(h)+'px');
-  };
-  setPad(); new ResizeObserver(setPad).observe(hud);
+/* AI slots (3 spell) */
+export function renderAiSlots(){
+  const st = S();
+  elAiSlots.innerHTML = '';
+  for (let i = 0; i < 3; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'slotCell ai';
+    cell.dataset.slotIndex = String(i);
+    const slot = st.ai.slots[i];
+    if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'aiSlot'));
+    else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
+    elAiSlots.appendChild(cell);
+  }
 }
 
-function pips(cur,total){let h='';for(let i=1;i<=total;i++)h+=`<span class="pip ${i<=cur?'on':''}"></span>`;return h;}
-
-function inspectFromSlot(who,slotIndex,state){
-  const dlg = document.getElementById('inspect');
-  const insTitle=document.getElementById('insTitle');
-  const insText=document.getElementById('insText');
-  const insArt=document.getElementById('insArt');
-  const slot = (who==='you'?state.slots:state.ai.slots)[slotIndex];
-  if(!slot) return;
-  insTitle.textContent=slot.c.n;
-  insText.textContent=slot.c.txt||'';
-  insArt.src=resolveArt(slot.c);
-  dlg.classList.add('show');
+/* HUD counts */
+export function renderCounts(){
+  const st = S();
+  const d = $('#deckCount');    if (d) d.textContent = String(st.deck.length);
+  const c = $('#discardCount'); if (c) c.textContent = String(st.disc.length);
 }
+
+/* ONE CALL render */
+export function renderAll({ onBuy, onPlayFromHand, onAdvance } = {}){
+  renderMarket(onBuy);
+  renderHand(onPlayFromHand);
+  renderPlayerSlots(onAdvance);
+  renderAiSlots();
+  renderCounts();
+
+  if (window.DragCards && typeof window.DragCards.refresh === 'function') {
+    window.DragCards.refresh();
+  }
+}
+
+/* Expose for other modules (used by animations) */
+export const Roots = {
+  get ribbon(){ return elRibbon; },
+};
