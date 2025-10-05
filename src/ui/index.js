@@ -1,39 +1,38 @@
 // =========================================================
-// THE GREY — UI ENTRY (v3.2)
-// • Draw fan (real DOM cards) deck → hand
-// • Discard fan (reverse, real DOM cards) hand → discard (pre-dispatch)
-// • Player BUY: market → discard (pre-dispatch)
-// • AI visible ghosts:
-//    - play: AI deck → AI slot (card face)
-//    - buy : market → AI discard (card face)
-//    - channel: AI deck → AI Æ (labeled “Channel”)
-//    - advance: slot pulse
-// • Clickable deck/discard chips open modal with pile contents
-// • MTG proportions; drag refresh after render
+// THE GREY — UI ENTRY (v3.8)
+// - Fixed-height rows (AI Board / Aetherflow / Your Board)
+// - 3 spell slots + 1 glyph slot (both sides). Glyphs facedown for opponent.
+// - Play animations: hand → slot / glyph (ghost), slot pulse
+// - Controls in top-right; Aethergem at bottom-right above hand
+// - Deck/Discard modal fixed size; pile viewers on click
+// - AI visible flights (play/channel/buy/advance), suppressed on first paint
+// - Player BUY pre-animates market → discard
+// - Discard fan (reverse of draw) uses real hand nodes before END_TURN
 // =========================================================
 
 export function init(game) {
   const $  = (sel) => (sel[0] === '#' ? document.getElementById(sel.slice(1)) : document.querySelector(sel));
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
   const R  = (el) => el.getBoundingClientRect();
-  const txt= (el, v) => { if (el) el.textContent = String(v); };
+  const T  = (el, v) => { if (el) el.textContent = String(v); };
   const pct= (n, d)=> `${(100 * (n ?? 0)) / (d || 1)}%`;
   const clamp = (n, a, b)=> Math.max(a, Math.min(b, n));
 
   const DEFAULT_WEAVER_YOU = 'Default';
   const DEFAULT_WEAVER_AI  = 'AI';
 
-  // Snapshots for animation/diff
+  // ----- Snapshots / flags -----
   let prevHandIds   = [];
-  let prevAISig     = []; // per-slot signature "id:ph"
+  let prevAISig     = [];  // per-slot signature "id:ph"
   let prevAIHand    = 0;
-  let prevFlowCards = []; // shallow objects (for ghost faces)
-  let prevFlowRects = []; // rects of market cells
+  let prevFlowCards = [];
+  let prevFlowRects = [];
+  let firstPaint    = true;
 
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
   const slotSig = (s) => !s ? null : `${s.c?.id ?? s.c?.n ?? 'X'}:${s.ph ?? 1}`;
 
-  // ---------- Anchors (deck/Æ/discard, including AI discard chip) ----------
+  // ---------- Anchors ----------
   function aiDeckAnchor() {
     let a = $('#aiDeckAnchor');
     const slots = $('#aiSlots');
@@ -53,11 +52,11 @@ export function init(game) {
     return a;
   }
   function aiAeAnchor() {
-    return $('#aiAeValue') || $('#pillAi') || $('#aiTranceFill') || null;
+    return $('#aiAeGem') || $('#aiAeValue') || $('#pillAi') || $('#aiTranceFill') || null;
   }
   function aiDiscardAnchor() {
     let d = $('#aiDiscardChip');
-    const ref = $('#pillAi') || $('#aiTranceFill') || $('#aiSlots');
+    const ref = $('#aiSlots') || $('#pillAi') || $('#aiTranceFill');
     if (!ref) return null;
     if (!d) {
       d = document.createElement('button');
@@ -70,13 +69,12 @@ export function init(game) {
       document.body.appendChild(d);
     }
     const r = R(ref);
-    // float near AI HUD (right side)
     d.style.left = `${r.right + 10}px`;
     d.style.top  = `${r.top + 6}px`;
     return d;
   }
 
-  // ---------- Fancy ghost card (for AI) ----------
+  // ---------- Fancy ghost card ----------
   function makeGhostFromCard(card, fromRect) {
     const g = document.createElement('div');
     g.className = 'cardFrame ghostFly';
@@ -90,8 +88,8 @@ export function init(game) {
     });
     g.innerHTML = `
       <div class="cardTop">
-        <div class="cardTitle">${card?.n ?? 'AI'}</div>
-        <div class="cardSub">${card?.t ?? 'Action'}</div>
+        <div class="cardTitle">${card?.n ?? 'Card'}</div>
+        <div class="cardSub">${card?.t ?? ''}</div>
       </div>
       <div class="cardBottom">
         <div class="cardVal">${card?.v != null ? ('+'+card.v+'⚡') : ''}${card?.p != null ? (' · '+card.p+'ϟ') : ''}</div>
@@ -99,9 +97,7 @@ export function init(game) {
     document.body.appendChild(g);
     return g;
   }
-
   function animateGhost(fromRect, toEl, { lift=0.18, rotate=8, duration=840, delay=0, easing='cubic-bezier(.18,.75,.25,1)', scaleEnd=0.96 }={}) {
-    if (!toEl) return { onfinish: () => {} };
     const to = R(toEl);
     const dx = to.left - fromRect.left;
     const dy = to.top  - fromRect.top;
@@ -109,15 +105,18 @@ export function init(game) {
     const arc = clamp(dist*lift, 80, 260);
     const side= Math.random()<.5 ? -1 : 1;
     const rot = side*rotate;
-
-    return [
-      { transform: `translate(0,0) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
-      { transform: `translate(${dx*.55}px, ${dy*.45-arc}px) rotate(${rot}deg) scale(1.06)`, opacity: .95, offset: .55 },
-      { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: .08, offset: 1 }
-    ];
+    return new KeyframeEffect(
+      document.createElement('div'), // dummy, we use this only for timing opts; actual element animates separately
+      [
+        { transform: `translate(0,0) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
+        { transform: `translate(${dx*.55}px, ${dy*.45-arc}px) rotate(${rot}deg) scale(1.06)`, opacity: .95, offset: .55 },
+        { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: .08, offset: 1 }
+      ],
+      { duration, delay, easing, fill:'forwards' }
+    );
   }
 
-  // ---------- Draw fan (real DOM nodes) ----------
+  // ---------- Draw / Discard (real nodes) ----------
   function animateDrawFan(deckBtn, newEls) {
     if (!deckBtn || !newEls?.length) return;
     const deck = R(deckBtn);
@@ -133,8 +132,6 @@ export function init(game) {
       setTimeout(()=>{ el.style.transform='translate(0,0) scale(1) rotate(0)'; el.style.opacity='1'; }, delay);
     });
   }
-
-  // ---------- Discard fan (reverse; real nodes) ----------
   function animateDiscardFanSameNodes(handEls, discardBtn) {
     if (!handEls?.length || !discardBtn) return Promise.resolve();
     const to = R(discardBtn);
@@ -155,22 +152,25 @@ export function init(game) {
     return Promise.all(promises);
   }
 
-  // ---------- HUD + Counts ----------
+  // ---------- HUD / counts / Aethergem ----------
   function renderHUD(S){
-    txt($('#hpValue'),   S.hp ?? 0);
-    txt($('#aeValue'),   S.ae ?? 0);
-    txt($('#aiHpValue'), S.ai?.hp ?? 0);
-    txt($('#aiAeValue'), S.ai?.ae ?? 0);
+    T($('#hpValue'),   S.hp ?? 0);
+    T($('#aeValue'),   S.ae ?? 0);
+    T($('#aiHpValue'), S.ai?.hp ?? 0);
+    T($('#aiAeValue'), S.ai?.ae ?? 0);
 
     const you=S.trance?.you||{cur:0,cap:6}, ai=S.trance?.ai||{cur:0,cap:6};
     $('#youTranceFill').style.width = pct(you.cur, you.cap||6);
     $('#aiTranceFill').style.width  = pct(ai.cur,  ai.cap ||6);
-    txt($('#youTranceCount'), `${you.cur ?? 0}/${you.cap ?? 6}`);
-    txt($('#aiTranceCount'),  `${ai.cur ?? 0}/${ai.cap ?? 6}`);
+    T($('#youTranceCount'), `${you.cur ?? 0}/${you.cap ?? 6}`);
+    T($('#aiTranceCount'),  `${ai.cur ?? 0}/${ai.cap ?? 6}`);
+
+    // Aethergem number
+    T($('#aetherGemNum'), S.ae ?? 0);
   }
   function renderCounts(S){
-    txt($('#deckCount'),    S.deck?.length ?? 0);
-    txt($('#discardCount'), S.disc?.length ?? 0);
+    T($('#deckCount'),    S.deck?.length ?? 0);
+    T($('#discardCount'), S.disc?.length ?? 0);
   }
 
   // ---------- Market ----------
@@ -193,7 +193,6 @@ export function init(game) {
           <div class="cardTop"><div class="cardTitle">${c.n}</div><div class="cardSub">${c.t||''}</div></div>
           <div class="cardBottom"><div class="cardVal">${(c.v!=null?('+'+c.v+'⚡'):'')}${(c.p!=null?(' · '+c.p+'ϟ'):'')}</div></div>`;
         el.appendChild(card);
-        // Player BUY is handled in dispatch wrapper (we pre-animate), not here
       }
     }
   }
@@ -219,10 +218,9 @@ export function init(game) {
       };
       ribbon.appendChild(el);
     });
-
     const afterIds = cardIds(hand);
     const newIds = afterIds.filter(id=>!beforeIds.includes(id));
-    if (newIds.length){
+    if (newIds.length && !firstPaint){
       const deckBtn = $('#chipDeck');
       if (deckBtn){
         const newEls = newIds.map(id=> ribbon.querySelector(`.handCard[data-card-id="${id}"]`)).filter(Boolean);
@@ -232,15 +230,45 @@ export function init(game) {
     prevHandIds = afterIds;
   }
 
-  // ---------- Slots ----------
+  // ---------- Glyph helpers ----------
+  const GLYPH_BACK = `
+    <div class="cardFrame glyphBack">
+      <div class="cardTop"><div class="cardTitle">Glyph</div><div class="cardSub">Face Down</div></div>
+      <div class="cardBottom"><div class="cardVal">✶</div></div>
+    </div>`;
+
+  function renderGlyphSlot(side, glyphs) {
+    const wrap = document.createElement('div');
+    wrap.className = 'glyphSlot';
+    if (!glyphs || glyphs.length === 0) {
+      wrap.innerHTML = '<div class="slotGhost">Empty</div>';
+      return wrap;
+    }
+    // stack face-down, count badge
+    wrap.innerHTML = GLYPH_BACK;
+    const badge = document.createElement('div');
+    badge.className = 'glyphCount';
+    badge.textContent = glyphs.length;
+    wrap.appendChild(badge);
+    if (side === 'you') {
+      // If you want your own glyphs face-up, uncomment and render details
+      // For now, we also show them face-down for consistency, but known to you.
+    }
+    return wrap;
+  }
+
+  // ---------- Slots (3 spell + 1 glyph) ----------
   function renderSlots(S){
     const youEl=$('#playerSlots'), aiEl=$('#aiSlots');
 
     if (youEl){
       youEl.innerHTML='';
-      (S.slots||[]).forEach((s,i)=>{
+      const spells = (S.slots||[]);
+      for (let i=0;i<3;i++){
+        const s = spells[i] || null;
         const cell = document.createElement('div');
-        cell.className='slotCell'; cell.dataset.slot=i;
+        cell.className='slotCell';
+        cell.dataset.slot=i;
         if (!s){ cell.classList.add('empty'); cell.innerHTML='<div class="slotGhost">Empty</div>'; }
         else {
           cell.innerHTML=`
@@ -252,12 +280,19 @@ export function init(game) {
         }
         cell.onclick=()=>{ if (s) game.dispatch({ type:'ADVANCE', slot:i }); };
         youEl.appendChild(cell);
-      });
+      }
+      // glyph slot as 4th
+      const glyphCell = document.createElement('div');
+      glyphCell.className = 'slotCell glyph';
+      glyphCell.appendChild(renderGlyphSlot('you', S.glyphs||[]));
+      youEl.appendChild(glyphCell);
     }
 
     if (aiEl){
       aiEl.innerHTML='';
-      (S.ai?.slots||[]).forEach((s)=>{
+      const spells = (S.ai?.slots||[]);
+      for (let i=0;i<3;i++){
+        const s = spells[i] || null;
         const cell = document.createElement('div');
         cell.className='slotCell ai';
         if (!s){ cell.classList.add('empty'); cell.innerHTML='<div class="slotGhost">Empty</div>'; }
@@ -270,7 +305,11 @@ export function init(game) {
           if (s.advUsed) cell.classList.add('advUsed');
         }
         aiEl.appendChild(cell);
-      });
+      }
+      const glyphCell = document.createElement('div');
+      glyphCell.className = 'slotCell ai glyph';
+      glyphCell.appendChild(renderGlyphSlot('ai', (S.ai?.glyphs)||[]));
+      aiEl.appendChild(glyphCell);
     }
   }
 
@@ -328,73 +367,74 @@ export function init(game) {
     renderHand(S);
     renderSlots(S);
 
-    // update signatures AFTER render
+    // update AFTER render
     prevAISig  = (S.ai?.slots||[]).map(slotSig);
     prevAIHand = (S.ai?.hand?.length ?? 0);
 
-    // ----- AI Ghosts by diff -----
-    try{
-      const deckA = aiDeckAnchor();
-      const aeA   = aiAeAnchor();
-      const aiDisc= aiDiscardAnchor();
+    // ----- AI Ghosts by diff (skip on first paint) -----
+    if (!firstPaint) {
+      try{
+        const deckA = aiDeckAnchor();
+        const aeA   = aiAeAnchor();
+        const aiDisc= aiDiscardAnchor();
 
-      // 1) AI PLAY (empty→filled)
-      const aiCells = $$('#aiSlots .slotCell');
-      for (let i=0;i<prevAISig.length;i++){
-        if (oldAISig[i]===null && prevAISig[i]!==null) {
-          const target = aiCells[i]?.querySelector('.slotPanel') || aiCells[i];
-          const slot = (S.ai?.slots||[])[i];
-          if (deckA && target && slot?.c){
+        // PLAY (empty→filled)
+        const aiCells = $$('#aiSlots .slotCell');
+        for (let i=0;i<prevAISig.length;i++){
+          if (oldAISig[i]===null && prevAISig[i]!==null) {
+            const target = aiCells[i]?.querySelector('.slotPanel') || aiCells[i];
+            const slot = (S.ai?.slots||[])[i];
+            if (deckA && target && slot?.c){
+              const fr = R(deckA);
+              const ghost = makeGhostFromCard(slot.c, fr);
+              ghost.animate(
+                animateGhost(fr, target, { duration: 840, rotate: 8, scaleEnd: .95 }),
+                { duration: 840, easing: 'cubic-bezier(.18,.75,.25,1)', fill: 'forwards' }
+              ).onfinish = ()=> ghost.remove();
+            }
+          }
+        }
+        // CHANNEL (hand-- and no new slot)
+        const newSlotAdded = prevAISig.some((sig,i)=> oldAISig[i]===null && sig!==null);
+        if (!newSlotAdded && prevAIHand < oldAIHand) {
+          if (deckA && aeA){
             const fr = R(deckA);
-            const ghost = makeGhostFromCard(slot.c, fr);
+            const ghost = makeGhostFromCard({ n:'Channel', t:'Instant', v:1 }, fr);
             ghost.animate(
-              animateGhost(fr, target, { duration: 840, rotate: 8, scaleEnd: .95 }),
-              { duration: 840, easing: 'cubic-bezier(.18,.75,.25,1)', fill: 'forwards' }
+              animateGhost(fr, aeA, { duration: 760, rotate: 10, scaleEnd:.45 }),
+              { duration: 760, easing: 'cubic-bezier(.2,.7,.2,1)', fill:'forwards' }
             ).onfinish = ()=> ghost.remove();
           }
         }
-      }
-
-      // 2) AI CHANNEL (hand-- and no new slot)
-      const newSlotAdded = prevAISig.some((sig,i)=> oldAISig[i]===null && sig!==null);
-      if (!newSlotAdded && prevAIHand < oldAIHand) {
-        if (deckA && aeA){
-          const fr = R(deckA);
-          const ghost = makeGhostFromCard({ n:'Channel', t:'Instant', v:1 }, fr);
-          ghost.animate(
-            animateGhost(fr, aeA, { duration: 760, rotate: 10, scaleEnd:.45 }),
-            { duration: 760, easing: 'cubic-bezier(.2,.7,.2,1)', fill:'forwards' }
-          ).onfinish = ()=> ghost.remove();
-        }
-      }
-
-      // 3) AI BUY (flow card disappears) -> animate market→AI discard
-      const flowCells = $$('.marketCard');
-      for (let i=0;i<oldFlow.length;i++){
-        if (oldFlow[i] && !prevFlowCards[i]) {
-          const fromRect = oldRects[i] || R(flowCells[i]);
-          if (aiDisc) {
-            const ghost = makeGhostFromCard(oldFlow[i], fromRect);
-            ghost.animate(
-              animateGhost(fromRect, aiDisc, { duration: 780, rotate:6, scaleEnd:.72 }),
-              { duration: 780, easing:'cubic-bezier(.18,.75,.25,1)', fill:'forwards' }
-            ).onfinish = ()=> ghost.remove();
+        // BUY (flow card disappears) -> market→AI discard
+        const flowCells = $$('.marketCard');
+        for (let i=0;i<oldFlow.length;i++){
+          if (oldFlow[i] && !prevFlowCards[i]) {
+            const fromRect = oldRects[i] || R(flowCells[i]);
+            if (aiDisc) {
+              const ghost = makeGhostFromCard(oldFlow[i], fromRect);
+              ghost.animate(
+                animateGhost(fromRect, aiDisc, { duration: 780, rotate:6, scaleEnd:.72 }),
+                { duration: 780, easing:'cubic-bezier(.18,.75,.25,1)', fill:'forwards' }
+              ).onfinish = ()=> ghost.remove();
+            }
           }
         }
-      }
-
-      // 4) AI ADVANCE (ph change) -> pulse
-      for (let i=0;i<prevAISig.length;i++){
-        const a=prevAISig[i], b=oldAISig[i];
-        if (a && b && a!==b){
-          const cell = aiCells[i];
-          if (cell){ cell.classList.add('pulse'); setTimeout(()=>cell.classList.remove('pulse'), 520); }
+        // ADVANCE (ph changed) -> pulse
+        for (let i=0;i<prevAISig.length;i++){
+          const a=prevAISig[i], b=oldAISig[i];
+          if (a && b && a!==b){
+            const cell = aiCells[i];
+            if (cell){ cell.classList.add('pulse'); setTimeout(()=>cell.classList.remove('pulse'), 520); }
+          }
         }
-      }
-    }catch(e){ console.warn('[UI] AI ghost diff failed', e); }
+      }catch(e){ console.warn('[UI] AI ghost diff failed', e); }
+    }
 
     // rebind drags
     if (window.DragCards?.refresh) window.DragCards.refresh();
+
+    firstPaint = false;
   }
 
   // ---------- AI turn helper ----------
@@ -408,7 +448,7 @@ export function init(game) {
     game.dispatch({ type:'AI_SPEND_TRANCE' }); draw(); await wait(200);
   }
 
-  // ---------- Dispatch wrapper ----------
+  // ---------- Dispatch wrapper (pre-anims) ----------
   if (game && typeof game.dispatch==='function' && !game.__uiWrapped){
     const orig = game.dispatch;
 
@@ -433,7 +473,7 @@ export function init(game) {
         const res = orig(action); draw(); return res;
       }
 
-      // Pre-animate END_TURN: discard hand (real nodes), then run AI, then start our turn
+      // Pre-animate END_TURN: discard hand (real nodes), then AI, then start our turn
       if (action?.type === 'END_TURN') {
         const liveHand = Array.from(document.querySelectorAll('.ribbon .handCard'));
         const discardBtn = $('#chipDiscard');
@@ -444,6 +484,43 @@ export function init(game) {
         return res;
       }
 
+      // Pre-animate PLAY_FROM_HAND with ghost (hand → target slot/glyph)
+      if (action?.type === 'PLAY_FROM_HAND' && typeof action.index === 'number') {
+        // capture hand card rect before dispatch
+        const handEl = document.querySelector(`.ribbon .handCard[data-index="${action.index}"]`);
+        const fromRect = handEl ? R(handEl) : null;
+
+        const beforeState = (game.state || {});
+        const beforeEmptySlot = (beforeState.slots||[]).findIndex(s=>!s);
+        const isGlyph = beforeState.hand?.[action.index]?.t === 'Glyph';
+
+        const res = orig(action); // state mutates
+        draw();
+
+        // find target
+        let targetEl = null;
+        if (isGlyph) {
+          targetEl = $('#playerSlots .glyphSlot .glyphBack') || $('#playerSlots .glyph');
+        } else {
+          // find the first slot that changed from empty to filled (fallback to beforeEmptySlot)
+          const after = (game.state || {}).slots || [];
+          let filledIndex = after.findIndex((s,i)=> s && i === (beforeEmptySlot===-1? i : beforeEmptySlot));
+          if (filledIndex < 0) filledIndex = after.findIndex(s=>s); // last resort
+          const cell = $$('#playerSlots .slotCell')[filledIndex];
+          targetEl = cell?.querySelector('.slotPanel') || cell;
+          if (cell) { cell.classList.add('pulse'); setTimeout(()=>cell.classList.remove('pulse'), 520); }
+        }
+
+        if (fromRect && targetEl) {
+          const ghost = makeGhostFromCard(beforeState.hand?.[action.index] || {n:'Card'}, fromRect);
+          ghost.animate(
+            animateGhost(fromRect, targetEl, { duration: 720, rotate: 7, scaleEnd:.9 }),
+            { duration: 720, easing: 'cubic-bezier(.2,.75,.25,1)', fill:'forwards' }
+          ).onfinish = ()=> ghost.remove();
+        }
+        return res;
+      }
+
       const result = orig(action);
       draw();
       return result;
@@ -451,7 +528,9 @@ export function init(game) {
     game.__uiWrapped = true;
   }
 
-  // ---------- Buttons + pile viewers ----------
+  // ---------- Top-right controls & Aethergem ----------
+  ensureHudExtras();
+
   const onDraw  = () => game.dispatch({ type:'DRAW' });
   const onEnd   = () => game.dispatch({ type:'END_TURN' });
   const onReset = () => {
@@ -463,9 +542,9 @@ export function init(game) {
     } catch(e){ console.error('[UI] reset failed', e); }
   };
 
-  [['#fabDraw', onDraw], ['#fabEnd', onEnd], ['#fabReset', onReset]].forEach(([sel,fn])=>{
-    const el=$(sel); if (el) el.onclick=fn;
-  });
+  const btnDraw  = $('#btnDraw');  if (btnDraw)  btnDraw.onclick  = onDraw;
+  const btnEnd   = $('#btnEnd');   if (btnEnd)   btnEnd.onclick   = onEnd;
+  const btnReset = $('#btnReset'); if (btnReset) btnReset.onclick = onReset;
 
   // Pile viewers
   const deckBtn = $('#chipDeck');
@@ -475,14 +554,45 @@ export function init(game) {
 
   // first paint
   draw();
-  console.log('[UI] v3.2 — draw/ discard fan, AI fancy ghosts, pile viewers, player/AI buy flights');
+  console.log('[UI] v3.8 — fixed rows, 3+glyph slots, play anims, controls top-right, Aethergem, fixed modals');
+}
+
+// ---------- Top-right controls & Aethergem elements ----------
+function ensureHudExtras(){
+  if (!document.getElementById('uiTopRight')) {
+    const wrap = document.createElement('div');
+    wrap.id = 'uiTopRight';
+    wrap.innerHTML = `
+      <div class="uiButtons">
+        <button id="btnReset" title="Reset">↺</button>
+        <button id="btnDraw"  title="Draw">⇧</button>
+        <button id="btnEnd"   title="End Turn">⏵</button>
+      </div>`;
+    document.body.appendChild(wrap);
+  }
+  if (!document.getElementById('aetherGem')) {
+    const gem = document.createElement('div');
+    gem.id = 'aetherGem';
+    gem.innerHTML = `<div class="gemCore"><span id="aetherGemNum">0</span></div>`;
+    document.body.appendChild(gem);
+  }
 }
 
 // -------------------- styles --------------------
 const style = document.createElement('style');
 style.textContent = `
-  :root { --card-w: 160px; }
+  :root { --card-w: 160px; --row-pad: 12px; --zone-h: calc(var(--card-w) * 88 / 63 + var(--row-pad) * 2); }
 
+  /* Fixed-height zones matching card height */
+  .zone { min-height: var(--zone-h); max-height: var(--zone-h); }
+  .flowWrap { min-height: var(--zone-h); max-height: var(--zone-h); }
+
+  /* Aetherflow: five market cells already exist in HTML */
+  .flowGrid { display:grid; grid-template-columns: repeat(5, var(--card-w)); justify-content:center; gap:16px; }
+  .marketCard { width: var(--card-w); height: calc(var(--card-w) * 88 / 63); }
+  .marketCard.empty { background: transparent; border-radius: 12px; border: 1px dashed rgba(0,0,0,.08); }
+
+  /* Hand ribbon */
   .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:10px; gap:10px; }
 
   .cardFrame {
@@ -507,13 +617,20 @@ style.textContent = `
   .cardSub   { font-size:12.5px; color:#616161; margin-top:2px; }
   .cardVal   { font-size:13px; color:#b21d1d; margin-top:4px; }
 
+  /* 3 spell slots + 1 glyph slot */
   #playerSlots, #aiSlots {
-    display:grid; grid-template-columns: repeat(3, minmax(calc(var(--card-w) + 20px), 1fr));
-    gap:16px; padding:10px 14px 18px;
+    display:grid;
+    grid-template-columns: repeat(4, var(--card-w));
+    gap: 16px;
+    padding: var(--row-pad);
+    justify-content:center;
+    min-height: calc(var(--card-w) * 88 / 63 + var(--row-pad) * 2);
+    max-height: calc(var(--card-w) * 88 / 63 + var(--row-pad) * 2);
   }
   .slotCell {
     display:flex; align-items:center; justify-content:center;
-    min-height: calc(var(--card-w) * 1.1);
+    width: var(--card-w);
+    height: calc(var(--card-w) * 88 / 63);
     border-radius:16px; background:#fffaf4;
     border:1px solid rgba(0,0,0,.06); box-shadow:0 2px 6px rgba(0,0,0,.05) inset;
     transition: transform .15s, box-shadow .15s;
@@ -529,7 +646,44 @@ style.textContent = `
     100%{ box-shadow:0 0 0 0 rgba(90,140,220,0); }
   }
 
-  /* Chips (player existing + AI floating) */
+  .slotCell.glyph { background: #fbfbff; }
+  .glyphSlot { position:relative; display:flex; align-items:center; justify-content:center; width:100%; height:100%; }
+  .glyphBack { width:100%; height:100%; background:linear-gradient(180deg,#fff 0%, #eef1ff 100%); }
+  .glyphCount {
+    position:absolute; right:6px; bottom:6px;
+    background:#222; color:#fff; font-size:11px; padding:2px 6px; border-radius:10px;
+  }
+
+  /* Drag affordances */
+  #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset:-4px; }
+  #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset:-4px; box-shadow:0 0 0 4px rgba(90,140,220,.08) inset; }
+
+  .ghostFly { border-radius:12px; overflow:hidden; will-change: transform, opacity; }
+
+  /* Top-right controls */
+  #uiTopRight { position:fixed; top:10px; right:10px; z-index:5000; }
+  #uiTopRight .uiButtons { display:flex; gap:8px; }
+  #uiTopRight .uiButtons button {
+    width:36px; height:36px; border-radius:10px; border:1px solid rgba(0,0,0,.12);
+    background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.12); cursor:pointer; font-size:16px;
+  }
+  #uiTopRight .uiButtons button:hover { transform:translateY(-1px); }
+
+  /* Aethergem bottom-right above hand */
+  #aetherGem {
+    position:fixed; right:18px; bottom:110px; z-index:4000;
+    width:54px; height:54px; display:flex; align-items:center; justify-content:center;
+    filter: drop-shadow(0 4px 10px rgba(0,0,0,.22));
+  }
+  #aetherGem .gemCore {
+    width:100%; height:100%; border-radius:16px;
+    background: radial-gradient(50% 50% at 50% 50%, #ffe9b3 0%, #ffd26f 50%, #f3a93b 100%);
+    border: 2px solid #8d5a1a; display:flex; align-items:center; justify-content:center;
+    font-weight:800; color:#3b2a14; text-shadow:0 1px 0 rgba(255,255,255,.6);
+  }
+  #aetherGem .gemCore span { transform: translateY(1px); }
+
+  /* Chips (AI floating discard) */
   .chipCirc.ai {
     width:36px; height:36px; border-radius:999px;
     display:inline-flex; align-items:center; justify-content:center;
@@ -538,15 +692,13 @@ style.textContent = `
   }
   .chipCirc.ai svg { width:18px; height:18px; stroke:#444; }
 
-  /* Drag affordances */
-  #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset:-4px; }
-  #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset:-4px; box-shadow:0 0 0 4px rgba(90,140,220,.08) inset; }
-
-  /* Modal (pile viewer) */
+  /* Modal (fixed matching size) */
   #pileModal { position:fixed; inset:0; z-index:10000; display:none; }
   #pileModal.open { display:block; }
   .pm-backdrop { position:absolute; inset:0; background:rgba(0,0,0,.28); backdrop-filter:saturate(120%) blur(1px); }
-  .pm-sheet { position:absolute; left:50%; top:52%; transform:translate(-50%,-50%); width:min(1100px,90vw); max-height:80vh; background:#fff; border-radius:16px; box-shadow:0 12px 60px rgba(0,0,0,.35); display:flex; flex-direction:column; }
+  .pm-sheet { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+    width: 920px; height: 620px; background:#fff; border-radius:16px; box-shadow:0 12px 60px rgba(0,0,0,.35);
+    display:flex; flex-direction:column; }
   .pm-head { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-bottom:1px solid rgba(0,0,0,.07); }
   .pm-title { font-weight:700; }
   .pm-close { background:transparent; border:0; font-size:24px; line-height:1; cursor:pointer; }
