@@ -1,3 +1,4 @@
+// /src/engine/rules.js
 import { FLOW_PRICES, HAND_DRAW } from './cards.js';
 import { shuffle } from './rng.js';
 import { WEAVERS } from './weavers.js';
@@ -5,14 +6,9 @@ import { initialState, makeFlowDeck } from './state.js';
 
 export function reduce(S, action){
   const L = (m)=>S._log.push(m);
-
   switch(action.type){
-
-    case 'INIT':
-      return S;
-
-    case 'RESET':
-      return initialState({ playerWeaver: action.playerWeaver, aiWeaver: action.aiWeaver });
+    case 'INIT': return S;
+    case 'RESET': return initialState({ playerWeaver: action.playerWeaver, aiWeaver: action.aiWeaver });
 
     case 'START_TURN': {
       S.turn += (action.first?0:1);
@@ -33,6 +29,7 @@ export function reduce(S, action){
     case 'PLAY_FROM_HAND': {
       const { index, slot=null } = action;
       const c=S.hand[index]; if(!c) return S;
+
       if(c.t==='Spell'){
         let s=(slot!=null?slot:S.slots.findIndex(x=>!x)); if(s<0){ L("No empty slot."); return S; }
         S.slots[s]={c,ph:1,advUsed:false}; S.hand.splice(index,1); L(`Play ${c.n} → Slot ${s+1}.`);
@@ -55,19 +52,24 @@ export function reduce(S, action){
     case 'ADVANCE': {
       if(S.youFrozen>0){ L("You are frozen and cannot Advance this turn."); return S; }
       const i=action.slot; const s=S.slots[i]; if(!s) return S;
+
       const cost = (S.freeAdvYou>0)?0:1;
       if(S.ae<cost){ L(`Need ${cost}⚡ to advance.`); return S; }
       S.ae-=cost; if(cost===0) S.freeAdvYou=Math.max(0,S.freeAdvYou-1);
+
       s.ph++; s.advUsed=true;
       if(s.ph>=(s.c.p||1)) resolveCard(S,'you',i);
       return S;
     }
 
+    // ---- Simple AI phases split into discrete actions ----
     case 'AI_DRAW': { aiDraw(S); return S; }
 
     case 'AI_PLAY_SPELL': {
       const idx=S.ai.hand.findIndex(x=>x.t==='Spell');
-      if(idx>-1){ const c=S.ai.hand.splice(idx,1)[0]; const s=S.ai.slots.findIndex(x=>!x);
+      if(idx>-1){
+        const c=S.ai.hand.splice(idx,1)[0];
+        const s=S.ai.slots.findIndex(x=>!x);
         if(s>-1){ S.ai.slots[s]={c,ph:1,advUsed:false}; L("AI plays "+c.n); }
       }
       return S;
@@ -113,9 +115,7 @@ export function reduce(S, action){
       if(T.weaver==='Stormbinder'){
         let can=false; for(let i=0;i<5;i++){ const cost=FLOW_PRICES[i]; if(S.flowRow[i] && cost<=((S.ai.ae||0)+2)) {can=true;break;} }
         W.spend[can?0:1].fn(S,'ai'); T.cur=0;
-      } else {
-        W.spend[0].fn(S,'ai'); T.cur=0;
-      }
+      } else { W.spend[0].fn(S,'ai'); T.cur=0; }
       return S;
     }
 
@@ -146,10 +146,16 @@ export function drawCard(S){
   }
   S.hand.push(S.deck.pop());
 }
+
 export function aiDraw(S){
-  if(S.ai.deck.length===0){ if(S.ai.disc.length>0){ S.ai.deck=shuffle(S.ai.disc); S.ai.disc=[]; S._log.push("AI reshuffles."); } else return; }
+  if(S.ai.deck.length===0){
+    if(S.ai.disc.length>0){
+      S.ai.deck=shuffle(S.ai.disc); S.ai.disc=[]; S._log.push("AI reshuffles.");
+    } else return;
+  }
   S.ai.hand.push(S.ai.deck.pop());
 }
+
 function ensureMarket(S){ for(let i=0;i<5;i++){ if(!S.flowRow[i]) S.flowRow[i]=drawFlow(S); } }
 function drawFlow(S){ if(S.flowDeck.length===0) S.flowDeck=makeFlowDeck(); return S.flowDeck.pop()||null; }
 function slideFlow(S){ S.flowRow.pop(); S.flowRow.unshift(drawFlow(S)); }
@@ -158,6 +164,8 @@ function resolveCard(S,who,slotIndex){
   const slot = who==='you'?S.slots[slotIndex]:S.ai.slots[slotIndex];
   if(!slot) return;
   const c=slot.c;
+
+  // Effects (sim examples)
   switch(c.eff){
     case 'gain1': if(who==='you'){S.ae+=1; S._log.push(`${c.n} resolves: +1⚡.`);} else {S.ai.ae+=1; S._log.push(`AI gains +1⚡.`);} break;
     case 'drain1': if(who==='you'){S.ai.ae=Math.max(0,S.ai.ae-1); S._log.push(`${c.n}: drain 1⚡ (AI).`);} else {S.ae=Math.max(0,S.ae-1); S._log.push(`AI drains 1⚡.`);} break;
@@ -171,13 +179,15 @@ function resolveCard(S,who,slotIndex){
         else { S._log.push(`${c.n} resolves.`); }
       }
   }
+
+  // Move to discard and clear
   if(who==='you'){ S.disc.push(c); S.slots[slotIndex]=null; }
   else { S.ai.disc.push(c); S.ai.slots[slotIndex]=null; }
 
-  // FX ping for UI
+  // FX ping for UI (resolve glow)
   S._fx = { ping: (S._fx?.ping||0)+1, type:'resolve', who, slot: slotIndex };
-
 }
+
 function tranceOnDamage(S,who){
   const weaver = (who==='you'?S.trance.you.weaver:S.trance.ai.weaver);
   if(weaver==='Emberwright') gainTrance(S,who,'onDamage',1);
@@ -186,6 +196,7 @@ function tranceOnFrost(S,who){
   const weaver = (who==='you'?S.trance.you.weaver:S.trance.ai.weaver);
   if(weaver==='Frostseer') gainTrance(S,who,'onFrost',1);
 }
+
 export function gainTrance(S,who,kind,amt=1){
   const W=who==='you'?WEAVERS[S.trance.you.weaver]:WEAVERS[S.trance.ai.weaver];
   if(!W) return;
