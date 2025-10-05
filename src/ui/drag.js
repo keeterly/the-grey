@@ -1,137 +1,116 @@
-// drag.js — robust pointer-based drag for cards -> slots
-// Assumes draggable elements have [data-draggable="card"]
-// and droppable slots have [data-slot].
+// =========================================================
+// THE GREY — DRAG MODULE
+// Drag cards from hand → player slots. No engine imports.
+// Exports: DragCards.init(game), DragCards.refresh()
+// =========================================================
 
-(() => {
-  'use strict';
+let _game = null;
+let _mounted = false;
 
-  const DRAG_SELECTOR = '[data-draggable="card"]';
-  const SLOT_SELECTOR = '[data-slot]';
+function $$(sel) { return Array.from(document.querySelectorAll(sel)); }
 
-  let dragging = null;        // { el, startX, startY, offsetX, offsetY, originParent, originNext }
-  let activePointerId = null;
+function addSlotHighlights() {
+  $$('#playerSlots .slotCell').forEach((el) => {
+    el.classList.add('dropReady');
+  });
+}
+function removeSlotHighlights() {
+  $$('#playerSlots .slotCell.dropReady').forEach((el) => {
+    el.classList.remove('dropReady');
+  });
+  $$('#playerSlots .slotCell.dropTarget').forEach((el) => {
+    el.classList.remove('dropTarget');
+  });
+}
 
-  const getPoint = (evt) => {
-    if (evt instanceof PointerEvent) return { x: evt.clientX, y: evt.clientY };
-    if (evt.touches && evt.touches[0]) return { x: evt.touches[0].clientX, y: evt.touches[0].clientY };
-    if (evt.changedTouches && evt.changedTouches[0]) return { x: evt.changedTouches[0].clientX, y: evt.changedTouches[0].clientY };
-    return { x: 0, y: 0 };
-  };
+function bindHandCard(cardEl) {
+  if (!cardEl || cardEl.dataset.dragBound) return;
+  cardEl.dataset.dragBound = '1';
+  cardEl.setAttribute('draggable', 'true');
 
-  const setDraggingStyle = (el, isDragging) => {
-    if (isDragging) {
-      el.style.willChange = 'transform';
-      el.style.pointerEvents = 'none';
-      el.style.zIndex = '999';
-      el.classList.add('dragging');
-    } else {
-      el.style.transform = '';
-      el.style.willChange = '';
-      el.style.pointerEvents = '';
-      el.style.zIndex = '';
-      el.classList.remove('dragging');
-    }
-  };
+  cardEl.addEventListener('dragstart', (e) => {
+    const idx = Number(cardEl.dataset.index ?? -1);
+    e.dataTransfer.setData('text/plain', String(idx));
+    cardEl.classList.add('dragging');
+    addSlotHighlights();
+  });
 
-  const onPointerDown = (evt) => {
-    const target = evt.target.closest(DRAG_SELECTOR);
-    if (!target) return;
+  cardEl.addEventListener('dragend', () => {
+    cardEl.classList.remove('dragging');
+    removeSlotHighlights();
+  });
+}
 
-    // only one drag at a time
-    if (dragging) return;
+function bindSlotCell(slotEl) {
+  if (!slotEl || slotEl.dataset.dragBound) return;
+  slotEl.dataset.dragBound = '1';
 
-    activePointerId = evt.pointerId ?? null;
-    target.setPointerCapture?.(activePointerId);
+  slotEl.addEventListener('dragover', (e) => {
+    // Allow drop on any slot cell; rules will reject if invalid.
+    e.preventDefault();
+    slotEl.classList.add('dropTarget');
+  });
 
-    const rect = target.getBoundingClientRect();
-    const { x, y } = getPoint(evt);
+  slotEl.addEventListener('dragleave', () => {
+    slotEl.classList.remove('dropTarget');
+  });
 
-    dragging = {
-      el: target,
-      startX: x,
-      startY: y,
-      offsetX: x - (rect.left + rect.width / 2),
-      offsetY: y - (rect.top + rect.height / 2),
-      originParent: target.parentElement,
-      originNext: target.nextElementSibling
-    };
+  slotEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    slotEl.classList.remove('dropTarget');
+    const handIndex = Number(e.dataTransfer.getData('text/plain'));
+    if (!Number.isInteger(handIndex) || handIndex < 0) return;
 
-    setDraggingStyle(target, true);
-    document.addEventListener('pointermove', onPointerMove);
-    document.addEventListener('pointerup', onPointerUp);
-    document.addEventListener('pointercancel', onPointerUp);
-  };
+    if (!_game || !_game.state) return;
+    const card = _game.state.hand?.[handIndex];
+    if (!card) return;
 
-  const onPointerMove = (evt) => {
-    if (!dragging) return;
-    if (activePointerId !== null && evt.pointerId !== activePointerId) return;
+    const slotIndex = Number(slotEl.dataset.slot ?? -1);
 
-    const { x, y } = getPoint(evt);
-    const dx = x - dragging.startX;
-    const dy = y - dragging.startY;
-
-    // translate relative to initial center, plus small offset to feel natural
-    dragging.el.style.transform = `translate(${dx - dragging.offsetX}px, ${dy - dragging.offsetY}px)`;
-  };
-
-  const findDropSlot = (x, y) => {
-    // temporarily hide the dragging element to hit-test below it
-    const el = dragging.el;
-    const prevVis = el.style.visibility;
-    el.style.visibility = 'hidden';
-    const tgt = document.elementFromPoint(x, y);
-    el.style.visibility = prevVis;
-
-    return tgt ? tgt.closest(SLOT_SELECTOR) : null;
-  };
-
-  const onPointerUp = (evt) => {
-    if (!dragging) return;
-    if (activePointerId !== null && evt.pointerId !== activePointerId) return;
-
-    const { x, y } = getPoint(evt);
-
-    // drop logic
-    const slot = findDropSlot(x, y);
-
-    if (slot) {
-      // If your game has capacity rules, check them here:
-      // if (!slot.dataset.accepts || !slot.dataset.accepts.includes(dragging.el.dataset.type)) { ... }
-      slot.appendChild(dragging.el);
-      dragging.el.dispatchEvent(new CustomEvent('card:dropped', { bubbles: true, detail: { slot } }));
-    } else {
-      // return to original location
-      const { originParent, originNext, el } = dragging;
-      if (originNext && originNext.parentElement === originParent) {
-        originParent.insertBefore(el, originNext);
+    try {
+      if (card.t === 'Instant') {
+        // Instants channel on drop anywhere (simple rule)
+        _game.dispatch({ type: 'CHANNEL_FROM_HAND', index: handIndex });
       } else {
-        originParent.appendChild(el);
+        // Spells try to occupy the dropped slot
+        _game.dispatch({ type: 'PLAY_FROM_HAND', index: handIndex, slot: slotIndex });
       }
+    } catch (err) {
+      console.error('[Drag] drop failed:', err);
     }
+  });
+}
 
-    // cleanup
-    setDraggingStyle(dragging.el, false);
-    document.removeEventListener('pointermove', onPointerMove);
-    document.removeEventListener('pointerup', onPointerUp);
-    document.removeEventListener('pointercancel', onPointerUp);
+function bindAll() {
+  $$('.handCard').forEach(bindHandCard);
+  $$('#playerSlots .slotCell').forEach(bindSlotCell);
+}
 
-    dragging = null;
-    activePointerId = null;
-  };
+function injectStylesOnce() {
+  if (document.getElementById('__grey_drag_styles')) return;
+  const style = document.createElement('style');
+  style.id = '__grey_drag_styles';
+  style.textContent = `
+    .handCard.dragging { opacity: .75; }
+    #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset: -4px; }
+    #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset: -4px; box-shadow: 0 0 0 4px rgba(90,140,220,.08) inset; }
+  `;
+  document.head.appendChild(style);
+}
 
-  // Public initializer: call after your hand/slots render
-  const initDrag = (root = document) => {
-    // Use event delegation on the root
-    root.addEventListener('pointerdown', onPointerDown, { passive: true });
-  };
-
-  // Auto-init on DOM ready for convenience
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => initDrag(document));
-  } else {
-    initDrag(document);
+export const DragCards = {
+  init(game) {
+    _game = game;
+    injectStylesOnce();
+    bindAll();
+    _mounted = true;
+    console.log('[Drag] initialized');
+  },
+  // Call after UI re-renders to (re)bind fresh nodes
+  refresh() {
+    if (!_mounted) return;
+    bindAll();
   }
+};
 
-  // Expose for manual re-init after rerenders
-  window.DragCards = { init: initDrag };
-})();
+export default DragCards;
