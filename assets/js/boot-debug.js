@@ -136,8 +136,8 @@ function getTranslateXY(el){
     if (!st.lifted) return;
 
     // Keep the exact click point under the cursor
-    st.targetX = e.clientX - st.offsetX;
-    st.targetY = e.clientY - st.offsetY;
+    st.targetX = e.pageX - st.offsetX;
+    st.targetY = e.pageY - st.offsetY;
   }
 
   function snapBack(){
