@@ -1,136 +1,90 @@
 // =========================================================
 // THE GREY — ENGINE CORE (mechanics layer)
+// Uses your real initialState() and reduce().
 // =========================================================
 
-// All imports are relative to /src/engine/
-import * as Rules   from './rules.js';
+import * as Rules   from './rules.js';          // reduce(), helpers
 import * as AI      from './ai.js';
 import * as Cards   from './cards.js';
 import * as Weavers from './weavers.js';
 import * as RNG     from './rng.js';
-import * as State   from './state.js'; // kept, but guarded
+import { initialState } from './state.js';
 
-// Safe fallback so UI + boot never crash even if State.* throws
-function makeFallbackState() {
+// safe defaults if weaver ids aren’t provided
+function defaultWeavers() {
   return {
-    turn: 1,
-    phase: 'START',
-    // HUD-facing numbers
-    youTrance: 0,
-    aiTrance: 0,
-    playerHP: 20,
-    aiHP: 20,
-    playerAE: 0,
-    aiAE: 0,
-    // Minimal structures the rest can attach to later
-    deck: [], discard: [], hand: [],
-    aiDeck: [], aiDiscard: [], aiHand: [],
-    slots: { player: [], ai: [] },
-    market: [null, null, null, null, null],
-    log: [],
+    playerWeaver: Weavers.defaultPlayer || 'Default',
+    aiWeaver: Weavers.defaultAI || 'AI'
   };
 }
 
-// ---------------------------------------------------------
-// createGame() — main factory for a new game instance
-// ---------------------------------------------------------
-export function createGame() {
-  // Try the real state factory; if it fails, use a safe fallback
-  let gameState;
-  try {
-    if (typeof State.createState === 'function') {
-  gameState = State.createState({
-    playerWeaver: Weavers.defaultPlayer || 'Default',
-    aiWeaver: Weavers.defaultAI || 'AI',
-    rng: RNG,
-    cards: Cards
-  });
-} else if (typeof State.initialize === 'function') {
-  gameState = State.initialize({
-    playerWeaver: Weavers.defaultPlayer || 'Default',
-    aiWeaver: Weavers.defaultAI || 'AI',
-    rng: RNG,
-    cards: Cards
-  });
+// fallback minimal state so the app never dies on boot
+function makeFallbackState() {
+  const { playerWeaver, aiWeaver } = defaultWeavers();
+  return {
+    hp: 5, ae: 0, deck: [], hand: [], disc: [], slots: [null,null,null], glyphs: [],
+    ai: { hp: 5, ae: 0, deck: [], hand: [], disc: [], slots: [null,null,null], glyphs: [] },
+    flowDeck: [], flowRow: [null,null,null,null,null],
+    turn: 1,
+    trance: {
+      you: { cur: 0, cap: 6, weaver: playerWeaver },
+      ai:  { cur: 0, cap: 6, weaver: aiWeaver }
+    },
+    freeAdvYou: 0, freeAdvAi: 0,
+    youFrozen: 0, aiFrozen: 0,
+    _log: []
+  };
 }
 
+export function createGame() {
+  // 1) Build state using your initializer; fall back if it throws
+  let S;
+  try {
+    const w = defaultWeavers();
+    S = initialState(w);
   } catch (err) {
-    console.warn('[ENGINE] State factory failed. Using fallback state.', err);
+    console.warn('[ENGINE] initialState failed, using fallback:', err);
+    S = makeFallbackState();
   }
-  if (!gameState) gameState = makeFallbackState();
 
+  // 2) Single dispatch that runs your reducer in-place
   function dispatch(action) {
     if (!action || typeof action.type !== 'string') {
       console.warn('[ENGINE] Invalid action:', action);
       return;
     }
     try {
-      if (typeof Rules.handleAction === 'function') {
-        Rules.handleAction(gameState, action);
-      } else {
-        // minimal default so UI remains interactive
-        gameState.log.push(action);
-        console.log('[ENGINE] dispatch', action);
-        // very light behavior so buttons aren’t no-ops
-       switch (action.type) {
-  case 'RESET':
-    Object.assign(gameState, makeFallbackState());
-    if (typeof State.reset === 'function') State.reset(gameState);
-    break;
-
-  case 'DRAW':
-    if (typeof Rules.drawCard === 'function') Rules.drawCard(gameState);
-    break;
-
-  case 'END_TURN':
-    if (typeof Rules.endTurn === 'function') Rules.endTurn(gameState);
-    break;
-
-  case 'START_GAME':
-    if (typeof Rules.startGame === 'function') Rules.startGame(gameState);
-    break;
-
-  case 'START_TURN':
-    if (typeof Rules.startTurn === 'function') Rules.startTurn(gameState);
-    break;
-
-  default:
-    if (typeof Rules.handleAction === 'function')
-      Rules.handleAction(gameState, action);
-}
-
+      // Your reducer returns S (same reference) after mutation; we keep S as the canonical object.
+      Rules.reduce(S, action);
+      // Optional AI hook after certain actions
+      if (action.type === 'END_TURN' && typeof AI.takeTurn === 'function') {
+        // Split AI into the discrete actions your reducer understands
+        Rules.reduce(S, { type: 'AI_DRAW' });
+        Rules.reduce(S, { type: 'AI_PLAY_SPELL' });
+        Rules.reduce(S, { type: 'AI_CHANNEL' });
+        Rules.reduce(S, { type: 'AI_ADVANCE' });
+        Rules.reduce(S, { type: 'AI_BUY', index: 0 }); // simple buy attempt
+        Rules.reduce(S, { type: 'AI_SPEND_TRANCE' });
       }
     } catch (e) {
-      console.error('[ENGINE] dispatch error:', e);
-    }
-  }
-
-  function aiTurn() {
-    try {
-      if (typeof AI.takeTurn === 'function') AI.takeTurn(gameState, { dispatch });
-      else gameState.aiTrance = Math.min(6, (gameState.aiTrance || 0) + 1);
-    } catch (e) {
-      console.error('[ENGINE] aiTurn error:', e);
+      console.error('[ENGINE] dispatch error:', e, action);
     }
   }
 
   return {
-    state: gameState,
+    state: S,
     dispatch,
-    aiTurn,
-    rng: RNG,
+    // exposed for debugging/FX if you want them elsewhere
     cards: Cards,
     weavers: Weavers,
+    rng: RNG
   };
 }
 
-// ---------------------------------------------------------
-// Global exposure for legacy boot system
-// ---------------------------------------------------------
+// Legacy globals so boot/debug stays happy
 if (typeof window !== 'undefined') {
   window.GameEngine = window.GameEngine || {};
   window.GameEngine.create = createGame;
-
   if (!window.game || typeof window.game.dispatch !== 'function') {
     window.game = createGame();
   }
