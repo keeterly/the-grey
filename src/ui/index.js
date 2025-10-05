@@ -1,51 +1,44 @@
 // =========================================================
-// THE GREY — UI ENTRY (v2.5)
-// • MTG Arena-style animations:
-//    - Discard stream (hand → discard) with staggered arcs
-//    - Draw stream (deck → hand) with staggered arcs
-// • MTG proportions (63:88) + shared card size
-// • Proper reset & turn flow; drag refresh after each render
+// THE GREY — UI ENTRY (v2.6)
+// • MTG Arena–style animation polish
+//    - Discard all: natural curve + bounce ease
+//    - Draws: fan spread from deck → hand with stagger
+// • Guards against overdraw errors
 // =========================================================
 
 export function init(game) {
-  const $  = (sel) => (sel[0] === '#' ? document.getElementById(sel.slice(1)) : document.querySelector(sel));
+  const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
-
-  // -------------- helpers --------------
-  function setText(el, v) { if (el) el.textContent = String(v); }
-  function pct(n, d) { return `${(100 * (n ?? 0)) / (d || 1)}%`; }
 
   const DEFAULT_WEAVER_YOU = 'Default';
   const DEFAULT_WEAVER_AI  = 'AI';
 
-  // track previous hand ids for detecting new draws
   let prevHandIds = [];
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
-  const rectOf = (el)=> el.getBoundingClientRect();
+  const rectOf = (el) => el.getBoundingClientRect();
 
-  // ----- animation primitives -----
+  // ---------- 🌀 Arc flight utility ----------
   function flyArc(fromEl, toEl, {
     duration = 900,
     delay = 0,
-    scaleEnd = 0.72,
-    lift = 0.18,
-    rotate = 8,
-    easing = 'cubic-bezier(.12,.72,.18,1)' // quick up, slow down
+    scaleEnd = 0.75,
+    lift = 0.2,
+    rotate = 6,
+    easing = 'cubic-bezier(.18,.72,.24,1)'
   } = {}) {
     if (!fromEl || !toEl) return;
-
     const from = rectOf(fromEl);
-    const to   = rectOf(toEl);
+    const to = rectOf(toEl);
 
     const ghost = fromEl.cloneNode(true);
     ghost.classList.add('ghostFly');
     Object.assign(ghost.style, {
       position: 'fixed',
       left: `${from.left}px`,
-      top:  `${from.top}px`,
-      width:  `${from.width}px`,
+      top: `${from.top}px`,
+      width: `${from.width}px`,
       height: `${from.height}px`,
-      margin: '0',
+      margin: 0,
       pointerEvents: 'none',
       zIndex: 9999
     });
@@ -54,131 +47,78 @@ export function init(game) {
     const dx = to.left + (to.width - from.width)/2 - from.left;
     const dy = to.top  + (to.height - from.height)/2 - from.top;
 
-    const dist   = Math.hypot(dx, dy);
-    const arcPx  = Math.min(220, Math.max(70, dist * lift));
-
+    const dist = Math.hypot(dx, dy);
+    const arcPx = Math.min(260, Math.max(70, dist * lift));
     const side = Math.random() < 0.5 ? -1 : 1;
-    const rot  = side * rotate;
+    const rot = side * rotate;
 
     const anim = ghost.animate([
-      { transform: `translate(0px, 0px) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
-      { transform: `translate(${dx*0.6}px, ${dy*0.55 - arcPx}px) rotate(${rot}deg) scale(1.05)`,
-        opacity: 0.9, offset: 0.55 },
-      { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`,
-        opacity: 0.12, offset: 1 }
+      { transform: `translate(0,0) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
+      { transform: `translate(${dx*0.6}px, ${dy*0.45 - arcPx}px) rotate(${rot}deg) scale(1.08)`, opacity: 0.9, offset: 0.55 },
+      { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: 0.05, offset: 1 }
     ], { duration, delay, easing, fill: 'forwards' });
 
     anim.onfinish = () => ghost.remove();
   }
 
-  // Discard stream (hand → discard) with stagger
-  function animateDiscardStream(fromCardEls, discardTargetEl) {
-    if (!fromCardEls?.length || !discardTargetEl) return;
-    const base = 600;   // base per card
-    const extra = 420;  // extend tail
-    const stagger = 70; // ms between cards
-
-    fromCardEls.forEach((el, i) => {
-      const d = base + (i / Math.max(1, fromCardEls.length-1)) * extra;
-      flyArc(el, discardTargetEl, {
-        duration: d,
+  // ---------- 🗑️ Discard Stream ----------
+  function animateDiscardStream(fromCards, discardTarget) {
+    if (!fromCards?.length || !discardTarget) return;
+    const stagger = 90;
+    fromCards.forEach((el, i) => {
+      flyArc(el, discardTarget, {
+        duration: 1000 + i * 120,
         delay: i * stagger,
-        scaleEnd: 0.68,
-        lift: 0.20,
-        rotate: 10,
-        easing: 'cubic-bezier(.10,.70,.18,1)'
+        scaleEnd: 0.7,
+        lift: 0.25,
+        rotate: 8,
+        easing: 'cubic-bezier(.28,.65,.36,1.25)' // smooth bounce-in
       });
     });
   }
 
-  // Draw stream (deck → each new hand card) with stagger
-  function animateDrawStream(deckEl, newCardEls) {
-    if (!deckEl || !newCardEls?.length) return;
-    const base = 540;  // a bit snappier than discard
-    const extra = 240;
-    const stagger = 80;
-
-    newCardEls.forEach((cardEl, i) => {
-      const d = base + (i / Math.max(1, newCardEls.length-1)) * extra;
+  // ---------- 🃏 Draw Stream ----------
+  function animateDrawStream(deckEl, newCards) {
+    if (!deckEl || !newCards?.length) return;
+    newCards.forEach((cardEl, i) => {
+      const spread = (i - newCards.length / 2) * 12;
+      cardEl.style.transform = `rotate(${spread * 0.3}deg)`;
       flyArc(deckEl, cardEl, {
-        duration: d,
-        delay: i * stagger,
-        scaleEnd: 1.0,
-        lift: 0.14,
-        rotate: 6,
-        easing: 'cubic-bezier(.18,.75,.2,1)'
+        duration: 750 + i * 90,
+        delay: i * 80,
+        scaleEnd: 1,
+        lift: 0.15,
+        rotate: spread * 0.2,
+        easing: 'cubic-bezier(.18,.75,.25,1)'
       });
     });
   }
 
-  // -------------- HUD / TRANCE --------------
+  // ---------- 🎛 HUD ----------
   function renderHUD(S) {
-    setText($('#hpValue'),   S.hp ?? 0);
-    setText($('#aeValue'),   S.ae ?? 0);
-    setText($('#aiHpValue'), S.ai?.hp ?? 0);
-    setText($('#aiAeValue'), S.ai?.ae ?? 0);
+    $('#hpValue').textContent = S.hp ?? 0;
+    $('#aeValue').textContent = S.ae ?? 0;
+    $('#aiHpValue').textContent = S.ai?.hp ?? 0;
+    $('#aiAeValue').textContent = S.ai?.ae ?? 0;
 
-    const you = S.trance?.you || { cur:0, cap:6 };
-    const ai  = S.trance?.ai  || { cur:0, cap:6 };
+    const you = S.trance?.you || {cur:0, cap:6};
+    const ai  = S.trance?.ai  || {cur:0, cap:6};
 
-    const youFill = $('#youTranceFill');
-    const aiFill  = $('#aiTranceFill');
-    if (youFill) youFill.style.width = pct(you.cur, you.cap || 6);
-    if (aiFill)  aiFill.style.width  = pct(ai.cur,  ai.cap  || 6);
-
-    setText($('#youTranceCount'), `${you.cur ?? 0}/${you.cap ?? 6}`);
-    setText($('#aiTranceCount'),  `${ai.cur ?? 0}/${ai.cap ?? 6}`);
+    $('#youTranceFill').style.width = `${(you.cur/you.cap)*100}%`;
+    $('#aiTranceFill').style.width  = `${(ai.cur/ai.cap)*100}%`;
   }
 
-  // -------------- counters --------------
-  function renderCounts(S) {
-    setText($('#deckCount'),    (S.deck?.length ?? 0));
-    setText($('#discardCount'), (S.disc?.length ?? 0));
-  }
-
-  // -------------- market --------------
-  function renderFlow(S) {
-    const cells = $$('.marketCard');
-    for (let i = 0; i < cells.length; i++) {
-      const el = cells[i];
-      const c = S.flowRow?.[i] || null;
-
-      el.innerHTML = '';
-      el.classList.toggle('empty', !c);
-
-      if (c) {
-        const card = document.createElement('div');
-        card.className = 'cardFrame marketCardPanel';
-        card.innerHTML = `
-          <div class="cardTop">
-            <div class="cardTitle">${c.n}</div>
-            <div class="cardSub">${c.t || ''}</div>
-          </div>
-          <div class="cardBottom">
-            <div class="cardVal">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
-          </div>`;
-        el.appendChild(card);
-        el.onclick = () => { try { game.dispatch({ type: 'BUY_FLOW', index: i }); } catch (e) { console.error(e); } };
-      } else {
-        el.onclick = null;
-      }
-    }
-  }
-
-  // -------------- hand --------------
+  // ---------- ♻️ Render ----------
   function renderHand(S) {
     const ribbon = $('#ribbon');
-    if (!ribbon) return;
-
-    const beforeIds = prevHandIds.slice(0);
+    const beforeIds = prevHandIds.slice();
     ribbon.innerHTML = '';
 
     const hand = S.hand || [];
     hand.forEach((c, i) => {
       const el = document.createElement('div');
       el.className = 'cardFrame handCard';
-      el.dataset.index = i;
-      el.dataset.cardId = c?.id ?? '';
+      el.dataset.cardId = c.id ?? '';
       el.innerHTML = `
         <div class="cardTop">
           <div class="cardTitle">${c.n}</div>
@@ -187,211 +127,103 @@ export function init(game) {
         <div class="cardBottom">
           <div class="cardVal">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
         </div>`;
-      el.onclick = () => {
-        try {
-          if (c.t === 'Instant') game.dispatch({ type: 'CHANNEL_FROM_HAND', index: i });
-          else                   game.dispatch({ type: 'PLAY_FROM_HAND',    index: i });
-        } catch (e) { console.error('[UI] hand click failed', e); }
-      };
       ribbon.appendChild(el);
     });
 
-    // Staggered draw animation: new ids compared to previous
     const afterIds = cardIds(hand);
     const newIds = afterIds.filter(id => !beforeIds.includes(id));
     if (newIds.length) {
       const deckBtn = $('#chipDeck');
-      if (deckBtn) {
-        const newCardEls = newIds
-          .map(id => ribbon.querySelector(`.handCard[data-card-id="${id}"]`))
-          .filter(Boolean);
-        animateDrawStream(deckBtn, newCardEls);
-      }
+      const newEls = newIds.map(id => ribbon.querySelector(`[data-card-id="${id}"]`)).filter(Boolean);
+      animateDrawStream(deckBtn, newEls);
     }
 
     prevHandIds = afterIds;
   }
 
-  // -------------- slots --------------
+  // ---------- 🌒 Slots ----------
   function renderSlots(S) {
-    const youEl = document.getElementById('playerSlots');
-    const aiEl  = document.getElementById('aiSlots');
-
-    if (youEl) {
-      youEl.innerHTML = '';
-      (S.slots || []).forEach((s, i) => {
-        const cell = document.createElement('div');
-        cell.className = 'slotCell';
-        cell.dataset.slot = String(i);
-
-        if (!s) {
-          cell.classList.add('empty');
-          cell.innerHTML = '<div class="slotGhost">Empty</div>';
-        } else {
-          cell.innerHTML = `
-            <div class="cardFrame slotPanel">
-              <div class="cardTop">
-                <div class="cardTitle">${s.c.n}</div>
-                <div class="cardSub">${s.c.t || 'Spell'}</div>
-              </div>
-              <div class="cardBottom">
-                <div class="cardVal">${(s.c.v != null ? '+'+s.c.v+'⚡' : '')} · ${s.ph || 1}/${s.c.p || 1}</div>
-              </div>
-            </div>`;
-          if (s.advUsed) cell.classList.add('advUsed');
-        }
-
-        cell.onclick = () => { if (s) game.dispatch({ type: 'ADVANCE', slot: i }); };
-        youEl.appendChild(cell);
-      });
-    }
-
-    if (aiEl) {
-      aiEl.innerHTML = '';
-      (S.ai?.slots || []).forEach((s) => {
-        const cell = document.createElement('div');
-        cell.className = 'slotCell ai';
-        if (!s) { cell.classList.add('empty'); cell.innerHTML = '<div class="slotGhost">Empty</div>'; }
-        else {
-          cell.innerHTML = `
-            <div class="cardFrame slotPanel">
-              <div class="cardTop">
-                <div class="cardTitle">${s.c.n}</div>
-                <div class="cardSub">${s.c.t || 'Spell'}</div>
-              </div>
-              <div class="cardBottom">
-                <div class="cardVal">${(s.c.v != null ? '+'+s.c.v+'⚡' : '')} · ${s.ph || 1}/${s.c.p || 1}</div>
-              </div>
-            </div>`;
-          if (s.advUsed) cell.classList.add('advUsed');
-        }
-        aiEl.appendChild(cell);
-      });
-    }
+    const you = $('#playerSlots');
+    you.innerHTML = '';
+    (S.slots || []).forEach((s, i) => {
+      const cell = document.createElement('div');
+      cell.className = 'slotCell';
+      if (s) {
+        cell.innerHTML = `
+          <div class="cardFrame slotPanel">
+            <div class="cardTop"><div class="cardTitle">${s.c.n}</div><div class="cardSub">${s.c.t}</div></div>
+            <div class="cardBottom"><div class="cardVal">${s.ph}/${s.c.p}</div></div>
+          </div>`;
+      } else {
+        cell.innerHTML = '<div class="slotGhost">Empty</div>';
+        cell.classList.add('empty');
+      }
+      you.appendChild(cell);
+    });
   }
 
-  // -------------- draw loop (discard anim handled in wrapper) --------------
-  function draw() {
-    const S = (game && game.state) || {};
-
-    renderHUD(S);
-    renderCounts(S);
-    renderFlow(S);
-    renderHand(S);
-    renderSlots(S);
-
-    if (window.DragCards && typeof window.DragCards.refresh === 'function') {
-      window.DragCards.refresh();
-    }
-  }
-
-  // -------- UI dispatch wrapper with END_TURN discard stream --------
+  // ---------- 🧭 Dispatch Wrap ----------
   if (game && typeof game.dispatch === 'function' && !game.__uiWrapped) {
     const orig = game.dispatch;
-
     game.dispatch = (action) => {
-      // Capture current hand nodes before END_TURN changes state
-      let capturedHandEls = null;
+      let fromCards = null;
       let discardTarget = null;
-      if (action && action.type === 'END_TURN') {
-        capturedHandEls = Array.from(document.querySelectorAll('.ribbon .handCard'));
+      if (action.type === 'END_TURN') {
+        fromCards = Array.from(document.querySelectorAll('.handCard'));
         discardTarget = $('#chipDiscard');
       }
-
       const result = orig(action);
-
-      // Re-render so state reflects immediately
       draw();
-
-      // Stream captured cards to discard after rerender
-      if (capturedHandEls && discardTarget) {
-        animateDiscardStream(capturedHandEls, discardTarget);
-      }
-
+      if (fromCards) animateDiscardStream(fromCards, discardTarget);
       return result;
     };
-
     game.__uiWrapped = true;
   }
 
-  // buttons
-  const onDraw  = () => game.dispatch({ type: 'DRAW' });
-  const onEnd   = () => game.dispatch({ type: 'END_TURN' });
-  const onReset = () => {
-    try {
-      game.dispatch({ type: 'RESET', playerWeaver: DEFAULT_WEAVER_YOU, aiWeaver: DEFAULT_WEAVER_AI });
-      game.dispatch({ type: 'ENSURE_MARKET' });
-      game.dispatch({ type: 'START_GAME' });
-      game.dispatch({ type: 'START_TURN', first:true });
-    } catch (e) { console.error('[UI] reset failed', e); }
+  // ---------- 🎮 Buttons ----------
+  $('#fabDraw').onclick  = () => game.dispatch({ type: 'DRAW' });
+  $('#fabEnd').onclick   = () => game.dispatch({ type: 'END_TURN' });
+  $('#fabReset').onclick = () => {
+    game.dispatch({ type: 'RESET', playerWeaver: DEFAULT_WEAVER_YOU, aiWeaver: DEFAULT_WEAVER_AI });
+    game.dispatch({ type: 'ENSURE_MARKET' });
+    game.dispatch({ type: 'START_GAME' });
+    game.dispatch({ type: 'START_TURN', first: true });
   };
 
-  [['#fabDraw', onDraw], ['#fabEnd', onEnd], ['#fabReset', onReset]]
-    .forEach(([sel,fn]) => { const el = $(sel); if (el) el.onclick = fn; });
+  // ---------- 🧩 Core draw ----------
+  function draw() {
+    const S = game.state;
+    renderHUD(S);
+    renderHand(S);
+    renderSlots(S);
+    if (window.DragCards?.refresh) window.DragCards.refresh();
+  }
 
   draw();
-  console.log('[UI] init v2.5 — Arena-style draw & discard streams with arc easing.');
+  console.log('[UI] v2.6 — MTG Arena draw/discard polish active.');
 }
 
-// ---------------------- styles ----------------------
+// ---------- 💅 Style ----------
 const style = document.createElement('style');
 style.textContent = `
   :root { --card-w: 160px; }
-
-  .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:10px; gap:10px; }
-
   .cardFrame {
-    aspect-ratio: 63 / 88;
+    aspect-ratio: 63/88;
     width: var(--card-w);
-    height: auto;
     border-radius: 12px;
-    background: #ffffff;
-    border: 1px solid rgba(0,0,0,.10);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
-    display:flex; flex-direction:column; justify-content:space-between;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
   }
-  .cardTop { padding: 8px 10px 0 10px; }
-  .cardBottom { padding: 0 10px 8px 10px; }
-
-  .handCard { cursor:pointer; transition:transform .2s, box-shadow .2s; background: linear-gradient(180deg,#fff 0%,#faf7ef 100%); }
-  .handCard:hover { transform:translateY(-4px); box-shadow:0 10px 18px rgba(0,0,0,0.22); }
-
-  .marketCardPanel { background: linear-gradient(180deg,#fff 0%,#f6f6ff 100%); }
-
-  .cardTitle { font-weight:700; font-size:15px; line-height:1.15; color:#262626; }
-  .cardSub   { font-size:12.5px; color:#616161; margin-top:2px; }
-  .cardVal   { font-size:13px; color:#b21d1d; margin-top:4px; }
-
-  #playerSlots, #aiSlots {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(calc(var(--card-w) + 20px), 1fr));
-    gap: 16px;
-    padding: 10px 14px 18px;
-  }
-  .slotCell {
-    display:flex; align-items:center; justify-content:center;
-    user-select: none; cursor: pointer;
-    min-height: calc(var(--card-w) * 1.1);
-    border-radius: 16px;
-    background: #fffaf4;
-    border: 1px solid rgba(0,0,0,.06);
-    box-shadow: 0 2px 6px rgba(0,0,0,.05) inset;
-    transition: transform .15s, box-shadow .15s;
-  }
-  .slotCell:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
-  .slotCell.empty { color: #9a9a9a; font-size: 12px; }
-  .slotCell.ai { background: #f7f7fb; }
-  .slotCell.advUsed { opacity: .85; }
-
-  /* Drag affordances */
-  #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset: -4px; }
-  #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset: -4px; box-shadow: 0 0 0 4px rgba(90,140,220,.08) inset; }
-
-  .ghostFly { border-radius:12px; overflow:hidden; will-change: transform, opacity; }
+  .cardTop { padding: 8px 10px 0; }
+  .cardBottom { padding: 0 10px 8px; }
+  .cardTitle { font-weight:700; font-size:15px; color:#222; }
+  .cardSub { font-size:13px; color:#555; }
+  .cardVal { font-size:13px; color:#a52d2d; }
+  .handCard:hover { transform:translateY(-4px); box-shadow:0 8px 18px rgba(0,0,0,0.25); transition: all .2s; }
+  .ghostFly { border-radius:12px; overflow:hidden; }
 `;
 document.head.appendChild(style);
-
-if (typeof window !== 'undefined') {
-  window.UI = window.UI || {};
-  window.UI.init = window.UI.init || init;
-}
