@@ -47,9 +47,13 @@ body{
   border-radius:18px; background:linear-gradient(#fff,#faf8f4);
   box-shadow:var(--shadow);
   padding:14px; display:flex; flex-direction:column;
-  transition: transform .18s ease, box-shadow .18s ease;
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
-.card:hover{ transform:translateY(-2px); box-shadow:0 10px 26px rgba(0,0,0,.12); }
+/* Hover lift, but not while dragging */
+.card:hover:not(.is-dragging){
+  transform:translateY(-2px);
+  box-shadow:0 10px 26px rgba(0,0,0,.12);
+}
 
 .card .cHead{ margin-bottom:8px; }
 .card .cName{ font-weight:700; letter-spacing:.2px; }
@@ -72,8 +76,7 @@ body{
   to  { box-shadow:0 0 0 18px transparent; }
 }
 
-/* NEW: Instant pulsing that does NOT override card's own box-shadow
-   (glow lives on a pseudo-element layer) */
+/* Instant pulsing that does NOT override card's own box-shadow (halo layer) */
 @keyframes goldPulse {
   0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
   70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
@@ -84,7 +87,6 @@ body{
   position:absolute; inset:-2px;
   border-radius:inherit;
   pointer-events:none;
-  /* animated halo ring; keeps the base card box-shadow intact */
   animation: goldPulse 1.4s ease-out infinite;
 }
 
@@ -127,17 +129,15 @@ body{
 /* Helpers */
 .emptyCell{ color:#bcb4a7; font-weight:600; }
 
-/* Cards in the ribbon: start slightly low (peek) and only rise on hover */
+/* Hand ribbon: start slightly low (peek) and only rise on hover/drag */
 .ribbon .card {
-  pointer-events: auto;           /* re-enable on card level */
+  pointer-events: auto;
   position: relative;
-  transform: translateY(10px);    /* default low */
+  transform: translateY(10px);
   transition: transform 120ms ease, filter 120ms ease;
   will-change: transform;
   margin-left: -64px;             /* overlap to create fan */
 }
-
-/* Lift when hovered (or add a class during drag) */
 .ribbon .card:hover,
 .ribbon .card.is-dragging {
   transform: translateY(-14px) scale(1.02);
@@ -145,7 +145,6 @@ body{
 }
 
 /* ---------- PREVIEW OVERLAY (25% bigger) ---------- */
-
 .preview-overlay{
   position: fixed; inset: 0;
   background: rgba(10,10,8,.55);
@@ -153,56 +152,27 @@ body{
   display: grid; place-items: center;
   z-index: 100;
 }
-
 .preview-card{
   transform: translateY(-8px) scale(1.25); /* 25% larger */
   transform-origin: center;
   transition: transform 150ms ease;
   max-width: min(96vw, 800px);
 }
-
 /* Strong, consistent shadow while previewed */
 .preview-card .card{
   box-shadow: 0 12px 34px rgba(0,0,0,.28);
 }
+/* Ensure instant pulse also shows in preview */
+.preview-card .card.is-instant.pulsing::after{ z-index: 2; }
 
-/* Ensure instant pulse also shows in preview (same ::after glow works) */
-.preview-card .card.is-instant.pulsing::after{
-  /* no changes needed, just reaffirm stacking */
-  z-index: 2;
-}
-
-/* Real-element drag layer */
-.drag-layer {
+/* ---------- REAL-ELEMENT DRAG LAYER (single definition) ---------- */
+.drag-layer{
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 999;
 }
-
 /* The real card while dragging (actual node, not a clone) */
-.card.is-dragging {
-  position: fixed;
-  left: 0;
-  top: 0;
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
-  cursor: grabbing;
-  will-change: transform, filter;
-}
-
-/* Avoid browser-native drag imagery */
-.card {
-  user-select: none;
-  -webkit-user-drag: none;
-  touch-action: none;
-}
-
-
-/* Drag layer (if you don't have it already) */
-.drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 999; }
-
-/* Real-node dragging: always use the CSS vars */
 .card.is-dragging{
   position: fixed;
   left: 0; top: 0;
@@ -212,6 +182,9 @@ body{
   will-change: transform, filter;
 }
 
-/* Prevent native ghost image */
-.ribbon .card, .ribbon .card * { -webkit-user-drag: none; }
-
+/* Prevent native ghost image (scoped to ribbon cards) */
+.ribbon .card, .ribbon .card *{
+  -webkit-user-drag: none;
+  user-select: none;
+  touch-action: none;
+}
