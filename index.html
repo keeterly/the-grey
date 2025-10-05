@@ -108,11 +108,12 @@
   <!-- Ribbon -->
   <section class="ribbon-wrap"><div class="ribbon" id="ribbon"></div></section>
 
- <!-- ESM bridge (ensures window.game & kicks UI once ready) -->
+<!-- ESM entry (no HTML comments inside this block!) -->
 <script type="module">
-  import { exposeToWindow } from "./bridge.js";   <!-- <— change from ./src/bridge.js -->
+  import { exposeToWindow } from "./bridge.js";  // or "./src/bridge.js" if you moved it
   exposeToWindow();
 </script>
+
 
 
   <!-- Classic scripts (must NOT be type="module") -->
