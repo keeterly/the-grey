@@ -1,74 +1,72 @@
 // =========================================================
-// THE GREY — ENGINE CORE (mechanics layer)
+// THE GREY — UI ENTRY (no engine imports)
+// ---------------------------------------------------------
+// Exports: init(game)
+//  - Wires HUD buttons
+//  - Sets up basic counters
+//  - Leaves rendering/animations to render.js etc. (optional)
 // =========================================================
 
-// All imports are relative to /src/engine/
-import * as State   from './state.js';
-import * as Rules   from './rules.js';
-import * as AI      from './ai.js';
-import * as Cards   from './cards.js';
-import * as Weavers from './weavers.js';
-import * as RNG     from './rng.js';
+export function init(game) {
+  const $ = (id) => document.getElementById(id);
 
-// ---------------------------------------------------------
-// createGame() — main factory for a new game instance
-// ---------------------------------------------------------
-export function createGame() {
-  const gameState = typeof State.createState === 'function'
-    ? State.createState()
-    : {
-        turn: 1,
-        phase: 'START',
-        playerHP: 20,
-        aiHP: 20,
-        playerAE: 0,
-        aiAE: 0,
-        log: [],
-      };
+  // --- HUD counters (safe defaults) ---
+  const state = (game && game.state) || {};
+  const hp  = state.playerHP ?? 0;
+  const ae  = state.playerAE ?? 0;
+  const aiH = state.aiHP     ?? 0;
+  const aiA = state.aiAE     ?? 0;
 
-  function dispatch(action) {
-    if (!action || typeof action.type !== 'string') {
-      console.warn('[GAME] Invalid action:', action);
-      return;
-    }
+  const setText = (el, v) => { if (el) el.textContent = String(v); };
+
+  setText($('hpValue'), hp);
+  setText($('aeValue'), ae);
+  setText($('aiHpValue'), aiH);
+  setText($('aiAeValue'), aiA);
+
+  // --- Trance bars (placeholder fill to 0) ---
+  const fillWidth = (el, n, d) => { if (el) el.style.width = `${(100 * (n ?? 0)) / (d || 1)}%`; };
+  fillWidth($('youTranceFill'), state.youTrance ?? 0, 6);
+  fillWidth($('aiTranceFill'),  state.aiTrance  ?? 0, 6);
+  setText($('youTranceCount'), `${state.youTrance ?? 0}/6`);
+  setText($('aiTranceCount'),  `${state.aiTrance  ?? 0}/6`);
+
+  // --- Wire FABs to game.dispatch (non-blocking, guarded) ---
+  const safeDispatch = (type, payload) => {
     try {
-      if (typeof Rules.handleAction === 'function') {
-        Rules.handleAction(gameState, action);
+      if (game && typeof game.dispatch === 'function') {
+        game.dispatch({ type, ...(payload || {}) });
       } else {
-        gameState.log.push(action);
-        console.log('[GAME] dispatch', action);
+        console.warn('[UI] dispatch unavailable for', type);
       }
-    } catch (err) {
-      console.error('[GAME] dispatch error:', err);
+    } catch (e) {
+      console.error('[UI] dispatch error for', type, e);
     }
-  }
-
-  function aiTurn() {
-    if (typeof AI.takeTurn === 'function') AI.takeTurn(gameState, { dispatch });
-  }
-
-  const game = {
-    state: gameState,
-    dispatch,
-    aiTurn,
-    rng: RNG,
-    cards: Cards,
-    weavers: Weavers,
   };
 
-  return game;
+  const map = [
+    ['fabDraw',  'DRAW'],
+    ['fabEnd',   'END_TURN'],
+    ['fabReset', 'RESET'],
+  ];
+  map.forEach(([id, type]) => {
+    const el = $(id);
+    if (el) el.onclick = () => safeDispatch(type);
+  });
+
+  // --- Optional: expose simple inspect dialog wiring later ---
+  const closeBtn = $('btnInspectClose');
+  if (closeBtn) closeBtn.onclick = () => {
+    const dlg = document.getElementById('inspect');
+    if (dlg) dlg.classList.remove('show');
+  };
+
+  // --- Log that UI mounted ---
+  console.log('[UI] init complete. HUD wired.');
 }
 
-// ---------------------------------------------------------
-// Global exposure for legacy boot system
-// ---------------------------------------------------------
+// Optional global for legacy code paths (harmless)
 if (typeof window !== 'undefined') {
-  window.GameEngine = window.GameEngine || {};
-  window.GameEngine.create = createGame;
-
-  if (!window.game || typeof window.game.dispatch !== 'function') {
-    window.game = createGame();
-  }
-
-  console.log('[ENGINE] GameEngine.create and window.game are ready');
+  window.UI = window.UI || {};
+  window.UI.init = window.UI.init || init;
 }
