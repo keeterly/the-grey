@@ -192,11 +192,29 @@ body{ padding-bottom: 180px; } /* never clip the ribbon */
   height: 188px;                /* target height for card visuals */
 }
 
-/* Ensure board content remains click-through */
-.wrap, .zone, .fixedRow, .slots {
-  position: relative;
-  z-index: 1;
+/* overall vertical tightening */
+.wrap {
+  display: grid;
+  gap: 10px;              /* was larger; reduce inter-zone gap */
 }
+
+/* each zone block */
+.zone {
+  margin: 6px 0 10px;     /* less top/bottom margin */
+  padding-top: 4px;       /* tiny breathing room if needed */
+}
+
+/* section titles */
+.zone .title {
+  margin: 0 0 6px 0;      /* reduce space under titles */
+  line-height: 1.1;
+}
+
+/* if rows themselves add extra space */
+.fixedRow, .slots, .flowWrap {
+  margin-top: 4px;        /* keep small, consistent spacing */
+}
+
 
 
 /* ---------------- Responsive ---------------- */
