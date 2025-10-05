@@ -1,21 +1,28 @@
 // =========================================================
-// THE GREY — Bridge (for your current repo layout)
-// /bridge.js  (root)
-// imports from: /src/engine/index.js and /src/ui/index.js
+// THE GREY — Bridge (Corrected for your structure)
+// Location: /bridge.js
+// Imports from: ./src/engine/index.js, ./src/ui/index.js, ./src/ui/drag.js
 // =========================================================
 
 import { createGame } from './src/engine/index.js';
 import * as UI from './src/ui/index.js';
-import './src/ui/drag.js'; // side-effect load (no default needed)
+import './src/ui/drag.js'; // side-effect only (no default export)
 
+// ---------------------------------------------------------
+// Boot sequence
+// ---------------------------------------------------------
 (() => {
-  const game =
-    (window.game && typeof window.game.dispatch === 'function')
-      ? window.game
-      : createGame();
+  try {
+    const game =
+      (window.game && typeof window.game.dispatch === 'function')
+        ? window.game
+        : createGame();
 
-  window.game = game;     // expose for console/testing
-  UI.init(game);
+    window.game = game;
+    UI.init(game);
 
-  console.log('[BRIDGE] Game + UI + Drag initialized.');
+    console.log('[BRIDGE] Game + UI + Drag initialized and exposed to window.');
+  } catch (err) {
+    console.error('[BRIDGE] Boot failed:', err);
+  }
 })();
