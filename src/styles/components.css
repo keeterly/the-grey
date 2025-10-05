@@ -184,14 +184,19 @@ body{
 }
 
 
-
-
-
 /* Prevent native ghost image (scoped to ribbon cards) */
 .ribbon .card, .ribbon .card *{
   -webkit-user-drag: none;
   user-select: none;
   touch-action: none;
+}
+
+
+/* Freeze hover/peek while we're measuring pickup so the grab point stays true */
+.ribbon .card.grab-intent {
+  transform: translateY(10px) !important;  /* same as base ribbon position */
+  box-shadow: var(--shadow) !important;
+  transition: none !important;
 }
 
 
