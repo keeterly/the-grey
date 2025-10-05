@@ -198,3 +198,20 @@ body{
   touch-action: none;
 }
 
+
+/* Drag layer (if you don't have it already) */
+.drag-layer { position: fixed; inset: 0; pointer-events: none; z-index: 999; }
+
+/* Real-node dragging: always use the CSS vars */
+.card.is-dragging{
+  position: fixed;
+  left: 0; top: 0;
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02) !important;
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
+  cursor: grabbing;
+  will-change: transform, filter;
+}
+
+/* Prevent native ghost image */
+.ribbon .card, .ribbon .card * { -webkit-user-drag: none; }
+
