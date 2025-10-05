@@ -39,10 +39,21 @@ export function createGame() {
   let gameState;
   try {
     if (typeof State.createState === 'function') {
-      gameState = State.createState();
-    } else if (typeof State.initialize === 'function') {
-      gameState = State.initialize();
-    }
+  gameState = State.createState({
+    playerWeaver: Weavers.defaultPlayer || 'Default',
+    aiWeaver: Weavers.defaultAI || 'AI',
+    rng: RNG,
+    cards: Cards
+  });
+} else if (typeof State.initialize === 'function') {
+  gameState = State.initialize({
+    playerWeaver: Weavers.defaultPlayer || 'Default',
+    aiWeaver: Weavers.defaultAI || 'AI',
+    rng: RNG,
+    cards: Cards
+  });
+}
+
   } catch (err) {
     console.warn('[ENGINE] State factory failed. Using fallback state.', err);
   }
