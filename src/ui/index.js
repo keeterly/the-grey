@@ -31,3 +31,10 @@ game.dispatch = (function(orig){
     }
   };
 })(game.dispatch);
+
+export function createGame() {
+  // return your real game object; must have dispatch()
+  return {
+    dispatch(action) { console.log('[dispatch]', action); }
+  };
+}
