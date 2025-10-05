@@ -1,41 +1,36 @@
-/* ============ Floating mini-dock above the ribbon ============ */
-.floatDock{
+/* ================= Floating mini-controls ================= */
+
+/* Left dock: deck + discard */
+.leftDock{
   position: fixed;
   left: 16px;
-  right: 16px;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 128px);
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  pointer-events: none;
-  z-index: 60;
-}
-.floatDock .deckBar{
-  pointer-events: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 126px);
   display: inline-flex;
   gap: 10px;
-  justify-self: start;
+  z-index: 60;
 }
-.floatDock .chipCirc{
+.leftDock .chipCirc{
   position: relative;
   width: 44px; height: 44px;
   border-radius: 50%;
   background: #fff;
+  border: 1px solid #ececec;
   box-shadow: 0 6px 18px rgba(0,0,0,.12);
   display: grid; place-items: center;
-  border: 1px solid #eee;
+  color: #3a3a3a;
 }
-.floatDock .chipCirc small{
+.leftDock .chipCirc small{
   position: absolute;
   bottom: -10px;
   font-size: 12px;
   opacity: .8;
 }
 
-/* Aether gem (right) */
+/* Right gem: Aether counter */
 .aetherGem{
-  pointer-events: auto;
-  justify-self: end;
+  position: fixed;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 124px);
   width: 48px; height: 48px;
   transform: rotate(45deg);
   border-radius: 14px;
@@ -43,6 +38,7 @@
   box-shadow: 0 10px 22px rgba(226, 168, 69, .35), inset 0 0 8px rgba(255,255,255,.65);
   display: grid; place-items: center;
   border: none;
+  z-index: 60;
 }
 .aetherGem .gemInner{
   transform: rotate(-45deg);
@@ -50,21 +46,22 @@
   color: #3a2a09;
 }
 
-/* ============ Hand + drag feel ============ */
+/* ================= Hand + drag feel ================= */
+
 .ribbon, .ribbon * { -webkit-user-select: none; user-select: none; }
 .card.handCard { touch-action: none; cursor: grab; }
 .card.handCard.dragging { cursor: grabbing; }
 body.noselect, body.noselect * { -webkit-user-select: none !important; user-select: none !important; }
 
 .card.drag-bounce{
-  animation: bounceBack .15s ease-out;
+  animation: bounceBack .14s ease-out;
 }
 @keyframes bounceBack{
-  0%   { transform: translate(0,0) scale(.98); }
+  0%   { transform: translate(0,0) scale(.985); }
   100% { transform: translate(0,0) scale(1); }
 }
 
-/* Slot hover glow clean and crisp */
+/* Slot hover glow */
 .slotCell.drop-ok.drop-hover{
   outline: 2px solid rgba(255, 200, 90, .9);
   box-shadow: 0 0 0 3px rgba(255,200,90,.25);
@@ -73,12 +70,12 @@ body.noselect, body.noselect * { -webkit-user-select: none !important; user-sele
   outline: 2px solid rgba(200, 80, 80, .7);
 }
 
-/* Keep fixed rows the exact card height so nothing "floats" */
+/* Keep fixed rows at card-height so flow/board never misalign */
 .fixedRow{
   min-height: 280px; /* match your card height */
 }
 
-/* Make sure ribbon has room for a wider fan */
+/* Give extra space so lowered hand doesn’t hide controls */
 .ribbon-wrap{
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
 }
