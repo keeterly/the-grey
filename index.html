@@ -12,6 +12,22 @@
   <link rel="stylesheet" href="./src/styles/components.css">
   <link rel="stylesheet" href="./src/styles/overrides.css">
   <meta name="theme-color" content="#EEE8DC" />
+
+
+<style>
+/* DEV ONLY: verify if card drag uses a ghost image */
+@keyframes _devspin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
+.ribbon .card::before{
+  content:""; position:absolute; right:8px; top:8px;
+  width:10px; height:10px; border-radius:50%;
+  background:#f66; box-shadow:0 0 6px #f66;
+  animation:_devspin 1s linear infinite; z-index:3;
+}
+</style>
+
+
+
+  
 </head>
 <body>
   <!-- HUD -->
