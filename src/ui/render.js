@@ -51,6 +51,18 @@ export function render(state, dispatch){
       if(!btn.disabled) btn.onclick=()=>dispatch({type:'ADVANCE', slot:i});
       d.querySelector('.actions').appendChild(btn);
     }
+
+      // ---- FX: resolve glow ----
+  if (state._fx && state._fx.type === 'resolve' && state._fx.ping !== __lastFxPing) {
+    const container = (state._fx.who === 'you' ? playerSlots : aiSlots);
+    const slotEl = container.children[state._fx.slot]; // 0..2
+    if (slotEl) {
+      slotEl.classList.add('slot-glow');
+      setTimeout(()=> slotEl.classList.remove('slot-glow'), 700);
+    }
+    __lastFxPing = state._fx.ping;
+  }
+
     playerSlots.appendChild(d);
   });
 
