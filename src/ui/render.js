@@ -9,6 +9,8 @@ const marketCells=[...document.querySelectorAll('[data-flow]')];
 
 const hpValue=$('#hpValue'), aeValue=$('#aeValue'), aiHpValue=$('#aiHpValue'), aiAeValue=$('#aiAeValue');
 const youTrFill=$('#youTranceFill'), youTrCount=$('#youTranceCount'), aiTrFill=$('#aiTranceFill'), aiTrCount=$('#aiTranceCount');
+let __lastFxPing = 0;
+
 
 export function render(state, dispatch){
   if(state._log.length){
