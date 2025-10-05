@@ -51,7 +51,6 @@ export async function animateDiscardHand() {
 }
 
 export async function animateDrawHand() {
-  // Animate all current hand cards with a stagger
   const cards = [...document.querySelectorAll('#ribbon .rCard')];
   cards.forEach((el, i) => {
     el.style.setProperty('--delay', (i * 40) + 'ms');
