@@ -1,90 +1,85 @@
-// =========================================================
-// THE GREY — UI Animations (fan, fly, draw/discard/buy)
-// =========================================================
+/* =========================================================
+ * THE GREY — UI Animations (hand fan + helpers)
+ * Classic global (no ESM). Exposes window.Anim.
+ * =======================================================*/
 
-const ease = 'cubic-bezier(.22,.72,.15,1)';
+(function () {
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
-function rect(el){
-  const r = el.getBoundingClientRect();
-  return { x:r.left + r.width/2, y:r.top + r.height/2, w:r.width, h:r.height };
-}
+  /**
+   * Fan the hand with a subtle, natural curve (tight spread).
+   * - Smaller angles, smoother lift, consistent spacing.
+   * - Keeps text readable and prevents extreme overlap.
+   *
+   * @param {HTMLElement} container  .ribbon element
+   * @param {Object} [opt]
+   *   .spacing  px per card (default 28)
+   *   .maxAngle total angle across hand in degrees (default 12)
+   *   .maxLift  maximum upward arc in px (default 14)
+   */
+  function fanHand(container, opt = {}) {
+    const cards = Array.from(container.querySelectorAll('.handCard'));
+    const n = cards.length;
+    if (n === 0) return;
 
-function flyClone(fromEl, toEl, {scaleTo=1, dur=380, delay=0} = {}){
-  if (!fromEl || !toEl) return Promise.resolve();
-  const body = document.body;
+    const spacing  = opt.spacing  ?? 28;  // tighter spacing
+    const maxAngle = opt.maxAngle ?? 12;  // total spread across whole hand
+    const maxLift  = opt.maxLift  ?? 14;  // gentle arc
 
-  const fr = rect(fromEl);
-  const tr = rect(toEl);
+    const mid = (n - 1) / 2;
+    const angleStep = (n > 1) ? (maxAngle / (n - 1)) : 0;
 
-  const dx = tr.x - fr.x;
-  const dy = tr.y - fr.y;
+    cards.forEach((el, i) => {
+      const fromMid = i - mid;
 
-  const ghost = fromEl.cloneNode(true);
-  ghost.style.position = 'fixed';
-  ghost.style.left = (fr.x - fr.w/2) + 'px';
-  ghost.style.top  = (fr.y - fr.h/2) + 'px';
-  ghost.style.width = fr.w + 'px';
-  ghost.style.height = fr.h + 'px';
-  ghost.style.margin = '0';
-  ghost.style.pointerEvents = 'none';
-  ghost.style.zIndex = 9999;
-  ghost.style.transition = `transform ${dur}ms ${ease}, opacity ${dur}ms ${ease}`;
-  body.appendChild(ghost);
+      // Angle: small tilt toward edges
+      const angle = (fromMid) * angleStep; // degrees
 
-  // next frame
-  requestAnimationFrame(()=>{
-    ghost.style.transform = `translate(${dx}px, ${dy}px) scale(${scaleTo})`;
-    ghost.style.opacity = '0.85';
-  });
+      // Horizontal spacing
+      const x = fromMid * spacing;
 
-  return new Promise(res=>{
-    setTimeout(()=>{
-      ghost.remove();
-      res();
-    }, dur+delay+16);
-  });
-}
+      // Vertical arc (parabolic)
+      const t = Math.abs(fromMid) / (mid || 1);
+      const y = -maxLift * (1 - (t * t)); // peak in middle
 
-export function fanHand(container){
-  const cards = Array.from(container.querySelectorAll('.handCard'));
-  const n = cards.length;
-  if (n === 0) return;
+      // Stacking: center cards win, but never drop below 100
+      el.style.zIndex = String(200 + i);
 
-  const spread = Math.min(10, 4 + n * 0.8);   // tighter angle
-  const lift   = Math.min(16, 4 + n * 1.0);   // smaller curve
-  const mid = (n - 1) / 2;
-
-  cards.forEach((el, i) => {
-    const a = (i - mid) * spread * 0.015;     // slight tilt
-    const x = (i - mid) * 30;                 // moderate spacing
-    const y = -Math.abs(i - mid) * (lift / n); // gentle lift curve
-
-    el.style.zIndex = String(100 + i);
-    el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${a}turn)`;
-  });
-}
-
-
-export async function animateDrawHand({deckBtn, ribbon}){
-  // fan first so destinations exist
-  fanHand(ribbon);
-
-  const cards = Array.from(ribbon.querySelectorAll('.handCard'));
-  const dur = 420;
-  for (let i=0; i<cards.length; i++){
-    await flyClone(deckBtn || cards[i], cards[i], { dur, delay:i*60, scaleTo:1.0 });
+      // Smooth transform
+      el.style.transform = `translate3d(${x}px, ${y}px, 0) rotate(${angle}deg)`;
+    });
   }
-}
 
-export async function animateDiscardHand({ribbon, discardBtn}){
-  const cards = Array.from(ribbon.querySelectorAll('.handCard'));
-  const dur = 360;
-  // back-to-front for a nicer feel
-  for (let i=cards.length-1; i>=0; i--){
-    await flyClone(cards[i], discardBtn || cards[i], { dur, delay:(cards.length-1-i)*60, scaleTo:.84 });
+  /**
+   * Reset hand transforms (used when leaving the ribbon or
+   * after a tight animation).
+   */
+  function unfanHand(container) {
+    const cards = container.querySelectorAll('.handCard');
+    cards.forEach((el) => {
+      el.style.transform = '';
+      el.style.zIndex = '';
+    });
   }
-}
 
-export async function animateBuyToDiscard({cardEl, discardBtn}){
-  await flyClone(cardEl, discardBtn, { dur:460, scaleTo:.9 });
-}
+  // Optional: tiny entrance “settle” animation for the hand
+  function settleHand(container) {
+    const cards = Array.from(container.querySelectorAll('.handCard'));
+    cards.forEach((el, i) => {
+      el.animate(
+        [
+          { transform: 'translate3d(0, 8px, 0) scale(.98)', opacity: 0 },
+          { transform: el.style.transform || 'none', opacity: 1 }
+        ],
+        { duration: 180 + i * 12, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }
+      );
+    });
+  }
+
+  // Expose globals
+  window.Anim = {
+    fanHand,
+    unfanHand,
+    settleHand
+  };
+})();
