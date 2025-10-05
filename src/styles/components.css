@@ -25,3 +25,32 @@
 .glyphTok.own{cursor:pointer}
 .glyphPeek{position:absolute;left:50%;bottom:110%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#222;padding:6px 8px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(60,50,40,.18);display:none}
 .glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek{display:block}
+
+/* ====== Motion (hand discard + redraw) ====== */
+@media (prefers-reduced-motion: no-preference) {
+  /* Cards fly to the discard chip, then fade */
+  .anim-discard {
+    --dx: 0px; /* set by JS */
+    --dy: 0px; /* set by JS */
+    --delay: 0ms; /* set by JS */
+    animation: card-discard 420ms cubic-bezier(.2,.7,.2,1) var(--delay) forwards;
+    pointer-events: none;
+    will-change: transform, opacity;
+    z-index: 999;
+  }
+  @keyframes card-discard {
+    0%   { transform: translate(0,0) scale(1);   opacity: 1; }
+    80%  { transform: translate(var(--dx),var(--dy)) scale(.95); opacity: .9; }
+    100% { transform: translate(var(--dx),var(--dy)) scale(.9);  opacity: 0; }
+  }
+
+  /* Cards slide up + fade in on new draw */
+  .anim-draw {
+    animation: card-draw 360ms cubic-bezier(.2,.7,.2,1) var(--delay, 0ms) both;
+    will-change: transform, opacity;
+  }
+  @keyframes card-draw {
+    0%   { transform: translateY(16px) scale(.98); opacity: 0; }
+    100% { transform: translateY(0)     scale(1);   opacity: 1; }
+  }
+}
