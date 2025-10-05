@@ -1,7 +1,10 @@
 // =========================================================
 // THE GREY — UI (compat DOM + controls + animations)
-// Classic (no ESM). Uses window.game from GameEngine + window.Anim.
-// Drag passes a target slot via dataset; we honor it here.
+// - No TRANCE UI (clean top bar)
+// - Hand fan: natural, responsive (with local JS fallback)
+// - Glyphs render in the dedicated 4th slot (face-down)
+// - Drag writes dataset.dropSlot; we honor exact spell slot
+// - Aetherflow refills immediately after a buy
 // =========================================================
 
 /* utilities */
@@ -9,7 +12,7 @@ const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
 /* cached roots */
-let elRibbon, elPlayerSlots, elGlyphTray, elAiSlots, elMarketCells;
+let elRibbon, elPlayerSlots, elAiSlots, elMarketCells;
 
 /* game ref */
 let G = null;
@@ -44,8 +47,7 @@ function makeCardEl(card, variant) {
   return el;
 }
 
-/* ---------- animations (local helpers) ---------- */
-
+/* ---------- micro-animations ---------- */
 function flyElement(el, toRect, {duration=350, scale=0.92, easing='cubic-bezier(.2,.8,.2,1)'} = {}) {
   const from = el.getBoundingClientRect();
   const ghost = el.cloneNode(true);
@@ -113,10 +115,42 @@ async function animateDrawHand() {
     ).finished.then(() => ghost.remove());
   });
 
-  setTimeout(() => window.Anim?.settleHand?.(elRibbon), 180);
+  requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- render: Aetherflow ---------- */
+/* ---------- local fan fallback (never stack) ---------- */
+function fanHandFallback() {
+  // Use global helper if present
+  if (window.Anim?.fanHand) {
+    window.Anim.fanHand(elRibbon, { spacing: 28, maxAngle: 12, maxLift: 14 });
+    return;
+  }
+
+  const cards = $$('.handCard', elRibbon);
+  const n = cards.length;
+  if (!n) return;
+
+  // Compute card width from first card
+  const sampleRect = cards[0].getBoundingClientRect();
+  const cw = sampleRect.width || 180;
+  const wrapW = elRibbon.clientWidth || 800;
+
+  // Max spacing that keeps visible within wrapper
+  const maxSpread = Math.max(18, Math.min(40, Math.floor((wrapW - cw) / Math.max(n - 1, 1))));
+  const angleMax = 12; // degrees total from leftmost to rightmost
+  const mid = (n - 1) / 2;
+
+  cards.forEach((c, i) => {
+    const t = (i - mid);                // -mid..mid
+    const x = t * maxSpread;            // horizontal spread
+    const y = -Math.abs(t) * 8 - 6;     // slight lift
+    const a = (t / mid || 0) * angleMax;// angle spread
+    c.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
+    c.style.zIndex = String(100 + i);
+  });
+}
+
+/* ---------- Aetherflow ---------- */
 function renderMarket() {
   for (let i = 0; i < 5; i++) {
     const cell = elMarketCells[i];
@@ -127,40 +161,33 @@ function renderMarket() {
 
     const cardEl = makeCardEl(c, 'flow');
     cardEl.onclick = async () => {
-      // 1) animate
       await animateBuyToDiscard(cardEl);
-      // 2) buy
       G.dispatch({ type: 'BUY_FLOW', index: i });
-      // 3) immediately repopulate the row
-      G.dispatch({ type:'ENSURE_MARKET' });
+      G.dispatch({ type: 'ENSURE_MARKET' }); // immediate refill
       renderAll();
     };
     cell.appendChild(cardEl);
   }
 }
 
-/* ---------- render: Hand ---------- */
+/* ---------- Hand ---------- */
 function renderHand() {
   elRibbon.innerHTML = '';
   G.state.hand.forEach((c, idx) => {
     const cardEl = makeCardEl(c, 'hand');
 
-    // click = play / set / channel
     cardEl.onclick = (e) => {
       e.stopPropagation();
-
-      // Slot requested by drag (0..3) — drag.js writes this:
       const drop = cardEl.dataset.dropSlot;
       const dropSlot = (drop !== undefined && drop !== '') ? parseInt(drop, 10) : null;
-      cardEl.dataset.dropSlot = ''; // clear for next time
+      cardEl.dataset.dropSlot = '';
 
       if (c.t === 'Instant') {
         G.dispatch({ type: 'CHANNEL_FROM_HAND', index: idx });
       } else if (c.t === 'Glyph') {
-        // glyphs go to tray; slot is irrelevant
+        // Glyphs always set; UI shows one facedown in slot 4
         G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: null });
       } else {
-        // Spell: honor dragged slot if valid, else first empty
         let s = dropSlot;
         if (s == null || s < 0 || s > 2) s = G.state.slots.findIndex(x => !x);
         G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: (s >= 0 ? s : null) });
@@ -171,13 +198,10 @@ function renderHand() {
     elRibbon.appendChild(cardEl);
   });
 
-  // Tight, natural fan; re-run after layout settles
-  requestAnimationFrame(() => {
-    window.Anim?.fanHand?.(elRibbon, { spacing: 28, maxAngle: 12, maxLift: 14 });
-  });
+  requestAnimationFrame(fanHandFallback);
 }
 
-/* ---------- render: Player Board ---------- */
+/* ---------- Player Board (3 spells + 1 glyph slot) ---------- */
 function renderPlayerSlots() {
   elPlayerSlots.innerHTML = '';
   for (let i = 0; i < 4; i++) {
@@ -186,11 +210,24 @@ function renderPlayerSlots() {
     cell.dataset.slotIndex = String(i);
     if (i === 3) cell.classList.add('glyph');
 
-    const slot = (i < 3 ? G.state.slots[i] : null);
-    if (slot && slot.c) {
-      cell.appendChild(makeCardEl(slot.c, 'slot'));
+    if (i < 3) {
+      const slot = G.state.slots[i];
+      if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'slot'));
+      else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
     } else {
-      cell.innerHTML = `<div class="emptyCell">Empty</div>`;
+      // glyph slot – show top glyph face-down if any
+      if ((G.state.glyphs||[]).length > 0) {
+        const face = document.createElement('div');
+        face.className = 'card glyphCard faceDown';
+        face.innerHTML = `
+          <div class="cHead"><div class="cName">Glyph</div><div class="cType">Face Down</div></div>
+          <div class="cBody"></div>
+          <div class="cStats"></div>
+        `;
+        cell.appendChild(face);
+      } else {
+        cell.innerHTML = `<div class="emptyCell">Glyph</div>`;
+      }
     }
 
     // Click to advance (spell slots only)
@@ -203,22 +240,9 @@ function renderPlayerSlots() {
 
     elPlayerSlots.appendChild(cell);
   }
-
-  // glyph tray (face down)
-  elGlyphTray.innerHTML = '';
-  G.state.glyphs.forEach(() => {
-    const face = document.createElement('div');
-    face.className = 'card glyphCard faceDown';
-    face.innerHTML = `
-      <div class="cHead"><div class="cName">Glyph</div><div class="cType">Face Down</div></div>
-      <div class="cBody"></div>
-      <div class="cStats"></div>
-    `;
-    elGlyphTray.appendChild(face);
-  });
 }
 
-/* ---------- render: AI Board ---------- */
+/* ---------- AI Board ---------- */
 function renderAiSlots() {
   elAiSlots.innerHTML = '';
   for (let i = 0; i < 3; i++) {
@@ -231,30 +255,10 @@ function renderAiSlots() {
   }
 }
 
-/* ---------- counts + deck/discard bar safety ---------- */
-function ensureDeckBar() {
-  if ($('.deckBar')) return;
-  const bar = document.createElement('div');
-  bar.className = 'deckBar';
-  bar.innerHTML = `
-    <button class="chipCirc" id="chipDeck" aria-label="Deck">
-      <!-- SVG icon (fallback ♤ for safety) -->
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/></svg>
-      <small id="deckCount">0</small>
-    </button>
-    <button class="chipCirc" id="chipDiscard" aria-label="Discard">
-      <!-- SVG icon (fallback ⌫ for safety) -->
-      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>
-      <small id="discardCount">0</small>
-    </button>
-  `;
-  document.body.appendChild(bar);
-}
-
+/* ---------- Deck/Discard counts ---------- */
 function renderCounts() {
-  ensureDeckBar();
-  $('#deckCount').textContent    = String(G.state.deck.length);
-  $('#discardCount').textContent = String(G.state.disc.length);
+  $('#deckCount')    && ($('#deckCount').textContent    = String(G.state.deck.length));
+  $('#discardCount') && ($('#discardCount').textContent = String(G.state.disc.length));
 }
 
 /* ---------- full redraw ---------- */
@@ -285,10 +289,8 @@ function wireButtons() {
 
   if (btnEnd)   btnEnd.onclick   = async () => {
     await animateDiscardHand();
-    // player end
     G.dispatch({ type:'END_TURN' });
 
-    // AI turn
     G.dispatch({ type:'AI_DRAW' });
     G.dispatch({ type:'AI_PLAY_SPELL' });
     G.dispatch({ type:'AI_CHANNEL' });
@@ -296,55 +298,44 @@ function wireButtons() {
     G.dispatch({ type:'AI_BUY' });
     G.dispatch({ type:'AI_SPEND_TRANCE' });
 
-    // back to player
     G.dispatch({ type:'START_TURN' });
     renderAll();
     await animateDrawHand();
   };
 
   if (btnReset) btnReset.onclick = () => {
-    if (window.GameEngine && typeof window.GameEngine.create === 'function') {
+    if (window.GameEngine?.create) {
       window.game = G = window.GameEngine.create();
       G.dispatch({ type:'ENSURE_MARKET' });
       G.dispatch({ type:'START_TURN', first:true });
       renderAll();
-      window.Anim?.settleHand?.(elRibbon);
+      fanHandFallback();
     }
   };
 
-  const deckBtn = $('#chipDeck');
-  if (deckBtn) deckBtn.onclick = () => console.log('[UI] Deck:', G.state.deck);
-
-  const discBtn = $('#chipDiscard');
-  if (discBtn) discBtn.onclick = () => console.log('[UI] Discard:', G.state.disc);
-
-  // Re-fan on resize/layout shifts
-  window.addEventListener('resize', () => {
-    requestAnimationFrame(() => window.Anim?.fanHand?.(elRibbon, { spacing: 28, maxAngle: 12, maxLift: 14 }));
-  });
+  // re-fan on resize
+  window.addEventListener('resize', () => requestAnimationFrame(fanHandFallback));
 }
 
 /* ---------- init ---------- */
 export function init(game) {
   G = game;
 
-  // cache roots (match your HTML)
-  elRibbon       = $('.ribbon');
-  elPlayerSlots  = $('#playerSlots');
-  elGlyphTray    = $('#glyphTray');
-  elAiSlots      = $('#aiSlots');
-  elMarketCells  = $$('.marketCard');
+  elRibbon      = $('.ribbon');
+  elPlayerSlots = $('#playerSlots');
+  elAiSlots     = $('#aiSlots');
+  elMarketCells = $$('.marketCard');
 
   wireButtons();
 
-  // ensure market + starting hand
+  // boot
   G.dispatch({ type:'ENSURE_MARKET' });
   G.dispatch({ type:'START_TURN', first:true });
 
   renderAll();
-  window.Anim?.settleHand?.(elRibbon);
+  fanHandFallback();
 
-  // Hide boot check if present
+  // hide boot check if present
   const boot = document.querySelector('.bootCheck');
   if (boot) boot.style.display = 'none';
 
