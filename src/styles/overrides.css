@@ -1,0 +1,84 @@
+/* ============ Floating mini-dock above the ribbon ============ */
+.floatDock{
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 128px);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  pointer-events: none;
+  z-index: 60;
+}
+.floatDock .deckBar{
+  pointer-events: auto;
+  display: inline-flex;
+  gap: 10px;
+  justify-self: start;
+}
+.floatDock .chipCirc{
+  position: relative;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  display: grid; place-items: center;
+  border: 1px solid #eee;
+}
+.floatDock .chipCirc small{
+  position: absolute;
+  bottom: -10px;
+  font-size: 12px;
+  opacity: .8;
+}
+
+/* Aether gem (right) */
+.aetherGem{
+  pointer-events: auto;
+  justify-self: end;
+  width: 48px; height: 48px;
+  transform: rotate(45deg);
+  border-radius: 14px;
+  background: linear-gradient(180deg, #f5cf76 0%, #e2a845 100%);
+  box-shadow: 0 10px 22px rgba(226, 168, 69, .35), inset 0 0 8px rgba(255,255,255,.65);
+  display: grid; place-items: center;
+  border: none;
+}
+.aetherGem .gemInner{
+  transform: rotate(-45deg);
+  font-weight: 700;
+  color: #3a2a09;
+}
+
+/* ============ Hand + drag feel ============ */
+.ribbon, .ribbon * { -webkit-user-select: none; user-select: none; }
+.card.handCard { touch-action: none; cursor: grab; }
+.card.handCard.dragging { cursor: grabbing; }
+body.noselect, body.noselect * { -webkit-user-select: none !important; user-select: none !important; }
+
+.card.drag-bounce{
+  animation: bounceBack .15s ease-out;
+}
+@keyframes bounceBack{
+  0%   { transform: translate(0,0) scale(.98); }
+  100% { transform: translate(0,0) scale(1); }
+}
+
+/* Slot hover glow clean and crisp */
+.slotCell.drop-ok.drop-hover{
+  outline: 2px solid rgba(255, 200, 90, .9);
+  box-shadow: 0 0 0 3px rgba(255,200,90,.25);
+}
+.slotCell.drop-no.drop-hover{
+  outline: 2px solid rgba(200, 80, 80, .7);
+}
+
+/* Keep fixed rows the exact card height so nothing "floats" */
+.fixedRow{
+  min-height: 280px; /* match your card height */
+}
+
+/* Make sure ribbon has room for a wider fan */
+.ribbon-wrap{
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
