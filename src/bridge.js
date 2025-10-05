@@ -1,28 +1,16 @@
-// =========================================================
-// THE GREY — Bridge (Corrected for your structure)
-// Location: /bridge.js
-// Imports from: ./src/engine/index.js, ./src/ui/index.js, ./src/ui/drag.js
-// =========================================================
-
+// /bridge.js (root)
 import { createGame } from './src/engine/index.js';
 import * as UI from './src/ui/index.js';
-import './src/ui/drag.js'; // side-effect only (no default export)
+import './src/ui/drag.js';
 
-// ---------------------------------------------------------
-// Boot sequence
-// ---------------------------------------------------------
 (() => {
-  try {
-    const game =
-      (window.game && typeof window.game.dispatch === 'function')
-        ? window.game
-        : createGame();
+  const game =
+    (window.game && typeof window.game.dispatch === 'function')
+      ? window.game
+      : createGame();
 
-    window.game = game;
-    UI.init(game);
+  window.game = game;
+  UI.init(game);
 
-    console.log('[BRIDGE] Game + UI + Drag initialized and exposed to window.');
-  } catch (err) {
-    console.error('[BRIDGE] Boot failed:', err);
-  }
+  console.log('[BRIDGE] Game + UI + Drag initialized and exposed to window.');
 })();
