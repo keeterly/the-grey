@@ -1,28 +1,34 @@
 // =========================================================
-// THE GREY — UI ENTRY (v2.1)
-// - MTG proportions (63/88) for hand + slot cards
-// - Animations: draw (deck → hand), end-turn discard (hand → discard)
-// - Drag refresh hooks
-// - Shows actual card panel in the slot
+// THE GREY — UI ENTRY (v2.2)
+// - Readable MTG-style cards (63/88) in hand + slots
+// - Reset button: full new game sequence (weavers → market → start turn)
+// - Slower, clearer discard animation; smooth draw animation
+// - Drag refresh after each render
 // =========================================================
 
 export function init(game) {
   const $  = (sel) => (sel[0] === '#' ? document.getElementById(sel.slice(1)) : document.querySelector(sel));
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+  // ----------
+  // Helpers
+  // ----------
   function setText(el, v) { if (el) el.textContent = String(v); }
   function pct(n, d) { return `${(100 * (n ?? 0)) / (d || 1)}%`; }
+  const DEFAULT_WEAVER_YOU = 'Default';
+  const DEFAULT_WEAVER_AI  = 'AI';
 
-  // ------- animation helpers -------
+  // Track previous hand ids for animations
   let prevHandIds = [];
-  function cardIds(arr) { return (arr || []).map(c => c?.id ?? null).filter(Boolean); }
+  const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
 
+  // Generic “fly” animation: clone node and move it
   function flyClone(fromEl, toEl, options = {}) {
     if (!fromEl || !toEl) return;
     const from = fromEl.getBoundingClientRect();
     const to   = toEl.getBoundingClientRect();
 
-    const ghost = fromEl.cloneNode(true);
+    const ghost = (options.cloneEl || fromEl).cloneNode(true);
     ghost.classList.add('ghostFly');
     ghost.style.position = 'fixed';
     ghost.style.left = `${from.left}px`;
@@ -37,10 +43,10 @@ export function init(game) {
     const dx = to.left + (to.width - from.width)/2 - from.left;
     const dy = to.top  + (to.height - from.height)/2 - from.top;
 
-    const duration = options.duration || 350;
+    const duration = options.duration ?? 650; // slower by default
     ghost.animate([
       { transform: 'translate(0,0)', opacity: 1 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${options.scale ?? 0.5})`, opacity: 0.2 }
+      { transform: `translate(${dx}px, ${dy}px) scale(${options.scale ?? 0.7})`, opacity: 0.15 }
     ], { duration, easing: 'cubic-bezier(.2,.7,.2,1)' }).onfinish = () => {
       ghost.remove();
     };
@@ -76,16 +82,6 @@ export function init(game) {
   }
 
   // -------------------------------------------------------
-  // TEXT HELPERS
-  // -------------------------------------------------------
-  function cardLabel(c) {
-    if (!c) return '';
-    const val = (c.v != null) ? ` +${c.v}⚡` : '';
-    const ph  = (c.p != null) ? ` · ${c.p}ϟ` : '';
-    return `${c.n || 'Card'} · ${c.t || ''}${val}${ph}`;
-  }
-
-  // -------------------------------------------------------
   // AETHERFLOW (MARKET)
   // -------------------------------------------------------
   function renderFlow(S) {
@@ -101,12 +97,11 @@ export function init(game) {
         const card = document.createElement('div');
         card.className = 'marketCardPanel';
         card.innerHTML = `
-          <div class="m-title">${c.n}</div>
-          <div class="m-sub">${c.t || ''}</div>
-          <div class="m-val">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
+          <div class="cardTitle">${c.n}</div>
+          <div class="cardSub">${c.t || ''}</div>
+          <div class="cardVal">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
         `;
         el.appendChild(card);
-
         el.onclick = () => {
           try { game.dispatch({ type: 'BUY_FLOW', index: i }); } catch (e) { console.error(e); }
         };
@@ -133,11 +128,10 @@ export function init(game) {
       el.dataset.index = i;
       el.dataset.cardId = c?.id ?? '';
       el.innerHTML = `
-        <div class="artWrap"></div>
-        <div class="textWrap">
-          <div class="title">${c.n}</div>
-          <div class="sub">${c.t || ''}</div>
-          <div class="val">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
+        <div class="cardFace">
+          <div class="cardTitle">${c.n}</div>
+          <div class="cardSub">${c.t || ''}</div>
+          <div class="cardVal">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
         </div>`;
       el.onclick = () => {
         try {
@@ -148,15 +142,14 @@ export function init(game) {
       ribbon.appendChild(el);
     });
 
-    // Animate draws (new ids added)
+    // Animate draws (new ids that weren't in previous hand)
     const afterIds = cardIds(hand);
     const deckBtn = $('#chipDeck');
     if (deckBtn) {
       afterIds.forEach(id => {
         if (!beforeIds.includes(id)) {
-          // find this card element
-          const cardEl = ribbon.querySelector(`.handCard[data-card-id="${id}"]`);
-          if (cardEl) flyClone(deckBtn, cardEl, { scale: 1.0, duration: 380 });
+          const cardEl = ribbon.querySelector(`.handCard[data-card-id="${id}"] .cardFace`) || ribbon.querySelector('.handCard');
+          if (cardEl) flyClone(deckBtn, cardEl, { scale: 1.0, duration: 420 });
         }
       });
     }
@@ -164,7 +157,7 @@ export function init(game) {
   }
 
   // -------------------------------------------------------
-  // BOARD SLOTS (YOU + AI) — with MTG panel look
+  // BOARD SLOTS (YOU + AI) — MTG style panels
   // -------------------------------------------------------
   function renderSlots(S) {
     const youEl = document.getElementById('playerSlots');
@@ -183,9 +176,9 @@ export function init(game) {
         } else {
           cell.innerHTML = `
             <div class="slotPanel">
-              <div class="sp-title">${s.c.n}</div>
-              <div class="sp-sub">${s.c.t || 'Spell'}</div>
-              <div class="sp-prog">${s.ph || 1}/${s.c.p || 1}</div>
+              <div class="cardTitle">${s.c.n}</div>
+              <div class="cardSub">${s.c.t || 'Spell'}</div>
+              <div class="cardVal">${(s.c.v != null ? '+'+s.c.v+'⚡' : '')} · ${s.ph || 1}/${s.c.p || 1}</div>
             </div>`;
           if (s.advUsed) cell.classList.add('advUsed');
         }
@@ -205,9 +198,9 @@ export function init(game) {
         else {
           cell.innerHTML = `
             <div class="slotPanel">
-              <div class="sp-title">${s.c.n}</div>
-              <div class="sp-sub">${s.c.t || 'Spell'}</div>
-              <div class="sp-prog">${s.ph || 1}/${s.c.p || 1}</div>
+              <div class="cardTitle">${s.c.n}</div>
+              <div class="cardSub">${s.c.t || 'Spell'}</div>
+              <div class="cardVal">${(s.c.v != null ? '+'+s.c.v+'⚡' : '')} · ${s.ph || 1}/${s.c.p || 1}</div>
             </div>`;
           if (s.advUsed) cell.classList.add('advUsed');
         }
@@ -217,7 +210,7 @@ export function init(game) {
   }
 
   // -------------------------------------------------------
-  // MAIN DRAW — includes discard animation on END_TURN
+  // MAIN DRAW — incl. discard animation (slower)
   // -------------------------------------------------------
   function draw() {
     const S = (game && game.state) || {};
@@ -234,20 +227,18 @@ export function init(game) {
       window.DragCards.refresh();
     }
 
-    // Detect discard (hand id removed) and animate to discard chip
+    // Animate discards (ids that disappeared from hand)
     const afterIds = cardIds(S.hand);
     const discBtn = $('#chipDiscard');
     if (discBtn) {
       beforeIds.forEach(id => {
         if (!afterIds.includes(id)) {
-          // find an element that had this id previously: we approximate by animating
-          // from the ribbon area center (since node is gone); use first current card as proxy
-          const proxy = $('.ribbon .handCard') || $('#ribbon');
-          if (proxy) flyClone(proxy, discBtn, { scale: 0.5, duration: 330 });
+          // Use the ribbon area as source proxy when the node is gone
+          const proxy = $('.ribbon .handCard .cardFace') || $('#ribbon');
+          if (proxy) flyClone(proxy, discBtn, { scale: 0.6, duration: 700 }); // slower & clearer
         }
       });
     }
-
     prevHandIds = afterIds;
   }
 
@@ -259,54 +250,71 @@ export function init(game) {
   }
 
   // Wire FABs
-  [['#fabDraw','DRAW'],['#fabEnd','END_TURN'],['#fabReset','RESET']]
-    .forEach(([sel,type])=>{
-      const el=$(sel);
-      if(el) el.onclick=()=>game.dispatch({type});
-    });
+  const onDraw  = () => game.dispatch({ type: 'DRAW' });
+  const onEnd   = () => game.dispatch({ type: 'END_TURN' });
+
+  // Reset → full new game sequence (weavers → market → start turn)
+  const onReset = () => {
+    try {
+      game.dispatch({ type: 'RESET', playerWeaver: DEFAULT_WEAVER_YOU, aiWeaver: DEFAULT_WEAVER_AI });
+      game.dispatch({ type: 'ENSURE_MARKET' });
+      game.dispatch({ type: 'START_GAME' });            // safe no-op in your reducer
+      game.dispatch({ type: 'START_TURN', first:true }); // get opening hand etc.
+    } catch (e) { console.error('[UI] reset failed', e); }
+  };
+
+  [['#fabDraw',  onDraw],
+   ['#fabEnd',   onEnd],
+   ['#fabReset', onReset]
+  ].forEach(([sel,fn]) => {
+    const el = $(sel);
+    if (el) el.onclick = fn;
+  });
 
   draw();
-  console.log('[UI] init complete. HUD + flow + hand + slots + animations wired.');
+  console.log('[UI] init complete. Readable MTG cards, animations, and proper reset ready.');
 }
 
 // ---------------------------------------------------------
-// Style injection (MTG proportions + panels)
+// Style injection — MTG proportions + clearer typography
 // ---------------------------------------------------------
 const style = document.createElement('style');
 style.textContent = `
-  /* Hand ribbon */
-  .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:8px; gap:8px; }
+  /* Ribbon layout */
+  .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:10px; gap:10px; }
 
-  /* MTG proportions via aspect-ratio 63:88 */
-  .handCard, .slotPanel, .marketCardPanel {
+  /* MTG proportions via aspect-ratio 63:88; wider default for legibility */
+  .handCard, .slotPanel, .marketCardPanel, .cardFace {
     aspect-ratio: 63 / 88;
-    width: 120px;
+    width: 160px; /* increased from 120 for readability */
     height: auto;
     border-radius: 12px;
-    background: #f9f7f3;
-    border: 1px solid rgba(0,0,0,.06);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.18);
+    background: #fcfbf8; /* slightly warmer for contrast */
+    border: 1px solid rgba(0,0,0,.10);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.18);
     display:flex; flex-direction:column; justify-content:flex-end;
-    padding: 8px;
+    padding: 10px;
   }
   .handCard { cursor:pointer; transition:transform .2s, box-shadow .2s; }
-  .handCard:hover { transform:translateY(-4px); box-shadow:0 8px 18px rgba(0,0,0,.22); }
+  .handCard:hover { transform:translateY(-4px); box-shadow:0 10px 18px rgba(0,0,0,0.22); }
+  .cardFace { width:100%; height:100%; background: linear-gradient(180deg,#fff 0%,#f9f6ef 100%); }
 
-  .textWrap .title, .sp-title, .m-title { font-weight:600; font-size:14px; line-height:1.1; }
-  .textWrap .sub, .sp-sub, .m-sub     { font-size:12px; color:#666; }
-  .textWrap .val, .m-val              { font-size:12px; color:#c33; margin-top:2px; }
+  /* Readable typography */
+  .cardTitle { font-weight:700; font-size:15px; line-height:1.15; color:#2b2b2b; }
+  .cardSub   { font-size:12.5px; color:#606060; margin-top:2px; }
+  .cardVal   { font-size:13px; color:#b21d1d; margin-top:4px; }
 
   /* Board grids */
   #playerSlots, #aiSlots {
     display: grid;
-    grid-template-columns: repeat(3, minmax(180px, 1fr));
-    gap: 14px;
-    padding: 8px 12px 16px;
+    grid-template-columns: repeat(3, minmax(200px, 1fr));
+    gap: 16px;
+    padding: 10px 14px 18px;
   }
   .slotCell {
     display:flex; align-items:center; justify-content:center;
     user-select: none; cursor: pointer;
-    min-height: 160px;
+    min-height: 180px;
     border-radius: 16px;
     background: #fffaf4;
     border: 1px solid rgba(0,0,0,.06);
@@ -314,15 +322,19 @@ style.textContent = `
     transition: transform .15s, box-shadow .15s;
   }
   .slotCell:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
-  .slotCell.empty { color: #aaa; font-size: 12px; }
+  .slotCell.empty { color: #9a9a9a; font-size: 12px; }
   .slotCell.ai { background: #f7f7fb; }
-  .slotCell.advUsed { opacity: .8; }
+  .slotCell.advUsed { opacity: .85; }
+
+  /* Drag affordances (from drag.js expectations) */
+  #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset: -4px; }
+  #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset: -4px; box-shadow: 0 0 0 4px rgba(90,140,220,.08) inset; }
 
   /* Ghost fly clone */
-  .ghostFly { opacity: .9; border-radius:12px; overflow:hidden; }
+  .ghostFly { border-radius:12px; overflow:hidden; }
 
-  /* Market card in flow cells */
-  .marketCardPanel { width: 100%; height: auto; box-shadow: none; }
+  /* Market card panel (fits flow cells) */
+  .marketCardPanel { width:100%; height:auto; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
 `;
 document.head.appendChild(style);
 
