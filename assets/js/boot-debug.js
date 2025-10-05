@@ -1,14 +1,27 @@
-// boot-debug.js — disabled for production
-console.log('[BOOT] Debug check disabled.');
+/* -----------------------------------------------------------------------
+   THE GREY — dev helpers (drag + diagnostics)
+   Drop-in replacement for assets/js/boot-debug.js
+----------------------------------------------------------------------- */
 
-// === REAL-CARD POINTER DRAG (snappy + robust) ===============================
+// ===== Utilities =======================================================
+const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+function getTranslateXY(el){
+  // Extract current translate from computed transform (handles matrix/matrix3d)
+  const t = getComputedStyle(el).transform;
+  if (!t || t === 'none') return {tx:0, ty:0};
+  const m = new DOMMatrixReadOnly(t);
+  return { tx: m.m41, ty: m.m42 };
+}
+
+// ===== Pointer-based REAL-CARD DRAG ===================================
 (() => {
-  const DRAG_THRESHOLD = 6;        // px before we "lift"
-  const DAMP = 0.35;               // responsiveness (0.25-0.38 feels good)
-  const MAX_STEP = 48;             // clamp per-frame px to avoid rubberband
+  const DRAG_THRESHOLD = 6;    // px before we lift
+  const DAMP = 0.34;           // responsiveness (0.28–0.38 feels good)
+  const MAX_STEP = 42;         // clamp per-frame movement
   let raf;
 
-  // one drag layer for all drags
+  // One drag layer for all drags
   const dragLayer = document.querySelector('.drag-layer') || (() => {
     const d = document.createElement('div');
     d.className = 'drag-layer';
@@ -21,32 +34,39 @@ console.log('[BOOT] Debug check disabled.');
   const tidyUp = () => {
     cancelAnimationFrame(raf);
     window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp, { capture: false });
-    window.removeEventListener('pointercancel', onUp, { capture: false });
-    window.removeEventListener('blur', onUp, { capture: false });
+    window.removeEventListener('pointerup', onUp, { capture:false });
+    window.removeEventListener('pointercancel', onUp, { capture:false });
+    window.removeEventListener('blur', onUp, { capture:false });
   };
 
-  function onDown(e) {
+  function onDown(e){
     const card = e.target.closest('.ribbon .card');
     if (!card || e.button !== 0) return;
 
     e.preventDefault();
     try { card.setPointerCapture(e.pointerId); } catch {}
 
-    const r = card.getBoundingClientRect();
+    // Neutralize hover during measurement to avoid lift nudge
+    card.classList.add('is-dragging');
+    const rectBefore = card.getBoundingClientRect();
+    const { tx, ty } = getTranslateXY(card);     // ribbon translate (peek/hover)
+    card.classList.remove('is-dragging');
+
+    // Position WITHOUT the ribbon transform so it won't jump on lift
+    const rawLeft = rectBefore.left + window.scrollX - tx;
+    const rawTop  = rectBefore.top  + window.scrollY - ty;
 
     st = {
-      id: Math.random().toString(36).slice(2),
       pid: e.pointerId,
       card,
       startX: e.clientX,
       startY: e.clientY,
-      offsetX: e.clientX - (r.left + window.scrollX),
-      offsetY: e.clientY - (r.top  + window.scrollY),
-      curX: r.left + window.scrollX,
-      curY: r.top  + window.scrollY,
-      targetX: r.left + window.scrollX,
-      targetY: r.top  + window.scrollY,
+      offsetX: e.clientX - rawLeft,
+      offsetY: e.clientY - rawTop,
+      curX: rawLeft,
+      curY: rawTop,
+      targetX: rawLeft,
+      targetY: rawTop,
       lifted: false,
       originParent: card.parentNode,
       originNext: card.nextSibling,
@@ -57,14 +77,14 @@ console.log('[BOOT] Debug check disabled.');
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
-    window.addEventListener('blur', onUp); // safety: tab switch etc.
+    window.addEventListener('blur', onUp); // tab switch, etc.
   }
 
-  function lift() {
+  function lift(){
     if (!st || st.lifted) return;
     const { card, originParent, originNext } = st;
 
-    // placeholder to keep fan spacing stable
+    // Keep fan spacing with a placeholder
     const r = card.getBoundingClientRect();
     const ph = document.createElement('div');
     ph.style.width = r.width + 'px';
@@ -74,12 +94,11 @@ console.log('[BOOT] Debug check disabled.');
     if (originNext) originParent.insertBefore(ph, originNext);
     else originParent.appendChild(ph);
 
-    // move REAL node to drag layer
+    // Move REAL node to drag layer and initialize coords
     dragLayer.appendChild(card);
     card.classList.add('is-dragging');
     if (st.isInstant) card.classList.add('pulsing');
 
-    // initialize position so it never jumps to (0,0)
     card.style.setProperty('--drag-x', st.curX + 'px');
     card.style.setProperty('--drag-y', st.curY + 'px');
 
@@ -87,12 +106,11 @@ console.log('[BOOT] Debug check disabled.');
     smoothFollow();
   }
 
-  function smoothFollow() {
+  function smoothFollow(){
     cancelAnimationFrame(raf);
     const step = () => {
       if (!st) return;
 
-      // clamp the delta so it stays responsive but controlled
       const dx = Math.max(-MAX_STEP, Math.min(MAX_STEP, st.targetX - st.curX));
       const dy = Math.max(-MAX_STEP, Math.min(MAX_STEP, st.targetY - st.curY));
 
@@ -107,7 +125,7 @@ console.log('[BOOT] Debug check disabled.');
     raf = requestAnimationFrame(step);
   }
 
-  function onMove(e) {
+  function onMove(e){
     if (!st) return;
     const dx = e.clientX - st.startX;
     const dy = e.clientY - st.startY;
@@ -118,18 +136,16 @@ console.log('[BOOT] Debug check disabled.');
     st.targetY = e.clientY - st.offsetY;
   }
 
-  function onUp(e) {
+  function onUp(e){
     if (!st) { tidyUp(); return; }
 
-    // release capture if we had it
     try { st.card.releasePointerCapture?.(st.pid); } catch {}
-
     cancelAnimationFrame(raf);
 
     const { card, originParent, originNext, placeholder, isInstant } = st;
 
-    if (st.lifted) {
-      // --- accurate hit test: hide card for a moment to see what's below it ---
+    if (st.lifted){
+      // Accurate hit test: hide the dragged card momentarily
       const prevVis = card.style.visibility;
       card.style.visibility = 'hidden';
       const hit = document.elementFromPoint(e.clientX, e.clientY);
@@ -137,25 +153,25 @@ console.log('[BOOT] Debug check disabled.');
 
       const dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
 
-      if (dropSlot) {
-        // optional: snap visually to slot (quick)
+      if (dropSlot){
+        // Snap visually to slot (optional quick feedback)
         const r = dropSlot.getBoundingClientRect();
         card.style.setProperty('--drag-x', (r.left + window.scrollX) + 'px');
         card.style.setProperty('--drag-y', (r.top  + window.scrollY) + 'px');
 
-        // notify your game logic
+        // Tell game logic (ensure data attributes exist on your DOM)
         try {
           game?.dispatch?.({
             type: 'DROP_CARD',
-            cardId: card.dataset.id,           // ensure card nodes have data-id
-            slot: dropSlot.dataset.slot        // ensure slot cells have data-slot
+            cardId: card.dataset.id,        // card needs data-id
+            slot: dropSlot.dataset.slot     // slot needs data-slot
           });
         } catch (err) {
           console.warn('[The Grey] DROP_CARD dispatch failed:', err);
         }
       }
 
-      // return card node to hand DOM either way (state will re-render appropriately)
+      // Return to hand visually (game state will re-render appropriately)
       if (originNext) originParent.insertBefore(card, originNext);
       else originParent.appendChild(card);
       if (placeholder) placeholder.remove();
@@ -169,7 +185,7 @@ console.log('[BOOT] Debug check disabled.');
     tidyUp();
   }
 
-  // Kill native ghost drag
+  // Kill native ghost drag image globally
   document.addEventListener('dragstart', (e) => e.preventDefault());
 
   // Delegate from ribbon
@@ -177,5 +193,16 @@ console.log('[BOOT] Debug check disabled.');
   if (ribbon) ribbon.addEventListener('pointerdown', onDown);
 })();
 
-
-
+// ===== Tiny dev badge: shows current Æ count for quick sanity ==========
+(() => {
+  const gem = document.getElementById('aeGemCount');
+  if (!gem) return;
+  const log = (...a)=> console.log('[The Grey]', ...a);
+  const update = () => {
+    try { log('Æ =', gem.textContent?.trim()); }
+    catch {}
+  };
+  const obs = new MutationObserver(update);
+  obs.observe(gem, { childList:true, characterData:true, subtree:true });
+  update();
+})();
