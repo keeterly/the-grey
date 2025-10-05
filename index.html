@@ -3,9 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>The Grey — Modular</title>
+  <title>The Grey — Modular (ESM)</title>
 
-  <!-- Project Pages base (must be in <head>) -->
+  <!-- Needed for GitHub Pages project sites -->
   <base href="/the-grey/">
 
   <!-- Styles -->
@@ -123,7 +123,7 @@
     </div>
   </div>
 
-  <!-- Version stamp (safe) -->
+  <!-- Version stamp -->
   <script>
   (async () => {
     try {
@@ -137,29 +137,13 @@
   })();
   </script>
 
-  <!-- ======================== -->
-  <!--  DEV LOAD (no modules)  -->
-  <!-- ======================== -->
-  <!-- Engine / mechanics -->
-  <script defer src="./src/engine/index.js"></script>
-  <script defer src="./src/engine/state.js"></script>
-  <script defer src="./src/engine/rules.js"></script>
-  <script defer src="./src/engine/ai.js"></script>
-  <script defer src="./src/engine/cards.js"></script>
-  <script defer src="./src/engine/weavers.js"></script>
+  <!-- ESM entry: load everything and expose globals (keeps UI vs Mechanics separate) -->
+  <script type="module">
+    import { exposeToWindow } from './src/bridge.js';
+    exposeToWindow();
+  </script>
 
-  <!-- UI / render -->
-  <script defer src="./src/ui/index.js"></script>
-  <script defer src="./src/ui/assets.js"></script>
-  <script defer src="./src/ui/render.js"></script>
-  <script defer src="./src/ui/hud.js"></script>
-  <script defer src="./src/ui/animations.js"></script>
-  <script defer src="./src/ui/market.js"></script>
-
-  <!-- Input / drag -->
-  <script defer src="./src/ui/drag.js"></script>
-
-  <!-- Boot / diagnostics (last) -->
+  <!-- Legacy boot/diagnostics (expects globals; bridge provides them) -->
   <script defer src="./assets/js/boot-debug.js"></script>
 </body>
 </html>
