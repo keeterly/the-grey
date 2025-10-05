@@ -1,32 +1,33 @@
 // =========================================================
-/* THE GREY — BRIDGE LAYER
-   Connects mechanics (engine) with visuals (UI), exposes
-   safe globals for legacy/debug, and auto-starts a turn. */
+// THE GREY — BRIDGE LAYER
+// Connects engine + UI, exposes globals, autostarts, and
+// initializes DragCards once (then UI refresh handles rebinds).
 // =========================================================
 
 import { createGame } from './engine/index.js';
 import { init as initUI } from './ui/index.js';
-import * as Drag from './ui/drag.js';
+import DragCards from './ui/drag.js';
 
 export function exposeToWindow() {
   // Create engine
   const game = createGame();
 
-  // Expose globals for boot/debug + drag check
+  // Expose globals (boot/debug + console)
   if (typeof window !== 'undefined') {
     window.game = game;
     window.GameEngine = { create: createGame };
     window.UI = { init: initUI };
-    const dragAPI = Drag.DragCards || Drag.default || null;
-    if (dragAPI) window.DragCards = dragAPI;
+    window.DragCards = DragCards;
   }
 
-  // Initialize UI first so it can render immediately
+  // Initialize UI
   initUI(game);
 
-  // Autostart so the board isn't empty
+  // Initialize drag once; UI will call refresh() after each render
+  try { DragCards.init(game); } catch (e) { console.warn('[BRIDGE] Drag init failed:', e); }
+
+  // Autostart so market + hand aren’t empty
   try {
-    // (Re)fill market, then begin a first turn with a fresh hand
     game.dispatch({ type: 'ENSURE_MARKET' });
     game.dispatch({ type: 'START_GAME' });      // safe no-op if not implemented
     game.dispatch({ type: 'START_TURN', first:true });
@@ -34,7 +35,7 @@ export function exposeToWindow() {
     console.error('[BRIDGE] autostart failed:', err);
   }
 
-  console.log('[BRIDGE] Game + UI initialized and exposed to window.');
+  console.log('[BRIDGE] Game + UI + Drag initialized and exposed to window.');
   return game;
 }
 
