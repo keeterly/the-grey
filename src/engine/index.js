@@ -72,18 +72,33 @@ export function createGame() {
         gameState.log.push(action);
         console.log('[ENGINE] dispatch', action);
         // very light behavior so buttons aren’t no-ops
-        switch (action.type) {
-          case 'RESET':
-            Object.assign(gameState, makeFallbackState());
-            break;
-          case 'DRAW':
-            // placeholder: pretend draw adds AE
-            gameState.playerAE = (gameState.playerAE || 0) + 1;
-            break;
-          case 'END_TURN':
-            gameState.turn += 1;
-            break;
-        }
+       switch (action.type) {
+  case 'RESET':
+    Object.assign(gameState, makeFallbackState());
+    if (typeof State.reset === 'function') State.reset(gameState);
+    break;
+
+  case 'DRAW':
+    if (typeof Rules.drawCard === 'function') Rules.drawCard(gameState);
+    break;
+
+  case 'END_TURN':
+    if (typeof Rules.endTurn === 'function') Rules.endTurn(gameState);
+    break;
+
+  case 'START_GAME':
+    if (typeof Rules.startGame === 'function') Rules.startGame(gameState);
+    break;
+
+  case 'START_TURN':
+    if (typeof Rules.startTurn === 'function') Rules.startTurn(gameState);
+    break;
+
+  default:
+    if (typeof Rules.handleAction === 'function')
+      Rules.handleAction(gameState, action);
+}
+
       }
     } catch (e) {
       console.error('[ENGINE] dispatch error:', e);
