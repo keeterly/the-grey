@@ -1,80 +1,129 @@
-// =========================================================
-// THE GREY — ENGINE ENTRY (factory + boot sequence)
-// Wires your rules/state into a ready-to-play game instance.
-// - Populates Aetherflow on boot
-// - Draws opening hand on player Turn 1
-// - Exposes GameEngine.create() to window for bridge/UI
-// =========================================================
+// src/ui/index.js
+// Animated UI entry: never import engine here.
 
-import { initialState } from './state.js';
-import * as Rules from './rules.js';
-import * as Cards from './cards.js';
-import * as Weavers from './weavers.js';
-import * as RNG from './rng.js';
+import { cacheRoots, setGame, renderAll, Roots } from './render.js';
+import { fanOutHand, animateDrawHand, animateDiscardHand, animateBuyHeroToDiscard, animatePlayToSlot } from './animations.js';
 
-// Optional: pick sensible defaults that exist in your WEAVERS table
-const DEFAULT_PLAYER_WEAVER = 'Stormbinder';  // change if you prefer
-const DEFAULT_AI_WEAVER     = 'Stormbinder';
+const $ = (s, r=document) => r.querySelector(s);
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-export function createGame(opts = {}) {
-  const playerWeaver = opts.playerWeaver || DEFAULT_PLAYER_WEAVER;
-  const aiWeaver     = opts.aiWeaver     || DEFAULT_AI_WEAVER;
+let G = null;
 
-  // ---- core mutable state ----
-  let S = initialState({ playerWeaver, aiWeaver });
-
-  // ---- dispatch wrapper around your rules reducer ----
-  function dispatch(action) {
-    try {
-      S = Rules.reduce(S, action || {});
-      return S;
-    } catch (err) {
-      console.error('[ENGINE] dispatch error:', err, action);
-      return S;
-    }
-  }
-
-  // ---- helpers used by UI / reset ----
-  function bootFreshState() {
-    // 1) ensure the state object is brand new
-    S = initialState({ playerWeaver, aiWeaver });
-
-    // 2) optional INIT for logs/metrics
-    dispatch({ type: 'INIT' });
-
-    // 3) make sure Aetherflow has cards
-    dispatch({ type: 'ENSURE_MARKET' });
-
-    // 4) start player turn (first:true prevents +1 on turn counter in your rules)
-    dispatch({ type: 'START_TURN', first: true });
-
-    return S;
-  }
-
-  // ---- initial boot (opening hand + market) ----
-  bootFreshState();
-
-  // ---- public game object ----
-  const game = {
-    get state() { return S; },
-    dispatch,
-    rng: RNG,
-    cards: Cards,
-    weavers: Weavers,
-    reset() { bootFreshState(); },
-  };
-
-  return game;
+function S(){
+  const s = G?.state || {};
+  s.deck     = Array.isArray(s.deck)    ? s.deck    : [];
+  s.disc     = Array.isArray(s.disc)    ? s.disc    : [];
+  s.hand     = Array.isArray(s.hand)    ? s.hand    : [];
+  s.glyphs   = Array.isArray(s.glyphs)  ? s.glyphs  : [];
+  s.flowRow  = Array.isArray(s.flowRow) ? s.flowRow : [null,null,null,null,null];
+  s.slots    = Array.isArray(s.slots)   ? s.slots   : [null,null,null];
+  s.ai       = typeof s.ai==='object'   ? s.ai      : { slots:[null,null,null] };
+  s.ai.slots = Array.isArray(s.ai.slots)? s.ai.slots: [null,null,null];
+  return s;
 }
 
-// ---- Global exposure for bridge/index.html (kept for compatibility) ----
-if (typeof window !== 'undefined') {
-  window.GameEngine = window.GameEngine || {};
-  window.GameEngine.create = (opts) => createGame(opts);
+function refreshUI(){
+  renderAll({
+    onBuy: handleBuyFlow,
+    onPlayFromHand: handlePlayFromHand,
+    onAdvance: handleAdvance,
+  });
+  fanOutHand(Roots.ribbon);
+}
 
-  // Auto-create a game once if none exists (UI expects window.game)
-  if (!window.game) {
-    window.game = createGame();
+function handleBuyFlow(i, cardEl){
+  const discChip = $('#chipDiscard');
+  animateBuyHeroToDiscard(cardEl, discChip).then(()=>{
+    G.dispatch({ type:'BUY_FLOW', index:i });
+    refreshUI();
+  });
+}
+
+function handlePlayFromHand(card, handIndex, cardEl){
+  if (card.t === 'Instant'){
+    G.dispatch({ type:'CHANNEL_FROM_HAND', index: handIndex });
+    refreshUI();
+    return;
   }
-  console.log('[ENGINE] GameEngine.create ready; window.game initialized.');
+  if (card.t === 'Glyph'){
+    G.dispatch({ type:'PLAY_FROM_HAND', index: handIndex, slot: null });
+    refreshUI();
+    return;
+  }
+  const st = S();
+  const s = st.slots.findIndex(x => !x);
+  const targetSlotEl = $('#playerSlots')?.children?.[s] || null;
+  if (targetSlotEl) {
+    animatePlayToSlot(cardEl, targetSlotEl).then(()=>{
+      G.dispatch({ type:'PLAY_FROM_HAND', index: handIndex, slot: s });
+      refreshUI();
+    });
+  } else {
+    G.dispatch({ type:'PLAY_FROM_HAND', index: handIndex, slot: null });
+    refreshUI();
+  }
+}
+
+function handleAdvance(slotIndex){
+  G.dispatch({ type:'ADVANCE', slot: slotIndex });
+  refreshUI();
+}
+
+async function runAiTurn(){
+  const step = 80;
+  G.dispatch({ type:'AI_DRAW'       }); refreshUI(); await sleep(step);
+  G.dispatch({ type:'AI_PLAY_SPELL' }); refreshUI(); await sleep(step);
+  G.dispatch({ type:'AI_CHANNEL'    }); refreshUI(); await sleep(step);
+  G.dispatch({ type:'AI_ADVANCE'    }); refreshUI(); await sleep(step);
+  G.dispatch({ type:'AI_BUY'        }); refreshUI(); await sleep(step);
+  G.dispatch({ type:'AI_SPEND_TRANCE'}); refreshUI(); await sleep(step);
+}
+
+function wireButtons(){
+  const btnDraw  = document.querySelector('#btnDraw, #fabDraw');
+  const btnEnd   = document.querySelector('#btnEnd, #fabEnd');
+  const btnReset = document.querySelector('#btnReset, #fabReset');
+  const chipDeck = $('#chipDeck');
+  const chipDisc = $('#chipDiscard');
+
+  if (btnDraw) btnDraw.onclick = async () => {
+    G.dispatch({ type:'DRAW' });
+    refreshUI();
+    await animateDrawHand(Roots.ribbon, chipDeck);
+  };
+
+  if (btnEnd) btnEnd.onclick = async () => {
+    await animateDiscardHand(Roots.ribbon, chipDisc);
+    G.dispatch({ type:'END_TURN' });
+    refreshUI();
+
+    await runAiTurn();
+
+    G.dispatch({ type:'START_TURN' });
+    refreshUI();
+    await animateDrawHand(Roots.ribbon, chipDeck);
+  };
+
+  if (btnReset) btnReset.onclick = () => {
+    if (typeof G.reset === 'function') G.reset();
+    refreshUI();
+  };
+
+  if (chipDeck) chipDeck.onclick = () => console.log('[Deck]', S().deck);
+  if (chipDisc) chipDisc.onclick = () => console.log('[Discard]', S().disc);
+}
+
+export function init(game){
+  G = game;
+  setGame(G);
+  cacheRoots();
+  wireButtons();
+  refreshUI();
+
+  const boot = document.querySelector('.bootCheck');
+  if (boot) boot.style.display = 'none';
+
+  if (window.DragCards?.refresh) window.DragCards.refresh();
+
+  console.log('[UI] v3.9+ — animations restored, typed highlights, fixed rows');
 }
