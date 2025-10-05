@@ -1,69 +1,273 @@
-/* Hand cards */
-.rCard{
-  width:var(--card-w);height:var(--card-h);border-radius:var(--card-radius);
-  overflow:hidden;background:#fff;border:1px solid var(--card-line);
-  box-shadow:0 6px 14px rgba(60,52,44,.18);display:flex;flex-direction:column;
-  user-select:none;-webkit-user-drag:none;touch-action:none
-}
-.rHead{
-  padding:7px 9px 6px;font-size:11px;font-weight:800;letter-spacing:.02em;
-  background:linear-gradient(180deg,#ffffff,#F4EEE3);border-bottom:1px solid var(--line);
-  color:#8A8174;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
-}
-.rArt{height:98px;display:grid;place-items:center;background:#fff;position:relative}
-.rArt img{width:100%;height:100%;object-fit:contain;object-position:center}
-.rFoot{padding:6px 8px 7px;font-size:11px;color:#656b70;border-top:1px solid var(--line);background:#fcfaf6;line-height:1.25}
-.badgeTL,.badgeTR{position:absolute;top:6px;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:700;background:#fff;border:1px solid var(--line);color:#4a4e52}
-.badgeTL{left:6px}.badgeTR{right:6px}
+/* ===================================================================
+   THE GREY — Components (cards, slots, ribbon, chips)
+   - Restores the "beautiful" card look & interactions
+   - MTG-ish proportions (63×88 ratio)
+   - Works with classes emitted by the current UI:
+     .card, .handCard, .marketCard, .slotCard
+     .slotCell, .slotCell.glyph, .flowGrid .marketCard[data-flow]
+     .ribbon, .ribbon .handCard
+     .cHead, .cName, .cType, .cBody, .cStats
+   =================================================================== */
 
-/* Inspect */
-.inspectBack{position:fixed;inset:0;z-index:75;background:rgba(20,20,20,.25);display:none;align-items:flex-end;justify-content:center;padding-bottom:140px}
-.inspectBack.show{display:flex}
-.inspectCard{min-width:min(580px,92vw);max-width:92vw;background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 32px rgba(60,52,44,.22);padding:12px 14px}
-.inspectCard h3{margin:0 0 6px;font-size:16px;font-weight:800;color:#8A8174}
-.inspectCard p{margin:0 0 8px;font-size:13px;color:#2b2f33}
-.inspectCard .artBox{height:190px;border-radius:10px;overflow:hidden;margin:6px 0 10px;border:1px solid var(--line);background:#fff;display:grid;place-items:center}
-.inspectCard .artBox img{width:100%;height:100%;object-fit:contain;object-position:center}
-.inspectActions{display:flex;gap:8px;justify-content:flex-end}
-.inspectActions button{padding:8px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;color:#1f2225;cursor:pointer}
-
-/* Glyphs */
-.glyphTray{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 6px}
-.glyphTok{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:46px;height:26px;border-radius:8px;background:#fff;border:1px solid var(--line);color:#3a3d40;font-size:11px;box-shadow:var(--shadow-soft);padding:0 8px}
-.glyphTok::before{content:'✦';opacity:.95;font-size:12px;color:#8A8174}
-.glyphTok.own{cursor:pointer}
-.glyphPeek{position:absolute;left:50%;bottom:110%;transform:translateX(-50%);background:#fff;border:1px solid var(--line);color:#222;padding:6px 8px;border-radius:10px;font-size:11px;white-space:nowrap;box-shadow:0 10px 22px rgba(60,50,40,.18);display:none}
-.glyphTok.own:hover .glyphPeek,.glyphTok.own:focus .glyphPeek{display:block}
-
-/* ====== Motion (hand discard + redraw) ====== */
-@media (prefers-reduced-motion: no-preference) {
-  .anim-discard {
-    --dx: 0px; --dy: 0px; --delay: 0ms;
-    animation: card-discard 420ms cubic-bezier(.2,.7,.2,1) var(--delay) forwards;
-    pointer-events: none; will-change: transform, opacity; z-index: 999;
-  }
-  @keyframes card-discard {
-    0%   { transform: translate(0,0) scale(1);   opacity: 1; }
-    80%  { transform: translate(var(--dx),var(--dy)) scale(.95); opacity: .9; }
-    100% { transform: translate(var(--dx),var(--dy)) scale(.9);  opacity: 0; }
-  }
-
-  .anim-draw {
-    animation: card-draw 360ms cubic-bezier(.2,.7,.2,1) var(--delay, 0ms) both;
-    will-change: transform, opacity;
-  }
-  @keyframes card-draw {
-    0%   { transform: translateY(16px) scale(.98); opacity: 0; }
-    100% { transform: translateY(0)     scale(1);   opacity: 1; }
-  }
+/* ---------- Vars (fallbacks if theme.css misses them) ---------- */
+:root{
+  --paper: #f7f3ed;
+  --paper-top: #fbf8f4;
+  --paper-bottom: #efe8dd;
+  --ink: #2a2a2a;
+  --ink-soft:#5b5b5b;
+  --line: rgba(0,0,0,.08);
+  --shadow: 0 10px 18px rgba(0,0,0,.12), 0 2px 6px rgba(0,0,0,.08);
+  --shadow-soft: 0 6px 12px rgba(0,0,0,.10), 0 1px 4px rgba(0,0,0,.06);
+  --ring: 0 0 0 2px rgba(0,0,0,.08), 0 0 0 6px rgba(0,0,0,.04);
+  --accent: #d87b28;  /* aether amber */
+  --accent-soft: rgba(216,123,40,.15);
+  --slot-bg: #faf7f1;
+  --slot-bg-ai: #f1f3f7;
 }
 
-/* ===== Slot resolve glow ===== */
-@media (prefers-reduced-motion: no-preference) {
-  .slot.slot-glow { animation: slot-resolve 650ms ease-out forwards; }
-  @keyframes slot-resolve {
-    0%   { box-shadow: 0 0 0 0 rgba(138,129,116,0); }
-    40%  { box-shadow: 0 0 0 6px rgba(138,129,116,.28), 0 0 22px rgba(138,129,116,.28); }
-    100% { box-shadow: 0 0 0 0 rgba(138,129,116,0); }
-  }
+/* ---------- MTG-ish card proportions & base look ---------- */
+/* The math: aspect-ratio 63/88 ≈ 0.715. Height auto inside
+   contexts; typical widths are set by parent (grid/ribbon). */
+.card{
+  --rad: 14px;
+  --pad: 12px;
+  width: 100%;
+  aspect-ratio: 63 / 88;
+  background: linear-gradient(180deg,var(--paper-top),var(--paper-bottom));
+  border-radius: var(--rad);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  transform: translateZ(0);
+  transition: transform .24s ease, box-shadow .24s ease, filter .24s ease;
 }
+
+/* soft inner parchment “vignette” */
+.card::before{
+  content:"";
+  position:absolute; inset:0;
+  background: radial-gradient(120% 90% at 50% -10%, rgba(255,255,255,.65) 0%, rgba(255,255,255,0) 48%),
+              radial-gradient(130% 80% at 50% 120%, rgba(0,0,0,.06) 0%, rgba(0,0,0,0) 55%);
+  pointer-events:none;
+}
+
+/* hover/drag feedback (hand/market) */
+.handCard:hover,
+.marketCard:hover{
+  transform: translateY(-4px) rotate(-.2deg);
+  box-shadow: 0 16px 28px rgba(0,0,0,.16), 0 4px 10px rgba(0,0,0,.10);
+}
+
+/* smaller shadow in slots */
+.slotCard{
+  box-shadow: var(--shadow-soft);
+}
+
+/* ---------- Card sections ---------- */
+.cHead{
+  padding: var(--pad) var(--pad) 8px;
+  border-bottom: 1px solid var(--line);
+  line-height: 1.15;
+}
+.cName{
+  font-weight: 700;
+  font-size: clamp(13px, 1.5vw, 16px);
+  letter-spacing: .2px;
+}
+.cType{
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--ink-soft);
+  text-transform: none;
+}
+
+.cBody{
+  flex: 1;
+  padding: 10px var(--pad) 8px;
+  font-size: 13px;
+  color: var(--ink);
+  display: flex;
+  align-items: flex-start;
+}
+
+.cStats{
+  padding: 8px var(--pad) 10px;
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+.cStats .stat{
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.04);
+}
+.cStats .v{
+  background: var(--accent-soft);
+  color: #7a3e00;
+}
+
+/* ---------- Ribbon (hand) ---------- */
+.ribbon{
+  position: relative;
+  display: flex;
+  gap: 14px;
+  padding: 18px 18px 22px;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+.ribbon .handCard{
+  width: clamp(130px, 12vw, 180px);
+  transform-origin: 50% 95%;
+  will-change: transform;
+  cursor: grab;
+}
+
+/* ---------- Flow grid (market) ---------- */
+.flowWrap{
+  padding: 8px 12px 16px;
+}
+.flowGrid{
+  display: grid;
+  grid-template-columns: repeat(5, minmax(160px,1fr));
+  gap: 18px;
+  align-items: start;
+}
+.costCell{
+  position: relative;
+  height: 0; /* let cards define height via aspect-ratio */
+}
+.costChip{
+  position: absolute;
+  top: -14px; left: 50%;
+  transform: translateX(-50%);
+  background: #fff8ec;
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: var(--shadow-soft);
+  color: #7a3e00;
+  border-radius: 999px;
+  font-size: 12px;
+  padding: 3px 9px;
+}
+.flowGrid .marketCard{
+  width: 100%;
+}
+
+/* ---------- Slots (player & AI) ---------- */
+.slots{
+  display: grid;
+  grid-template-columns: repeat(3, minmax(180px,1fr));
+  gap: 18px;
+  align-items: start;
+  padding: 10px 12px 18px;
+}
+.slotCell{
+  height: calc((min(22vw, 220px)) * 88 / 63);
+  min-height: 180px;
+  border-radius: 16px;
+  background: var(--slot-bg);
+  border: 1px dashed rgba(0,0,0,.12);
+  display: grid;
+  place-items: center;
+  position: relative;
+  transition: box-shadow .2s ease, background .2s ease, border-color .2s ease;
+  overflow: hidden;
+}
+.slotCell.ai{
+  background: var(--slot-bg-ai);
+}
+.slotCell.glyph{
+  border-style: solid;
+  border-color: rgba(0,0,0,.10);
+  background: linear-gradient(180deg,#f3f0e9,#ebe6dc);
+}
+
+/* highlight from drag/typed targeting */
+.slotCell.highlight{
+  box-shadow: var(--ring);
+  background: #fffdf8;
+  border-color: rgba(216,123,40,.35);
+}
+
+/* when a card sits in a slot, we size it to fill nicely */
+.slotCell > .slotCard{
+  width: 92%;
+}
+
+/* empty message */
+.emptyCell{
+  color: rgba(0,0,0,.35);
+  font-size: 13px;
+}
+
+/* ---------- Glyph face-down (tray render) ---------- */
+.glyphCard.faceDown{
+  background: linear-gradient(180deg,#e7e3db,#d7d0c4);
+  box-shadow: var(--shadow-soft) inset;
+}
+.glyphCard.faceDown .cHead,
+.glyphCard.faceDown .cType,
+.glyphCard.faceDown .cBody,
+.glyphCard.faceDown .cStats{
+  opacity: .0;
+}
+
+/* ---------- Chips (deck/discard) ---------- */
+.deckBar{
+  position: sticky; bottom: 0; inset-inline: 0;
+  display: flex; gap: 10px;
+  padding: 10px 12px;
+}
+.chipCirc{
+  width: 44px; height: 44px;
+  border-radius: 999px;
+  display: grid; place-items: center;
+  border: 1px solid rgba(0,0,0,.08);
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+  position: relative;
+}
+.chipCirc small{
+  position: absolute; bottom: -8px;
+  background:#fff;
+  border:1px solid rgba(0,0,0,.06);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 11px;
+  box-shadow: var(--shadow-soft);
+}
+
+/* ---------- Subtle animations ---------- */
+@keyframes card-pop {
+  from { transform: scale(.98); filter: brightness(.98); }
+  to   { transform: scale(1);   filter: brightness(1); }
+}
+.card{ animation: card-pop .18s ease both; }
+
+/* ---------- Aether “pulse” helper (used by gem) ---------- */
+@keyframes aether-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(216,123,40,.38); }
+  70%  { box-shadow: 0 0 0 14px rgba(216,123,40,0); }
+  100% { box-shadow: 0 0 0 0 rgba(216,123,40,0); }
+}
+.aetherPulse{
+  animation: aether-pulse 1.25s ease-out 1;
+}
+
+/* ---------- Drag “ghost” appearance ---------- */
+.dragGhost{
+  filter: drop-shadow(0 12px 18px rgba(0,0,0,.22));
+  transform: rotate(1deg);
+}
+
+/* ---------- Utility for typed target highlights ---------- */
+.canDropSpell .slotCell:not(.glyph){ outline: 2px dashed rgba(44,120,255,.35); outline-offset: 2px; }
+.canDropGlyph .slotCell.glyph{ outline: 2px dashed rgba(44,120,255,.35); outline-offset: 2px; }
