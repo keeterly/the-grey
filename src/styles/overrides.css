@@ -1,6 +1,5 @@
 /* ================= Floating mini-controls ================= */
 
-/* Left dock: deck + discard */
 .leftDock{
   position: fixed;
   left: 16px;
@@ -19,14 +18,17 @@
   display: grid; place-items: center;
   color: #3a3a3a;
 }
+.leftDock .chipCirc svg{
+  width: 22px; height: 22px; display:block;
+  color: #3a3a3a;
+}
 .leftDock .chipCirc small{
   position: absolute;
-  bottom: -10px;
+  bottom: -12px;
   font-size: 12px;
   opacity: .8;
 }
 
-/* Right gem: Aether counter */
 .aetherGem{
   position: fixed;
   right: 16px;
@@ -72,10 +74,26 @@ body.noselect, body.noselect * { -webkit-user-select: none !important; user-sele
 
 /* Keep fixed rows at card-height so flow/board never misalign */
 .fixedRow{
-  min-height: 280px; /* match your card height */
+  min-height: 280px; /* match card height */
 }
 
-/* Give extra space so lowered hand doesn’t hide controls */
+/* Extra space so lowered hand doesn’t hide UI */
 .ribbon-wrap{
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 36px);
+}
+
+/* Press-and-hold zoom preview (like Arena) */
+.card.handCard.focusZoom{
+  transform: translate(0px, -56px) scale(1.18) !important;
+  z-index: 999 !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,.28), 0 2px 0 rgba(0,0,0,.08) inset;
+}
+
+/* Continuous pulse for Instants (re-triggered in JS) */
+.card.handCard.instantPulse{
+  animation: goldPulse .55s ease-in-out forwards;
+}
+@keyframes goldPulse{
+  0%   { box-shadow: 0 0 0 0 rgba(234, 175, 54, .55); }
+  100% { box-shadow: 0 0 12px 8px rgba(234, 175, 54, .0); }
 }
