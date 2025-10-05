@@ -1,13 +1,17 @@
 // =========================================================
-// THE GREY — UI ENTRY (v3.8)
-// - Fixed-height rows (AI Board / Aetherflow / Your Board)
-// - 3 spell slots + 1 glyph slot (both sides). Glyphs facedown for opponent.
-// - Play animations: hand → slot / glyph (ghost), slot pulse
-// - Controls in top-right; Aethergem at bottom-right above hand
-// - Deck/Discard modal fixed size; pile viewers on click
-// - AI visible flights (play/channel/buy/advance), suppressed on first paint
-// - Player BUY pre-animates market → discard
-// - Discard fan (reverse of draw) uses real hand nodes before END_TURN
+// THE GREY — UI ENTRY (v3.9)
+// =========================================================
+//
+// • Fixed card/row layout (MTG 63×88 ratio) — row heights never shift
+// • 3 spell slots + 1 glyph slot (both sides). Glyphs face-down; badge shows count
+// • Draw fan: deck → hand (real hand DOM nodes)
+// • Discard fan: hand → discard (reverse of draw) before END_TURN dispatch
+// • Player BUY anim: market → your discard (ghost) then state
+// • AI visible flights (play/channel/buy/advance), first paint suppressed
+// • Top-right controls; bottom FABs hidden via CSS
+// • Aethergem (minimal diamond) bottom-right, shimmer on Æ gain
+// • Clickable deck/discard open fixed-size modals
+//
 // =========================================================
 
 export function init(game) {
@@ -17,6 +21,7 @@ export function init(game) {
   const T  = (el, v) => { if (el) el.textContent = String(v); };
   const pct= (n, d)=> `${(100 * (n ?? 0)) / (d || 1)}%`;
   const clamp = (n, a, b)=> Math.max(a, Math.min(b, n));
+  const wait = (ms)=> new Promise(res=> setTimeout(res, ms));
 
   const DEFAULT_WEAVER_YOU = 'Default';
   const DEFAULT_WEAVER_AI  = 'AI';
@@ -27,6 +32,7 @@ export function init(game) {
   let prevAIHand    = 0;
   let prevFlowCards = [];
   let prevFlowRects = [];
+  let prevAE        = 0;
   let firstPaint    = true;
 
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
@@ -52,7 +58,7 @@ export function init(game) {
     return a;
   }
   function aiAeAnchor() {
-    return $('#aiAeGem') || $('#aiAeValue') || $('#pillAi') || $('#aiTranceFill') || null;
+    return $('#aiAeValue') || $('#pillAi') || $('#aiTranceFill') || null;
   }
   function aiDiscardAnchor() {
     let d = $('#aiDiscardChip');
@@ -97,7 +103,7 @@ export function init(game) {
     document.body.appendChild(g);
     return g;
   }
-  function animateGhost(fromRect, toEl, { lift=0.18, rotate=8, duration=840, delay=0, easing='cubic-bezier(.18,.75,.25,1)', scaleEnd=0.96 }={}) {
+  function pathFrames(fromRect, toEl, { lift=0.18, rotate=8, scaleEnd=0.96 }={}) {
     const to = R(toEl);
     const dx = to.left - fromRect.left;
     const dy = to.top  - fromRect.top;
@@ -105,15 +111,11 @@ export function init(game) {
     const arc = clamp(dist*lift, 80, 260);
     const side= Math.random()<.5 ? -1 : 1;
     const rot = side*rotate;
-    return new KeyframeEffect(
-      document.createElement('div'), // dummy, we use this only for timing opts; actual element animates separately
-      [
-        { transform: `translate(0,0) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
-        { transform: `translate(${dx*.55}px, ${dy*.45-arc}px) rotate(${rot}deg) scale(1.06)`, opacity: .95, offset: .55 },
-        { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: .08, offset: 1 }
-      ],
-      { duration, delay, easing, fill:'forwards' }
-    );
+    return [
+      { transform: `translate(0,0) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
+      { transform: `translate(${dx*.55}px, ${dy*.45-arc}px) rotate(${rot}deg) scale(1.06)`, opacity: .95, offset: .55 },
+      { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`, opacity: .08, offset: 1 }
+    ];
   }
 
   // ---------- Draw / Discard (real nodes) ----------
@@ -142,7 +144,6 @@ export function init(game) {
       const dy = to.top  - r.top;
       const spread = (i - last/2) * 12;
       el.style.transition='none'; void el.offsetWidth;
-      const delay = i*110;
       el.style.transition=`transform .85s cubic-bezier(.26,.7,.32,1.12), opacity .85s ease`;
       el.style.transform =`translate(${dx}px, ${dy}px) scale(.72) rotate(${spread*.2}deg)`;
       el.style.opacity  ='.06';
@@ -152,7 +153,20 @@ export function init(game) {
     return Promise.all(promises);
   }
 
-  // ---------- HUD / counts / Aethergem ----------
+  // ---------- Aether shimmer ----------
+  function maybeShimmerAE(newAE){
+    const gem = $('#aetherGem');
+    if (!gem) return;
+    if (newAE > prevAE){
+      gem.classList.remove('shimmer'); // restart
+      void gem.offsetWidth;
+      gem.classList.add('shimmer');
+      setTimeout(()=> gem.classList.remove('shimmer'), 700);
+    }
+    prevAE = newAE;
+  }
+
+  // ---------- HUD / counts ----------
   function renderHUD(S){
     T($('#hpValue'),   S.hp ?? 0);
     T($('#aeValue'),   S.ae ?? 0);
@@ -165,8 +179,9 @@ export function init(game) {
     T($('#youTranceCount'), `${you.cur ?? 0}/${you.cap ?? 6}`);
     T($('#aiTranceCount'),  `${ai.cur ?? 0}/${ai.cap ?? 6}`);
 
-    // Aethergem number
+    // Aethergem number + shimmer on gain
     T($('#aetherGemNum'), S.ae ?? 0);
+    maybeShimmerAE(S.ae ?? 0);
   }
   function renderCounts(S){
     T($('#deckCount'),    S.deck?.length ?? 0);
@@ -182,6 +197,7 @@ export function init(game) {
       const el = cells[i];
       const c = S.flowRow?.[i] || null;
       el.innerHTML=''; el.classList.toggle('empty', !c);
+      el.onclick = null;
       prevFlowCards[i] = c ? { n:c.n, t:c.t, v:c.v, p:c.p, id:c.id } : null;
       prevFlowRects[i] = R(el);
       if (c){
@@ -193,6 +209,11 @@ export function init(game) {
           <div class="cardTop"><div class="cardTitle">${c.n}</div><div class="cardSub">${c.t||''}</div></div>
           <div class="cardBottom"><div class="cardVal">${(c.v!=null?('+'+c.v+'⚡'):'')}${(c.p!=null?(' · '+c.p+'ϟ'):'')}</div></div>`;
         el.appendChild(card);
+
+        // BUY handler (player)
+        el.onclick = () => {
+          try { game.dispatch({ type:'BUY_FLOW', index:i }); } catch(e){ console.error('[UI] buy', e); }
+        };
       }
     }
   }
@@ -250,10 +271,6 @@ export function init(game) {
     badge.className = 'glyphCount';
     badge.textContent = glyphs.length;
     wrap.appendChild(badge);
-    if (side === 'you') {
-      // If you want your own glyphs face-up, uncomment and render details
-      // For now, we also show them face-down for consistency, but known to you.
-    }
     return wrap;
   }
 
@@ -352,7 +369,7 @@ export function init(game) {
   function closeModal(){ if (modal) modal.classList.remove('open'); }
 
   // ---------- Render tick ----------
-  function draw(){
+  async function draw(){
     const S = game.state || {};
 
     // capture old AI/flow BEFORE render
@@ -388,7 +405,7 @@ export function init(game) {
               const fr = R(deckA);
               const ghost = makeGhostFromCard(slot.c, fr);
               ghost.animate(
-                animateGhost(fr, target, { duration: 840, rotate: 8, scaleEnd: .95 }),
+                pathFrames(fr, target, { scaleEnd:.95 }),
                 { duration: 840, easing: 'cubic-bezier(.18,.75,.25,1)', fill: 'forwards' }
               ).onfinish = ()=> ghost.remove();
             }
@@ -397,11 +414,12 @@ export function init(game) {
         // CHANNEL (hand-- and no new slot)
         const newSlotAdded = prevAISig.some((sig,i)=> oldAISig[i]===null && sig!==null);
         if (!newSlotAdded && prevAIHand < oldAIHand) {
-          if (deckA && aeA){
-            const fr = R(deckA);
+          const deckA2 = aiDeckAnchor();
+          if (deckA2 && aeA){
+            const fr = R(deckA2);
             const ghost = makeGhostFromCard({ n:'Channel', t:'Instant', v:1 }, fr);
             ghost.animate(
-              animateGhost(fr, aeA, { duration: 760, rotate: 10, scaleEnd:.45 }),
+              pathFrames(fr, aeA, { scaleEnd:.45 }),
               { duration: 760, easing: 'cubic-bezier(.2,.7,.2,1)', fill:'forwards' }
             ).onfinish = ()=> ghost.remove();
           }
@@ -414,7 +432,7 @@ export function init(game) {
             if (aiDisc) {
               const ghost = makeGhostFromCard(oldFlow[i], fromRect);
               ghost.animate(
-                animateGhost(fromRect, aiDisc, { duration: 780, rotate:6, scaleEnd:.72 }),
+                pathFrames(fromRect, aiDisc, { scaleEnd:.72 }),
                 { duration: 780, easing:'cubic-bezier(.18,.75,.25,1)', fill:'forwards' }
               ).onfinish = ()=> ghost.remove();
             }
@@ -424,28 +442,33 @@ export function init(game) {
         for (let i=0;i<prevAISig.length;i++){
           const a=prevAISig[i], b=oldAISig[i];
           if (a && b && a!==b){
-            const cell = aiCells[i];
+            const cell = $$('#aiSlots .slotCell')[i];
             if (cell){ cell.classList.add('pulse'); setTimeout(()=>cell.classList.remove('pulse'), 520); }
           }
         }
       }catch(e){ console.warn('[UI] AI ghost diff failed', e); }
     }
 
-    // rebind drags
+    // rebind drags (safe no-op if absent)
     if (window.DragCards?.refresh) window.DragCards.refresh();
 
     firstPaint = false;
   }
 
   // ---------- AI turn helper ----------
-  const wait = (ms)=> new Promise(res=> setTimeout(res, ms));
   async function runAiTurn(){
-    game.dispatch({ type:'AI_DRAW'  }); draw(); await wait(220);
-    game.dispatch({ type:'AI_PLAY_SPELL' }); draw(); await wait(260);
-    game.dispatch({ type:'AI_CHANNEL' }); draw(); await wait(220);
-    game.dispatch({ type:'AI_ADVANCE' }); draw(); await wait(260);
-    game.dispatch({ type:'AI_BUY' });    draw(); await wait(220);
-    game.dispatch({ type:'AI_SPEND_TRANCE' }); draw(); await wait(200);
+    game.dispatch({ type:'AI_DRAW'  }); await draw();
+    await wait(220);
+    game.dispatch({ type:'AI_PLAY_SPELL' }); await draw();
+    await wait(260);
+    game.dispatch({ type:'AI_CHANNEL' }); await draw();
+    await wait(220);
+    game.dispatch({ type:'AI_ADVANCE' }); await draw();
+    await wait(260);
+    game.dispatch({ type:'AI_BUY' });    await draw();
+    await wait(220);
+    game.dispatch({ type:'AI_SPEND_TRANCE' }); await draw();
+    await wait(200);
   }
 
   // ---------- Dispatch wrapper (pre-anims) ----------
@@ -453,6 +476,7 @@ export function init(game) {
     const orig = game.dispatch;
 
     game.dispatch = async (action) => {
+
       // Pre-animate player BUY: market → player discard
       if (action?.type === 'BUY_FLOW' && typeof action.index === 'number') {
         const idx = action.index;
@@ -465,12 +489,12 @@ export function init(game) {
           const ghost = makeGhostFromCard(c, fromRect);
           await new Promise((resolve)=>{
             ghost.animate(
-              animateGhost(fromRect, discardBtn, { duration: 780, rotate: 6, scaleEnd:.72 }),
+              pathFrames(fromRect, discardBtn, { scaleEnd:.72 }),
               { duration: 780, easing: 'cubic-bezier(.18,.75,.25,1)', fill:'forwards' }
             ).onfinish = () => { ghost.remove(); resolve(); };
           });
         }
-        const res = orig(action); draw(); return res;
+        const res = orig(action); await draw(); return res;
       }
 
       // Pre-animate END_TURN: discard hand (real nodes), then AI, then start our turn
@@ -478,43 +502,39 @@ export function init(game) {
         const liveHand = Array.from(document.querySelectorAll('.ribbon .handCard'));
         const discardBtn = $('#chipDiscard');
         await animateDiscardFanSameNodes(liveHand, discardBtn);
-        const res = orig(action); draw();
+        const res = orig(action); await draw();
         await runAiTurn();
-        orig({ type:'START_TURN' }); draw();
+        orig({ type:'START_TURN' }); await draw();
         return res;
       }
 
-      // Pre-animate PLAY_FROM_HAND with ghost (hand → target slot/glyph)
+      // Pre-animate PLAY_FROM_HAND (spell or glyph): hand → slot/glyph
       if (action?.type === 'PLAY_FROM_HAND' && typeof action.index === 'number') {
-        // capture hand card rect before dispatch
         const handEl = document.querySelector(`.ribbon .handCard[data-index="${action.index}"]`);
         const fromRect = handEl ? R(handEl) : null;
 
-        const beforeState = (game.state || {});
-        const beforeEmptySlot = (beforeState.slots||[]).findIndex(s=>!s);
-        const isGlyph = beforeState.hand?.[action.index]?.t === 'Glyph';
+        const before = (game.state || {});
+        const wasEmptyIdx = (before.slots||[]).findIndex(s=>!s);
+        const isGlyph = before.hand?.[action.index]?.t === 'Glyph';
 
-        const res = orig(action); // state mutates
-        draw();
+        const res = orig(action); await draw();
 
-        // find target
         let targetEl = null;
         if (isGlyph) {
           targetEl = $('#playerSlots .glyphSlot .glyphBack') || $('#playerSlots .glyph');
         } else {
-          // find the first slot that changed from empty to filled (fallback to beforeEmptySlot)
           const after = (game.state || {}).slots || [];
-          let filledIndex = after.findIndex((s,i)=> s && i === (beforeEmptySlot===-1? i : beforeEmptySlot));
-          if (filledIndex < 0) filledIndex = after.findIndex(s=>s); // last resort
+          let filledIndex = after.findIndex((s,i)=> s && i === (wasEmptyIdx===-1? i : wasEmptyIdx));
+          if (filledIndex < 0) filledIndex = after.findIndex(s=>s);
           const cell = $$('#playerSlots .slotCell')[filledIndex];
           targetEl = cell?.querySelector('.slotPanel') || cell;
           if (cell) { cell.classList.add('pulse'); setTimeout(()=>cell.classList.remove('pulse'), 520); }
         }
 
         if (fromRect && targetEl) {
-          const ghost = makeGhostFromCard(beforeState.hand?.[action.index] || {n:'Card'}, fromRect);
+          const ghost = makeGhostFromCard(before.hand?.[action.index] || {n:'Card'}, fromRect);
           ghost.animate(
-            animateGhost(fromRect, targetEl, { duration: 720, rotate: 7, scaleEnd:.9 }),
+            pathFrames(fromRect, targetEl, { scaleEnd:.9 }),
             { duration: 720, easing: 'cubic-bezier(.2,.75,.25,1)', fill:'forwards' }
           ).onfinish = ()=> ghost.remove();
         }
@@ -522,7 +542,7 @@ export function init(game) {
       }
 
       const result = orig(action);
-      draw();
+      await draw();
       return result;
     };
     game.__uiWrapped = true;
@@ -554,7 +574,7 @@ export function init(game) {
 
   // first paint
   draw();
-  console.log('[UI] v3.8 — fixed rows, 3+glyph slots, play anims, controls top-right, Aethergem, fixed modals');
+  console.log('[UI] v3.9 — fixed rows, 3+glyph slots, play/discard/buy anms, top-right controls, diamond Aethergem, fixed modals');
 }
 
 // ---------- Top-right controls & Aethergem elements ----------
@@ -573,7 +593,7 @@ function ensureHudExtras(){
   if (!document.getElementById('aetherGem')) {
     const gem = document.createElement('div');
     gem.id = 'aetherGem';
-    gem.innerHTML = `<div class="gemCore"><span id="aetherGemNum">0</span></div>`;
+    gem.innerHTML = `<div class="diamond"><span id="aetherGemNum">0</span></div>`;
     document.body.appendChild(gem);
   }
 }
@@ -581,15 +601,23 @@ function ensureHudExtras(){
 // -------------------- styles --------------------
 const style = document.createElement('style');
 style.textContent = `
-  :root { --card-w: 160px; --row-pad: 12px; --zone-h: calc(var(--card-w) * 88 / 63 + var(--row-pad) * 2); }
+  :root {
+    --card-w: 160px; /* MTG ratio 63×88 — width controls everything */
+    --row-pad: 12px;
+    --card-h: calc(var(--card-w) * 88 / 63);
+    --zone-h: calc(var(--card-h) + var(--row-pad) * 2);
+  }
+
+  /* Hide old FAB icons that overlapped the Aethergem */
+  .fabDial { display: none !important; }
 
   /* Fixed-height zones matching card height */
   .zone { min-height: var(--zone-h); max-height: var(--zone-h); }
   .flowWrap { min-height: var(--zone-h); max-height: var(--zone-h); }
 
-  /* Aetherflow: five market cells already exist in HTML */
+  /* Aetherflow consistent grid */
   .flowGrid { display:grid; grid-template-columns: repeat(5, var(--card-w)); justify-content:center; gap:16px; }
-  .marketCard { width: var(--card-w); height: calc(var(--card-w) * 88 / 63); }
+  .marketCard { width: var(--card-w); height: var(--card-h); display:flex; align-items:center; justify-content:center; }
   .marketCard.empty { background: transparent; border-radius: 12px; border: 1px dashed rgba(0,0,0,.08); }
 
   /* Hand ribbon */
@@ -624,13 +652,14 @@ style.textContent = `
     gap: 16px;
     padding: var(--row-pad);
     justify-content:center;
-    min-height: calc(var(--card-w) * 88 / 63 + var(--row-pad) * 2);
-    max-height: calc(var(--card-w) * 88 / 63 + var(--row-pad) * 2);
+    min-height: var(--zone-h);
+    max-height: var(--zone-h);
+    align-items:center;
   }
   .slotCell {
     display:flex; align-items:center; justify-content:center;
     width: var(--card-w);
-    height: calc(var(--card-w) * 88 / 63);
+    height: var(--card-h);
     border-radius:16px; background:#fffaf4;
     border:1px solid rgba(0,0,0,.06); box-shadow:0 2px 6px rgba(0,0,0,.05) inset;
     transition: transform .15s, box-shadow .15s;
@@ -669,19 +698,28 @@ style.textContent = `
   }
   #uiTopRight .uiButtons button:hover { transform:translateY(-1px); }
 
-  /* Aethergem bottom-right above hand */
+  /* Aethergem (diamond) bottom-right above hand */
   #aetherGem {
     position:fixed; right:18px; bottom:110px; z-index:4000;
-    width:54px; height:54px; display:flex; align-items:center; justify-content:center;
+    width:56px; height:56px; display:flex; align-items:center; justify-content:center;
     filter: drop-shadow(0 4px 10px rgba(0,0,0,.22));
+    pointer-events:none;
   }
-  #aetherGem .gemCore {
-    width:100%; height:100%; border-radius:16px;
-    background: radial-gradient(50% 50% at 50% 50%, #ffe9b3 0%, #ffd26f 50%, #f3a93b 100%);
-    border: 2px solid #8d5a1a; display:flex; align-items:center; justify-content:center;
-    font-weight:800; color:#3b2a14; text-shadow:0 1px 0 rgba(255,255,255,.6);
+  #aetherGem .diamond {
+    width: 44px; height: 44px; transform: rotate(45deg);
+    background: linear-gradient(135deg, #f9e29a 0%, #f2c65b 50%, #e29b2e 100%);
+    border: 2px solid #8d5a1a; border-radius: 8px;
+    display:flex; align-items:center; justify-content:center;
   }
-  #aetherGem .gemCore span { transform: translateY(1px); }
+  #aetherGem .diamond span {
+    transform: rotate(-45deg); font-weight:800; color:#3b2a14; text-shadow:0 1px 0 rgba(255,255,255,.6);
+  }
+  #aetherGem.shimmer .diamond { animation: gemShimmer .7s ease both; }
+  @keyframes gemShimmer {
+    0% { box-shadow:0 0 0 0 rgba(255,240,180,0); }
+    50% { box-shadow:0 0 18px 6px rgba(255,220,140,.55); }
+    100% { box-shadow:0 0 0 0 rgba(255,240,180,0); }
+  }
 
   /* Chips (AI floating discard) */
   .chipCirc.ai {
