@@ -1,15 +1,11 @@
 /* =========================================================
-   THE GREY — LAYOUT (finalized clamp)
-   - Keeps rows fixed to card height
-   - Centers trance dock in HUD
-   - Prevents ribbon/hand clipping
-   - Aligns Aetherflow + slots + glyphs
+   THE GREY — LAYOUT (locked rows + centered trance + ribbon)
    ========================================================= */
 
 :root{
   /* Keep in sync with components.css .card size */
   --card-w: 180px;
-  --card-h: 252px;     /* MTG-ish proportion with header padding */
+  --card-h: 252px;   /* ~MTG aspect */
   --gap:    14px;
 
   --wrap-max: 1200px;
@@ -19,14 +15,11 @@
   --chip-fg: #7a6042;
 }
 
-html, body {
-  height: 100%;
-}
-
+html, body { height: 100%; }
 body {
   margin: 0;
   background: var(--pane-bg);
-  font-family: 'Inter', system-ui, ui-sans-serif, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, 'Noto Sans', 'Helvetica Neue', Arial, "Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
   color: #222;
   display: flex;
   flex-direction: column;
@@ -36,7 +29,7 @@ body {
 
 /* ---------------- HUD ---------------- */
 
-.hudRow {
+.hudRow{
   width: 100%;
   max-width: var(--wrap-max);
   display: grid;
@@ -44,20 +37,15 @@ body {
   align-items: center;
   gap: 12px;
   padding: 8px 16px 12px;
-  position: relative;
   margin: 4px auto 8px;
 }
-
-.hudRow > #pillYou { justify-self: start; }
-.hudRow > #pillAi  { justify-self: end; }
-
-.tranceDock {
-  justify-self: center;
-}
+.hudRow > #pillYou{ justify-self: start; }
+.hudRow > #pillAi { justify-self: end;  }
+.tranceDock { justify-self: center; }
 
 /* ---------------- Shell ---------------- */
 
-.wrap {
+.wrap{
   width: 100%;
   max-width: var(--wrap-max);
   display: flex;
@@ -66,176 +54,125 @@ body {
   margin: 0 auto 24px;
   padding: 0 8px;
 }
-
-.zone {
+.zone{
   background: var(--zone-bg);
   border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
   padding: 10px 12px 14px;
 }
+.zone .title{ font-weight: 600; margin: 6px 0 8px; }
 
-.zone .title {
-  font-weight: 600;
-  margin: 6px 0 8px;
-}
-
-/* ---------------- Rows / Grids ---------------- */
+/* ---------------- Slots / Rows ---------------- */
 
 .slots,
-.flowGrid,
-.glyphTray {
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
+.glyphTray{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
   gap: var(--gap);
   flex-wrap: nowrap;
   overflow: visible;
 }
-
-/* Fix each row height to card height (plus small breathing room) */
-.fixedRow {
+.fixedRow{
   min-height: calc(var(--card-h) + 8px);
   max-height: calc(var(--card-h) + 8px);
 }
 
-/* Slot receptacles (empty states) */
-.slotCell,
-.marketCard {
+.slotCell{
   width: var(--card-w);
   height: var(--card-h);
-  background: #f9f6f1;
-  border: 1px dashed rgba(0,0,0,0.08);
+  background:#f9f6f1;
+  border: 1px dashed rgba(0,0,0,.08);
   border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s ease, transform 0.12s ease;
+  display:flex; align-items:center; justify-content:center;
+  transition: background .2s ease, transform .12s ease, outline-color .12s ease;
 }
+.slotCell .emptyCell{ color:#b9b0a4; }
+.slotCell.ai{ background:#f2efe8; }
 
-.slotCell .emptyCell { color: #b9b0a4; }
+/* Drag affordances */
+.slotCell.drop-ok    { outline: 2px solid rgba(90,160,110,.35); background:#f6fbf7; }
+.slotCell.drop-no    { filter: grayscale(.3) brightness(.96); opacity:.7; }
+.slotCell.drop-hover { outline: 3px solid rgba(90,160,110,.55); transform: translateY(-2px); }
 
-/* Glyph tray – slightly smaller cards if you render face-down tiles there */
-.glyphTray {
-  justify-content: flex-start;
-}
-.glyphTray .card.glyphCard {
-  width: calc(var(--card-w) * 0.85);
-  height: calc(var(--card-h) * 0.85);
-}
+/* ---------------- Aetherflow (GRID = perfect alignment) ---------------- */
 
-/* ---------------- Aetherflow ---------------- */
-
-.flowWrap { display: flex; justify-content: center; }
-
-.flowGrid {
-  position: relative;
+.flowWrap{ display:flex; justify-content:center; }
+.flowGrid{
+  display: grid;
+  grid-template-columns: repeat(5, var(--card-w));
+  grid-template-rows: 26px var(--card-h);
   gap: var(--gap);
+  align-items: start;
+  justify-content: center;
 }
+.costCell{ grid-row:1; height:26px; position:relative; }
+.marketCard{ grid-row:2; width: var(--card-w); height: var(--card-h); }
 
-/* price chips sit above each market card */
-.costCell {
-  position: relative;
-  width: var(--card-w);
-  height: 0;
-}
-.costChip {
-  position: absolute;
-  top: -12px;
-  left: 50%;
-  transform: translateX(-50%);
+.costChip{
+  position:absolute;
+  top:-12px; left:50%; transform:translateX(-50%);
   background: var(--chip-bg);
   color: var(--chip-fg);
-  border-radius: 999px;
-  width: 26px;
-  height: 26px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  border-radius:999px; width:26px; height:26px;
+  display:grid; place-items:center;
+  font-size:12px; font-weight:700;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+
+/* ---------------- Glyph tray ---------------- */
+
+.glyphTray{ justify-content:flex-start; }
+.glyphTray .card.glyphCard{
+  width: calc(var(--card-w)*.85);
+  height: calc(var(--card-h)*.85);
 }
 
 /* ---------------- Ribbon (Hand) ---------------- */
 
-.ribbon-wrap {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  height: calc(var(--card-h) + 84px);   /* space for hover/drag surge */
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 30;
+.ribbon-wrap{
+  position: fixed; left:0; right:0; bottom:0;
+  height: calc(var(--card-h) + 84px);
+  display:flex; align-items:flex-end; justify-content:center;
+  pointer-events:none;
+  z-index:30;
 }
-
-.ribbon {
-  display: flex;
-  gap: 16px;
+.ribbon{
+  display:flex; flex-wrap:nowrap; gap: 18px;
   transform: translateY(-36px);
-  pointer-events: all; /* allow interactions */
-  justify-content: center;
-  align-items: flex-end;
+  pointer-events: all;
+  justify-content:center; align-items:flex-end;
   padding: 10px 18px;
+  perspective: 800px;
 }
-
-/* Prevent the page bottom from hiding the fan */
-body { padding-bottom: 180px; }
+.handCard{
+  position: relative;
+  will-change: transform;
+  transform-origin: 50% 90%;
+}
+body{ padding-bottom: 180px; } /* never clip the ribbon */
 
 /* ---------------- Deck / Discard / FAB ---------------- */
 
-.deckBar {
-  position: fixed;
-  bottom: 14px;
-  left: 14px;
-  display: flex;
-  gap: 8px;
-  z-index: 35;
+.deckBar{
+  position:fixed; bottom:14px; left:14px; display:flex; gap:8px; z-index:35;
+}
+.fabDial.topRight{
+  position:fixed; top:14px; right:14px;
+  display:flex; flex-direction:column; gap:8px; z-index:35;
 }
 
-.fabDial.topRight {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  z-index: 35;
+/* Aether gem */
+.aeGem{
+  position:fixed; right:18px; bottom:78px; z-index:34;
+  width:38px; height:38px; border-radius:10px;
+  background:#f2c46d; color:#432c09;
+  display:grid; place-items:center; font-weight:800;
+  box-shadow: 0 4px 8px rgba(0,0,0,.15);
 }
 
-/* Aether gem counter (bottom-right) */
-.aeGem {
-  position: fixed;
-  right: 18px;
-  bottom: 78px;
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  background: #f2c46d;
-  color: #432c09;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-  z-index: 34;
-}
+/* ---------------- Responsive ---------------- */
 
-/* ---------------- Drag affordances ---------------- */
-
-.slotCell.drop-ok      { outline: 2px solid rgba(90,160,110,0.35); background: #f6fbf7; }
-.slotCell.drop-no      { filter: grayscale(0.3) brightness(0.96); opacity: 0.7; }
-.slotCell.drop-hover   { outline: 3px solid rgba(90,160,110,0.55); transform: translateY(-2px); }
-
-/* keep ai slots visually distinct but same size */
-.slotCell.ai { background: #f2efe8; }
-
-/* ---------------- Small screens ---------------- */
-
-@media (max-width: 1120px) {
-  :root { --wrap-max: 1000px; --card-w: 168px; --card-h: 240px; }
-}
-@media (max-width: 980px) {
-  :root { --wrap-max: 900px; --card-w: 160px; --card-h: 228px; }
-}
-@media (max-width: 860px) {
-  :root { --wrap-max: 820px; --card-w: 152px; --card-h: 216px; }
-}
+@media (max-width:1120px){ :root{ --wrap-max:1000px; --card-w:168px; --card-h:240px; } }
+@media (max-width:980px) { :root{ --wrap-max:900px;  --card-w:160px; --card-h:228px; } }
+@media (max-width:860px) { :root{ --wrap-max:820px;  --card-w:152px; --card-h:216px; } }
