@@ -158,3 +158,21 @@ export function init(game){
 
   console.log('[UI] v3.9+ — animations restored, typed highlights, fixed rows');
 }
+
+  // TEMP: seed some test cards if state is empty
+  if (!G.state.hand?.length) {
+    G.state.hand = [
+      { id:'h1', n:'Apprentice Bolt', t:'Spell', v:1, p:1, txt:'Deal 1.' },
+      { id:'h2', n:'Mirror Ward', t:'Glyph', v:0, p:1, txt:'Reflect next damage (sim).' },
+      { id:'h3', n:'Kindle', t:'Spell', v:1, p:2, txt:'On resolve: +1⚡.' },
+      { id:'h4', n:'Meditate', t:'Instant', v:1, p:1, txt:'+1⚡ (or play).' }
+    ];
+    G.state.flowRow = [
+      { id:'f1', n:'Ember', t:'Spell', v:0, p:1, txt:'Deal 2.' },
+      null,null,null,null
+    ];
+    G.state.slots = [null,null,null];
+    G.state.deck = [{n:'Test Draw'}, {n:'Apprentice Bolt'}];
+    G.state.disc = [];
+  }
+
