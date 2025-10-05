@@ -86,20 +86,31 @@ export function init(game) {
   }
 
   function animateDrawStream(deckEl, newCardEls) {
-    if (!deckEl || !newCardEls?.length) return;
-    newCardEls.forEach((cardEl, i) => {
-      const spread = (i - newCardEls.length / 2) * 12;
-      cardEl.style.transform = `rotate(${spread * 0.3}deg)`;
-      flyArc(deckEl, cardEl, {
-        duration: 740 + i * 90,
-        delay: i * 80,
-        scaleEnd: 1.0,
-        lift: 0.14,
-        rotate: spread * 0.25,
-        easing: 'cubic-bezier(.18,.75,.25,1)'
-      });
-    });
-  }
+  if (!deckEl || !newCardEls?.length) return;
+
+  const deckRect = deckEl.getBoundingClientRect();
+  newCardEls.forEach((cardEl, i) => {
+    const targetRect = cardEl.getBoundingClientRect();
+    const dx = deckRect.left - targetRect.left;
+    const dy = deckRect.top - targetRect.top;
+
+    // start at deck
+    cardEl.style.transform = `translate(${dx}px, ${dy}px) scale(0.2) rotate(-15deg)`;
+    cardEl.style.opacity = '0';
+    cardEl.style.transition = 'none';
+
+    // force reflow
+    void cardEl.offsetWidth;
+
+    const delay = i * 150;
+    cardEl.style.transition = `transform 0.8s cubic-bezier(.2,.8,.3,1), opacity 0.8s ease`;
+    setTimeout(() => {
+      cardEl.style.transform = `translate(0,0) scale(1) rotate(0deg)`;
+      cardEl.style.opacity = '1';
+    }, delay);
+  });
+}
+
 
   // ---------- AI-specific helpers ----------
   // Create/get a tiny invisible anchor just above the AI slots (deck origin).
