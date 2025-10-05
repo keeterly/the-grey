@@ -1,7 +1,9 @@
 // =========================================================
 // THE GREY — ENGINE CORE (mechanics layer)
 // Uses your real initialState() and reduce(), with guards.
-// Handles reducers that RETURN a new state object (RESET).
+// Also supports reducers that RETURN a new state (e.g. RESET).
+// After END_TURN, runs simple AI and then starts a new turn
+// for the player (draw fresh hand).
 // =========================================================
 
 import * as Rules   from './rules.js';
@@ -11,7 +13,6 @@ import * as Weavers from './weavers.js';
 import * as RNG     from './rng.js';
 import { initialState } from './state.js';
 
-// Default weaver ids if none are specified
 function defaultWeavers() {
   return {
     playerWeaver: Weavers.defaultPlayer || 'Default',
@@ -19,7 +20,6 @@ function defaultWeavers() {
   };
 }
 
-// Minimal fallback so app never crashes if init throws
 function makeFallbackState() {
   const { playerWeaver, aiWeaver } = defaultWeavers();
   return {
@@ -33,20 +33,13 @@ function makeFallbackState() {
   };
 }
 
-// Merge "next" into "cur" in place (keeps object identity for UI bindings)
+// Keep same state object identity for UI bindings
 function mergeStateInPlace(cur, next) {
-  // delete removed keys
-  for (const k of Object.keys(cur)) {
-    if (!(k in next)) delete cur[k];
-  }
-  // add/replace keys
-  for (const k of Object.keys(next)) {
-    cur[k] = next[k];
-  }
+  for (const k of Object.keys(cur)) { if (!(k in next)) delete cur[k]; }
+  for (const k of Object.keys(next)) { cur[k] = next[k]; }
 }
 
 export function createGame() {
-  // 1) Build state with your initializer (guarded)
   let S;
   try {
     S = initialState(defaultWeavers());
@@ -55,50 +48,40 @@ export function createGame() {
     S = makeFallbackState();
   }
 
-  // 2) Single dispatch that runs your reducer; supports return-new-state
   function dispatch(action) {
     if (!action || typeof action.type !== 'string') {
-      console.warn('[ENGINE] Invalid action:', action);
-      return;
+      console.warn('[ENGINE] Invalid action:', action); return;
     }
     try {
       const maybeNew = Rules.reduce(S, action);
       if (maybeNew && maybeNew !== S && typeof maybeNew === 'object') {
-        mergeStateInPlace(S, maybeNew); // keep same ref but update contents
+        mergeStateInPlace(S, maybeNew);
       }
 
-      // Simple AI phase after END_TURN using your discrete actions
-      if (action.type === 'END_TURN' && typeof AI.takeTurn === 'function') {
-        Rules.reduce(S, { type: 'AI_DRAW' });
-        Rules.reduce(S, { type: 'AI_PLAY_SPELL' });
-        Rules.reduce(S, { type: 'AI_CHANNEL' });
-        Rules.reduce(S, { type: 'AI_ADVANCE' });
-        Rules.reduce(S, { type: 'AI_BUY', index: 0 });
-        Rules.reduce(S, { type: 'AI_SPEND_TRANCE' });
+      // After END_TURN: run simple AI sequence, then start player's next turn (fresh hand)
+      if (action.type === 'END_TURN') {
+        if (typeof AI.takeTurn === 'function') {
+          Rules.reduce(S, { type: 'AI_DRAW' });
+          Rules.reduce(S, { type: 'AI_PLAY_SPELL' });
+          Rules.reduce(S, { type: 'AI_CHANNEL' });
+          Rules.reduce(S, { type: 'AI_ADVANCE' });
+          Rules.reduce(S, { type: 'AI_BUY', index: 0 });
+          Rules.reduce(S, { type: 'AI_SPEND_TRANCE' });
+        }
+        // Player next turn: draws a fresh hand in your rules' START_TURN
+        Rules.reduce(S, { type: 'START_TURN', first: false });
       }
     } catch (e) {
       console.error('[ENGINE] dispatch error:', e, action);
     }
   }
 
-  return {
-    state: S,
-    dispatch,
-    cards:   Cards,
-    weavers: Weavers,
-    rng:     RNG,
-  };
+  return { state: S, dispatch, cards: Cards, weavers: Weavers, rng: RNG };
 }
 
-// ---------------------------------------------------------
-// Legacy globals so boot/debug & tools stay happy
-// ---------------------------------------------------------
 if (typeof window !== 'undefined') {
   window.GameEngine = window.GameEngine || {};
   window.GameEngine.create = createGame;
-
-  if (!window.game || typeof window.game.dispatch !== 'function') {
-    window.game = createGame();
-  }
+  if (!window.game || typeof window.game.dispatch !== 'function') window.game = createGame();
   console.log('[ENGINE] GameEngine.create and window.game are ready');
 }
