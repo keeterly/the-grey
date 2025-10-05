@@ -1,6 +1,7 @@
 // =========================================================
 // THE GREY — UI ENTRY (v2.0 full visual + hand & slots)
 // No engine imports; receives a { state, dispatch } game.
+// Calls window.DragCards?.refresh() after render.
 // =========================================================
 
 export function init(game) {
@@ -71,8 +72,7 @@ export function init(game) {
         el.appendChild(div);
 
         el.onclick = () => {
-          try { game.dispatch({ type: 'BUY_FLOW', index: i }); draw(); }
-          catch (e) { console.error('[UI] BUY_FLOW failed', e); }
+          try { game.dispatch({ type: 'BUY_FLOW', index: i }); } catch (e) { console.error(e); }
         };
       } else {
         el.onclick = null;
@@ -97,6 +97,7 @@ export function init(game) {
     hand.forEach((c, i) => {
       const card = document.createElement('div');
       card.className = 'handCard';
+      card.dataset.index = i;          // <— drag module reads this
       card.innerHTML = `
         <div class="artWrap"></div>
         <div class="textWrap">
@@ -104,16 +105,13 @@ export function init(game) {
           <div class="sub">${c.t || ''}</div>
           <div class="val">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
         </div>`;
-      card.dataset.index = i;
 
-      // click to play or channel
+      // click fallback: play/channel
       card.onclick = () => {
         try {
           if (c.t === 'Instant') game.dispatch({ type: 'CHANNEL_FROM_HAND', index: i });
           else                   game.dispatch({ type: 'PLAY_FROM_HAND',    index: i });
-        } catch (e) {
-          console.error('[UI] hand click failed', e);
-        }
+        } catch (e) { console.error('[UI] hand click failed', e); }
       };
 
       ribbon.appendChild(card);
@@ -132,6 +130,7 @@ export function init(game) {
       (S.slots || []).forEach((s, i) => {
         const cell = document.createElement('div');
         cell.className = 'slotCell';
+        cell.dataset.slot = String(i);       // <— drag module reads this
         if (!s) {
           cell.classList.add('empty');
           cell.textContent = 'Empty';
@@ -180,6 +179,11 @@ export function init(game) {
     renderFlow(S);
     renderHand(S);
     renderSlots(S);
+
+    // Rebind drag handles after each render
+    if (window.DragCards && typeof window.DragCards.refresh === 'function') {
+      window.DragCards.refresh();
+    }
   }
 
   // Auto redraw after every dispatch
