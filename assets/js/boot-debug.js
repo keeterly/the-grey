@@ -106,23 +106,37 @@ function getTranslateXY(el){
   }
 
   function smoothFollow(){
-    cancelAnimationFrame(raf);
-    const step = () => {
-      if (!st) return;
+  cancelAnimationFrame(raf);
 
-      const dx = Math.max(-MAX_STEP, Math.min(MAX_STEP, st.targetX - st.curX));
-      const dy = Math.max(-MAX_STEP, Math.min(MAX_STEP, st.targetY - st.curY));
+  // Tunables
+  const SMOOTH = 0.16;   // lower = less smoothing (snappier)
+  const SNAP_DIST = 28;  // if cursor jumps farther than this, snap instead of lerp
 
-      st.curX += dx * 0.00001 + dx * DAMP; // tiny bias avoids stall on exact hit
-      st.curY += dy * 0.00001 + dy * DAMP;
+  const step = () => {
+    if (!st) return;
 
-      st.card.style.setProperty('--drag-x', st.curX + 'px');
-      st.card.style.setProperty('--drag-y', st.curY + 'px');
+    const dx = st.targetX - st.curX;
+    const dy = st.targetY - st.curY;
+    const dist = Math.hypot(dx, dy);
 
-      raf = requestAnimationFrame(step);
-    };
+    if (dist > SNAP_DIST) {
+      // Fast mouse move: follow exactly to avoid “lag wiggle”
+      st.curX = st.targetX;
+      st.curY = st.targetY;
+    } else {
+      // Subtle smoothing when close
+      st.curX += dx * SMOOTH;
+      st.curY += dy * SMOOTH;
+    }
+
+    st.card.style.setProperty('--drag-x', st.curX + 'px');
+    st.card.style.setProperty('--drag-y', st.curY + 'px');
+
     raf = requestAnimationFrame(step);
-  }
+  };
+  raf = requestAnimationFrame(step);
+}
+
 
   function onMove(e){
     // If a preview just opened between down/move, abort drag cleanly
