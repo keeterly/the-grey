@@ -1,16 +1,30 @@
-// /bridge.js (root)
+// bridge.js (root)
+// Wires Engine -> UI. No engine imports inside UI modules.
+
 import { createGame } from './src/engine/index.js';
 import * as UI from './src/ui/index.js';
-import './src/ui/drag.js';
 
-(() => {
-  const game =
-    (window.game && typeof window.game.dispatch === 'function')
-      ? window.game
-      : createGame();
-
+export function exposeToWindow() {
+  // create or reuse game
+  const game = window.game || createGame();
   window.game = game;
+
+  // init animated UI
   UI.init(game);
 
-  console.log('[BRIDGE] Game + UI + Drag initialized and exposed to window.');
-})();
+  // expose anim helpers lazily if something else wants them
+  window.animateDiscardHand = async (...args) => {
+    const m = await import('./src/ui/animations.js');
+    return m.animateDiscardHand(...args);
+  };
+  window.animateDrawHand = async (...args) => {
+    const m = await import('./src/ui/animations.js');
+    return m.animateDrawHand(...args);
+  };
+}
+
+// auto-boot once
+if (!window.__greyBooted) {
+  window.__greyBooted = true;
+  exposeToWindow();
+}
