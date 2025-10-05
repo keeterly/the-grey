@@ -36,7 +36,27 @@ export function wireHUD(game, weavers){
   document.getElementById('chipDeck').onclick = ()=> game.dispatch({type:'DRAW'});
   document.getElementById('chipDiscard').onclick = ()=> {};
 
-  document.getElementById('fabDraw').onclick = ()=> game.dispatch({type:'DRAW'});
-  document.getElementById('fabEnd').onclick  = ()=> { game.dispatch({type:'END_TURN'}); game.dispatch({type:'AI_TURN'}); game.dispatch({type:'START_TURN'}); };
-  document.getElementById('fabReset').onclick= ()=> { const st=S(); game.dispatch({type:'RESET', playerWeaver:st.trance.you.weaver, aiWeaver:st.trance.ai.weaver}); game.dispatch({type:'ENSURE_MARKET'}); game.dispatch({type:'START_TURN', first:true}); };
+  // FABs
+document.getElementById('fabDraw').onclick = ()=> game.dispatch({type:'DRAW'});
+
+document.getElementById('fabEnd').onclick  = async ()=> {
+  // 1) Animate discarding current hand (visual only)
+  await animateDiscardHand();
+
+  // 2) Do the normal turn swap (rules/AI)
+  game.dispatch({type:'END_TURN'});
+  game.dispatch({type:'AI_TURN'});
+  game.dispatch({type:'START_TURN'});
+
+  // 3) Animate new hand coming in
+  await animateDrawHand();
+};
+
+document.getElementById('fabReset').onclick= ()=> {
+  const st=S();
+  game.dispatch({type:'RESET', playerWeaver:st.trance.you.weaver, aiWeaver:st.trance.ai.weaver});
+  game.dispatch({type:'ENSURE_MARKET'});
+  game.dispatch({type:'START_TURN', first:true});
+};
+
 }
