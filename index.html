@@ -5,17 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>The Grey — Modular</title>
 
-  <!-- GitHub Pages project base -->
   <base href="/the-grey/">
 
-  <!-- Styles -->
   <link rel="stylesheet" href="./src/styles/theme.css">
   <link rel="stylesheet" href="./src/styles/layout.css">
   <link rel="stylesheet" href="./src/styles/components.css">
+  <!-- NEW: safe overrides for floating icons & hand/drag UX -->
+  <link rel="stylesheet" href="./src/styles/overrides.css">
   <meta name="theme-color" content="#EEE8DC" />
 </head>
 <body>
-  <!-- HUD (left/right pills only — TRANCE removed) -->
+  <!-- HUD (left/right pills only) -->
   <div class="hudRow" id="hud">
     <div class="pill" id="pillYou">
       <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> HP <span id="hpValue">0</span></div>
@@ -58,22 +58,27 @@
       </div>
     </div>
 
-    <!-- Player Board (3 spell + 1 glyph slot) -->
+    <!-- Player Board -->
     <div class="zone">
       <div class="title">Your Board</div>
       <div class="slots fixedRow" id="playerSlots"></div>
     </div>
   </div>
 
-  <!-- Deck / Discard -->
-  <div class="deckBar">
-    <button class="chipCirc" id="chipDeck" aria-label="Deck">
-      <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/></svg>
-      <small id="deckCount">0</small>
-    </button>
-    <button class="chipCirc" id="chipDiscard" aria-label="Discard">
-      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>
-      <small id="discardCount">0</small>
+  <!-- Floating mini-dock above the ribbon -->
+  <div class="floatDock">
+    <div class="deckBar">
+      <button class="chipCirc" id="chipDeck" aria-label="Deck">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/></svg>
+        <small id="deckCount">0</small>
+      </button>
+      <button class="chipCirc" id="chipDiscard" aria-label="Discard">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>
+        <small id="discardCount">0</small>
+      </button>
+    </div>
+    <button class="aetherGem" id="aeGem" aria-label="Aether">
+      <span class="gemInner"><span id="aeGemCount">0</span></span>
     </button>
   </div>
 
@@ -107,7 +112,7 @@
     exposeToWindow();
   </script>
 
-  <!-- Legacy debug (expects globals) -->
+  <!-- Legacy debug -->
   <script defer src="./assets/js/boot-debug.js"></script>
 </body>
 </html>
