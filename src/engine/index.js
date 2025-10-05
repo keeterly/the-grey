@@ -1,9 +1,10 @@
 // =========================================================
 // THE GREY — ENGINE CORE (mechanics layer)
 // Uses your real initialState() and reduce(), with guards.
+// Handles reducers that RETURN a new state object (RESET).
 // =========================================================
 
-import * as Rules   from './rules.js';          // reduce(), helpers & AI actions
+import * as Rules   from './rules.js';
 import * as AI      from './ai.js';
 import * as Cards   from './cards.js';
 import * as Weavers from './weavers.js';
@@ -32,6 +33,18 @@ function makeFallbackState() {
   };
 }
 
+// Merge "next" into "cur" in place (keeps object identity for UI bindings)
+function mergeStateInPlace(cur, next) {
+  // delete removed keys
+  for (const k of Object.keys(cur)) {
+    if (!(k in next)) delete cur[k];
+  }
+  // add/replace keys
+  for (const k of Object.keys(next)) {
+    cur[k] = next[k];
+  }
+}
+
 export function createGame() {
   // 1) Build state with your initializer (guarded)
   let S;
@@ -42,19 +55,20 @@ export function createGame() {
     S = makeFallbackState();
   }
 
-  // 2) Single dispatch that runs your reducer in-place
+  // 2) Single dispatch that runs your reducer; supports return-new-state
   function dispatch(action) {
     if (!action || typeof action.type !== 'string') {
       console.warn('[ENGINE] Invalid action:', action);
       return;
     }
     try {
-      // Your reducer mutates S in place and returns it
-      Rules.reduce(S, action);
+      const maybeNew = Rules.reduce(S, action);
+      if (maybeNew && maybeNew !== S && typeof maybeNew === 'object') {
+        mergeStateInPlace(S, maybeNew); // keep same ref but update contents
+      }
 
       // Simple AI phase after END_TURN using your discrete actions
       if (action.type === 'END_TURN' && typeof AI.takeTurn === 'function') {
-        // Run the AI as a sequence of reducer-recognized actions
         Rules.reduce(S, { type: 'AI_DRAW' });
         Rules.reduce(S, { type: 'AI_PLAY_SPELL' });
         Rules.reduce(S, { type: 'AI_CHANNEL' });
@@ -70,7 +84,6 @@ export function createGame() {
   return {
     state: S,
     dispatch,
-    // exposed for debugging/FX if you need them
     cards:   Cards,
     weavers: Weavers,
     rng:     RNG,
