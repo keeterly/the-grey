@@ -104,3 +104,22 @@ body{
 
 /* Helpers */
 .emptyCell{ color:#bcb4a7; font-weight:600; }
+
+
+/* Cards in the ribbon: start slightly low (peek) and only rise on hover */
+.ribbon .card {
+  pointer-events: auto;           /* re-enable on card level */
+  position: relative;
+  transform: translateY(10px);    /* default low */
+  transition: transform 120ms ease, filter 120ms ease;
+  will-change: transform;
+  margin-left: -64px;             /* overlap to create fan */
+}
+
+/* Lift when hovered (or add a class during drag) */
+.ribbon .card:hover,
+.ribbon .card.is-dragging {
+  transform: translateY(-14px) scale(1.02);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+}
+
