@@ -1,13 +1,18 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>The Grey — Modular</title>
-<link rel="stylesheet" href="./src/styles/theme.css">
-<link rel="stylesheet" href="./src/styles/layout.css">
-<link rel="stylesheet" href="./src/styles/components.css">
-<meta name="theme-color" content="#EEE8DC" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>The Grey — Modular</title>
+
+  <!-- Project Pages base (must be in <head>) -->
+  <base href="/the-grey/">
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="./src/styles/theme.css">
+  <link rel="stylesheet" href="./src/styles/layout.css">
+  <link rel="stylesheet" href="./src/styles/components.css">
+  <meta name="theme-color" content="#EEE8DC" />
 </head>
 <body>
   <!-- HUD -->
@@ -118,39 +123,43 @@
     </div>
   </div>
 
- <script>
-(async () => {
-  try {
-    const r = await fetch('./stamp.json', { cache: 'no-store' });
-    if (!r.ok) throw new Error('no stamp.json');
-    const v = await r.json();
-    console.log(`[THE GREY] branch=${v.branch} commit=${v.commit} builtAt=${v.builtAt}`);
-  } catch (err) {
-    console.log('[THE GREY] Unable to read stamp.json', err);
-  }
-})();
-</script>
+  <!-- Version stamp (safe) -->
+  <script>
+  (async () => {
+    try {
+      const r = await fetch('./stamp.json', { cache: 'no-store' });
+      if (!r.ok) throw new Error('no stamp.json');
+      const v = await r.json();
+      console.log(`[THE GREY] branch=${v.branch} commit=${v.commit} builtAt=${v.builtAt}`);
+    } catch (err) {
+      console.log('[THE GREY] Unable to read stamp.json', err);
+    }
+  })();
+  </script>
 
-<!-- in <head> -->
-<base href="/the-grey/">
-<!-- cache-busting example v=YOUR_SHORT_SHA -->
-<link rel="stylesheet" href="./assets/css/app.css?v=__SHA__">
+  <!-- ======================== -->
+  <!--  DEV LOAD (no modules)  -->
+  <!-- ======================== -->
+  <!-- Engine / mechanics -->
+  <script defer src="./src/engine/index.js"></script>
+  <script defer src="./src/engine/state.js"></script>
+  <script defer src="./src/engine/rules.js"></script>
+  <script defer src="./src/engine/ai.js"></script>
+  <script defer src="./src/engine/cards.js"></script>
+  <script defer src="./src/engine/weavers.js"></script>
 
-<!-- in <body> ... your markup ... then before </body> -->
+  <!-- UI / render -->
+  <script defer src="./src/ui/index.js"></script>
+  <script defer src="./src/ui/assets.js"></script>
+  <script defer src="./src/ui/render.js"></script>
+  <script defer src="./src/ui/hud.js"></script>
+  <script defer src="./src/ui/animations.js"></script>
+  <script defer src="./src/ui/market.js"></script>
 
-<!-- Engine/mechanics (state, rules) -->
-<script src="./assets/js/engine.js?v=__SHA__"></script>
+  <!-- Input / drag -->
+  <script defer src="./src/ui/drag.js"></script>
 
-<!-- UI renderer (draws boards, hand, aetherflow) -->
-<script src="./assets/js/ui.js?v=__SHA__"></script>
-
-<!-- Drag handler from earlier fix -->
-<script src="./assets/js/drag.js?v=__SHA__"></script>
-
-<!-- Boot/debug (last) -->
-<script src="./assets/js/boot-debug.js?v=__SHA__"></script>
-
-  
-
+  <!-- Boot / diagnostics (last) -->
+  <script defer src="./assets/js/boot-debug.js"></script>
 </body>
 </html>
