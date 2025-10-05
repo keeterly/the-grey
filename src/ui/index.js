@@ -1,11 +1,9 @@
 // =========================================================
-// THE GREY — UI ENTRY (v2.3)
-// • Readable MTG-style cards (63:88) in hand & market
-// • End turn discards (rules) + fresh hand on new turn (engine calls START_TURN)
-// • Slower animations: draw ~700ms, discard ~900ms
-// • Card text moved to top
-// • Hand & Aetherflow cards share the same dimensions (—card-w)
-// • Drag refresh after each render
+// THE GREY — UI ENTRY (v2.4)
+// Focus: MTG Arena-style discard animation (staggered arcs,
+// speed-up then slow-down). Also keeps MTG proportions,
+// hand/market dimension parity, drag refresh, and proper
+// turn/reset flow from earlier versions.
 // =========================================================
 
 export function init(game) {
@@ -19,35 +17,89 @@ export function init(game) {
   const DEFAULT_WEAVER_YOU = 'Default';
   const DEFAULT_WEAVER_AI  = 'AI';
 
-  // track previous hand ids for animations
+  // track previous hand ids for draw animation
   let prevHandIds = [];
   const cardIds = (arr) => (arr || []).map(c => c?.id ?? null).filter(Boolean);
 
-  function flyClone(fromEl, toEl, options = {}) {
-    if (!fromEl || !toEl) return;
-    const from = fromEl.getBoundingClientRect();
-    const to   = toEl.getBoundingClientRect();
+  // ----- animation primitives -----
+  function rectOf(el){ return el.getBoundingClientRect(); }
 
-    const ghost = (options.cloneEl || fromEl).cloneNode(true);
+  // Curved “arena-like” flight: mid keyframe lifts above the line and then eases down
+  function flyArc(fromEl, toEl, {
+    duration = 950,           // slower, cinematic
+    delay = 0,
+    scaleEnd = 0.72,
+    lift = 0.18,              // how much the arc lifts (fraction of distance)
+    rotate = 8,               // slight card tilt to feel physical
+    easing = 'cubic-bezier(.12,.72,.18,1)' // quick-up, slow-down
+  } = {}) {
+    if (!fromEl || !toEl) return;
+
+    const from = rectOf(fromEl);
+    const to   = rectOf(toEl);
+
+    const ghost = fromEl.cloneNode(true);
     ghost.classList.add('ghostFly');
-    ghost.style.position = 'fixed';
-    ghost.style.left = `${from.left}px`;
-    ghost.style.top  = `${from.top}px`;
-    ghost.style.width  = `${from.width}px`;
-    ghost.style.height = `${from.height}px`;
-    ghost.style.margin = '0';
-    ghost.style.pointerEvents = 'none';
-    ghost.style.zIndex = 9999;
+    Object.assign(ghost.style, {
+      position: 'fixed',
+      left: `${from.left}px`,
+      top:  `${from.top}px`,
+      width:  `${from.width}px`,
+      height: `${from.height}px`,
+      margin: '0',
+      pointerEvents: 'none',
+      zIndex: 9999
+    });
     document.body.appendChild(ghost);
 
     const dx = to.left + (to.width - from.width)/2 - from.left;
     const dy = to.top  + (to.height - from.height)/2 - from.top;
 
-    const dur = options.duration ?? 900; // slower global default
-    ghost.animate([
-      { transform: 'translate(0,0)', opacity: 1 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${options.scale ?? 0.75})`, opacity: 0.12 }
-    ], { duration: dur, easing: 'cubic-bezier(.2,.7,.2,1)' }).onfinish = () => ghost.remove();
+    // Arc height scales with distance (clamped)
+    const dist   = Math.hypot(dx, dy);
+    const arcPx  = Math.min(220, Math.max(70, dist * lift));
+
+    // Randomize slight left/right arc & rotation for natural variation
+    const side = Math.random() < 0.5 ? -1 : 1;
+    const rot  = side * rotate;
+
+    const anim = ghost.animate([
+      { transform: `translate(0px, 0px) rotate(0deg) scale(1)`, opacity: 1, offset: 0 },
+      // accelerate up & forward to an apex
+      { transform: `translate(${dx*0.6}px, ${dy*0.55 - arcPx}px) rotate(${rot}deg) scale(1.05)`,
+        opacity: 0.9, offset: 0.55 },
+      // decelerate into target
+      { transform: `translate(${dx}px, ${dy}px) rotate(${rot/2}deg) scale(${scaleEnd})`,
+        opacity: 0.12, offset: 1 }
+    ], { duration, delay, easing, fill: 'forwards' });
+
+    anim.onfinish = () => ghost.remove();
+  }
+
+  // Draw animation (deck -> card)
+  function flyDeckToCard(deckEl, cardEl, { duration = 720 } = {}) {
+    flyArc(deckEl, cardEl, { duration, scaleEnd: 1.0, lift: 0.12, rotate: 4, easing: 'cubic-bezier(.16,.72,.18,1)' });
+  }
+
+  // Stream a bunch of cards to discard with a stagger and mild randomization
+  function animateDiscardStream(fromCardEls, discardTargetEl) {
+    if (!fromCardEls?.length || !discardTargetEl) return;
+    const base = 600;   // base duration per card
+    const extra = 420;  // extra time for drama at the end
+    const stagger = 70; // ms between launches
+
+    fromCardEls.forEach((el, i) => {
+      // first cards move a bit faster; later ones linger longer
+      const d = base + (i / Math.max(1, fromCardEls.length-1)) * extra;
+      flyArc(el, discardTargetEl, {
+        duration: d,
+        delay: i * stagger,
+        scaleEnd: 0.68,
+        lift: 0.20,
+        rotate: 10,
+        easing: 'cubic-bezier(.10,.70,.18,1)'
+      });
+    });
   }
 
   // -------------- HUD / TRANCE --------------
@@ -97,9 +149,7 @@ export function init(game) {
             <div class="cardVal">${(c.v != null ? '+'+c.v+'⚡' : '')}${(c.p != null ? ' · '+c.p+'ϟ' : '')}</div>
           </div>`;
         el.appendChild(card);
-        el.onclick = () => {
-          try { game.dispatch({ type: 'BUY_FLOW', index: i }); } catch (e) { console.error(e); }
-        };
+        el.onclick = () => { try { game.dispatch({ type: 'BUY_FLOW', index: i }); } catch (e) { console.error(e); } };
       } else {
         el.onclick = null;
       }
@@ -137,14 +187,14 @@ export function init(game) {
       ribbon.appendChild(el);
     });
 
-    // Animate draws (ids that weren't previously in hand)
+    // Animate new draws (ids that weren't previously in hand)
     const afterIds = cardIds(hand);
     const deckBtn = $('#chipDeck');
     if (deckBtn) {
       afterIds.forEach(id => {
         if (!beforeIds.includes(id)) {
           const cardEl = ribbon.querySelector(`.handCard[data-card-id="${id}"]`);
-          if (cardEl) flyClone(deckBtn, cardEl, { duration: 700, scale: 1.0 });
+          if (cardEl) flyDeckToCard(deckBtn, cardEl, { duration: 720 });
         }
       });
     }
@@ -209,10 +259,9 @@ export function init(game) {
     }
   }
 
-  // -------------- draw loop (with discard anim) --------------
+  // -------------- draw loop (discard anim handled in wrapper) --------------
   function draw() {
     const S = (game && game.state) || {};
-    const beforeIds = prevHandIds.slice(0);
 
     renderHUD(S);
     renderCounts(S);
@@ -220,30 +269,37 @@ export function init(game) {
     renderHand(S);
     renderSlots(S);
 
-    // rebind drags
     if (window.DragCards && typeof window.DragCards.refresh === 'function') {
       window.DragCards.refresh();
     }
-
-    // discards: any id that was in hand and is now gone
-    const afterIds = cardIds(S.hand);
-    const discBtn = $('#chipDiscard');
-    if (discBtn) {
-      beforeIds.forEach(id => {
-        if (!afterIds.includes(id)) {
-          // animate from ribbon proxy to discard (slower)
-          const proxy = $('.ribbon .handCard') || $('#ribbon');
-          if (proxy) flyClone(proxy, discBtn, { duration: 900, scale: 0.7 });
-        }
-      });
-    }
-    prevHandIds = afterIds;
   }
 
-  // wrap dispatch
+  // -------- UI dispatch wrapper with END_TURN discard stream --------
   if (game && typeof game.dispatch === 'function' && !game.__uiWrapped) {
     const orig = game.dispatch;
-    game.dispatch = (a) => { const r = orig(a); draw(); return r; };
+
+    game.dispatch = (action) => {
+      // Capture all current hand card elements BEFORE state changes
+      let capturedHandEls = null;
+      let discardTarget = null;
+      if (action && action.type === 'END_TURN') {
+        capturedHandEls = Array.from(document.querySelectorAll('.ribbon .handCard'));
+        discardTarget = $('#chipDiscard');
+      }
+
+      const result = orig(action);
+
+      // Re-render immediately so counts/market/slots reflect state
+      draw();
+
+      // If we ended turn, stream those captured cards into discard
+      if (capturedHandEls && discardTarget) {
+        animateDiscardStream(capturedHandEls, discardTarget);
+      }
+
+      return result;
+    };
+
     game.__uiWrapped = true;
   }
 
@@ -263,13 +319,13 @@ export function init(game) {
     .forEach(([sel,fn]) => { const el = $(sel); if (el) el.onclick = fn; });
 
   draw();
-  console.log('[UI] init v2.3 — MTG cards (hand & market), slower anims, and proper turn flow.');
+  console.log('[UI] init v2.4 — Arena-style discard stream + arc easing.');
 }
 
 // ---------------------- styles ----------------------
 const style = document.createElement('style');
 style.textContent = `
-  :root { --card-w: 160px; } /* one width for hand & aetherflow cards */
+  :root { --card-w: 160px; } /* one width for hand & aetherflow */
 
   .ribbon { display:flex; flex-wrap:nowrap; overflow-x:auto; justify-content:center; padding:10px; gap:10px; }
 
@@ -320,7 +376,7 @@ style.textContent = `
   #playerSlots .slotCell.dropReady { outline: 2px dashed rgba(120,120,120,.25); outline-offset: -4px; }
   #playerSlots .slotCell.dropTarget { outline: 2px solid rgba(90,140,220,.6); outline-offset: -4px; box-shadow: 0 0 0 4px rgba(90,140,220,.08) inset; }
 
-  .ghostFly { border-radius:12px; overflow:hidden; }
+  .ghostFly { border-radius:12px; overflow:hidden; will-change: transform, opacity; }
 `;
 document.head.appendChild(style);
 
