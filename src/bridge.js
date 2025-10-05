@@ -1,13 +1,14 @@
 // src/bridge.js
 // ESM → window adapter so the legacy boot/debug can find things.
-// Keeps mechanics (src/*.js) and UI (src/ui/*.js) separated.
+// Matches your tree: src/engine/* and src/ui/*
 
-import * as EngineIndex    from './index.js';
-import * as EngineState    from './state.js';
-import * as EngineRules    from './rules.js';
-import * as EngineAI       from './ai.js';
-import * as EngineCards    from './cards.js';
-import * as EngineWeavers  from './weavers.js';
+import * as EngineIndex    from './engine/index.js';
+import * as EngineState    from './engine/state.js';
+import * as EngineRules    from './engine/rules.js';
+import * as EngineAI       from './engine/ai.js';
+import * as EngineCards    from './engine/cards.js';
+import * as EngineWeavers  from './engine/weavers.js';
+import * as EngineRNG      from './engine/rng.js'; // present in your tree
 
 import * as UIIndex        from './ui/index.js';
 import * as UIAssets       from './ui/assets.js';
@@ -15,7 +16,6 @@ import * as UIRender       from './ui/render.js';
 import * as UIHud          from './ui/hud.js';
 import * as UIAnimations   from './ui/animations.js';
 import * as UIMarket       from './ui/market.js';
-
 import * as UIDrag         from './ui/drag.js';
 
 (function expose() {
@@ -35,13 +35,13 @@ import * as UIDrag         from './ui/drag.js';
     EngineIndex.createGame ||
     EngineIndex.create ||
     EngineIndex.default ||
-    EngineState.createGame;
+    EngineState.createGame; // fallback if defined there
 
   if (typeof createGame === 'function') {
     if (!g.GameEngine) g.GameEngine = { create: createGame };
     if (!g.game) {
       try { g.game = createGame(); }
-      catch (e) { console.warn('[bridge] createGame() failed', e); }
+      catch (e) { console.warn('[bridge] createGame() failed:', e); }
     }
   } else if (EngineIndex.game && !g.game) {
     g.game = EngineIndex.game;
