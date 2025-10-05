@@ -1,21 +1,25 @@
 // =========================================================
-// THE GREY — UI (compat DOM): hand fan + animations + hooks
+// THE GREY — UI (compat DOM + controls + animations)
+// Classic (no ESM). Uses window.game from GameEngine + window.Anim.
 // =========================================================
 
-import { fanHand, animateDrawHand, animateDiscardHand, animateBuyToDiscard } from './animations.js';
-
+/* utilities */
 const $  = (s, r=document) => r.querySelector(s);
 const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
 
-let G = null;
+/* cached roots */
 let elRibbon, elPlayerSlots, elGlyphTray, elAiSlots, elMarketCells;
 
-function makeCardEl(card, variant){
+/* game ref */
+let G = null;
+
+/* ---------- card element ---------- */
+function makeCardEl(card, variant) {
   const el = document.createElement('div');
   el.className = 'card';
-  if (variant === 'hand') el.classList.add('handCard');
-  if (variant === 'flow') el.classList.add('marketCard');
-  if (variant === 'slot') el.classList.add('slotCard');
+  if (variant === 'hand')   el.classList.add('handCard');
+  if (variant === 'flow')   el.classList.add('marketCard');
+  if (variant === 'slot')   el.classList.add('slotCard');
   if (variant === 'aiSlot') el.classList.add('slotCard');
 
   el.dataset.cid   = card.id || '';
@@ -39,10 +43,81 @@ function makeCardEl(card, variant){
   return el;
 }
 
-/* ---------------- Renders ---------------- */
+/* ---------- animations (local helpers) ---------- */
 
-function renderMarket(){
-  for (let i=0;i<5;i++){
+function flyElement(el, toRect, {duration=350, scale=0.92, easing='cubic-bezier(.2,.8,.2,1)'} = {}) {
+  const from = el.getBoundingClientRect();
+  const ghost = el.cloneNode(true);
+  ghost.style.position = 'fixed';
+  ghost.style.pointerEvents = 'none';
+  ghost.style.margin = '0';
+  ghost.style.left = `${from.left}px`;
+  ghost.style.top  = `${from.top}px`;
+  ghost.style.width  = `${from.width}px`;
+  ghost.style.height = `${from.height}px`;
+  ghost.style.zIndex = '9999';
+  ghost.style.transformOrigin = '50% 50%';
+  document.body.appendChild(ghost);
+
+  const dx = toRect.left - from.left;
+  const dy = toRect.top  - from.top;
+
+  return ghost.animate([
+    { transform: `translate(0,0) scale(1)`, opacity: 1 },
+    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: .85 }
+  ], { duration, easing }).finished.then(() => {
+    ghost.remove();
+  });
+}
+
+async function animateBuyToDiscard(sourceEl) {
+  const chip = $('#chipDiscard') || $('#chipDeck') || document.body;
+  const r = chip.getBoundingClientRect();
+  await flyElement(sourceEl, r, { duration: 420, scale: 0.88 });
+}
+
+async function animateDiscardHand() {
+  const handCards = $$('.ribbon .handCard');
+  const chip = $('#chipDiscard') || document.body;
+  const r = chip.getBoundingClientRect();
+
+  // Fan-to-discard stream (staggered)
+  for (let i = 0; i < handCards.length; i++) {
+    await flyElement(handCards[i], r, { duration: 260 + i*28, scale: 0.86 });
+  }
+}
+
+async function animateDrawHand() {
+  const deck = $('#chipDeck') || document.body;
+  const r = deck.getBoundingClientRect();
+  const handCards = $$('.ribbon .handCard');
+
+  // Appear from deck position (stagger), then settle
+  handCards.forEach((el, i) => {
+    const to = el.getBoundingClientRect();
+    const ghost = el.cloneNode(true);
+    ghost.classList.remove('handCard'); // the clone floats
+    ghost.style.position = 'fixed';
+    ghost.style.left = `${r.left}px`;
+    ghost.style.top  = `${r.top}px`;
+    ghost.style.width  = `${to.width}px`;
+    ghost.style.height = `${to.height}px`;
+    ghost.style.zIndex = '9999';
+    ghost.style.pointerEvents = 'none';
+    document.body.appendChild(ghost);
+    ghost.animate([
+      { transform: 'translate(0,0) scale(.9)',   opacity: .0 },
+      { transform: `translate(${to.left - r.left}px, ${to.top - r.top}px) scale(1)`, opacity: 1 }
+    ], { duration: 260 + i*24, easing: 'cubic-bezier(.2,.8,.2,1)' })
+    .finished.then(() => ghost.remove());
+  });
+
+  setTimeout(() => window.Anim?.settleHand?.(elRibbon), 180);
+}
+
+/* ---------- render: Aetherflow ---------- */
+function renderMarket() {
+  for (let i = 0; i < 5; i++) {
     const cell = elMarketCells[i];
     if (!cell) continue;
     cell.innerHTML = '';
@@ -51,59 +126,68 @@ function renderMarket(){
 
     const cardEl = makeCardEl(c, 'flow');
     cardEl.onclick = async () => {
-      // animate to discard before the state change
-      await animateBuyToDiscard({
-        cardEl,
-        discardBtn: $('#chipDiscard')
-      });
-      G.dispatch({ type:'BUY_FLOW', index:i });
+      // animate first, then buy (to keep source element on screen)
+      await animateBuyToDiscard(cardEl);
+      G.dispatch({ type: 'BUY_FLOW', index: i });
       renderAll();
     };
     cell.appendChild(cardEl);
   }
 }
 
-function renderHand(){
+/* ---------- render: Hand ---------- */
+function renderHand() {
   elRibbon.innerHTML = '';
-  G.state.hand.forEach((c, idx)=>{
+  G.state.hand.forEach((c, idx) => {
     const cardEl = makeCardEl(c, 'hand');
-    cardEl.onclick = (e)=>{
+
+    // click = play / set / channel (slot fallback handled in UI)
+    cardEl.onclick = (e) => {
       e.stopPropagation();
-      if (c.t === 'Instant'){
-        G.dispatch({ type:'CHANNEL_FROM_HAND', index: idx });
+      if (c.t === 'Instant') {
+        G.dispatch({ type: 'CHANNEL_FROM_HAND', index: idx });
       } else {
-        const s = G.state.slots.findIndex(x=>!x);
-        G.dispatch({ type:'PLAY_FROM_HAND', index: idx, slot: (s>=0?s:null) });
+        const s = G.state.slots.findIndex(x => !x);
+        G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: (s >= 0 ? s : null) });
       }
       renderAll();
     };
+
     elRibbon.appendChild(cardEl);
   });
 
-  // fan after render
-  fanHand(elRibbon);
+  // Gentle, tight fan
+  window.Anim?.fanHand?.(elRibbon, { spacing: 28, maxAngle: 12, maxLift: 14 });
 }
 
-function renderPlayerSlots(){
+/* ---------- render: Player Board ---------- */
+function renderPlayerSlots() {
   elPlayerSlots.innerHTML = '';
-  for (let i=0;i<4;i++){
+  for (let i = 0; i < 4; i++) {
     const cell = document.createElement('div');
-    cell.className = 'slotCell' + (i===3?' glyph':'');
-    const slot = (i<3 ? G.state.slots[i] : null);
-    if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'slot'));
-    else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
+    cell.className = 'slotCell';
+    if (i === 3) cell.classList.add('glyph');
 
-    cell.onclick = ()=>{
-      if (i<3 && G.state.slots[i]){
-        G.dispatch({ type:'ADVANCE', slot:i });
+    const slot = (i < 3 ? G.state.slots[i] : null);
+    if (slot && slot.c) {
+      cell.appendChild(makeCardEl(slot.c, 'slot'));
+    } else {
+      cell.innerHTML = `<div class="emptyCell">Empty</div>`;
+    }
+
+    cell.onclick = () => {
+      if (i < 3 && G.state.slots[i]) {
+        G.dispatch({ type: 'ADVANCE', slot: i });
         renderAll();
       }
     };
+
     elPlayerSlots.appendChild(cell);
   }
 
+  // glyph tray faces down
   elGlyphTray.innerHTML = '';
-  G.state.glyphs.forEach(()=>{
+  G.state.glyphs.forEach(() => {
     const face = document.createElement('div');
     face.className = 'card glyphCard faceDown';
     face.innerHTML = `
@@ -115,9 +199,10 @@ function renderPlayerSlots(){
   });
 }
 
-function renderAiSlots(){
+/* ---------- render: AI Board ---------- */
+function renderAiSlots() {
   elAiSlots.innerHTML = '';
-  for (let i=0;i<3;i++){
+  for (let i = 0; i < 3; i++) {
     const cell = document.createElement('div');
     cell.className = 'slotCell ai';
     const slot = G.state.ai.slots[i];
@@ -127,39 +212,63 @@ function renderAiSlots(){
   }
 }
 
-function renderCounts(){
+/* ---------- counts + deck/discard bar safety ---------- */
+function ensureDeckBar() {
+  // If your HTML already has it, this is a no-op.
+  if ($('.deckBar')) return;
+  const bar = document.createElement('div');
+  bar.className = 'deckBar';
+  bar.innerHTML = `
+    <button class="chipCirc" id="chipDeck" aria-label="Deck">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M8 8h8"/></svg>
+      <small id="deckCount">0</small>
+    </button>
+    <button class="chipCirc" id="chipDiscard" aria-label="Discard">
+      <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="14" width="18" height="6" rx="2"/><path d="M7 10h10M9 7h6"/></svg>
+      <small id="discardCount">0</small>
+    </button>
+  `;
+  document.body.appendChild(bar);
+}
+
+function renderCounts() {
+  ensureDeckBar();
   $('#deckCount').textContent    = String(G.state.deck.length);
   $('#discardCount').textContent = String(G.state.disc.length);
 }
 
-function renderAll(){
+/* ---------- full redraw ---------- */
+function renderAll() {
   renderMarket();
   renderHand();
   renderPlayerSlots();
   renderAiSlots();
   renderCounts();
+
+  // Let drag refresh after DOM changes
+  if (window.DragCards && typeof window.DragCards.refresh === 'function') {
+    window.DragCards.refresh();
+  }
 }
 
-/* ---------------- Buttons + Turn flow ---------------- */
-
-function wireButtons(){
+/* ---------- buttons ---------- */
+function wireButtons() {
   const btnDraw  = $('#btnDraw');
   const btnEnd   = $('#btnEnd');
   const btnReset = $('#btnReset');
 
-  btnDraw.onclick = async ()=>{
-    G.dispatch({ type:'DRAW' });
-    renderAll();
-    await animateDrawHand({ deckBtn: $('#chipDeck'), ribbon: elRibbon });
+  if (btnDraw)  btnDraw.onclick  = async () => { 
+    G.dispatch({ type:'DRAW' }); 
+    renderAll(); 
+    await animateDrawHand();
   };
 
-  btnEnd.onclick = async ()=>{
-    // discard your hand with animation
-    await animateDiscardHand({ ribbon: elRibbon, discardBtn: $('#chipDiscard') });
+  if (btnEnd)   btnEnd.onclick   = async () => {
+    await animateDiscardHand();
+    // player end
     G.dispatch({ type:'END_TURN' });
-    renderAll();
 
-    // simple AI turn
+    // AI sequence (mirrors your engine’s simple routine)
     G.dispatch({ type:'AI_DRAW' });
     G.dispatch({ type:'AI_PLAY_SPELL' });
     G.dispatch({ type:'AI_CHANNEL' });
@@ -167,44 +276,53 @@ function wireButtons(){
     G.dispatch({ type:'AI_BUY' });
     G.dispatch({ type:'AI_SPEND_TRANCE' });
 
-    // back to you + draw
+    // Back to player
     G.dispatch({ type:'START_TURN' });
     renderAll();
-    await animateDrawHand({ deckBtn: $('#chipDeck'), ribbon: elRibbon });
+    await animateDrawHand();
   };
 
-  btnReset.onclick = ()=>{
-    if (window.GameEngine && typeof window.GameEngine.create === 'function'){
+  if (btnReset) btnReset.onclick = () => {
+    if (window.GameEngine && typeof window.GameEngine.create === 'function') {
       window.game = G = window.GameEngine.create();
+      // make sure market exists and hand is fresh
+      G.dispatch({ type:'ENSURE_MARKET' });
+      G.dispatch({ type:'START_TURN', first:true });
       renderAll();
+      window.Anim?.settleHand?.(elRibbon);
     }
   };
 
-  $('#chipDeck').onclick    = ()=> console.log('[Deck]', G.state.deck);
-  $('#chipDiscard').onclick = ()=> console.log('[Discard]', G.state.disc);
+  const deckBtn = $('#chipDeck');
+  if (deckBtn) deckBtn.onclick = () => console.log('[UI] Deck:', G.state.deck);
+
+  const discBtn = $('#chipDiscard');
+  if (discBtn) discBtn.onclick = () => console.log('[UI] Discard:', G.state.disc);
 }
 
-/* ---------------- Init ---------------- */
-
-export function init(game){
+/* ---------- init ---------- */
+export function init(game) {
   G = game;
 
-  elRibbon      = $('.ribbon');
-  elPlayerSlots = $('#playerSlots');
-  elGlyphTray   = $('#glyphTray');
-  elAiSlots     = $('#aiSlots');
-  elMarketCells = $$('.marketCard');
+  // cache roots (match your HTML)
+  elRibbon       = $('.ribbon');
+  elPlayerSlots  = $('#playerSlots');
+  elGlyphTray    = $('#glyphTray');
+  elAiSlots      = $('#aiSlots');
+  elMarketCells  = $$('.marketCard');
 
   wireButtons();
+
+  // ensure we have market + starting hand visible
+  G.dispatch({ type:'ENSURE_MARKET' });
+  G.dispatch({ type:'START_TURN', first:true });
+
   renderAll();
+  window.Anim?.settleHand?.(elRibbon);
 
-  // Drag system (delegated) can refresh if present
-  if (window.DragCards && typeof window.DragCards.refresh === 'function'){
-    window.DragCards.refresh();
-  }
-
+  // Hide boot check if present
   const boot = document.querySelector('.bootCheck');
   if (boot) boot.style.display = 'none';
 
-  console.log('[UI] v3.9+ — animations restored, typed highlights, fixed rows');
+  console.log('[UI] v3.10 — compact DOM + controls + animations wired');
 }
