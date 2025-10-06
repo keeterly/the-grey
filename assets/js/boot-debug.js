@@ -1,5 +1,5 @@
-// boot-debug.js — Dev Drag (momentum, return animation, toggle button)
-// Drag is OFF unless you enable it via ?drag=1 or the bottom-left toggle.
+// boot-debug.js — Dev Drag (guarded, momentum, snap-to-slot, return animation)
+// Drag is OFF unless enabled via ?drag=1 or the bottom-left toggle.
 
 console.log("[DRAG] dev drag bootstrap");
 
@@ -8,13 +8,13 @@ let dragLayer = null;      // fixed host for real dragged node
 let raf = null;
 
 const LIFT_THRESHOLD = 6;  // px to start drag
-const MASS = 1.0;          // mass for momentum model
-const STIFFNESS = 0.34;    // spring constant -> higher = snappier
-const DAMPING = 0.22;      // friction (0..1) -> higher = more damping
-const RETURN_MS = 220;     // duration of return-to-hand animation
-const SLOT_SNAP_MS = 120;  // visual snap-to-slot before handing control to game
+const MASS = 1.0;
+const STIFFNESS = 0.34;    // higher = snappier
+const DAMPING = 0.22;      // 0..1 (more = heavier damping)
+const RETURN_MS = 220;     // return-to-hand animation
+const SLOT_SNAP_MS = 120;  // visual snap to slot
 
-/* ----------------- small helpers ----------------- */
+/* ---------- helpers ---------- */
 
 const devDragEnabled = () =>
   /\bdrag=1\b/.test(location.search) ||
@@ -33,10 +33,10 @@ function ensureDragLayer() {
 }
 
 function addGlobals() {
-  window.addEventListener('pointermove', onMove, { passive: false });
-  window.addEventListener('pointerup', onUp, { passive: false });
-  window.addEventListener('pointercancel', onUp, { passive: false });
-  window.addEventListener('blur', onUp, { passive: false });
+  window.addEventListener('pointermove', onMove, { passive:false });
+  window.addEventListener('pointerup', onUp, { passive:false });
+  window.addEventListener('pointercancel', onUp, { passive:false });
+  window.addEventListener('blur', onUp, { passive:false });
 }
 function removeGlobals() {
   window.removeEventListener('pointermove', onMove);
@@ -45,7 +45,7 @@ function removeGlobals() {
   window.removeEventListener('blur', onUp);
 }
 
-/** Reinsert card even if the hand was re-rendered. */
+/** reinsert card even if the hand re-rendered */
 function safeReturn(card, originParent, originNext, placeholder) {
   try {
     if (placeholder && placeholder.parentNode) {
@@ -68,56 +68,47 @@ function safeReturn(card, originParent, originNext, placeholder) {
   if (ribbon) ribbon.appendChild(card);
 }
 
-/** Ease function for return animations. */
-function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+/** easeOutCubic for quick, non-spring animations */
+function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
-/** Animate the card’s CSS-vars to (x,y). Calls done() after. */
 function animateTo(x, y, ms, done) {
   if (!st) return;
-  const startX = st.curX, startY = st.curY;
-  const dx = x - startX, dy = y - startY;
+  const sx = st.curX, sy = st.curY;
+  const dx = x - sx, dy = y - sy;
   const t0 = performance.now();
 
   function step(t) {
     if (!st) return;
     const p = Math.min(1, (t - t0) / ms);
     const e = easeOutCubic(p);
-    st.curX = startX + dx * e;
-    st.curY = startY + dy * e;
+    st.curX = sx + dx * e;
+    st.curY = sy + dy * e;
     st.card.style.setProperty('--drag-x', `${st.curX}px`);
     st.card.style.setProperty('--drag-y', `${st.curY}px`);
-    if (p < 1) {
-      requestAnimationFrame(step);
-    } else {
-      done && done();
-    }
+    if (p < 1) requestAnimationFrame(step); else done && done();
   }
   requestAnimationFrame(step);
 }
 
-/** Cancel drag immediately (e.g., preview popped). */
 function cancelDragNow() {
   if (!st) return;
   try { st.card.releasePointerCapture?.(st.pid); } catch {}
   cancelAnimationFrame(raf);
   removeGlobals();
-
   safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
   st.card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
   st.card.style.removeProperty('--drag-x');
   st.card.style.removeProperty('--drag-y');
-
   st = null;
 }
 
-/* ----------------- core drag ----------------- */
+/* ---------- core drag ---------- */
 
-function onDown(e) {
+function onDown(e){
   if (!devDragEnabled()) return;
   if (isPreviewOpen()) return;
 
-  // Only from hand
-  const card = e.target.closest('.ribbon .card');
+  const card = e.target.closest('.ribbon .card'); // only from hand
   if (!card || e.button !== 0) return;
 
   e.preventDefault();
@@ -125,10 +116,8 @@ function onDown(e) {
 
   ensureDragLayer();
 
-  // “Pressed” pose (same as hover); freeze transitions while measuring
   card.classList.add('is-pressing','grab-intent');
 
-  // Measure *visual* pose (don’t subtract transforms)
   const r = card.getBoundingClientRect();
   const pageLeft = r.left + window.scrollX;
   const pageTop  = r.top  + window.scrollY;
@@ -137,30 +126,21 @@ function onDown(e) {
     pid: e.pointerId,
     card,
     startX: e.pageX, startY: e.pageY,
-
     offsetX: e.pageX - pageLeft,
     offsetY: e.pageY - pageTop,
-
-    curX: pageLeft,
-    curY: pageTop,
-    targetX: pageLeft,
-    targetY: pageTop,
-
-    vx: 0, vy: 0,                      // velocity for momentum
-    lastClientX: e.clientX,
-    lastClientY: e.clientY,
-
-    lifted: false,
-    placeholder: null,
-    originParent: card.parentNode,
-    originNext: card.nextSibling,
+    curX: pageLeft, curY: pageTop,
+    targetX: pageLeft, targetY: pageTop,
+    vx: 0, vy: 0,
+    lastClientX: e.clientX, lastClientY: e.clientY,
+    lifted:false, placeholder:null,
+    originParent: card.parentNode, originNext: card.nextSibling,
     isInstant: card.classList.contains('is-instant'),
   };
 
   addGlobals();
 }
 
-function lift() {
+function lift(){
   if (!st || st.lifted) return;
 
   const card = st.card;
@@ -168,7 +148,7 @@ function lift() {
   const pageLeft = r.left + window.scrollX;
   const pageTop  = r.top  + window.scrollY;
 
-  // Keep spacing in the ribbon
+  // keep spacing in the ribbon
   const ph = document.createElement('div');
   ph.style.width = r.width + 'px';
   ph.style.height = r.height + 'px';
@@ -177,18 +157,14 @@ function lift() {
   if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
   else st.originParent.appendChild(ph);
 
-  // Offset based on current pose
-  st.offsetX = st.startX - pageLeft;
-  st.offsetY = st.startY - pageTop;
-
-  // Set CSS-vars BEFORE we move the node
+  // set vars BEFORE moving node
   card.style.setProperty('--drag-x', `${pageLeft}px`);
   card.style.setProperty('--drag-y', `${pageTop}px`);
 
-  // Switch classes and host
   card.classList.remove('grab-intent','is-pressing');
   card.classList.add('is-dragging');
   if (st.isInstant) card.classList.add('pulsing');
+
   dragLayer.appendChild(card);
 
   st.curX = pageLeft; st.curY = pageTop;
@@ -199,12 +175,11 @@ function lift() {
   momentumLoop();
 }
 
-function onMove(e) {
+function onMove(e){
   if (!st) return;
   if (isPreviewOpen()) { cancelDragNow(); return; }
 
-  st.lastClientX = e.clientX;
-  st.lastClientY = e.clientY;
+  st.lastClientX = e.clientX; st.lastClientY = e.clientY;
 
   const dx = e.pageX - st.startX;
   const dy = e.pageY - st.startY;
@@ -215,13 +190,12 @@ function onMove(e) {
   st.targetY = e.pageY - st.offsetY;
 }
 
-function onUp(e) {
+function onUp(e){
   if (!st) return;
   try { st.card.releasePointerCapture?.(st.pid); } catch {}
   cancelAnimationFrame(raf);
   removeGlobals();
 
-  // Hit test (with blur fallback)
   let cx = Number.isFinite(e?.clientX) ? e.clientX : st.lastClientX;
   let cy = Number.isFinite(e?.clientY) ? e.clientY : st.lastClientY;
 
@@ -231,12 +205,10 @@ function onUp(e) {
     const hit = document.elementFromPoint(cx, cy);
     st.card.style.visibility = '';
     dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
-    // Only allow drops on player's board
-    if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null;
+    if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null; // player-only
   }
 
-  if (st.lifted && dropSlot) {
-    // Quick visual snap to slot, then return DOM to hand; game state will move it.
+  if (st.lifted && dropSlot){
     const r = dropSlot.getBoundingClientRect();
     const toX = r.left + window.scrollX;
     const toY = r.top  + window.scrollY;
@@ -244,21 +216,19 @@ function onUp(e) {
       safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
       st.card.classList.remove('is-dragging','pulsing');
       st.card.style.removeProperty('--drag-x'); st.card.style.removeProperty('--drag-y');
-      // notify engine if available
       try {
         game?.dispatch?.({
-          type: 'DROP_CARD',
+          type:'DROP_CARD',
           cardId: st.card.dataset.id,
           slot: dropSlot.dataset.slot
         });
       } catch {}
       st = null;
     });
-  } else if (st.lifted) {
-    // Return to hand (animate back to placeholder spot)
-    const phRect = st.placeholder.getBoundingClientRect();
-    const toX = phRect.left + window.scrollX;
-    const toY = phRect.top  + window.scrollY;
+  } else if (st.lifted){
+    const pr = st.placeholder.getBoundingClientRect();
+    const toX = pr.left + window.scrollX;
+    const toY = pr.top  + window.scrollY;
     animateTo(toX, toY, RETURN_MS, () => {
       safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
       st.card.classList.remove('is-dragging','pulsing');
@@ -266,32 +236,23 @@ function onUp(e) {
       st = null;
     });
   } else {
-    // never lifted — just clear press state
     st.card.classList.remove('is-pressing','grab-intent');
     st = null;
   }
 }
 
-/* ----------------- momentum follow loop ----------------- */
-function momentumLoop() {
+/* momentum follow loop (spring-ish) */
+function momentumLoop(){
   cancelAnimationFrame(raf);
-
   const step = () => {
     if (!st || !st.lifted) return;
 
-    // Spring force towards target
     const ax = (st.targetX - st.curX) * STIFFNESS / MASS;
     const ay = (st.targetY - st.curY) * STIFFNESS / MASS;
 
-    // Integrate velocity
-    st.vx = (st.vx + ax);
-    st.vy = (st.vy + ay);
+    st.vx = (st.vx + ax) * (1 - DAMPING);
+    st.vy = (st.vy + ay) * (1 - DAMPING);
 
-    // Damping (friction)
-    st.vx *= (1 - DAMPING);
-    st.vy *= (1 - DAMPING);
-
-    // Integrate position
     st.curX += st.vx;
     st.curY += st.vy;
 
@@ -300,58 +261,52 @@ function momentumLoop() {
 
     raf = requestAnimationFrame(step);
   };
-
   raf = requestAnimationFrame(step);
 }
 
-/* ----------------- dev toggle button ----------------- */
-function addDevToggle() {
-  // Add only once
+/* dev toggle button (bottom-left) */
+function addDevToggle(){
   if (document.getElementById('dragDevToggle')) return;
-
   const btn = document.createElement('button');
   btn.id = 'dragDevToggle';
   btn.type = 'button';
   btn.textContent = devDragEnabled() ? 'Drag: ON' : 'Drag: OFF';
   Object.assign(btn.style, {
-    position: 'fixed', left: '12px', bottom: '12px', zIndex: 9999,
-    padding: '8px 10px', border: '0', borderRadius: '10px',
+    position:'fixed', left:'12px', bottom:'12px', zIndex:9999,
+    padding:'8px 10px', border:'0', borderRadius:'10px',
     background: devDragEnabled() ? '#2c7be5' : '#ccc',
-    color: '#fff', fontWeight: '700', boxShadow: '0 6px 16px rgba(0,0,0,.18)',
-    cursor: 'pointer'
+    color:'#fff', fontWeight:'700', boxShadow:'0 6px 16px rgba(0,0,0,.18)',
+    cursor:'pointer'
   });
   btn.addEventListener('click', () => {
     const now = !devDragEnabled();
     if (now) localStorage.setItem('enableDragDev','1');
     else localStorage.removeItem('enableDragDev');
-    // Reflect UI state immediately
     btn.textContent = now ? 'Drag: ON' : 'Drag: OFF';
     btn.style.background = now ? '#2c7be5' : '#ccc';
   });
   document.body.appendChild(btn);
 }
 
-/* ----------------- boot ----------------- */
-function initDragBridge() {
-  // Always install the toggle so you can turn it on/off without reload
+/* boot */
+function initDragBridge(){
   addDevToggle();
 
-  if (!devDragEnabled()) {
-    document.addEventListener('dragstart', e => e.preventDefault());
+  // Always block the native HTML5 drag ghost
+  document.addEventListener('dragstart', e => e.preventDefault());
+
+  if (!devDragEnabled()){
     console.log('[DRAG] disabled (toggle or ?drag=1 to enable)');
     return;
   }
 
   ensureDragLayer();
 
-  // Kill native ghost image
-  document.addEventListener('dragstart', e => e.preventDefault());
-
   // Cancel if preview UI appears mid-drag
   new MutationObserver(() => { if (isPreviewOpen()) cancelDragNow(); })
-    .observe(document.body, { childList: true, subtree: true });
+    .observe(document.body, { childList:true, subtree:true });
 
-  document.addEventListener('pointerdown', onDown, { passive: false });
+  document.addEventListener('pointerdown', onDown, { passive:false });
 
   console.log('[DRAG] enabled');
 }
