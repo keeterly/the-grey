@@ -619,3 +619,13 @@ html, body, .wrap{
   transition: none !important;
 }
 
+/* keep everything on the compositor and grow around your finger */
+.ribbon .card {
+  transform-origin: center center;
+  will-change: transform;
+}
+.ribbon .card.is-preview {
+  /* the JS animates transform; this just ensures no other transitions interfere */
+  transition-property: transform;
+}
+
