@@ -1,14 +1,14 @@
 // boot-debug.js
-console.log("[BRIDGE] Drag/Preview bridge (no-clone, hardened) loaded");
+console.log("[BRIDGE] Drag/Preview bridge (no-clone, jitter-smoothed) loaded");
 
 /* -------------------- Tunables -------------------- */
 const DRAG_THRESHOLD       = 9;     // px from press to begin drag (direct)
 const PREVIEW_DELAY_MS     = 280;   // hold to preview
 const PREVIEW_CANCEL_DIST  = 36;    // wiggle allowed while previewing
-const PREVIEW_HYSTERESIS   = 2;     // # of consecutive over-threshold moves to cancel preview
+const PREVIEW_HYSTERESIS   = 2;     // consecutive over-threshold moves to cancel preview
 const PREVIEW_SCALE        = 2.5;   // 250% preview
-const PREVIEW_EASE_MS_IN   = 140;   // grow ease
-const PREVIEW_EASE_MS_OUT  = 90;    // shrink ease
+const PREVIEW_EASE_MS_IN   = 160;   // grow ease (slightly longer for buttery feel)
+const PREVIEW_EASE_MS_OUT  = 100;   // shrink ease
 const FOLLOW_DAMP          = 0.30;  // drag smoothing (lower = tighter)
 /* -------------------------------------------------- */
 
@@ -20,11 +20,13 @@ let layer = null;
   const s = document.createElement("style");
   s.id = id;
   s.textContent = `
+    .card { -webkit-tap-highlight-color: transparent; backface-visibility: hidden; }
     .card.is-pressing { transition: none !important; }
     .card.is-previewing {
       pointer-events: none !important;
       will-change: transform, filter;
       z-index: 2147483000 !important;
+      transform: translateZ(0); /* promote to its own layer */
     }
     .card.is-dragging {
       position: fixed !important;
@@ -41,7 +43,7 @@ let layer = null;
 
 const st = {
   mode: "idle",      // idle | press | preview | drag
-  touchLock: false,  // ignore secondary touches
+  touchLock: false,
   pid: null,
   card: null,
 
@@ -53,7 +55,6 @@ const st = {
   originParent: null,
   originNext: null,
   placeholder: null,
-  restore: null,
 
   cancelArmed: 0,
 
@@ -85,7 +86,6 @@ function init() {
 }
 
 function hardFinalize() {
-  // Global fail-safe: restore whatever state we're in
   if (!st.card) { reset(); return; }
 
   try { st.card.releasePointerCapture(st.pid); } catch {}
@@ -107,6 +107,9 @@ function hardFinalize() {
   c.style.removeProperty("--drag-x");
   c.style.removeProperty("--drag-y");
   c.style.removeProperty("transform-origin");
+  c.style.removeProperty("will-change");
+  c.style.removeProperty("contain");
+  c.style.removeProperty("backface-visibility");
 
   if (st.placeholder && st.originParent) {
     st.originParent.insertBefore(c, st.placeholder);
@@ -126,14 +129,12 @@ function reset() {
   st.placeholder = null;
   st.originParent = null;
   st.originNext = null;
-  st.restore = null;
   st.cancelArmed = 0;
 }
 
 /* -------------------- Handlers -------------------- */
 
 function onDown(e) {
-  // one-touch guard
   if (st.touchLock) return;
   const card = e.target.closest(".ribbon .card");
   if (!card || e.button === 2) return;
@@ -163,17 +164,13 @@ function onMove(e) {
   const dist = Math.hypot(dx, dy);
 
   if (st.mode === "press") {
-    if (dist > DRAG_THRESHOLD) {
-      enterDragFromPress(e);
-    }
+    if (dist > DRAG_THRESHOLD) enterDragFromPress(e);
     return;
   }
 
   if (st.mode === "preview") {
     if (dist > PREVIEW_CANCEL_DIST) {
-      if (++st.cancelArmed >= PREVIEW_HYSTERESIS) {
-        handoffPreviewToDrag(e);
-      }
+      if (++st.cancelArmed >= PREVIEW_HYSTERESIS) handoffPreviewToDrag(e);
     } else {
       st.cancelArmed = 0;
     }
@@ -186,12 +183,7 @@ function onMove(e) {
   }
 }
 
-function onUp(e) {
-  // We use hardFinalize via global listener; keep this for completeness.
-  hardFinalize();
-}
-
-/* -------------------- Preview -------------------- */
+/* -------------------- Preview (jitter-smoothed) -------------------- */
 
 function enterPreview(card) {
   const r = card.getBoundingClientRect();
@@ -199,7 +191,7 @@ function enterPreview(card) {
   st.originParent = card.parentNode;
   st.originNext   = card.nextSibling;
 
-  // keep ribbon spacing
+  // placeholder keeps ribbon spacing
   const ph = document.createElement("div");
   ph.style.width = r.width + "px";
   ph.style.height = r.height + "px";
@@ -208,15 +200,14 @@ function enterPreview(card) {
   if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
   else st.originParent.appendChild(ph);
 
-  // reparent to fixed layer first
+  // reparent first
   layer.appendChild(card);
 
   st.mode = "preview";
   card.classList.remove("is-pressing");
   card.classList.add("is-previewing");
 
-  // two-frame sequence to avoid jitter
-  // frame 1: set fixed position + size, no transform
+  // Baseline fixed position & no transition; lock to GPU
   Object.assign(card.style, {
     position: "fixed",
     left: `${r.left}px`,
@@ -224,22 +215,32 @@ function enterPreview(card) {
     width: `${r.width}px`,
     height: `${r.height}px`,
     transformOrigin: "50% 50%",
-    transition: "none"
+    transition: "none",
+    willChange: "transform, filter",
+    contain: "layout style paint",
+    backfaceVisibility: "hidden"
   });
-  void card.offsetWidth; // reflow
 
-  // frame 2: animate scale up
-  card.style.transition = `transform ${PREVIEW_EASE_MS_IN}ms ease, filter ${PREVIEW_EASE_MS_IN}ms ease`;
-  card.style.transform = `translate3d(0,0,0) scale(${PREVIEW_SCALE})`;
-  card.style.filter = "drop-shadow(0 18px 38px rgba(0,0,0,.35))";
+  // Double-RAF to avoid the “pop then shrink” on mobile reparenting
+  requestAnimationFrame(() => {
+    // Frame A: explicitly set scale(1) so the next transition has a clear start
+    card.style.transform = "translate3d(0,0,0) scale(1)";
+    card.style.filter = "";
+    requestAnimationFrame(() => {
+      // Frame B: now enable transition and grow
+      card.style.transition = `transform ${PREVIEW_EASE_MS_IN}ms ease, filter ${PREVIEW_EASE_MS_IN}ms ease`;
+      card.style.transform  = `translate3d(0,0,0) scale(${PREVIEW_SCALE})`;
+      card.style.filter     = "drop-shadow(0 18px 38px rgba(0,0,0,.35))";
+    });
+  });
 
-  // avoid iOS long-press selection / scroll
   document.documentElement.style.touchAction = "none";
 }
 
 function leavePreview(card, cb) {
-  // shrink smoothly, then restore
+  // shrink smoothly, then restore to ribbon
   card.style.transition = `transform ${PREVIEW_EASE_MS_OUT}ms ease`;
+  // keep transform base to avoid sudden snap
   card.style.transform = "translate3d(0,0,0) scale(1)";
   card.style.filter = "";
 
@@ -250,20 +251,14 @@ function leavePreview(card, cb) {
     card.style.removeProperty("transform-origin");
     cb && cb();
   };
-
-  // If transitionend doesn’t fire (mobile quirks), fall back
-  const failSafe = setTimeout(onEnd, PREVIEW_EASE_MS_OUT + 40);
-  card.addEventListener("transitionend", () => {
-    clearTimeout(failSafe);
-    onEnd();
-  });
+  const failSafe = setTimeout(onEnd, PREVIEW_EASE_MS_OUT + 60);
+  card.addEventListener("transitionend", () => { clearTimeout(failSafe); onEnd(); });
 }
 
 function restoreToRibbon(card) {
   if (st.placeholder && st.originParent) {
     st.originParent.insertBefore(card, st.placeholder);
   }
-  // strip inline used for preview/drag
   card.style.removeProperty("position");
   card.style.removeProperty("left");
   card.style.removeProperty("top");
@@ -272,6 +267,9 @@ function restoreToRibbon(card) {
   card.style.removeProperty("transition");
   card.style.removeProperty("transform");
   card.style.removeProperty("filter");
+  card.style.removeProperty("will-change");
+  card.style.removeProperty("contain");
+  card.style.removeProperty("backface-visibility");
   st.placeholder?.remove();
   st.placeholder = null;
   document.documentElement.style.removeProperty("touch-action");
@@ -289,12 +287,11 @@ function enterDragFromPress(e) {
 
 function handoffPreviewToDrag(e) {
   const card = st.card;
-
-  // stop preview animation cleanly
+  // freeze current preview frame before switching
   card.style.transition = "none";
   card.style.transform = "translate3d(0,0,0) scale(1)";
   card.style.filter = "";
-  void card.offsetWidth; // commit
+  void card.offsetWidth;
   card.classList.remove("is-previewing");
   document.documentElement.style.removeProperty("touch-action");
 
@@ -306,7 +303,7 @@ function prepareDragWithRect(e, rect, wasPreview) {
   const card = st.card;
 
   if (!wasPreview) {
-    // create placeholder & reparent
+    // create placeholder & reparent now
     st.originParent = card.parentNode;
     st.originNext   = card.nextSibling;
     const ph = document.createElement("div");
@@ -330,12 +327,7 @@ function prepareDragWithRect(e, rect, wasPreview) {
   st.targetX = pageLeft;
   st.targetY = pageTop;
 
-  // IMPORTANT: set fixed baseline + CSS vars BEFORE adding class
-  Object.assign(card.style, {
-    position: "fixed",
-    left: "0px",
-    top: "0px"
-  });
+  Object.assign(card.style, { position: "fixed", left: "0px", top: "0px" });
   card.style.setProperty("--drag-x", `${st.curX}px`);
   card.style.setProperty("--drag-y", `${st.curY}px`);
 
@@ -355,4 +347,6 @@ function follow() {
 
 /* ------------------------------------------------ */
 
+window.addEventListener("pointerup", hardFinalize, { passive: false });
+window.addEventListener("pointercancel", hardFinalize, { passive: false });
 window.addEventListener("DOMContentLoaded", init);
