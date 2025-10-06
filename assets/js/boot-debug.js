@@ -106,34 +106,45 @@ function safeReturn(card, originParent, originNext) {
     window.addEventListener('blur', onUp);
   }
 
-  function lift(){
-    if (!st || st.lifted) return;
-    const { card, originParent, originNext } = st;
+ function lift() {
+  if (!st || st.lifted) return;
+  const { card, originParent, originNext } = st;
 
-    // Keep hand spacing with a placeholder
-    const r = card.getBoundingClientRect();
-    const ph = document.createElement('div');
-    ph.style.width = r.width + 'px';
-    ph.style.height = r.height + 'px';
-    ph.style.marginLeft = getComputedStyle(card).marginLeft;
-    st.placeholder = ph;
-    if (originNext) originParent.insertBefore(ph, originNext);
-    else originParent.appendChild(ph);
+  // Measure position on page BEFORE moving
+  const rect = card.getBoundingClientRect();
+  const pageX = rect.left + window.scrollX;
+  const pageY = rect.top + window.scrollY;
 
-    // ORDER: set coords → switch classes → move node (prevents 0,0 jump)
-    card.style.setProperty('--drag-x', st.curX + 'px');
-    card.style.setProperty('--drag-y', st.curY + 'px');
+  // Create placeholder to preserve hand layout
+  const ph = document.createElement('div');
+  ph.style.width = rect.width + 'px';
+  ph.style.height = rect.height + 'px';
+  ph.style.marginLeft = getComputedStyle(card).marginLeft;
+  st.placeholder = ph;
+  if (originNext) originParent.insertBefore(ph, originNext);
+  else originParent.appendChild(ph);
 
-    card.classList.remove('grab-intent');
-    card.classList.remove('is-pressing');
-    card.classList.add('is-dragging');
-    if (st.isInstant) card.classList.add('pulsing');
+  // Compute offset between pointer and card top-left
+  st.offsetX = st.startX - pageX;
+  st.offsetY = st.startY - pageY;
 
-    dragLayer.appendChild(card);
+  // Move actual element into drag layer and fix position
+  card.classList.remove('grab-intent', 'is-pressing');
+  card.classList.add('is-dragging');
+  if (st.isInstant) card.classList.add('pulsing');
 
-    st.lifted = true;
-    smoothFollow();
-  }
+  dragLayer.appendChild(card);
+
+  st.curX = pageX;
+  st.curY = pageY;
+  st.targetX = pageX;
+  st.targetY = pageY;
+  card.style.setProperty('--drag-x', `${pageX}px`);
+  card.style.setProperty('--drag-y', `${pageY}px`);
+
+  st.lifted = true;
+  smoothFollow();
+}
 
   function smoothFollow(){
     cancelAnimationFrame(raf);
@@ -165,20 +176,21 @@ function safeReturn(card, originParent, originNext) {
     raf = requestAnimationFrame(step);
   }
 
-  function onMove(e){
-    if (isPreviewOpen()) { cancelDragNow(); return; }
-    if (!st) return;
+  function onMove(e) {
+  if (isPreviewOpen()) { cancelDragNow(); return; }
+  if (!st) return;
 
-    const dx = e.pageX - st.startX;
-    const dy = e.pageY - st.startY;
+  const dx = e.pageX - st.startX;
+  const dy = e.pageY - st.startY;
 
-    if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
-    if (!st.lifted) return;
+  // Start drag after a small threshold
+  if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
+  if (!st.lifted) return;
 
-    // Keep the exact click point under the cursor (page coords)
-    st.targetX = e.pageX - st.offsetX;
-    st.targetY = e.pageY - st.offsetY;
-  }
+  // Always follow the pointer based on original grab offset
+  st.targetX = e.pageX - st.offsetX;
+  st.targetY = e.pageY - st.offsetY;
+}
 
   function snapBack(){
     const { card, originParent, originNext, placeholder, isInstant } = st;
