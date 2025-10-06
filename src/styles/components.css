@@ -34,7 +34,7 @@ html, body{
 
 /* Leave space so content never sits under the fixed hand tray */
 body{
-  padding-bottom: calc(var(--card-h) + 72px + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(var(--card-h) + 84px + env(safe-area-inset-bottom, 0)) !important;
 }
 
 /* ---------- Shell panels ---------- */
@@ -87,60 +87,81 @@ body{
   box-shadow: 0 10px 26px rgba(0,0,0,.12);
 }
 
-/* Card text/content */
 .card .cName{ font-weight:700; letter-spacing:.2px; }
 .card .cType{ font-size:12px; color:var(--muted); }
 
 /* ============================
    RIBBON / HAND
    ============================ */
+
+/* Fixed tray pinned to bottom-center */
 .ribbon-wrap{
-  position: fixed;
+  position: fixed !important;
   left: 50%;
-  bottom: 12px;
+  bottom: calc(env(safe-area-inset-bottom,0) + 8px) !important;
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
   align-items: flex-end;
   width: 100%;
   max-width: 100vw;
-  height: calc(var(--card-h) + 80px) !important;
+  height: calc(var(--card-h) + 92px) !important;   /* headroom for lift */
   pointer-events: none;
   z-index: 2147483646 !important;
+
+  /* 🔒 absolutely no clipping/masking on iOS */
   overflow: visible !important;
-  isolation: isolate;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  clip-path: none !important;
+  -webkit-clip-path: none !important;
+  isolation: isolate;          /* stacking ctx without clipping */
 }
+
+/* Scrollable/laying-out row inside the tray */
 .ribbon{
   display: flex;
   align-items: flex-end;
   justify-content: center;
   gap: 0;
   pointer-events: auto;
-  overflow: visible !important;
   padding-bottom: 12px;
+
+  /* 🔒 never crop the cards */
+  overflow: visible !important;
+  background: transparent !important;
+  -webkit-mask: none !important;
+  mask: none !important;
 }
 
-/* Cards in hand fan and overlap */
+/* Cards in hand — fan and overlap */
 .ribbon .card{
   position: relative;
-  margin-left: -72px !important; /* tighter spacing */
+  margin-left: -72px !important;      /* tighter spacing */
   transform: translateY(10px);
   transition: transform 120ms ease, filter 120ms ease;
   transform-origin: center center;
   will-change: transform;
   pointer-events: auto;
+  z-index: 1;
 }
 .ribbon .card:first-child{ margin-left: 0; }
 
-/* Hover/drag effects */
 .ribbon .card:hover:not(.is-dragging):not(.is-previewing){
   transform: translateY(-14px) scale(1.02);
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+  z-index: 3;
 }
 .ribbon .card.is-pressing{
   transform: translateY(-14px) scale(1.02) !important;
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
   transition: none !important;
+  z-index: 3;
 }
 .card.is-dragging{ transition: none !important; }
 
@@ -154,14 +175,9 @@ body{
   transform: translate3d(0,-14px,0) scale(var(--preview-scale)) !important;
   filter: drop-shadow(0 16px 36px rgba(0,0,0,.35)) !important;
   transition: transform 0.25s cubic-bezier(.22,1,.36,1);
+  -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
   will-change: transform, filter;
-  contain: layout paint;
-}
-.card:hover.is-previewing,
-.card:hover.is-dragging{
-  transform: none;
-  filter: none;
 }
 
 /* Drag card follows pointer smoothly */
@@ -172,7 +188,7 @@ body{
   filter: drop-shadow(0 12px 24px rgba(0,0,0,.32));
   cursor: grabbing;
   transition: none !important;
-  z-index: 2147483001 !important;
+  z-index: 2147483647 !important;   /* above everything, incl. zones */
 }
 
 /* ---------- HUD / BUTTONS ---------- */
@@ -206,59 +222,43 @@ body{
   z-index: 51 !important;
 }
 
-/* ---------- Z-index Safety ---------- */
+/* ---------- Z-index & overflow safety ---------- */
 .drag-layer{
   position: fixed;
   inset: 0;
   z-index: 2147483647 !important;
   pointer-events: none !important;
 }
+
+/* important siblings should never cover the hand */
 .wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem{
   position: relative; z-index: 100 !important; overflow: visible !important;
 }
 #playerSlots, #aiSlots, .slots, .zone{ overflow: visible !important; }
 
+/* Kill any pseudo masking that might be added later */
+.ribbon-wrap::before, .ribbon-wrap::after,
+.ribbon::before, .ribbon::after{ content:none !important; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 768px){
   .ribbon .card{ margin-left:-60px !important; transform: translateY(8px); }
   .ribbon .card:hover,
-  .ribbon .card.is-dragging{ transform: translateY(-10px) scale(1.02); }
-  .ribbon-wrap{ bottom: 6px; }
+  .ribbon .card.is-pressing{ transform: translateY(-10px) scale(1.02); }
+  .ribbon-wrap{ bottom: calc(env(safe-area-inset-bottom,0) + 6px) !important; }
 }
 
-/* ---------- Anti-mask / Safe-area fixes ---------- */
+/* ---------- Anti-transform / safe-area ---------- */
 html, body, .wrap{
   transform:none !important;
   -webkit-transform:none !important;
   overflow:visible !important;
 }
 
-/* === HAND CLIPPING HOT-FIX === */
-body{
-  padding-bottom: calc(var(--card-h) + 84px + env(safe-area-inset-bottom,0)) !important;
-}
-.ribbon-wrap{
-  bottom: calc(env(safe-area-inset-bottom,0) + 8px) !important;
-  height: calc(var(--card-h) + 80px) !important;
-  overflow: visible !important;
-}
-.ribbon{
-  overflow-y: visible !important;
-  overflow-x: auto !important;
-  align-items: flex-end;
-  padding-bottom: 12px;
-}
-#app, main, .wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem,
-#playerSlots, #aiSlots, .slots{ overflow: visible !important; }
-.drag-layer{ z-index:2147483647 !important; pointer-events:none !important; }
-.ribbon-wrap{ z-index:2147483646 !important; }
-
-@media (max-width:480px){
-  body{
-    padding-bottom: calc(var(--card-h) + 96px + env(safe-area-inset-bottom,0)) !important;
-  }
-  .ribbon-wrap{
-    height: calc(var(--card-h) + 92px) !important;
-    bottom: calc(env(safe-area-inset-bottom,0) + 6px) !important;
+/* ---------- Mobile MTG scaling ---------- */
+@media (max-width: 480px){
+  :root{
+    --card-w: min(38vw, 220px);
+    --card-h: calc(var(--card-w) * var(--card-ratio));
   }
 }
