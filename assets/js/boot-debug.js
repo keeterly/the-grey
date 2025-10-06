@@ -1,30 +1,32 @@
-// boot-debug.js — 5× Hold Preview (always on) + Dev Drag (toggle only)
+// boot-debug.js — 2.5× Hold Preview (always on) + Dev Drag (toggle only)
 /* eslint-disable */
 
-console.log("[DRAG] bootstrap — preview ALWAYS on, drag gated by toggle");
+console.log("[DRAG] bootstrap — preview ALWAYS on (2.5×), drag gated by toggle");
 
 /* =========================
    Tunables
    ========================= */
-const HOLD_MS = 350;                 // press-and-hold delay to show preview
-const LIFT_THRESHOLD = 12;           // px to start drag before preview (only when drag is ON)
-const PREVIEW_CANCEL_THRESHOLD = 18; // movement to cancel pending preview
-const PREVIEW_DRAG_THRESHOLD = 24;   // movement to convert preview -> drag (when drag is ON)
-const RETURN_MS = 220;               // animate back to hand
-const SLOT_SNAP_MS = 120;            // animate into slot
-const STIFFNESS = 0.34;              // follow feel
+const HOLD_MS = 320;                // press-and-hold delay to show preview
+const LIFT_THRESHOLD = 10;          // px to start drag before preview (only when drag is ON)
+const PREVIEW_CANCEL_THRESHOLD = 20;// movement to cancel pending preview
+const PREVIEW_DRAG_THRESHOLD = 18;  // movement to convert preview -> drag (when drag is ON)
+const PREVIEW_SCALE = 2.5;          // 250% preview
+
+const RETURN_MS = 220;              // animate back to hand
+const SLOT_SNAP_MS = 120;           // animate into slot
+const STIFFNESS = 0.34;             // follow feel
 const DAMPING = 0.22;
 const MASS = 1.0;
 
 /* =========================
    State
    ========================= */
-let st = null;                  // active drag state
-let raf = null;                 // rAF id for momentum loop
-let holdTimer = null;           // setTimeout id
-let dragLayer = null;           // fixed layer for dragged card
-let dragBtn = null;             // debug toggle button
-let previewNode = null;         // DOM node for preview clone
+let st = null;
+let raf = null;
+let holdTimer = null;
+let dragLayer = null;
+let dragBtn = null;
+let previewNode = null;
 
 /* =========================
    Helpers
@@ -78,7 +80,6 @@ function safeReturn(card, originParent, originNext, placeholder){
       return;
     } catch {}
   }
-  // last resort
   document.getElementById('ribbon')?.appendChild(card);
 }
 
@@ -104,13 +105,12 @@ function animateTo(x, y, ms, done){
 }
 
 /* =========================
-   Preview (true 5× clone)
+   Preview (true clone @ 2.5×)
    ========================= */
 function openPreview(fromCard){
   closePreview();
 
   const clone = fromCard.cloneNode(true);
-  // strong edges at big scale
   clone.style.boxShadow = '0 18px 60px rgba(0,0,0,.32)';
   clone.style.borderRadius = getComputedStyle(fromCard).borderRadius;
 
@@ -120,7 +120,7 @@ function openPreview(fromCard){
     position: 'fixed',
     top: '50%',
     left: '50%',
-    transform: 'translate(-50%,-50%) scale(5)', // 500%
+    transform: `translate(-50%,-50%) scale(${PREVIEW_SCALE})`,
     transformOrigin: 'center center',
     width: cs.width,
     height: cs.height,
@@ -134,21 +134,11 @@ function openPreview(fromCard){
 
   previewNode = clone;
   document.body.appendChild(previewNode);
-
-  // prevent iOS scroll nudge while preview is open
-  if (document.body.style.overflow !== 'hidden'){
-    document.body.dataset.prevOverflow = document.body.style.overflow || '';
-    document.body.style.overflow = 'hidden';
-  }
 }
 function closePreview(){
   if (previewNode){
     try { previewNode.remove(); } catch {}
     previewNode = null;
-  }
-  if ('prevOverflow' in (document.body.dataset || {})){
-    document.body.style.overflow = document.body.dataset.prevOverflow;
-    delete document.body.dataset.prevOverflow;
   }
 }
 
@@ -156,12 +146,10 @@ function closePreview(){
    Drag core
    ========================= */
 function onDown(e){
-  // PREVIEW should always work on hand cards
   const card = e.target.closest('.ribbon .card');
   if (!card || e.button !== 0) return;
 
-  // Let the page scroll if user is clearly panning vertically and Drag=OFF
-  // (we still attach handlers; preview timer will cancel if they pan too far)
+  // prevent accidental page scroll on iOS while handling preview/drag
   e.preventDefault();
 
   try { card.setPointerCapture(e.pointerId); } catch {}
@@ -193,7 +181,6 @@ function onDown(e){
     lastClientY: e.clientY,
   };
 
-  // Hold-to-preview ALWAYS
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
     if (!st || st.lifted) return;
@@ -207,10 +194,8 @@ function onDown(e){
 function lift(){
   if (!st || st.lifted) return;
 
-  // If Drag is OFF, do not lift — keep preview only
-  if (!devDragEnabled()) return;
+  if (!devDragEnabled()) return; // only allow lifting when dev drag is ON
 
-  // Close preview and lift to drag
   closePreview();
   clearTimeout(holdTimer);
 
@@ -219,7 +204,7 @@ function lift(){
   const pageLeft = r.left + window.scrollX;
   const pageTop  = r.top  + window.scrollY;
 
-  // keep hand spacing with placeholder
+  // placeholder keeps ribbon spacing
   const ph = document.createElement('div');
   ph.style.width = r.width + 'px';
   ph.style.height = r.height + 'px';
@@ -228,7 +213,7 @@ function lift(){
   if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
   else st.originParent.appendChild(ph);
 
-  // set vars BEFORE moving node to avoid 0,0 flash
+  // set coords before moving to avoid flash at (0,0)
   card.style.setProperty('--drag-x', `${pageLeft}px`);
   card.style.setProperty('--drag-y', `${pageTop}px`);
 
@@ -255,24 +240,22 @@ function onMove(e){
   const dy = e.pageY - st.startY;
   const dist = Math.hypot(dx, dy);
 
-  // If preview visible: tolerate small motion; convert to drag only after bigger move (and only when drag is ON)
+  // while preview is visible: tolerate small moves; convert to drag after threshold (drag must be ON)
   if (!st.lifted && st.previewed){
     if (devDragEnabled() && dist > PREVIEW_DRAG_THRESHOLD) {
       lift();
     }
-    return; // while previewing (and under threshold), do not drag
+    return;
   }
 
-  // If NO preview: start drag after small-ish move (only when drag is ON)
+  // before preview fires: cancel intent if user moves enough; start drag if allowed
   if (!st.lifted && !st.previewed){
-    // also cancel preview intent if user moves a decent amount before it shows
     if (dist > PREVIEW_CANCEL_THRESHOLD) closePreview();
     if (devDragEnabled() && dist > LIFT_THRESHOLD) lift();
   }
 
   if (!st.lifted) return;
 
-  // live dragging
   closePreview();
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
@@ -284,10 +267,9 @@ function onUp(e){
   try { st.card.releasePointerCapture?.(st.pid); } catch {}
   cancelAnimationFrame(raf);
   removeGlobals();
-
   clearTimeout(holdTimer);
 
-  // If we never lifted (drag OFF or user just held), just close preview + clear states
+  // never lifted => just close preview and reset
   if (!st.lifted){
     closePreview();
     st.card.classList.remove('is-pressing','grab-intent');
@@ -295,7 +277,6 @@ function onUp(e){
     return;
   }
 
-  // Drag path (Drag=ON)
   closePreview();
 
   // Determine drop (player slots only)
@@ -308,7 +289,7 @@ function onUp(e){
     const hit = document.elementFromPoint(cx, cy);
     st.card.style.visibility = '';
     dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
-    if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null; // only player board
+    if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null;
   }
 
   if (dropSlot){
@@ -330,7 +311,7 @@ function onUp(e){
       st = null;
     });
   } else {
-    // animate back to placeholder
+    // back to placeholder
     const pr = st.placeholder.getBoundingClientRect();
     const toX = pr.left + window.scrollX;
     const toY = pr.top  + window.scrollY;
@@ -367,7 +348,7 @@ function momentumLoop(){
 }
 
 /* =========================
-   Dev toggle
+   Dev toggle UI
    ========================= */
 function mountDragToggle(){
   if (dragBtn) return;
@@ -402,16 +383,16 @@ function updateToggleVisual(){
    Boot
    ========================= */
 window.addEventListener('DOMContentLoaded', () => {
-  // Ensure tray sits at end of body for stacking
+  // ensure the tray is a direct child of body so it never masks the drag layer
   const tray = document.querySelector('.ribbon-wrap');
   if (tray && tray.parentNode !== document.body) document.body.appendChild(tray);
 
   mountDragToggle();
 
-  // Prevent native ghost
+  // Prevent native ghost image
   document.addEventListener('dragstart', e => e.preventDefault(), { passive:false });
 
   ensureDragLayer();
   document.addEventListener('pointerdown', onDown, { passive:false });
-  console.log('[DRAG] ready — preview always ON, drag requires toggle/?drag=1');
+  console.log('[DRAG] ready — preview 2.5× always ON, drag requires toggle/?drag=1');
 });
