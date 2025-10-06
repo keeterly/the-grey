@@ -298,3 +298,51 @@ html, body, .wrap{
     --card-h: calc(var(--card-w) * var(--card-ratio));
   }
 }
+
+
+/* === FINAL mobile tray fix (iOS Chrome/Safari safe-area) === */
+
+/* Keep fixed elements truly fixed (no transforms on roots) */
+html, body, .wrap{
+  transform: none !important;
+  -webkit-transform: none !important;
+  overflow: visible !important;
+}
+
+/* Reserve just enough space for scrolling; no huge white strip */
+body{
+  padding-bottom: calc(var(--card-h) + 28px + env(safe-area-inset-bottom, 0)) !important;
+}
+
+/* Hand tray: sit ABOVE the safe-area, with more headroom, never clip */
+.ribbon-wrap{
+  position: fixed !important;
+  left: 0; right: 0;
+  bottom: env(safe-area-inset-bottom, 0) !important; /* <- key change */
+  height: calc(var(--card-h) + 64px) !important;     /* more lift room */
+  background: transparent !important;
+  overflow: visible !important;
+  pointer-events: none;
+  z-index: 2147483646 !important;
+  isolation: isolate;
+}
+
+/* Inner scroller must never crop upward lift */
+.ribbon{
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+/* Lifted cards above neighbors */
+.ribbon .card{ position: relative; z-index: 1; }
+.ribbon .card:hover,
+.ribbon .card.is-dragging{ z-index: 3; }
+
+/* Nothing else should stack above the tray */
+.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem{
+  position: relative; z-index: 100 !important; overflow: visible !important;
+}
+#playerSlots, #aiSlots, .slots, .zone{ overflow: visible !important; }
