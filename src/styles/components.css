@@ -601,3 +601,21 @@ html, body, .wrap{
   z-index: 2147483000;                          /* above everything */
 }
 
+/* ensure preview/drag are smooth and don't reflow siblings */
+.card.is-previewing {
+  transition: none !important;
+  will-change: left, top, transform;
+  backface-visibility: hidden;
+  contain: layout paint;
+}
+
+/* real-node dragging: position is driven by CSS vars set in JS */
+.card.is-dragging {
+  position: fixed;
+  left: 0; top: 0;
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.32));
+  cursor: grabbing;
+  transition: none !important;
+}
+
