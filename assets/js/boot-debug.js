@@ -1,61 +1,69 @@
-// boot-debug.js — Dev Drag (guarded), fixed hand tray z-order, bottom-safe toggle
-console.log("[DRAG] dev drag bootstrap");
+// boot-debug.js — Dev Drag + 500% Hold Preview
+console.log("[DRAG] dev drag bootstrap (500% preview)");
 
-let st = null;             // active drag state
-let dragLayer = null;      // fixed host for real dragged node
-let raf = null;
-let dragBtn = null;
-
-const LIFT_THRESHOLD = 6;  // px to start drag
+/* =========================
+   Tunables
+   ========================= */
+const LIFT_THRESHOLD = 10;      // px (more tolerant than before)
+const HOLD_MS = 350;            // press-and-hold to preview
+const RETURN_MS = 220;          // animate back to hand
+const SLOT_SNAP_MS = 120;       // animate into slot
+const STIFFNESS = 0.34;         // spring-ish follow
+const DAMPING = 0.22;
 const MASS = 1.0;
-const STIFFNESS = 0.34;    // higher = snappier
-const DAMPING = 0.22;      // 0..1 (more = heavier damping)
-const RETURN_MS = 220;     // return-to-hand animation
-const SLOT_SNAP_MS = 120;  // visual snap to slot
 
-/* ---------- helpers ---------- */
+/* =========================
+   State
+   ========================= */
+let st = null;                  // active drag
+let raf = null;
+let holdTimer = null;
+let dragLayer = null;
+let dragBtn = null;
+let previewNode = null;
 
+/* =========================
+   Helpers
+   ========================= */
 const devDragEnabled = () =>
   /\bdrag=1\b/.test(location.search) ||
   localStorage.getItem('enableDragDev') === '1';
 
-const isPreviewOpen = () =>
-  !!document.querySelector('.preview-overlay, .preview-card');
+const isPreviewOpen = () => !!previewNode;
 
-function ensureDragLayer() {
+function ensureDragLayer(){
   dragLayer = document.querySelector('.drag-layer');
-  if (!dragLayer) {
+  if (!dragLayer){
     dragLayer = document.createElement('div');
     dragLayer.className = 'drag-layer';
     document.body.appendChild(dragLayer);
   }
 }
 
-function addGlobals() {
+function addGlobals(){
   window.addEventListener('pointermove', onMove, { passive:false });
   window.addEventListener('pointerup', onUp, { passive:false });
   window.addEventListener('pointercancel', onUp, { passive:false });
   window.addEventListener('blur', onUp, { passive:false });
 }
-function removeGlobals() {
+function removeGlobals(){
   window.removeEventListener('pointermove', onMove);
   window.removeEventListener('pointerup', onUp);
   window.removeEventListener('pointercancel', onUp);
   window.removeEventListener('blur', onUp);
 }
 
-/** reinsert card even if the hand re-rendered */
-function safeReturn(card, originParent, originNext, placeholder) {
+function safeReturn(card, originParent, originNext, placeholder){
   try {
-    if (placeholder && placeholder.parentNode) {
+    if (placeholder && placeholder.parentNode){
       placeholder.parentNode.insertBefore(card, placeholder);
       placeholder.remove();
       return;
     }
   } catch {}
-  if (originParent && originParent.isConnected) {
+  if (originParent && originParent.isConnected){
     try {
-      if (originNext && originNext.parentNode === originParent) {
+      if (originNext && originNext.parentNode === originParent){
         originParent.insertBefore(card, originNext);
       } else {
         originParent.appendChild(card);
@@ -67,16 +75,15 @@ function safeReturn(card, originParent, originNext, placeholder) {
   if (ribbon) ribbon.appendChild(card);
 }
 
-/** easeOutCubic for quick, non-spring animations */
 function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
 
-function animateTo(x, y, ms, done) {
+function animateTo(x, y, ms, done){
   if (!st) return;
   const sx = st.curX, sy = st.curY;
   const dx = x - sx, dy = y - sy;
   const t0 = performance.now();
 
-  function step(t) {
+  function step(t){
     if (!st) return;
     const p = Math.min(1, (t - t0) / ms);
     const e = easeOutCubic(p);
@@ -89,25 +96,43 @@ function animateTo(x, y, ms, done) {
   requestAnimationFrame(step);
 }
 
-function cancelDragNow() {
-  if (!st) return;
-  try { st.card.releasePointerCapture?.(st.pid); } catch {}
-  cancelAnimationFrame(raf);
-  removeGlobals();
-  safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
-  st.card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
-  st.card.style.removeProperty('--drag-x');
-  st.card.style.removeProperty('--drag-y');
-  st = null;
+/* =========================
+   Preview (500% clone)
+   ========================= */
+function openPreview(fromCard){
+  closePreview(); // safety
+  // Clone so the real card stays put
+  const clone = fromCard.cloneNode(true);
+  Object.assign(clone.style, {
+    position: 'fixed',
+    top: '50%',
+    left: '50%',
+    transform: 'translate(-50%, -50%) scale(5)', // 500%
+    transformOrigin: 'center center',
+    zIndex: '9999',
+    pointerEvents: 'none',
+    transition: 'transform .15s ease-out, opacity .15s ease-out',
+    opacity: '1'
+  });
+  clone.classList.remove('is-pressing','grab-intent','is-dragging');
+  previewNode = clone;
+  document.body.appendChild(previewNode);
+}
+function closePreview(){
+  if (previewNode){
+    try { previewNode.remove(); } catch {}
+    previewNode = null;
+  }
 }
 
-/* ---------- core drag ---------- */
-
+/* =========================
+   Drag core
+   ========================= */
 function onDown(e){
   if (!devDragEnabled()) return;
   if (isPreviewOpen()) return;
 
-  const card = e.target.closest('.ribbon .card'); // only from hand
+  const card = e.target.closest('.ribbon .card'); // only drag from hand
   if (!card || e.button !== 0) return;
 
   e.preventDefault();
@@ -130,11 +155,21 @@ function onDown(e){
     curX: pageLeft, curY: pageTop,
     targetX: pageLeft, targetY: pageTop,
     vx: 0, vy: 0,
-    lastClientX: e.clientX, lastClientY: e.clientY,
-    lifted:false, placeholder:null,
-    originParent: card.parentNode, originNext: card.nextSibling,
+    lifted: false,
+    placeholder: null,
+    originParent: card.parentNode,
+    originNext: card.nextSibling,
     isInstant: card.classList.contains('is-instant'),
+    lastClientX: e.clientX,
+    lastClientY: e.clientY,
   };
+
+  // Start hold-to-preview timer
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => {
+    if (!st || st.lifted) return;       // don't preview if we've started dragging
+    openPreview(card);
+  }, HOLD_MS);
 
   addGlobals();
 }
@@ -142,12 +177,16 @@ function onDown(e){
 function lift(){
   if (!st || st.lifted) return;
 
+  // If a preview is open, close it before lifting
+  closePreview();
+  clearTimeout(holdTimer);
+
   const card = st.card;
   const r = card.getBoundingClientRect();
   const pageLeft = r.left + window.scrollX;
   const pageTop  = r.top  + window.scrollY;
 
-  // keep spacing in the ribbon
+  // keep hand spacing
   const ph = document.createElement('div');
   ph.style.width = r.width + 'px';
   ph.style.height = r.height + 'px';
@@ -156,7 +195,7 @@ function lift(){
   if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
   else st.originParent.appendChild(ph);
 
-  // set vars BEFORE moving node
+  // set vars BEFORE moving node to avoid 0,0 flash
   card.style.setProperty('--drag-x', `${pageLeft}px`);
   card.style.setProperty('--drag-y', `${pageTop}px`);
 
@@ -176,25 +215,35 @@ function lift(){
 
 function onMove(e){
   if (!st) return;
-  if (isPreviewOpen()) { cancelDragNow(); return; }
 
   st.lastClientX = e.clientX; st.lastClientY = e.clientY;
 
   const dx = e.pageX - st.startX;
   const dy = e.pageY - st.startY;
-  if (!st.lifted && Math.hypot(dx, dy) > LIFT_THRESHOLD) lift();
+
+  // If user moves more than threshold, cancel preview and start drag
+  if (!st.lifted && Math.hypot(dx, dy) > LIFT_THRESHOLD){
+    lift();
+  }
+
   if (!st.lifted) return;
 
+  closePreview(); // preview must not stay while dragging
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
 }
 
 function onUp(e){
   if (!st) return;
+
   try { st.card.releasePointerCapture?.(st.pid); } catch {}
   cancelAnimationFrame(raf);
   removeGlobals();
 
+  clearTimeout(holdTimer);
+  closePreview();
+
+  // Determine drop (player slots only)
   let cx = Number.isFinite(e?.clientX) ? e.clientX : st.lastClientX;
   let cy = Number.isFinite(e?.clientY) ? e.clientY : st.lastClientY;
 
@@ -204,7 +253,7 @@ function onUp(e){
     const hit = document.elementFromPoint(cx, cy);
     st.card.style.visibility = '';
     dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
-    if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null; // player-only
+    if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null; // only player board
   }
 
   if (st.lifted && dropSlot){
@@ -214,7 +263,8 @@ function onUp(e){
     animateTo(toX, toY, SLOT_SNAP_MS, () => {
       safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
       st.card.classList.remove('is-dragging','pulsing');
-      st.card.style.removeProperty('--drag-x'); st.card.style.removeProperty('--drag-y');
+      st.card.style.removeProperty('--drag-x');
+      st.card.style.removeProperty('--drag-y');
       try {
         game?.dispatch?.({
           type:'DROP_CARD',
@@ -225,22 +275,24 @@ function onUp(e){
       st = null;
     });
   } else if (st.lifted){
+    // animate back to placeholder
     const pr = st.placeholder.getBoundingClientRect();
     const toX = pr.left + window.scrollX;
     const toY = pr.top  + window.scrollY;
     animateTo(toX, toY, RETURN_MS, () => {
       safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
       st.card.classList.remove('is-dragging','pulsing');
-      st.card.style.removeProperty('--drag-x'); st.card.style.removeProperty('--drag-y');
+      st.card.style.removeProperty('--drag-x');
+      st.card.style.removeProperty('--drag-y');
       st = null;
     });
   } else {
+    // never dragged; just clear press state
     st.card.classList.remove('is-pressing','grab-intent');
     st = null;
   }
 }
 
-/* momentum follow loop (spring-ish) */
 function momentumLoop(){
   cancelAnimationFrame(raf);
   const step = () => {
@@ -263,46 +315,48 @@ function momentumLoop(){
   raf = requestAnimationFrame(step);
 }
 
-/* ---------- Dev toggle (always above tray) ---------- */
-function mountDragToggle() {
-  if (!dragBtn) {
-    dragBtn = document.createElement('button');
-    dragBtn.id = 'dragDevToggle';
-    dragBtn.type = 'button';
-    dragBtn.style.cssText = `
-      position:fixed; left:12px;
-      bottom:calc(env(safe-area-inset-bottom,0) + 12px);
-      z-index:2147483647;
-      padding:8px 10px; border:0; border-radius:10px;
-      color:#fff; font-weight:700;
-      box-shadow:0 6px 16px rgba(0,0,0,.18); cursor:pointer;
-    `;
-    dragBtn.addEventListener('click', () => {
-      const now = !devDragEnabled();
-      if (now) localStorage.setItem('enableDragDev','1');
-      else localStorage.removeItem('enableDragDev');
-      updateToggleVisual();
-    });
-  }
+/* =========================
+   Dev toggle
+   ========================= */
+function mountDragToggle(){
+  if (dragBtn) return;
+  dragBtn = document.createElement('button');
+  dragBtn.id = 'dragDevToggle';
+  dragBtn.type = 'button';
+  dragBtn.style.cssText = `
+    position:fixed; left:12px;
+    bottom:calc(env(safe-area-inset-bottom,0) + 12px);
+    z-index:2147483647;
+    padding:8px 10px; border:0; border-radius:10px;
+    color:#fff; font-weight:700;
+    box-shadow:0 6px 16px rgba(0,0,0,.18); cursor:pointer;
+  `;
+  dragBtn.addEventListener('click', () => {
+    const now = !devDragEnabled();
+    if (now) localStorage.setItem('enableDragDev','1');
+    else localStorage.removeItem('enableDragDev');
+    updateToggleVisual();
+  });
+  document.body.appendChild(dragBtn);
   updateToggleVisual();
-  document.body.appendChild(dragBtn); // last child → on top
 }
-function updateToggleVisual() {
+function updateToggleVisual(){
   const on = devDragEnabled();
   dragBtn.textContent = on ? 'Drag: ON' : 'Drag: OFF';
   dragBtn.style.background = on ? '#2c7be5' : '#999';
 }
 
-/* ---------- boot ---------- */
+/* =========================
+   Boot
+   ========================= */
 window.addEventListener('DOMContentLoaded', () => {
-  // Always move the tray to end of <body> so it sits above other content
+  // Put tray at end of body so it sits above normal content
   const tray = document.querySelector('.ribbon-wrap');
   if (tray) document.body.appendChild(tray);
 
-  // Then mount the dev toggle so it sits above the tray
   mountDragToggle();
 
-  // Always block native HTML5 drag ghost
+  // Always block native HTML5 ghost
   document.addEventListener('dragstart', e => e.preventDefault(), { passive:false });
 
   if (!devDragEnabled()){
@@ -312,10 +366,10 @@ window.addEventListener('DOMContentLoaded', () => {
 
   ensureDragLayer();
 
-  // Cancel if preview UI appears mid-drag
-  new MutationObserver(() => { if (isPreviewOpen()) cancelDragNow(); })
+  // If preview somehow appears mid-drag, cancel cleanly
+  new MutationObserver(() => { if (isPreviewOpen() && (!st || st.lifted)) {/* noop */} })
     .observe(document.body, { childList:true, subtree:true });
 
   document.addEventListener('pointerdown', onDown, { passive:false });
-  console.log('[DRAG] enabled');
+  console.log('[DRAG] enabled with 500% hold-preview');
 });
