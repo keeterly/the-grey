@@ -1,164 +1,234 @@
-/* THE GREY — Stable Drag (ribbon-only, no global hooks, no reparenting) */
+// boot-debug.js
+console.log("[BRIDGE] Game + UI + Drag initialized and exposed to window.");
 
-(() => {
-  const ribbon = document.getElementById('ribbon');
-  if (!ribbon) {
-    console.warn('[Drag] No #ribbon found; drag disabled.');
+let st = null;           // active drag state
+let dragLayer = null;    // fixed host for the real dragged node
+let raf = null;
+
+const DRAG_THRESHOLD = 6;   // px before lift
+const DAMP = 0.25;          // minimal smoothing (lower = snappier)
+
+/* ------------ helpers ------------ */
+
+const isPreviewOpen = () =>
+  !!document.querySelector('.preview-overlay, .preview-card');
+
+function ensureDragLayer() {
+  dragLayer = document.querySelector('.drag-layer');
+  if (!dragLayer) {
+    dragLayer = document.createElement('div');
+    dragLayer.className = 'drag-layer';
+    document.body.appendChild(dragLayer);
+  }
+}
+
+function addGlobals() {
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  window.addEventListener('blur', onUp);
+}
+function removeGlobals() {
+  window.removeEventListener('pointermove', onMove);
+  window.removeEventListener('pointerup', onUp);
+  window.removeEventListener('pointercancel', onUp);
+  window.removeEventListener('blur', onUp);
+}
+
+/** reinsert card even if the ribbon changed */
+function safeReturn(card, originParent, originNext, placeholder) {
+  try { if (placeholder && placeholder.parentNode) {
+    // prefer the placeholder (exact spot)
+    placeholder.parentNode.insertBefore(card, placeholder);
+    placeholder.remove();
     return;
-  }
-
-  let st = null;
-  let raf = null;
-
-  const DRAG_THRESHOLD = 6;   // px to lift
-  const SMOOTH = 0.18;        // small dampening
-  const SNAP = 24;            // snap to cursor when far
-
-  function onDown(e){
-    const card = e.target.closest('.ribbon .card');
-    if (!card || e.button !== 0) return;
-
-    // don’t break text selection or links elsewhere
-    e.preventDefault();
-
-    try { card.setPointerCapture(e.pointerId); } catch {}
-
-    // visual press like hover
-    card.classList.add('is-pressing');
-
-    const rect = card.getBoundingClientRect();
-    const pageX = rect.left + window.scrollX;
-    const pageY = rect.top  + window.scrollY;
-
-    st = {
-      pid: e.pointerId,
-      card,
-      startX: e.pageX,
-      startY: e.pageY,
-      offsetX: e.pageX - pageX,
-      offsetY: e.pageY - pageY,
-      curX: pageX,
-      curY: pageY,
-      targetX: pageX,
-      targetY: pageY,
-      ph: null,
-      lifted: false,
-      originParent: card.parentNode,
-      originNext: card.nextSibling,
-      prevStyle: {
-        position: card.style.position || '',
-        left: card.style.left || '',
-        top: card.style.top || '',
-        transform: card.style.transform || '',
-        transition: card.style.transition || ''
-      }
-    };
-
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    window.addEventListener('pointercancel', onUp);
-    window.addEventListener('blur', onUp);
-  }
-
-  function lift(){
-    if (!st || st.lifted) return;
-    const { card, originParent, originNext } = st;
-
-    // hold spacing with a placeholder (simple block)
-    const r = card.getBoundingClientRect();
-    const ph = document.createElement('div');
-    ph.style.width = r.width + 'px';
-    ph.style.height = r.height + 'px';
-    ph.style.marginLeft = getComputedStyle(card).marginLeft;
-    st.ph = ph;
-    if (originNext) originParent.insertBefore(ph, originNext);
-    else originParent.appendChild(ph);
-
-    // convert the existing element to fixed; no reparenting
-    card.classList.remove('is-pressing');
-    card.classList.add('is-dragging');
-
-    // IMPORTANT: set fixed position via transform; keep border/shadow
-    card.style.position = 'fixed';
-    card.style.left = '0';
-    card.style.top = '0';
-    card.style.transition = 'none';
-    card.style.transform = `translate3d(${st.curX}px, ${st.curY}px, 0) scale(1.02)`;
-
-    st.lifted = true;
-    smoothFollow();
-  }
-
-  function smoothFollow(){
-    cancelAnimationFrame(raf);
-
-    const toHalf = v => Math.round(v * 2) / 2; // stable subpixel
-
-    const step = () => {
-      if (!st || !st.lifted) return;
-
-      const dx = st.targetX - st.curX;
-      const dy = st.targetY - st.curY;
-      const dist = Math.hypot(dx, dy);
-
-      if (dist > SNAP) {
-        st.curX = st.targetX;
-        st.curY = st.targetY;
+  }} catch {}
+  // fallback to original parent or ribbon end
+  if (originParent && originParent.isConnected) {
+    try {
+      if (originNext && originNext.parentNode === originParent) {
+        originParent.insertBefore(card, originNext);
       } else {
-        st.curX += dx * SMOOTH;
-        st.curY += dy * SMOOTH;
+        originParent.appendChild(card);
       }
+      return;
+    } catch {}
+  }
+  const ribbon = document.getElementById('ribbon');
+  if (ribbon) ribbon.appendChild(card);
+}
 
-      st.card.style.transform =
-        `translate3d(${toHalf(st.curX)}px, ${toHalf(st.curY)}px, 0) scale(1.02)`;
+function cancelDragNow() {
+  if (!st) return;
+  try { st.card.releasePointerCapture?.(st.pid); } catch {}
+  cancelAnimationFrame(raf);
+  removeGlobals();
 
-      raf = requestAnimationFrame(step);
-    };
+  // put node back and clear styles/classes
+  safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
+  st.card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
+  st.card.style.removeProperty('--drag-x');
+  st.card.style.removeProperty('--drag-y');
+
+  st = null;
+}
+
+/* ------------ init ------------ */
+
+function initDragBridge() {
+  ensureDragLayer();
+  document.addEventListener('pointerdown', onDown);
+  // Block native ghost image
+  document.addEventListener('dragstart', e => e.preventDefault());
+  // If any preview UI appears asynchronously, cancel an in-flight drag
+  new MutationObserver(() => { if (isPreviewOpen()) cancelDragNow(); })
+    .observe(document.body, { childList: true, subtree: true });
+}
+
+/* ------------ core drag ------------ */
+
+function onDown(e){
+  if (isPreviewOpen()) return;
+
+  // start drags only from hand cards
+  const card = e.target.closest('.ribbon .card');
+  if (!card || e.button !== 0) return;
+
+  e.preventDefault();
+  try { card.setPointerCapture(e.pointerId); } catch {}
+
+  // Make press look like hover; freeze transitions.
+  card.classList.add('is-pressing','grab-intent');
+
+  // Measure visual position (do NOT subtract transforms)
+  const rect = card.getBoundingClientRect();
+  const pageLeft = rect.left + window.scrollX;
+  const pageTop  = rect.top  + window.scrollY;
+
+  st = {
+    pid: e.pointerId,
+    card,
+    startX: e.pageX,
+    startY: e.pageY,
+
+    // click point inside the card
+    offsetX: e.pageX - pageLeft,
+    offsetY: e.pageY - pageTop,
+
+    // current/target are the visual position
+    curX: pageLeft,
+    curY: pageTop,
+    targetX: pageLeft,
+    targetY: pageTop,
+
+    lastClientX: e.clientX, // for blur fallback
+    lastClientY: e.clientY,
+
+    lifted: false,
+    originParent: card.parentNode,
+    originNext: card.nextSibling,
+    placeholder: null,
+    isInstant: card.classList.contains('is-instant'),
+  };
+
+  addGlobals();
+}
+
+function lift(){
+  if (!st || st.lifted) return;
+  ensureDragLayer();
+
+  const { card, originParent, originNext } = st;
+
+  // Measure again just before moving (still visual coords)
+  const rect = card.getBoundingClientRect();
+  const pageLeft = rect.left + window.scrollX;
+  const pageTop  = rect.top  + window.scrollY;
+
+  // Keep ribbon spacing with a placeholder
+  const ph = document.createElement('div');
+  ph.style.width = rect.width + 'px';
+  ph.style.height = rect.height + 'px';
+  ph.style.marginLeft = getComputedStyle(card).marginLeft;
+  st.placeholder = ph;
+  if (originNext) originParent.insertBefore(ph, originNext);
+  else originParent.appendChild(ph);
+
+  // Recompute grip offset from the *visual* top/left
+  st.offsetX = st.startX - pageLeft;
+  st.offsetY = st.startY - pageTop;
+
+  // IMPORTANT: set CSS vars FIRST so there is no 0,0 frame
+  card.style.setProperty('--drag-x', `${pageLeft}px`);
+  card.style.setProperty('--drag-y', `${pageTop}px`);
+
+  // Then switch classes and move the node
+  card.classList.remove('grab-intent','is-pressing');
+  card.classList.add('is-dragging');
+  if (st.isInstant) card.classList.add('pulsing');
+
+  dragLayer.appendChild(card);
+
+  // Seed follow loop
+  st.curX = pageLeft;
+  st.curY = pageTop;
+  st.targetX = pageLeft;
+  st.targetY = pageTop;
+
+  st.lifted = true;
+  smoothFollow();
+}
+
+function onMove(e){
+  if (isPreviewOpen()) { cancelDragNow(); return; }
+  if (!st) return;
+
+  st.lastClientX = e.clientX;
+  st.lastClientY = e.clientY;
+
+  const dx = e.pageX - st.startX;
+  const dy = e.pageY - st.startY;
+
+  if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
+  if (!st.lifted) return;
+
+  // Follow cursor; keep the exact click point under the pointer
+  st.targetX = e.pageX - st.offsetX;
+  st.targetY = e.pageY - st.offsetY;
+}
+
+function onUp(e) {
+  if (!st) return;
+  try { st.card.releasePointerCapture?.(st.pid); } catch {}
+
+  cancelAnimationFrame(raf);
+  removeGlobals();
+
+  // Always snap DOM back; game state will re-render
+  safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
+  st.card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
+  st.card.style.removeProperty('--drag-x');
+  st.card.style.removeProperty('--drag-y');
+
+  st = null;
+}
+
+function smoothFollow() {
+  cancelAnimationFrame(raf);
+  const step = () => {
+    if (!st || !st.lifted) return;
+
+    st.curX += (st.targetX - st.curX) * DAMP;
+    st.curY += (st.targetY - st.curY) * DAMP;
+
+    st.card.style.setProperty('--drag-x', `${st.curX}px`);
+    st.card.style.setProperty('--drag-y', `${st.curY}px`);
 
     raf = requestAnimationFrame(step);
-  }
+  };
+  raf = requestAnimationFrame(step);
+}
 
-  function onMove(e){
-    if (!st) return;
-    const dx = e.pageX - st.startX;
-    const dy = e.pageY - st.startY;
-
-    if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
-    if (!st.lifted) return;
-
-    st.targetX = e.pageX - st.offsetX;
-    st.targetY = e.pageY - st.offsetY;
-  }
-
-  function restoreCardStyles(){
-    const { card, prevStyle } = st;
-    card.style.position = prevStyle.position;
-    card.style.left = prevStyle.left;
-    card.style.top = prevStyle.top;
-    card.style.transform = prevStyle.transform;
-    card.style.transition = prevStyle.transition;
-  }
-
-  function onUp(){
-    if (!st) return;
-    try { st.card.releasePointerCapture?.(st.pid); } catch {}
-    cancelAnimationFrame(raf);
-
-    // Always restore element and remove placeholder
-    st.card.classList.remove('is-dragging','is-pressing');
-    if (st.ph && st.ph.parentNode) {
-      st.originParent.insertBefore(st.card, st.ph);
-      st.ph.remove();
-    }
-    restoreCardStyles();
-
-    st = null;
-
-    window.removeEventListener('pointermove', onMove);
-    window.removeEventListener('pointerup', onUp);
-    window.removeEventListener('pointercancel', onUp);
-    window.removeEventListener('blur', onUp);
-  }
-
-  ribbon.addEventListener('pointerdown', onDown);
-})();
+/* boot */
+window.initDragBridge = initDragBridge;
+window.addEventListener('DOMContentLoaded', initDragBridge);
