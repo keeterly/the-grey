@@ -1,352 +1,270 @@
-// boot-debug.js
-console.log("[BRIDGE] Drag/Preview bridge (no-clone, jitter-smoothed) loaded");
+// boot-debug.js — transform-only, no reparent, smooth preview + drag
+console.log("[BRIDGE] drag/preview (transform-only) loaded");
 
-/* -------------------- Tunables -------------------- */
-const DRAG_THRESHOLD       = 9;     // px from press to begin drag (direct)
-const PREVIEW_DELAY_MS     = 280;   // hold to preview
-const PREVIEW_CANCEL_DIST  = 36;    // wiggle allowed while previewing
-const PREVIEW_HYSTERESIS   = 2;     // consecutive over-threshold moves to cancel preview
-const PREVIEW_SCALE        = 2.5;   // 250% preview
-const PREVIEW_EASE_MS_IN   = 160;   // grow ease (slightly longer for buttery feel)
-const PREVIEW_EASE_MS_OUT  = 100;   // shrink ease
-const FOLLOW_DAMP          = 0.30;  // drag smoothing (lower = tighter)
-/* -------------------------------------------------- */
+const DRAG_THRESHOLD       = 10;     // px to start direct drag (from press)
+const PREVIEW_DELAY_MS     = 260;    // hold to preview
+const PREVIEW_CANCEL_DIST  = 38;     // wiggle allowed while previewing
+const PREVIEW_CANCEL_TICKS = 2;      // hysteresis
+const PREVIEW_SCALE        = 2.5;    // 250%
+const PREVIEW_IN_MS        = 160;
+const PREVIEW_OUT_MS       = 110;
+const FOLLOW_DAMP          = 0.30;   // 0.25–0.35 feels good
 
-let layer = null;
+let st = resetState();
 
-(function injectCSS(){
-  const id = "drag-safety-css";
-  if (document.getElementById(id)) return;
-  const s = document.createElement("style");
-  s.id = id;
-  s.textContent = `
-    .card { -webkit-tap-highlight-color: transparent; backface-visibility: hidden; }
-    .card.is-pressing { transition: none !important; }
-    .card.is-previewing {
-      pointer-events: none !important;
-      will-change: transform, filter;
-      z-index: 2147483000 !important;
-      transform: translateZ(0); /* promote to its own layer */
-    }
-    .card.is-dragging {
-      position: fixed !important;
-      left: 0 !important; top: 0 !important;
-      transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) !important;
-      pointer-events: none !important;
-      will-change: transform, filter;
-      z-index: 2147483000 !important;
-      transition: none !important;
-    }
-  `;
-  document.head.appendChild(s);
-})();
+function resetState() {
+  return {
+    mode: "idle",    // idle | press | preview | drag
+    pid: null,
+    card: null,
+    placeholder: null,
+    originParent: null,
+    originNext: null,
 
-const st = {
-  mode: "idle",      // idle | press | preview | drag
-  touchLock: false,
-  pid: null,
-  card: null,
+    downX: 0, downY: 0,
+    pressTimer: 0,
+    cancelTicks: 0,
 
-  // press
-  downX: 0, downY: 0,
-  pressTimer: 0,
+    // drag
+    offsetX: 0, offsetY: 0,
+    curX: 0, curY: 0,
+    targetX: 0, targetY: 0,
+    raf: 0,
 
-  // preview/drag
-  originParent: null,
-  originNext: null,
-  placeholder: null,
-
-  cancelArmed: 0,
-
-  // drag
-  curX: 0, curY: 0,
-  targetX: 0, targetY: 0,
-  offsetX: 0, offsetY: 0,
-  raf: 0
-};
-
-function init() {
-  layer = document.querySelector(".drag-layer");
-  if (!layer) {
-    layer = document.createElement("div");
-    layer.className = "drag-layer";
-    Object.assign(layer.style, {
-      position: "fixed", inset: 0, pointerEvents: "none",
-      zIndex: 2147483000
-    });
-    document.body.appendChild(layer);
-  }
-
-  addEventListener("pointerdown", onDown, { passive: false });
-  addEventListener("pointermove", onMove, { passive: false });
-  addEventListener("pointerup", hardFinalize, { passive: false });
-  addEventListener("pointercancel", hardFinalize, { passive: false });
-  addEventListener("visibilitychange", () => { if (document.hidden) hardFinalize(); });
-  addEventListener("blur", hardFinalize);
+    // animations
+    growAnim: null, shrinkAnim: null,
+  };
 }
 
-function hardFinalize() {
-  if (!st.card) { reset(); return; }
+/* ---------- Utilities ---------- */
+function pagePosOfRect(r){ return { x: r.left + window.scrollX, y: r.top + window.scrollY }; }
+function setFixed(card){
+  card.style.position = "fixed";
+  card.style.zIndex = "2147483000";
+  card.style.pointerEvents = "none";
+}
+function clearFixed(card){
+  card.style.position = "";
+  card.style.zIndex = "";
+  card.style.pointerEvents = "";
+}
+function setTransform(card, x, y, scale = 1){
+  card.style.transform = `translate3d(${x}px, ${y}px, 0) scale(${scale})`;
+}
+function makePlaceholder(card, r){
+  const ph = document.createElement("div");
+  ph.style.width = r.width + "px";
+  ph.style.height = r.height + "px";
+  ph.style.marginLeft = getComputedStyle(card).marginLeft;
+  return ph;
+}
+function stopAnim(a){ try{ a?.cancel(); }catch{} }
 
-  try { st.card.releasePointerCapture(st.pid); } catch {}
-  clearTimeout(st.pressTimer);
+/* ---------- Lifecycle ---------- */
+function finalize(){
   cancelAnimationFrame(st.raf);
+  clearTimeout(st.pressTimer);
+  stopAnim(st.growAnim); stopAnim(st.shrinkAnim);
+
+  if (st.card){
+    const c = st.card;
+    c.classList.remove("is-pressing","is-previewing","is-dragging");
+    c.style.willChange = "";
+    c.style.transform = "";
+    clearFixed(c);
+    // put back into flow
+    if (st.placeholder && st.originParent){
+      st.originParent.insertBefore(c, st.placeholder);
+      st.placeholder.remove();
+    }
+  }
+  st = resetState();
   document.documentElement.style.removeProperty("touch-action");
-
-  const c = st.card;
-
-  c.classList.remove("is-pressing", "is-previewing", "is-dragging");
-  c.style.removeProperty("transform");
-  c.style.removeProperty("filter");
-  c.style.removeProperty("transition");
-  c.style.removeProperty("left");
-  c.style.removeProperty("top");
-  c.style.removeProperty("width");
-  c.style.removeProperty("height");
-  c.style.removeProperty("position");
-  c.style.removeProperty("--drag-x");
-  c.style.removeProperty("--drag-y");
-  c.style.removeProperty("transform-origin");
-  c.style.removeProperty("will-change");
-  c.style.removeProperty("contain");
-  c.style.removeProperty("backface-visibility");
-
-  if (st.placeholder && st.originParent) {
-    st.originParent.insertBefore(c, st.placeholder);
-    st.placeholder.remove();
-  }
-
-  reset();
 }
 
-function reset() {
-  clearTimeout(st.pressTimer);
-  cancelAnimationFrame(st.raf);
-  st.mode = "idle";
-  st.touchLock = false;
-  st.pid = null;
-  st.card = null;
-  st.placeholder = null;
-  st.originParent = null;
-  st.originNext = null;
-  st.cancelArmed = 0;
-}
+/* ---------- Event handlers ---------- */
+addEventListener("pointerdown", onDown, {passive:false});
+addEventListener("pointermove", onMove, {passive:false});
+addEventListener("pointerup",   onUp,   {passive:false});
+addEventListener("pointercancel", finalize);
+addEventListener("blur", finalize);
+addEventListener("visibilitychange", ()=>{ if (document.hidden) finalize(); });
 
-/* -------------------- Handlers -------------------- */
-
-function onDown(e) {
-  if (st.touchLock) return;
+function onDown(e){
   const card = e.target.closest(".ribbon .card");
   if (!card || e.button === 2) return;
 
   e.preventDefault();
-  st.touchLock = true;
+  st.mode = "press";
   st.pid = e.pointerId;
   st.card = card;
-  st.mode = "press";
-  st.downX = e.pageX;
-  st.downY = e.pageY;
-  st.cancelArmed = 0;
+  st.downX = e.pageX; st.downY = e.pageY;
+  st.cancelTicks = 0;
 
-  try { card.setPointerCapture(st.pid); } catch {}
+  try{ card.setPointerCapture(st.pid); }catch{}
   card.classList.add("is-pressing");
+  card.style.willChange = "transform";     // pre-promote layer
 
   st.pressTimer = setTimeout(() => {
-    if (st.mode === "press") enterPreview(card);
+    if (st.mode === "press") enterPreview();
   }, PREVIEW_DELAY_MS);
 }
 
-function onMove(e) {
-  if (st.mode === "idle" || e.pointerId !== st.pid) return;
+function onMove(e){
+  if (e.pointerId !== st.pid) return;
 
   const dx = e.pageX - st.downX;
   const dy = e.pageY - st.downY;
-  const dist = Math.hypot(dx, dy);
+  const d  = Math.hypot(dx, dy);
 
-  if (st.mode === "press") {
-    if (dist > DRAG_THRESHOLD) enterDragFromPress(e);
+  if (st.mode === "press"){
+    if (d > DRAG_THRESHOLD) enterDragFromPress(e);
     return;
   }
-
-  if (st.mode === "preview") {
-    if (dist > PREVIEW_CANCEL_DIST) {
-      if (++st.cancelArmed >= PREVIEW_HYSTERESIS) handoffPreviewToDrag(e);
-    } else {
-      st.cancelArmed = 0;
-    }
+  if (st.mode === "preview"){
+    if (d > PREVIEW_CANCEL_DIST){ if(++st.cancelTicks>=PREVIEW_CANCEL_TICKS) handoffPreviewToDrag(e); }
+    else st.cancelTicks = 0;
     return;
   }
-
-  if (st.mode === "drag") {
+  if (st.mode === "drag"){
     st.targetX = e.pageX - st.offsetX;
     st.targetY = e.pageY - st.offsetY;
   }
 }
 
-/* -------------------- Preview (jitter-smoothed) -------------------- */
+function onUp(e){
+  if (e.pointerId !== st.pid) return;
+  if (st.mode === "preview"){
+    // smooth shrink back
+    leavePreview(() => finalize());
+  } else {
+    finalize();
+  }
+}
 
-function enterPreview(card) {
-  const r = card.getBoundingClientRect();
+/* ---------- Modes ---------- */
+function enterPreview(){
+  const c = st.card;
+  const r = c.getBoundingClientRect();
+  const {x,y} = pagePosOfRect(r);
 
-  st.originParent = card.parentNode;
-  st.originNext   = card.nextSibling;
+  // placeholder to keep fan spacing
+  st.originParent = c.parentNode;
+  st.originNext   = c.nextSibling;
+  st.placeholder  = makePlaceholder(c, r);
+  if (st.originNext) st.originParent.insertBefore(st.placeholder, st.originNext);
+  else st.originParent.appendChild(st.placeholder);
 
-  // placeholder keeps ribbon spacing
-  const ph = document.createElement("div");
-  ph.style.width = r.width + "px";
-  ph.style.height = r.height + "px";
-  ph.style.marginLeft = getComputedStyle(card).marginLeft;
-  st.placeholder = ph;
-  if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
-  else st.originParent.appendChild(ph);
+  // take out of flow but keep same parent (no reparent)
+  setFixed(c);
+  setTransform(c, r.left, r.top, 1);
 
-  // reparent first
-  layer.appendChild(card);
+  // flag & grow via WAAPI (compositor)
+  c.classList.remove("is-pressing");
+  c.classList.add("is-previewing");
+  document.documentElement.style.touchAction = "none";
+
+  stopAnim(st.growAnim);
+  st.growAnim = c.animate(
+    [
+      { transform: `translate3d(${r.left}px, ${r.top}px, 0) scale(1)` },
+      { transform: `translate3d(${r.left}px, ${r.top}px, 0) scale(${PREVIEW_SCALE})` }
+    ],
+    { duration: PREVIEW_IN_MS, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards", composite: "replace" }
+  );
 
   st.mode = "preview";
-  card.classList.remove("is-pressing");
-  card.classList.add("is-previewing");
-
-  // Baseline fixed position & no transition; lock to GPU
-  Object.assign(card.style, {
-    position: "fixed",
-    left: `${r.left}px`,
-    top: `${r.top}px`,
-    width: `${r.width}px`,
-    height: `${r.height}px`,
-    transformOrigin: "50% 50%",
-    transition: "none",
-    willChange: "transform, filter",
-    contain: "layout style paint",
-    backfaceVisibility: "hidden"
-  });
-
-  // Double-RAF to avoid the “pop then shrink” on mobile reparenting
-  requestAnimationFrame(() => {
-    // Frame A: explicitly set scale(1) so the next transition has a clear start
-    card.style.transform = "translate3d(0,0,0) scale(1)";
-    card.style.filter = "";
-    requestAnimationFrame(() => {
-      // Frame B: now enable transition and grow
-      card.style.transition = `transform ${PREVIEW_EASE_MS_IN}ms ease, filter ${PREVIEW_EASE_MS_IN}ms ease`;
-      card.style.transform  = `translate3d(0,0,0) scale(${PREVIEW_SCALE})`;
-      card.style.filter     = "drop-shadow(0 18px 38px rgba(0,0,0,.35))";
-    });
-  });
-
-  document.documentElement.style.touchAction = "none";
 }
 
-function leavePreview(card, cb) {
-  // shrink smoothly, then restore to ribbon
-  card.style.transition = `transform ${PREVIEW_EASE_MS_OUT}ms ease`;
-  // keep transform base to avoid sudden snap
-  card.style.transform = "translate3d(0,0,0) scale(1)";
-  card.style.filter = "";
+function leavePreview(done){
+  const c = st.card;
+  const r = c.getBoundingClientRect(); // current on-screen rect
 
-  const onEnd = () => {
-    card.removeEventListener("transitionend", onEnd);
-    restoreToRibbon(card);
-    card.classList.remove("is-previewing");
-    card.style.removeProperty("transform-origin");
-    cb && cb();
-  };
-  const failSafe = setTimeout(onEnd, PREVIEW_EASE_MS_OUT + 60);
-  card.addEventListener("transitionend", () => { clearTimeout(failSafe); onEnd(); });
+  stopAnim(st.growAnim);
+  stopAnim(st.shrinkAnim);
+  st.shrinkAnim = c.animate(
+    [
+      { transform: `translate3d(${r.left}px, ${r.top}px, 0) scale(${PREVIEW_SCALE})` },
+      { transform: `translate3d(${r.left}px, ${r.top}px, 0) scale(1)` }
+    ],
+    { duration: PREVIEW_OUT_MS, easing: "cubic-bezier(.2,.7,.2,1)", fill: "forwards", composite: "replace" }
+  );
+  st.shrinkAnim.addEventListener("finish", () => {
+    c.classList.remove("is-previewing");
+    // put back visually before removing fixed
+    setTransform(c, r.left, r.top, 1);
+    // restore to flow
+    if (st.placeholder && st.originParent){
+      st.originParent.insertBefore(c, st.placeholder);
+      st.placeholder.remove();
+      st.placeholder = null;
+    }
+    clearFixed(c);
+    c.style.transform = "";
+    done && done();
+  }, { once:true });
 }
 
-function restoreToRibbon(card) {
-  if (st.placeholder && st.originParent) {
-    st.originParent.insertBefore(card, st.placeholder);
-  }
-  card.style.removeProperty("position");
-  card.style.removeProperty("left");
-  card.style.removeProperty("top");
-  card.style.removeProperty("width");
-  card.style.removeProperty("height");
-  card.style.removeProperty("transition");
-  card.style.removeProperty("transform");
-  card.style.removeProperty("filter");
-  card.style.removeProperty("will-change");
-  card.style.removeProperty("contain");
-  card.style.removeProperty("backface-visibility");
-  st.placeholder?.remove();
-  st.placeholder = null;
-  document.documentElement.style.removeProperty("touch-action");
-}
+function handoffPreviewToDrag(e){
+  const c = st.card;
+  stopAnim(st.growAnim); stopAnim(st.shrinkAnim);
+  const r = c.getBoundingClientRect();
 
-/* -------------------- Drag -------------------- */
+  // keep it fixed, but drop scale to 1 in place (one frame)
+  setTransform(c, r.left, r.top, 1);
+  c.classList.remove("is-previewing");
 
-function enterDragFromPress(e) {
-  clearTimeout(st.pressTimer);
-  st.card.classList.remove("is-pressing");
+  // compute grip
+  st.offsetX = e.pageX - (r.left + window.scrollX);
+  st.offsetY = e.pageY - (r.top  + window.scrollY);
 
-  const r = st.card.getBoundingClientRect();
-  prepareDragWithRect(e, r, /*wasPreview*/ false);
-}
+  st.curX = r.left;
+  st.curY = r.top;
+  st.targetX = st.curX;
+  st.targetY = st.curY;
 
-function handoffPreviewToDrag(e) {
-  const card = st.card;
-  // freeze current preview frame before switching
-  card.style.transition = "none";
-  card.style.transform = "translate3d(0,0,0) scale(1)";
-  card.style.filter = "";
-  void card.offsetWidth;
-  card.classList.remove("is-previewing");
-  document.documentElement.style.removeProperty("touch-action");
-
-  const r = card.getBoundingClientRect();
-  prepareDragWithRect(e, r, /*wasPreview*/ true);
-}
-
-function prepareDragWithRect(e, rect, wasPreview) {
-  const card = st.card;
-
-  if (!wasPreview) {
-    // create placeholder & reparent now
-    st.originParent = card.parentNode;
-    st.originNext   = card.nextSibling;
-    const ph = document.createElement("div");
-    ph.style.width  = rect.width + "px";
-    ph.style.height = rect.height + "px";
-    ph.style.marginLeft = getComputedStyle(card).marginLeft;
-    st.placeholder = ph;
-    if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
-    else st.originParent.appendChild(ph);
-    layer.appendChild(card);
-  }
-
-  const pageLeft = rect.left + window.scrollX;
-  const pageTop  = rect.top  + window.scrollY;
-
-  st.offsetX = e.pageX - pageLeft;
-  st.offsetY = e.pageY - pageTop;
-
-  st.curX = pageLeft;
-  st.curY = pageTop;
-  st.targetX = pageLeft;
-  st.targetY = pageTop;
-
-  Object.assign(card.style, { position: "fixed", left: "0px", top: "0px" });
-  card.style.setProperty("--drag-x", `${st.curX}px`);
-  card.style.setProperty("--drag-y", `${st.curY}px`);
-
-  card.classList.add("is-dragging");
+  c.classList.add("is-dragging");
   st.mode = "drag";
-  follow();
-}
-
-function follow() {
-  if (st.mode !== "drag" || !st.card) return;
-  st.curX += (st.targetX - st.curX) * FOLLOW_DAMP;
-  st.curY += (st.targetY - st.curY) * FOLLOW_DAMP;
-  st.card.style.setProperty("--drag-x", `${st.curX}px`);
-  st.card.style.setProperty("--drag-y", `${st.curY}px`);
   st.raf = requestAnimationFrame(follow);
 }
 
-/* ------------------------------------------------ */
+function enterDragFromPress(e){
+  clearTimeout(st.pressTimer);
 
-window.addEventListener("pointerup", hardFinalize, { passive: false });
-window.addEventListener("pointercancel", hardFinalize, { passive: false });
-window.addEventListener("DOMContentLoaded", init);
+  const c = st.card;
+  const r = c.getBoundingClientRect();
+
+  // placeholder & fixed, no reparent
+  st.originParent = c.parentNode;
+  st.originNext   = c.nextSibling;
+  st.placeholder  = makePlaceholder(c, r);
+  if (st.originNext) st.originParent.insertBefore(st.placeholder, st.originNext);
+  else st.originParent.appendChild(st.placeholder);
+
+  setFixed(c);
+  setTransform(c, r.left, r.top, 1);
+
+  // compute grip
+  st.offsetX = e.pageX - (r.left + window.scrollX);
+  st.offsetY = e.pageY - (r.top  + window.scrollY);
+
+  st.curX = r.left;
+  st.curY = r.top;
+  st.targetX = st.curX;
+  st.targetY = st.curY;
+
+  c.classList.remove("is-pressing");
+  c.classList.add("is-dragging");
+  document.documentElement.style.touchAction = "none";
+
+  st.mode = "drag";
+  st.raf = requestAnimationFrame(follow);
+}
+
+function follow(){
+  if (st.mode !== "drag" || !st.card) return;
+  st.curX += (st.targetX - st.curX) * FOLLOW_DAMP;
+  st.curY += (st.targetY - st.curY) * FOLLOW_DAMP;
+  setTransform(st.card, st.curX, st.curY, 1);
+  st.raf = requestAnimationFrame(follow);
+}
