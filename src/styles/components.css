@@ -1,8 +1,9 @@
-/* =========================================================
-   GREY — components.css
-   MTG dimensions • clean edge/shadow
-   Hand ribbon fixed (no cropping) • iOS-safe
-   ========================================================= */
+/* ===========================================
+   THE GREY — components.css
+   MTG size + crisp edge/shadow
+   Hand ribbon fixed, centered, no clipping
+   iOS/Safari safe; accurate pick-up
+   =========================================== */
 
 /* ---------- Theme tokens ---------- */
 :root{
@@ -14,13 +15,16 @@
   --chip:#f2e7d0;
   --chip-ink:#945c00;
 
-  /* MTG ratio ≈ 3.5 / 2.5 = 1.4 */
+  /* MTG ratio ≈ 3.5/2.5 */
   --card-ratio: 1.4;
-  --card-w: 220px;                                 /* desktop base width */
+  --card-w: 220px;
   --card-h: calc(var(--card-w) * var(--card-ratio));
 
-  --radius: 16px;
+  --radius: 18px;
   --shadow: 0 6px 20px rgba(0,0,0,.08);
+
+  /* Hold-to-preview zoom */
+  --preview-scale: 3; /* 300% */
 }
 
 *{ box-sizing:border-box; }
@@ -30,11 +34,15 @@ html, body{
   background:var(--bg);
   color:var(--ink);
   font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+  /* keep fixed children truly fixed on iOS */
+  transform:none !important;
+  -webkit-transform:none !important;
+  overflow:visible !important;
 }
 
-/* Leave space so content never sits under the fixed hand tray */
+/* Leave room for the fixed hand tray */
 body{
-  padding-bottom: calc(var(--card-h) + 84px + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(var(--card-h) + 28px + env(safe-area-inset-bottom, 0)) !important;
 }
 
 /* ---------- Shell panels ---------- */
@@ -42,6 +50,7 @@ body{
 .zone{
   background:var(--panel); border-radius:14px; box-shadow:var(--shadow);
   padding:18px; margin:12px 0;
+  position:relative; z-index:100; overflow:visible !important;
 }
 .zone .title{ font-weight:600; color:#594f43; margin:0 0 8px; }
 
@@ -54,211 +63,127 @@ body{
   box-shadow: inset 0 1px 0 #fff8, 0 1px 2px rgba(0,0,0,.06);
 }
 
-/* ============================
-   CARD + MTG STYLE
-   ============================ */
-.card{ width: var(--card-w) !important; height: var(--card-h) !important; }
-.slotCell{ width: var(--card-w) !important; height: var(--card-h) !important; }
-
+/* ---------- Base Card ---------- */
 .card{
-  position: relative;
-  border-radius:18px;
-  background: linear-gradient(#fff, #faf8f4);
-  box-shadow: var(--shadow);
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
-  filter: none;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
+  width:var(--card-w); height:var(--card-h);
+  position:relative;
+  border-radius:var(--radius);
+  background:linear-gradient(#fff,#faf8f4);
+  background-clip:padding-box;
+  box-shadow:var(--shadow);
+  transition:transform .18s ease, box-shadow .18s ease;
+  transform-origin:center center;
+  -webkit-backface-visibility:hidden;
+  backface-visibility:hidden;
+  will-change:transform, box-shadow;
 }
 .card::before{
   content:"";
   position:absolute; inset:0;
   border-radius:inherit;
-  box-shadow: inset 0 0 0 1px #e9e2d7;
+  box-shadow:inset 0 0 0 1px #e9e2d7;
   pointer-events:none;
 }
-.card::after{ content:none !important; }
 
-/* Hover lift */
-.card:hover:not(.is-dragging){
-  transform: translateY(-14px) scale(1.02);
-  box-shadow: 0 10px 26px rgba(0,0,0,.12);
+/* Hover and drag states */
+.card:hover:not(.is-dragging):not(.is-previewing){
+  transform:translateY(-14px) scale(1.02);
+  box-shadow:0 10px 26px rgba(0,0,0,.12);
 }
 
-.card .cName{ font-weight:700; letter-spacing:.2px; }
-.card .cType{ font-size:12px; color:var(--muted); }
-
-/* ============================
-   RIBBON / HAND
-   ============================ */
-
-/* Fixed tray pinned to bottom-center */
+/* ---------- Ribbon (hand) ---------- */
 .ribbon-wrap{
-  position: fixed !important;
-  left: 50%;
-  bottom: calc(env(safe-area-inset-bottom,0) + 8px) !important;
-  transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  width: 100%;
-  max-width: 100vw;
-  height: calc(var(--card-h) + 92px) !important;   /* headroom for lift */
-  pointer-events: none;
-  z-index: 2147483646 !important;
-
-  /* 🔒 absolutely no clipping/masking on iOS */
-  overflow: visible !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  border: 0 !important;
-  -webkit-mask: none !important;
-  mask: none !important;
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
-  clip-path: none !important;
-  -webkit-clip-path: none !important;
-  isolation: isolate;          /* stacking ctx without clipping */
+  position:fixed !important;
+  left:50%; bottom:env(safe-area-inset-bottom,12px);
+  transform:translateX(-50%);
+  display:flex; justify-content:center; align-items:flex-end;
+  width:100%; max-width:100vw;
+  background:transparent !important;
+  overflow:visible !important;
+  pointer-events:none;
+  z-index:2147483646 !important;
+  isolation:isolate;
 }
-
-/* Scrollable/laying-out row inside the tray */
 .ribbon{
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0;
-  pointer-events: auto;
-  padding-bottom: 12px;
-
-  /* 🔒 never crop the cards */
-  overflow: visible !important;
-  background: transparent !important;
-  -webkit-mask: none !important;
-  mask: none !important;
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:0; overflow:visible !important; pointer-events:auto;
 }
-
-/* Cards in hand — fan and overlap */
 .ribbon .card{
-  position: relative;
-  margin-left: -72px !important;      /* tighter spacing */
-  transform: translateY(10px);
-  transition: transform 120ms ease, filter 120ms ease;
-  transform-origin: center center;
-  will-change: transform;
-  pointer-events: auto;
-  z-index: 1;
+  margin-left:-60px; transform:translateY(8px);
+  transition:transform 120ms ease;
+  pointer-events:auto;
+  will-change:transform;
 }
-.ribbon .card:first-child{ margin-left: 0; }
+.ribbon .card:first-child{ margin-left:0; }
 
-.ribbon .card:hover:not(.is-dragging):not(.is-previewing){
-  transform: translateY(-14px) scale(1.02);
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
-  z-index: 3;
-}
+/* Lift/fan */
+.ribbon .card:hover:not(.is-dragging):not(.is-previewing),
 .ribbon .card.is-pressing{
-  transform: translateY(-14px) scale(1.02) !important;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
-  transition: none !important;
-  z-index: 3;
+  transform:translateY(-14px) scale(1.02);
+  filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));
+  z-index:10;
 }
-.card.is-dragging{ transition: none !important; }
 
-/* ---------- REAL-CARD PREVIEW (hold to zoom) ---------- */
-:root { --preview-scale: 2.5; }  /* 250% zoom */
+/* ---------- Drag & Preview States ---------- */
+.card.is-dragging{
+  position:fixed; left:0; top:0;
+  transform:translate3d(var(--drag-x,0px), var(--drag-y,0px),0) scale(1.02);
+  filter:drop-shadow(0 12px 24px rgba(0,0,0,.3));
+  cursor:grabbing;
+  transition:none !important;
+  z-index:2147483001;
+}
 
 .card.is-previewing{
-  position: relative;
-  z-index: 2147483000;
-  transform-origin: 50% 50% !important;
-  transform: translate3d(0,-14px,0) scale(var(--preview-scale)) !important;
-  filter: drop-shadow(0 16px 36px rgba(0,0,0,.35)) !important;
-  transition: transform 0.25s cubic-bezier(.22,1,.36,1);
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  will-change: transform, filter;
+  z-index:2147483000;
+  transform:translateY(-20px) scale(var(--preview-scale)) !important;
+  filter:drop-shadow(0 18px 40px rgba(0,0,0,.4));
+  transition:transform 180ms ease-out;
+  pointer-events:none !important;
+  will-change:transform, filter;
 }
 
-/* Drag card follows pointer smoothly */
-.card.is-dragging{
-  position: fixed;
-  left: 0; top: 0;
-  transform: translate3d(var(--drag-x,0px),var(--drag-y,0px),0) scale(1.02);
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.32));
-  cursor: grabbing;
-  transition: none !important;
-  z-index: 2147483647 !important;   /* above everything, incl. zones */
-}
-
-/* ---------- HUD / BUTTONS ---------- */
-.aeGem{
-  position:fixed; right:18px; bottom:86px; z-index:40;
-  width:54px; height:54px; border-radius:14px;
-  background:radial-gradient(ellipse at 30% 25%,#ffd67a,#f6b441 60%,#d38d1f 100%);
-  box-shadow:0 10px 26px rgba(0,0,0,.18), inset 0 2px 6px #fff8;
-  display:flex; align-items:center; justify-content:center; font-weight:800;
-}
-.fabDial{ position:fixed; right:18px; top:18px; z-index:50; display:flex; flex-direction:column; gap:12px; }
-.fab{ width:40px; height:40px; border-radius:999px; border:0; background:#fff;
-     box-shadow:var(--shadow); cursor:pointer; font-weight:700; }
-
-/* Remove draw icon */
-#btnDraw{ display:none !important; }
-
-/* Move End Turn to right of gem */
-#btnEnd{
-  position: fixed !important;
-  right: calc(18px + 54px + 12px) !important;
-  bottom: 86px !important;
-  z-index: 51 !important;
-}
-
-/* Keep Reset near End Turn */
-#btnReset{
-  position: fixed !important;
-  right: calc(18px + 54px + 12px + 48px + 10px) !important;
-  bottom: 86px !important;
-  z-index: 51 !important;
-}
-
-/* ---------- Z-index & overflow safety ---------- */
+/* ---------- Drag Layer ---------- */
 .drag-layer{
-  position: fixed;
-  inset: 0;
-  z-index: 2147483647 !important;
-  pointer-events: none !important;
+  position:fixed;
+  inset:0;
+  z-index:2147483647 !important;
+  pointer-events:none !important;
 }
 
-/* important siblings should never cover the hand */
-.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem{
-  position: relative; z-index: 100 !important; overflow: visible !important;
-}
-#playerSlots, #aiSlots, .slots, .zone{ overflow: visible !important; }
-
-/* Kill any pseudo masking that might be added later */
-.ribbon-wrap::before, .ribbon-wrap::after,
-.ribbon::before, .ribbon::after{ content:none !important; }
-
-/* ---------- Responsive ---------- */
-@media (max-width: 768px){
-  .ribbon .card{ margin-left:-60px !important; transform: translateY(8px); }
-  .ribbon .card:hover,
-  .ribbon .card.is-pressing{ transform: translateY(-10px) scale(1.02); }
-  .ribbon-wrap{ bottom: calc(env(safe-area-inset-bottom,0) + 6px) !important; }
-}
-
-/* ---------- Anti-transform / safe-area ---------- */
-html, body, .wrap{
-  transform:none !important;
-  -webkit-transform:none !important;
+/* ---------- Prevent clipping anywhere ---------- */
+.wrap, .zone, .ribbon, .ribbon-wrap, #playerSlots, #aiSlots{
   overflow:visible !important;
+  -webkit-mask:none !important;
+  mask:none !important;
+  clip-path:none !important;
 }
 
-/* ---------- Mobile MTG scaling ---------- */
-@media (max-width: 480px){
-  :root{
-    --card-w: min(38vw, 220px);
-    --card-h: calc(var(--card-w) * var(--card-ratio));
-  }
+/* ---------- Mobile scaling ---------- */
+@media (max-width:768px){
+  :root{ --card-w:min(38vw,220px); --card-h:calc(var(--card-w)*var(--card-ratio)); }
+  .ribbon .card{ margin-left:-48px; transform:translateY(6px); }
+  .ribbon .card:hover{ transform:translateY(-10px) scale(1.02); }
+}
+
+/* ---------- Instant pulse ---------- */
+@keyframes goldPulse {
+  0% { box-shadow:0 0 0 0 rgba(255,210,90,.45); opacity:1; }
+  70%{ box-shadow:0 0 24px 10px rgba(255,210,90,.18); opacity:.85; }
+  100%{ box-shadow:0 0 0 0 rgba(255,210,90,0); opacity:0; }
+}
+.card.is-instant.pulsing::after{
+  content:"";
+  position:absolute; inset:-2px;
+  border-radius:inherit; pointer-events:none;
+  animation:goldPulse 1.4s ease-out infinite;
+}
+
+/* ---------- End Turn button alignment ---------- */
+#btnDraw{ display:none !important; }
+#btnEnd{
+  position:fixed !important;
+  right:calc(18px + 54px + 12px);
+  bottom:86px;
+  z-index:51 !important;
 }
