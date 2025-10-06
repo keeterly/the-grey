@@ -311,4 +311,13 @@ function initDragBridge(){
   console.log('[DRAG] enabled');
 }
 
-window.addEventListener('DOMContentLoaded', initDragBridge);
+// --- Ensure the hand tray sits as the last element in <body> ---
+window.addEventListener('DOMContentLoaded', () => {
+  const tray = document.querySelector('.ribbon-wrap');
+  if (tray && tray.parentElement !== document.body) {
+    document.body.appendChild(tray); // lift above other stacking contexts
+  } else if (tray) {
+    // make sure it's the last child
+    document.body.appendChild(tray);
+  }
+});
