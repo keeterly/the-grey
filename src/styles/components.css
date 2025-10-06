@@ -501,3 +501,21 @@ html, body, .wrap{
   bottom: 86px !important;
   z-index: 51 !important;
 }
+
+
+/* === Card Preview (500% zoom) === */
+.card.preview-card {
+  position: fixed !important;
+  z-index: 9999 !important;
+  transform-origin: center center !important;
+  transform: scale(5) translate(-50%, -50%) !important;
+  top: 50% !important;
+  left: 50% !important;
+  pointer-events: none !important;
+  transition: transform 0.15s ease-out, opacity 0.15s ease-out !important;
+}
+
+/* Slight fade-in for readability */
+.card.preview-card.show {
+  opacity: 1;
+}
