@@ -9,7 +9,7 @@
 
   /* MTG-ish proportions */
   --card-w: 220px;
-  --card-ratio: 1.4;           /* h = w * ratio (≈ 3.5/2.5) */
+  --card-ratio: 1.4;                 /* h = w * ratio (≈ 3.5/2.5) */
   --card-h: calc(var(--card-w) * var(--card-ratio));
 
   --radius: 16px;
@@ -27,9 +27,9 @@ body{
 .wrap{ max-width:1200px; margin:24px auto 160px; padding:0 16px; }
 .zone{
   background:var(--panel); border-radius:14px; box-shadow:var(--shadow);
-  padding:18px; margin:16px 0;
+  padding:18px; margin:12px 0;                      /* tighter vertical rhythm */
 }
-.zone .title{ font-weight:600; color:#594f43; margin:0 0 12px; }
+.zone .title{ font-weight:600; color:#594f43; margin:0 0 8px; }
 
 /* Chips above Aetherflow cells */
 .costCell{ display:flex; justify-content:center; }
@@ -49,10 +49,9 @@ body{
   padding:14px; display:flex; flex-direction:column;
   transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
-/* Hover lift, but not while dragging */
 .card:hover:not(.is-dragging){
-  transform:translateY(-2px);
-  box-shadow:0 10px 26px rgba(0,0,0,.12);
+  transform:translateY(-14px) scale(1.02);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
 }
 
 .card .cHead{ margin-bottom:8px; }
@@ -65,30 +64,34 @@ body{
   border-radius:12px; padding:3px 8px; border:1px solid #f3dfbf;
 }
 
-/* Variants */
-.handCard{ position:absolute; bottom:0; transform-origin:50% 100%; }
-.handCard.dragging{ pointer-events:none; z-index:1000; }
-
-/* (legacy helper, safe to keep) */
-.instantPulse{ animation:instant .5s ease; }
-@keyframes instant {
-  from{ box-shadow:0 0 0 0 rgba(255,140,0,.6); }
-  to  { box-shadow:0 0 0 18px transparent; }
+/* Ribbon hand: cards peek a bit and rise on hover/drag */
+.ribbon .card {
+  pointer-events: auto;
+  position: relative;
+  transform: translateY(10px);
+  transition: transform 120ms ease, filter 120ms ease;
+  will-change: transform;
+  margin-left: -64px;             /* overlap to create fan */
+}
+.ribbon .card:hover,
+.ribbon .card.is-dragging {
+  transform: translateY(-14px) scale(1.02);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
 }
 
-/* Instant pulsing that does NOT override card's own box-shadow (halo layer) */
-@keyframes goldPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
-  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
-  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
+/* Press pose matches hover so hold doesn't "drop" */
+.ribbon .card.is-pressing {
+  transform: translateY(-14px) scale(1.02) !important;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
+  transition: none !important; /* freeze while measuring pickup */
 }
-.card.is-instant.pulsing::after{
-  content:"";
-  position:absolute; inset:-2px;
-  border-radius:inherit;
-  pointer-events:none;
-  animation: goldPulse 1.4s ease-out infinite;
-}
+
+/* Freeze transitions during measurement only (keep current transform) */
+.ribbon .card.grab-intent { transition: none !important; }
+
+/* Disable transition while actually dragging */
+.card.is-dragging { transition: none !important; }
+.card:hover.is-dragging { transform: none !important; filter: none !important; }
 
 /* Slots */
 .slotCell{
@@ -98,7 +101,6 @@ body{
   display:flex; align-items:center; justify-content:center;
 }
 .slotCell.glyph{ border-style:solid; background:#f8f7f4; }
-
 .slotCell.drop-ok    { outline:2px solid #4caf50; }
 .slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
 .slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
@@ -129,22 +131,7 @@ body{
 /* Helpers */
 .emptyCell{ color:#bcb4a7; font-weight:600; }
 
-/* Hand ribbon: start slightly low (peek) and only rise on hover/drag */
-.ribbon .card {
-  pointer-events: auto;
-  position: relative;
-  transform: translateY(10px);
-  transition: transform 120ms ease, filter 120ms ease;
-  will-change: transform;
-  margin-left: -64px;             /* overlap to create fan */
-}
-.ribbon .card:hover,
-.ribbon .card.is-dragging {
-  transform: translateY(-14px) scale(1.02);
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
-}
-
-/* ---------- PREVIEW OVERLAY (25% bigger) ---------- */
+/* Preview overlay (if/when you use it) */
 .preview-overlay{
   position: fixed; inset: 0;
   background: rgba(10,10,8,.55);
@@ -153,58 +140,44 @@ body{
   z-index: 100;
 }
 .preview-card{
-  transform: translateY(-8px) scale(1.25); /* 25% larger */
+  transform: translateY(-8px) scale(1.25);
   transform-origin: center;
   transition: transform 150ms ease;
   max-width: min(96vw, 800px);
 }
-/* Strong, consistent shadow while previewed */
-.preview-card .card{
-  box-shadow: 0 12px 34px rgba(0,0,0,.28);
-}
-/* Ensure instant pulse also shows in preview */
-.preview-card .card.is-instant.pulsing::after{ z-index: 2; }
+.preview-card .card{ box-shadow: 0 12px 34px rgba(0,0,0,.28); }
 
-/* ---------- REAL-ELEMENT DRAG LAYER (single definition) ---------- */
+/* Instant pulse as a halo layer (doesn't kill base shadow) */
+@keyframes goldPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
+  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
+  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
+}
+.card.is-instant.pulsing::after{
+  content:"";
+  position:absolute; inset:-2px;
+  border-radius:inherit; pointer-events:none;
+  animation: goldPulse 1.4s ease-out infinite;
+}
+
+/* (legacy helper, safe to keep) */
+.instantPulse{ animation:instant .5s ease; }
+@keyframes instant {
+  from{ box-shadow:0 0 0 0 rgba(255,140,0,.6); }
+  to  { box-shadow:0 0 0 18px transparent; }
+}
+
+/* Drag host */
 .drag-layer{
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 999;
 }
-/* The real card while dragging (actual node, not a clone) */
-.card.is-dragging{
-  position: fixed;
-  left: 0; top: 0;
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02) !important;
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
-  cursor: grabbing;
-  will-change: transform, filter;
-  transition: none !important;
-}
 
-
-/* Prevent native ghost image (scoped to ribbon cards) */
+/* Prevent native ghost image on ribbon cards */
 .ribbon .card, .ribbon .card *{
   -webkit-user-drag: none;
   user-select: none;
   touch-action: none;
 }
-
-
-/* Keep whatever transform the card currently has; just stop animating it */
-.ribbon .card.grab-intent {
-  transition: none !important;
-}
-
-/* Press = same pose as hover, so the card doesn't "drop" when you hold */
-.ribbon .card.is-pressing {
-  transform: translateY(-14px) scale(1.02) !important;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
-  transition: none !important; /* freeze while we measure */
-}
-
-/* While actually dragging, transitions should be off */
-.card.is-dragging { transition: none !important; }
-
-
