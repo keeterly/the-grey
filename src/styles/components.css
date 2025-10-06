@@ -151,4 +151,125 @@ body{
 
 /* Hover/drag lift from ribbon (visual only; JS owns transforms during drag) */
 .ribbon .card:hover:not(.is-preview):not(.is-dragging){
-  transform: translateY(-14px)
+  transform: translateY(-14px) scale(1.02);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.35));
+  z-index:3;
+}
+
+/* Press pose equals hover so hold doesn’t “drop” the card */
+.ribbon .card.is-pressing{
+  transform: translateY(-14px) scale(1.02) !important;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.35)) !important;
+  transition:none !important;
+  z-index:3;
+}
+
+/* Ensure nothing in main layout clips the hand or preview */
+.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem,
+#playerSlots, #aiSlots, .slots{ position:relative; z-index:100 !important; overflow:visible !important; }
+
+/* =========================
+   Preview / Drag visual states
+   (JS adds .is-preview / .is-dragging and sets transform inline)
+   ========================= */
+
+/* Elevated shadow when previewing or dragging (looks MTG) */
+.card.is-preview,
+.card.is-dragging{
+  box-shadow: 0 12px 34px rgba(0,0,0,.28), 0 0 0 1px rgba(0,0,0,.04);
+  filter:none;
+}
+
+/* During drag we disable CSS transitions — motion is driven by JS transforms */
+.card.is-dragging{
+  transition:none !important;
+  cursor:grabbing;
+}
+
+/* Do NOT override position/transform here — JS writes the fixed+transform. */
+
+/* =========================
+   Slots
+   ========================= */
+.slotCell{
+  border-radius:18px; background:var(--panel-soft);
+  outline:1px dashed #e6dfd4; outline-offset:-6px;
+  display:flex; align-items:center; justify-content:center;
+}
+.slotCell.glyph{ border-style:solid; background:#f8f7f4; }
+.slotCell.drop-ok    { outline:2px solid #4caf50; }
+.slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
+.slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
+
+/* =========================
+   HUD / Controls
+   ========================= */
+.hudRow{ display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding:10px 16px; }
+.pill{ display:flex; gap:10px; align-items:center; padding:8px 12px;
+  background:var(--panel); border-radius:999px; box-shadow:var(--shadow); }
+.seg{ display:flex; align-items:center; gap:6px; font-weight:600; }
+.seg svg{ width:16px; height:16px; stroke:#222; fill:none; stroke-width:1.8px; }
+.sep{ width:1px; height:18px; background:#e5dfd5; }
+
+/* Aether gem */
+.aeGem{
+  position:fixed; right:18px; bottom:86px; z-index:40;
+  width:54px; height:54px; border-radius:14px;
+  background:radial-gradient(ellipse at 30% 25%,#ffd67a,#f6b441 60%,#d38d1f 100%);
+  box-shadow:0 10px 26px rgba(0,0,0,.18), inset 0 2px 6px #fff8;
+  display:flex; align-items:center; justify-content:center; font-weight:800;
+}
+
+/* FABs */
+.fabDial{ position:fixed; right:18px; top:18px; z-index:50; display:flex; flex-direction:column; gap:12px; }
+.fab{ width:40px; height:40px; border-radius:999px; border:0; background:#fff;
+     box-shadow:var(--shadow); cursor:pointer; font-weight:700; }
+
+/* Hide Draw button as requested, and park End Turn by the gem */
+#btnDraw{ display:none !important; }
+#btnEnd{
+  position:fixed !important;
+  right: calc(18px + 54px + 12px) !important; /* gem right + gem width + gap */
+  bottom:86px !important;
+  z-index:51 !important;
+}
+
+/* Optional: keep Reset to the left of End Turn */
+#btnReset{
+  position:fixed !important;
+  right: calc(18px + 54px + 12px + 48px + 10px) !important; /* tweak as desired */
+  bottom:86px !important;
+  z-index:51 !important;
+}
+
+/* Helpers */
+.emptyCell{ color:#bcb4a7; font-weight:600; }
+
+/* =========================
+   Instant pulse halo (non-destructive to base shadow)
+   ========================= */
+@keyframes goldPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
+  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
+  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
+}
+.card.is-instant.pulsing::after{
+  content:""; position:absolute; inset:-2px; border-radius:inherit; pointer-events:none;
+  animation: goldPulse 1.4s ease-out infinite;
+}
+
+/* =========================
+   Mobile sizing (keep MTG ratio)
+   ========================= */
+@media (max-width: 768px){
+  :root{
+    --card-w: min(42vw, 220px);
+    --card-h: calc(var(--card-w) * var(--card-ratio));
+  }
+  .ribbon .card{ margin-left:-48px; transform: translateY(8px); }
+  .ribbon .card:hover:not(.is-preview):not(.is-dragging){
+    transform: translateY(-10px) scale(1.02);
+  }
+  .ribbon-wrap{ bottom: calc(env(safe-area-inset-bottom, 0) + 4px); }
+}
