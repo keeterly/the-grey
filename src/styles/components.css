@@ -337,3 +337,30 @@ html, body, .wrap{
   -webkit-overflow-scrolling: touch;
   pointer-events: auto;
 }
+
+/* --- Hand tray: prevent clipping when cards lift --- */
+
+/* Give the tray extra headroom and respect iOS bottom safe area */
+.ribbon-wrap{
+  height: calc(var(--card-h) + 36px) !important;          /* + room for lift */
+  padding-bottom: max(12px, env(safe-area-inset-bottom)); /* iOS home bar */
+  overflow: visible !important;                            /* don't clip */
+}
+
+/* Allow cards to rise above the scroller’s top edge */
+.ribbon{
+  overflow-x: auto !important;
+  overflow-y: visible !important;   /* was hidden -> caused the cropping */
+  -webkit-overflow-scrolling: touch;
+  align-items: flex-end;            /* keep bases aligned to tray bottom */
+}
+
+/* Keep lifted/dragging cards above the tray background */
+.ribbon .card{ z-index: 1; position: relative; }
+.ribbon .card:hover,
+.ribbon .card.is-dragging{ z-index: 2; }
+
+/* Optional: soften the tray gradient so it doesn't “mask” edges */
+.ribbon-wrap{
+  background: linear-gradient(to top, rgba(0,0,0,.05), transparent 28%) !important;
+}
