@@ -181,3 +181,14 @@ body{
   user-select: none;
   touch-action: none;
 }
+
+/* press pose equals hover (no "lowering" on hold) */
+.ribbon .card.is-pressing{
+  transform: translateY(-14px) scale(1.02) !important;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
+  transition: none !important;
+}
+
+/* disable CSS transitions while dragging */
+.card.is-dragging{ transition: none !important; }
+
