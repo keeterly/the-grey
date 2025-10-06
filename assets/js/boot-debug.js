@@ -1,10 +1,10 @@
 /* eslint-disable */
-console.log("[THE GREY][UI] Real-card preview 2.5x; dev-drag toggle/?drag=1");
+console.log("[THE GREY][UI] Real-card preview 2.5x; cancel-proof on iOS; dev drag toggle");
 
 /* ---------------- Tunables ---------------- */
 const HOLD_MS = 320;                     // time pressed before preview appears
 const PREVIEW_SCALE = 2.5;               // 250% preview
-const PREVIEW_CANCEL_MOVE = 22;          // allowed wiggle while waiting for preview
+const PREVIEW_CANCEL_MOVE = 24;          // allowed wiggle while waiting for preview
 
 // Only used when Drag Dev is ON
 const LIFT_BEFORE_PREVIEW_MOVE = 12;     // convert to drag before preview (dev)
@@ -44,14 +44,26 @@ function ensureDragLayer() {
 function addGlobals() {
   window.addEventListener("pointermove", onMove, { passive: false });
   window.addEventListener("pointerup", onUp, { passive: false });
-  window.addEventListener("pointercancel", onUp, { passive: false });
+  window.addEventListener("pointercancel", onCancel, { passive: false }); // <- custom
   window.addEventListener("blur", onUp, { passive: false });
+  // prevent the iOS long-press menu only while previewing
+  document.addEventListener("contextmenu", preventContextMenu, { passive: false });
+  document.addEventListener("selectstart", preventContextMenu, { passive: false });
 }
+
 function removeGlobals() {
   window.removeEventListener("pointermove", onMove);
   window.removeEventListener("pointerup", onUp);
-  window.removeEventListener("pointercancel", onUp);
+  window.removeEventListener("pointercancel", onCancel);
   window.removeEventListener("blur", onUp);
+  document.removeEventListener("contextmenu", preventContextMenu);
+  document.removeEventListener("selectstart", preventContextMenu);
+}
+
+function preventContextMenu(e){
+  if (st?.previewed && !st?.lifted) {
+    e.preventDefault();
+  }
 }
 
 function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
@@ -96,8 +108,8 @@ function safeReturn(card, parent, next, ph) {
 /* ---------------- Preview (real card) ---------------- */
 function applyPreview(card) {
   card.dataset.previewing = "1";
-  card.classList.add("is-previewing"); // optional for your CSS, but we enforce inline too
-  // Use !important so hover/drag styles can’t override this transform.
+  card.classList.add("is-previewing"); // optional CSS hook
+  // enforce transform/filters so hover/drag styles can't override them
   card.style.setProperty("transform-origin", "50% 50%", "important");
   card.style.setProperty(
     "transform",
@@ -111,7 +123,7 @@ function applyPreview(card) {
   );
   card.style.willChange = "transform, filter";
   card.style.zIndex = "2147483000";
-  // prevent page scroll while holding
+  // block page scrolling while holding
   document.documentElement.style.touchAction = "none";
 }
 function clearPreview(card) {
@@ -172,7 +184,7 @@ function onDown(e) {
 
 function lift(fromPreview) {
   if (!st || st.lifted) return;
-  if (!dragDevOn()) return; // drag behind dev toggle only
+  if (!dragDevOn()) return; // drag only when dev toggle is ON
 
   clearTimeout(holdTimer);
 
@@ -254,6 +266,16 @@ function onMove(e) {
 
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
+}
+
+function onCancel(e){
+  // iOS long-press often emits pointercancel; we KEEP the preview
+  if (st?.previewed && !st?.lifted) {
+    // maintain the preview; do not treat as pointerup
+    return;
+  }
+  // otherwise behave like an ordinary end
+  onUp(e);
 }
 
 function onUp(e) {
@@ -380,5 +402,5 @@ window.addEventListener("DOMContentLoaded", () => {
 
   document.addEventListener("pointerdown", onDown, { passive:false });
 
-  console.log("[THE GREY][UI] ready — preview: real card @2.5x; drag behind toggle/?drag=1");
+  console.log("[THE GREY][UI] ready — preview: real card @2.5x; long-press cancel-proof; drag via toggle/?drag=1");
 });
