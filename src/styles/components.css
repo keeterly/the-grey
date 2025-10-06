@@ -251,3 +251,54 @@ html, body, .wrap{
     --card-h: calc(var(--card-w) * var(--card-ratio));
   }
 }
+
+/* ===== Hand ribbon (fixed bottom, proper z-index) ===== */
+
+/* The fixed tray that the hand sits in */
+.ribbon-wrap{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 60;                     /* above boards, below FABs/HUD */
+  height: calc(var(--card-h) + 20px);
+  pointer-events: none;            /* pass through unless on .ribbon */
+  /* subtle tray look (optional) */
+  background: linear-gradient(to top, rgba(0,0,0,.06), transparent 26%);
+}
+
+/* The actual hand row (h-scroller) */
+.ribbon{
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;                          /* cards overlap via negative margin */
+  padding: 0 20px 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;            /* re-enable inside tray */
+}
+
+/* Cards in the ribbon peek slightly by default, lift on hover/drag */
+.ribbon .card{
+  position: relative;
+  transform: translateY(10px);
+  transition: transform 120ms ease, filter 120ms ease;
+  will-change: transform;
+  margin-left: -64px;              /* overlap to create fan */
+  scroll-snap-align: start;
+}
+
+/* Make sure page content leaves space for the tray */
+.wrap{
+  /* if your bottom margin was removed in other edits, restore it: */
+  margin: 24px auto 160px !important;
+}
+
+/* Keep the hand above the tray background during drag/hover */
+.ribbon .card:hover,
+.ribbon .card.is-dragging{
+  transform: translateY(-14px) scale(1.02);
+}
