@@ -238,3 +238,52 @@ window.addEventListener('DOMContentLoaded', initDragBridge);
   /* your existing goldPulse still works; this preserves the base edge/shadow */
   mix-blend-mode: normal;
 }
+
+
+/* ===== ROLLBACK: restore MTG-style edge & shadow; remove vignette ===== */
+
+/* 1) Kill the experimental vignette that washed the screen */
+.card::after { content: none !important; }
+
+/* 2) Reinstate the clean parchment face + crisp rounded edge */
+.card,
+.card.is-dragging{
+  border-radius: 18px;
+  background: linear-gradient(#fff, #faf8f4);
+  background-clip: padding-box;           /* keep corners crisp */
+}
+
+/* 3) Subtle printed edge (inner stroke) */
+.card::before{
+  content:"";
+  position:absolute; inset:0;
+  border-radius:inherit;
+  box-shadow: inset 0 0 0 1px #e9e2d7;   /* MTG-like edge line */
+  pointer-events:none;
+}
+
+/* 4) Idle/hover shadows (no filter: drop-shadow) */
+.card{
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+}
+.card:hover:not(.is-dragging){
+  transform: translateY(-14px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,.12);
+  filter: none !important;
+}
+
+/* 5) Dragging: same rounded edge + deeper lift (no filter) */
+.card.is-dragging{
+  position: fixed; left: 0; top: 0;
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
+  box-shadow: 0 18px 40px rgba(0,0,0,.28);
+  filter: none !important;
+  cursor: grabbing;
+  will-change: transform, box-shadow;
+  transition: none !important;
+}
+.card:hover.is-dragging{
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02) !important;
+  box-shadow: 0 18px 40px rgba(0,0,0,.28) !important;
+  filter: none !important;
+}
