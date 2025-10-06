@@ -64,7 +64,7 @@ body{
   border-radius:12px; padding:3px 8px; border:1px solid #f3dfbf;
 }
 
-/* Ribbon hand: cards peek a bit and rise on hover/drag */
+/* Ribbon hand: cards peek a bit and rise on hover */
 .ribbon .card {
   pointer-events: auto;
   position: relative;
@@ -73,8 +73,7 @@ body{
   will-change: transform;
   margin-left: -64px;             /* overlap to create fan */
 }
-.ribbon .card:hover,
-.ribbon .card.is-dragging {
+.ribbon .card:hover{
   transform: translateY(-14px) scale(1.02);
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
 }
@@ -89,9 +88,18 @@ body{
 /* Freeze transitions during measurement only (keep current transform) */
 .ribbon .card.grab-intent { transition: none !important; }
 
-/* Disable transition while actually dragging */
-.card.is-dragging { transition: none !important; }
-.card:hover.is-dragging { transform: none !important; filter: none !important; }
+/* === DRAGGING: real element follows CSS vars from JS ================== */
+.card.is-dragging{
+  position: fixed;
+  left: 0; top: 0;
+  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
+  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
+  cursor: grabbing;
+  will-change: transform, filter;
+  transition: none !important;
+}
+/* Hover must not fight drag */
+.card:hover.is-dragging { transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02) !important; filter: drop-shadow(0 12px 24px rgba(0,0,0,.35)) !important; }
 
 /* Slots */
 .slotCell{
@@ -188,7 +196,3 @@ body{
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
   transition: none !important;
 }
-
-/* disable CSS transitions while dragging */
-.card.is-dragging{ transition: none !important; }
-
