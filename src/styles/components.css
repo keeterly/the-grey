@@ -395,3 +395,74 @@ html, body, .wrap{
   -webkit-transform: none !important;
   overflow: visible !important;
 }
+
+/* === CARD HAND CENTERING FIX === */
+
+/* Hand wrapper: anchor to bottom center of viewport */
+.ribbon-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  width: 100%;
+  max-width: 100vw;
+  pointer-events: none; /* prevents tray from blocking play area */
+  z-index: 2147483646 !important;
+}
+
+/* Actual row of cards */
+.ribbon {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0;
+  pointer-events: auto; /* allow dragging */
+  overflow: visible !important;
+}
+
+/* Each card overlaps slightly to form a fan */
+.ribbon .card {
+  position: relative;
+  margin-left: -64px;
+  transform: translateY(10px);
+  transition: transform 120ms ease, filter 120ms ease;
+  will-change: transform;
+}
+
+/* Center pivot for fan effect */
+.ribbon .card:first-child {
+  margin-left: 0;
+}
+
+/* Hover + drag effects preserved */
+.ribbon .card:hover,
+.ribbon .card.is-dragging {
+  transform: translateY(-14px) scale(1.02);
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.4));
+}
+
+/* For mobile: slightly closer together */
+@media (max-width: 768px) {
+  .ribbon .card {
+    margin-left: -48px;
+    transform: translateY(8px);
+  }
+  .ribbon .card:hover,
+  .ribbon .card.is-dragging {
+    transform: translateY(-10px) scale(1.02);
+  }
+  .ribbon-wrap {
+    bottom: 6px;
+  }
+}
+
+/* Make sure drag layer still stays above everything */
+.drag-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647 !important;
+  pointer-events: none !important;
+}
