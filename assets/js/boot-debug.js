@@ -1,4 +1,8 @@
-// === REAL-CARD DRAG — press matches hover, snap-back if no drop, preview-safe ===
+/* -----------------------------------------------------------------------
+   THE GREY — Dev helpers: real-card drag (page-coords, snap/lerp),
+   snap-back, preview guard, safe DOM return.
+----------------------------------------------------------------------- */
+
 function getTranslateXY(el){
   const t = getComputedStyle(el).transform;
   if (!t || t === 'none') return {tx:0, ty:0};
@@ -6,15 +10,30 @@ function getTranslateXY(el){
   return { tx: m.m41, ty: m.m42 };
 }
 
+// Safe return: reinsert the dragged node even if the hand re-rendered.
+function safeReturn(card, originParent, originNext) {
+  const ribbon = document.getElementById('ribbon');
+
+  if (originParent && originParent.isConnected) {
+    if (originNext && originNext.parentNode === originParent) {
+      try { originParent.insertBefore(card, originNext); return; } catch {}
+    }
+    try { originParent.appendChild(card); return; } catch {}
+  }
+  if (ribbon) ribbon.appendChild(card);
+}
+
+// ---- Pointer-based REAL-CARD DRAG ------------------------------------
 (() => {
-  const DRAG_THRESHOLD = 6;
-  const DAMP = 0.36;
-  const MAX_STEP = 42;
+  const DRAG_THRESHOLD = 6;    // px to lift
+  const SMOOTH = 0.14;         // minimal dampening (lower = snappier)
+  const SNAP_DIST = 24;        // snap to cursor when farther than this
   let raf;
 
-  // If your preview uses a different root, add it here
+  // Treat these as “preview UI present” (drag must cancel)
   const PREVIEW_SELECTORS = '.preview-overlay, .preview-card';
 
+  // One drag layer host
   const dragLayer = document.querySelector('.drag-layer') || (() => {
     const d = document.createElement('div');
     d.className = 'drag-layer';
@@ -24,6 +43,8 @@ function getTranslateXY(el){
 
   let st = null;
 
+  const isPreviewOpen = () => !!document.querySelector(PREVIEW_SELECTORS);
+
   const tidyUp = () => {
     cancelAnimationFrame(raf);
     window.removeEventListener('pointermove', onMove);
@@ -32,30 +53,38 @@ function getTranslateXY(el){
     window.removeEventListener('blur', onUp);
   };
 
-  function onDown(e){
-    // If any preview UI exists, ignore drag completely
-    if (document.querySelector(PREVIEW_SELECTORS)) return;
+  function cancelDragNow() {
+    if (!st) return;
+    try { st.card.releasePointerCapture?.(st.pid); } catch {}
+    if (st.lifted) snapBack(); else st.card.classList.remove('is-pressing','grab-intent');
+    st = null;
+    tidyUp();
+  }
 
+  function onDown(e){
+    if (isPreviewOpen()) return;            // don’t start while preview is up
     const card = e.target.closest('.ribbon .card');
     if (!card || e.button !== 0) return;
 
     e.preventDefault();
     try { card.setPointerCapture(e.pointerId); } catch {}
 
-    // Make press visually identical to hover (prevents the "lowering")
+    // Press pose should match hover (CSS handles visuals)
     card.classList.add('is-pressing');
+    card.classList.add('grab-intent');      // freeze transitions while measuring
 
-    // Measure the CURRENT visual position (press pose already applied)
+    // Measure current visual position (press already applied)
     const rect = card.getBoundingClientRect();
     const { tx, ty } = getTranslateXY(card);
 
-    // Compute raw page coords so moving to drag layer doesn't shift
+    // Compute raw page coords so moving to drag layer doesn’t shift
     const rawLeft = rect.left + window.scrollX - tx;
     const rawTop  = rect.top  + window.scrollY - ty;
 
     st = {
       pid: e.pointerId,
       card,
+      // Use PAGE coords (stable with scroll)
       startX: e.pageX,
       startY: e.pageY,
       offsetX: e.pageX - rawLeft,
@@ -91,10 +120,11 @@ function getTranslateXY(el){
     if (originNext) originParent.insertBefore(ph, originNext);
     else originParent.appendChild(ph);
 
-    // IMPORTANT ORDER: set coords → switch classes → move node
+    // ORDER: set coords → switch classes → move node (prevents 0,0 jump)
     card.style.setProperty('--drag-x', st.curX + 'px');
     card.style.setProperty('--drag-y', st.curY + 'px');
 
+    card.classList.remove('grab-intent');
     card.classList.remove('is-pressing');
     card.classList.add('is-dragging');
     if (st.isInstant) card.classList.add('pulsing');
@@ -106,81 +136,55 @@ function getTranslateXY(el){
   }
 
   function smoothFollow(){
-  cancelAnimationFrame(raf);
+    cancelAnimationFrame(raf);
 
-  // Tunables
-  const SMOOTH = 0.16;   // lower = less smoothing (snappier)
-  const SNAP_DIST = 28;  // if cursor jumps farther than this, snap instead of lerp
+    const toHalf = v => Math.round(v * 2) / 2; // stable subpixel grid
 
-  const step = () => {
-    if (!st) return;
+    const step = () => {
+      if (!st) return;
 
-    const dx = st.targetX - st.curX;
-    const dy = st.targetY - st.curY;
-    const dist = Math.hypot(dx, dy);
+      const dx = st.targetX - st.curX;
+      const dy = st.targetY - st.curY;
+      const dist = Math.hypot(dx, dy);
 
-    if (dist > SNAP_DIST) {
-      // Fast mouse move: follow exactly to avoid “lag wiggle”
-      st.curX = st.targetX;
-      st.curY = st.targetY;
-    } else {
-      // Subtle smoothing when close
-      st.curX += dx * SMOOTH;
-      st.curY += dy * SMOOTH;
-    }
+      if (dist > SNAP_DIST) {
+        // Fast move: snap to the cursor to avoid wobble
+        st.curX = st.targetX;
+        st.curY = st.targetY;
+      } else {
+        // Minimal smoothing near the cursor
+        st.curX += dx * SMOOTH;
+        st.curY += dy * SMOOTH;
+      }
 
-    st.card.style.setProperty('--drag-x', st.curX + 'px');
-    st.card.style.setProperty('--drag-y', st.curY + 'px');
+      st.card.style.setProperty('--drag-x', toHalf(st.curX) + 'px');
+      st.card.style.setProperty('--drag-y', toHalf(st.curY) + 'px');
 
+      raf = requestAnimationFrame(step);
+    };
     raf = requestAnimationFrame(step);
-  };
-  raf = requestAnimationFrame(step);
-}
-
+  }
 
   function onMove(e){
-    // If a preview just opened between down/move, abort drag cleanly
-    if (document.querySelector(PREVIEW_SELECTORS)) { cancelDrag(); return; }
-
+    if (isPreviewOpen()) { cancelDragNow(); return; }
     if (!st) return;
-    const dx = e.clientX - st.startX;
-    const dy = e.clientY - st.startY;
+
+    const dx = e.pageX - st.startX;
+    const dy = e.pageY - st.startY;
 
     if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
     if (!st.lifted) return;
 
-    // Keep the exact click point under the cursor
+    // Keep the exact click point under the cursor (page coords)
     st.targetX = e.pageX - st.offsetX;
     st.targetY = e.pageY - st.offsetY;
   }
 
-  function safeReturn(card, originParent, originNext) {
-  const ribbon = document.getElementById('ribbon');
-
-  // If the original parent still exists and we can insert before the sibling, do it.
-  if (originParent && originParent.isConnected) {
-    if (originNext && originNext.parentNode === originParent) {
-      try { originParent.insertBefore(card, originNext); return; } catch {}
-    }
-    // Else append at the end of the original parent.
-    try { originParent.appendChild(card); return; } catch {}
-  }
-
-  // Fallback: put it back into the ribbon.
-  if (ribbon) ribbon.appendChild(card);
-}
-
-
-  function cancelDrag(){
-    if (!st) return;
-    try { st.card.releasePointerCapture?.(st.pid); } catch {}
-    cancelAnimationFrame(raf);
-
-    if (st.lifted) snapBack();
-    else st.card.classList.remove('is-pressing');
-
-    st = null;
-    tidyUp();
+  function snapBack(){
+    const { card, originParent, originNext, placeholder, isInstant } = st;
+    safeReturn(card, originParent, originNext);
+    if (placeholder && placeholder.isConnected) placeholder.remove();
+    card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
   }
 
   function onUp(e){
@@ -198,15 +202,17 @@ function getTranslateXY(el){
       const hit = document.elementFromPoint(e.clientX, e.clientY);
       card.style.visibility = prevVis;
 
-      const dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
+      // Only accept PLAYER slots (ignore AI board)
+      let dropSlot = hit && hit.closest ? hit.closest('.slotCell') : null;
+      if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null;
 
       if (dropSlot){
-        // (Optional) quick visual snap
+        // Optional instant visual snap to the slot
         const r = dropSlot.getBoundingClientRect();
         card.style.setProperty('--drag-x', (r.left + window.scrollX) + 'px');
         card.style.setProperty('--drag-y', (r.top  + window.scrollY) + 'px');
 
-        // Tell the game (ensure data-* exist)
+        // Notify your game logic (ensure data-* exist)
         try {
           game?.dispatch?.({
             type: 'DROP_CARD',
@@ -218,20 +224,25 @@ function getTranslateXY(el){
         }
       }
 
-      // Always snap back to the hand DOM (state will re-render)
+      // Always snap the DOM back to the hand (state will re-render)
       snapBack();
     } else {
-      // Never lifted → plain press
-      st.card.classList.remove('is-pressing');
+      // Never lifted: plain press, clear flags
+      st.card.classList.remove('is-pressing','grab-intent');
     }
 
     st = null;
     tidyUp();
   }
 
-  // Block native ghost image
+  // Kill native HTML5 ghost drag
   document.addEventListener('dragstart', (e) => e.preventDefault());
 
+  // If any preview UI appears asynchronously, cancel an in-flight drag immediately
+  new MutationObserver(() => { if (isPreviewOpen()) cancelDragNow(); })
+    .observe(document.body, { childList: true, subtree: true });
+
+  // Delegate from ribbon so newly-rendered cards work automatically
   const ribbon = document.getElementById('ribbon');
   if (ribbon) ribbon.addEventListener('pointerdown', onDown);
 })();
