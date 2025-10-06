@@ -1,8 +1,8 @@
 /* ===========================================
-   THE GREY — components.css
+   THE GREY — components.css  (stable + mobile safe)
    MTG size + crisp edge/shadow
-   Hand ribbon fixed, centered (no transforms)
-   iOS/Safari safe; no clipping; smooth in-place preview
+   Hand ribbon fixed/centered, never clipped
+   In-place preview (200%) + real-node drag (no left jump)
    =========================================== */
 
 /* ---------- Theme tokens ---------- */
@@ -15,7 +15,7 @@
   --chip:#f2e7d0;
   --chip-ink:#945c00;
 
-  /* MTG ratio ≈ 3.5/2.5 */
+  /* MTG: 3.5/2.5 ≈ 1.4 */
   --card-ratio: 1.4;
   --card-w: 220px;
   --card-h: calc(var(--card-w) * var(--card-ratio));
@@ -23,26 +23,37 @@
   --radius: 18px;
   --shadow: 0 6px 20px rgba(0,0,0,.08);
 
-  /* Hold-to-preview zoom (200%) */
-  --preview-scale: 2;
+  /* Hold-to-preview scale */
+  --preview-scale: 2; /* 200% */
 }
 
 *{ box-sizing:border-box; }
 
-/* Keep fixed children truly fixed on iOS; never transform root nodes */
 html, body{
   margin:0;
   background:var(--bg);
   color:var(--ink);
   font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+
+  /* keep fixed children truly fixed on iOS */
   transform:none !important;
   -webkit-transform:none !important;
+
+  /* never clip the hand/preview */
   overflow:visible !important;
 }
 
-/* Leave room for the fixed hand tray */
+/* leave room for fixed hand tray */
 body{
-  padding-bottom: calc(var(--card-h) + 28px + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(var(--card-h) + 36px + env(safe-area-inset-bottom, 0)) !important;
+}
+
+/* panels / wrappers must NOT clip */
+.wrap, .zone, .slots, #playerSlots, #aiSlots,
+#topLog, .hudRow, .fabDial, .leftDock, .rightDock {
+  position:relative; z-index:100;
+  overflow:visible !important;
+  -webkit-mask:none !important; mask:none !important; clip-path:none !important;
 }
 
 /* ---------- Shell panels ---------- */
@@ -50,11 +61,10 @@ body{
 .zone{
   background:var(--panel); border-radius:14px; box-shadow:var(--shadow);
   padding:18px; margin:12px 0;
-  position:relative; z-index:100; overflow:visible !important;
 }
 .zone .title{ font-weight:600; color:#594f43; margin:0 0 8px; }
 
-/* ---------- Aetherflow chips ---------- */
+/* ---------- Chips ---------- */
 .costCell{ display:flex; justify-content:center; }
 .costChip{
   display:inline-flex; align-items:center; justify-content:center;
@@ -63,45 +73,29 @@ body{
   box-shadow: inset 0 1px 0 #fff8, 0 1px 2px rgba(0,0,0,.06);
 }
 
-/* ============================
-   CARD + MTG STYLE
-   ============================ */
+/* ===========================================
+   CARD — MTG look
+   =========================================== */
+.card,
+.slotCell{ width:var(--card-w) !important; height:var(--card-h) !important; }
 
-/* Apply MTG size (cards and slots) */
-.card{ width: var(--card-w) !important; height: var(--card-h) !important; }
-.slotCell{ width: var(--card-w) !important; height: var(--card-h) !important; }
-
-/* Base card face */
 .card{
-  position: relative;
-  border-radius: var(--radius);
-  background: linear-gradient(#fff, #faf8f4);
-  background-clip: padding-box;
-  box-shadow: var(--shadow);
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
+  position:relative;
+  border-radius:var(--radius);
+  background:linear-gradient(#fff,#faf8f4);
+  background-clip:padding-box;
+  box-shadow:var(--shadow);
+  transition:transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  filter:none;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden;
+  transform:translateZ(0);
 }
-
-/* Inner printed edge line (MTG feel) */
 .card::before{
-  content:"";
-  position:absolute; inset:0;
-  border-radius:inherit;
-  box-shadow: inset 0 0 0 1px #e9e2d7;
-  pointer-events:none;
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  box-shadow: inset 0 0 0 1px #e9e2d7; pointer-events:none;
 }
+.card::after{ content:none; }
 
-/* No vignette overlay */
-.card::after{ content:none !important; }
-
-/* Hover lift (desktop) */
-.card:hover:not(.is-dragging):not(.is-previewing){
-  transform: translateY(-14px) scale(1.02);
-  box-shadow: 0 10px 26px rgba(0,0,0,.12);
-}
-
-/* Content blocks inside a card */
 .card .cHead{ margin-bottom:8px; }
 .card .cName{ font-weight:700; letter-spacing:.2px; }
 .card .cType{ font-size:12px; color:var(--muted); }
@@ -112,12 +106,17 @@ body{
   border-radius:12px; padding:3px 8px; border:1px solid #f3dfbf;
 }
 
-/* ============================
+/* desktop hover lift */
+.card:hover:not(.is-dragging):not(.is-previewing){
+  transform: translateY(-14px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,.12);
+}
+
+/* ===========================================
    SLOTS
-   ============================ */
+   =========================================== */
 .slotCell{
-  border-radius: var(--radius);
-  background:var(--panel-soft);
+  border-radius:var(--radius); background:var(--panel-soft);
   outline:1px dashed #e6dfd4; outline-offset:-6px;
   display:flex; align-items:center; justify-content:center;
 }
@@ -126,16 +125,15 @@ body{
 .slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
 .slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
 
-/* ============================
-   HUD / Controls
-   ============================ */
-.hudRow{ display:flex; align-items:center; justify-content:space-between;
-  gap:12px; padding:10px 16px; }
-.pill{ display:flex; gap:10px; align-items:center; padding:8px 12px;
-  background:var(--panel); border-radius:999px; box-shadow:var(--shadow); }
+/* ===========================================
+   HUD bits
+   =========================================== */
+.hudRow{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px; }
+.pill{ display:flex; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-radius:999px; box-shadow:var(--shadow); }
 .seg{ display:flex; align-items:center; gap:6px; font-weight:600; }
 .seg svg{ width:16px; height:16px; stroke:#222; fill:none; stroke-width:1.8px; }
 .sep{ width:1px; height:18px; background:#e5dfd5; }
+.emptyCell{ color:#bcb4a7; font-weight:600; }
 
 /* Aether gem */
 .aeGem{
@@ -146,155 +144,121 @@ body{
   display:flex; align-items:center; justify-content:center; font-weight:800;
 }
 
-/* Top-right controls */
-.fabDial{ position:fixed; right:18px; top:18px; z-index:50; display:flex; flex-direction:column; gap:12px; }
-.fab{ width:40px; height:40px; border-radius:999px; border:0; background:#fff;
-     box-shadow:var(--shadow); cursor:pointer; font-weight:700; }
-
-/* Helpers */
-.emptyCell{ color:#bcb4a7; font-weight:600; }
-
-/* ============================
-   DRAG HOST / STATES
-   ============================ */
-
-/* Drag layer must be the very top */
+/* ===========================================
+   DRAG HOST — always on top
+   =========================================== */
 .drag-layer{
-  position: fixed;
-  inset: 0;
-  pointer-events: none !important;
-  z-index: 2147483647 !important;
+  position:fixed; inset:0;
+  pointer-events:none !important;
+  z-index:2147483647 !important;
 }
 
-/* Prevent native ghost image on ribbon cards */
-.ribbon .card, .ribbon .card *{
-  -webkit-user-drag: none;
-  user-select: none;
-  touch-action: none;
-}
-
-/* Real card while dragging: position/coords come from JS via --drag-x/y */
+/* Real node during drag (GPU-only transform) */
 .card.is-dragging{
-  position: fixed; left: 0; top: 0;
-  width: var(--card-w) !important; height: var(--card-h) !important;
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
-  border-radius: var(--radius);
-  background: linear-gradient(#fff,#faf8f4);
-  background-clip: padding-box;
-  box-shadow: 0 18px 40px rgba(0,0,0,.28);
-  cursor: grabbing;
-  transition: none !important;
-  will-change: transform;
+  position:fixed; left:0; top:0;
+  width:var(--card-w) !important; height:var(--card-h) !important;
+  transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02);
+  border-radius:var(--radius);
+  background:linear-gradient(#fff,#faf8f4);
+  background-clip:padding-box;
+  box-shadow:0 18px 40px rgba(0,0,0,.28);
+  filter:none !important; cursor:grabbing;
+  transition:none !important; will-change:transform, box-shadow;
 }
 
-/* ============================
-   HAND RIBBON (fixed bottom, centered, no transforms)
-   ============================ */
+/* ===========================================
+   HAND (fixed, centered, never clipped)
+   =========================================== */
 
-/* Fixed tray pinned to bottom; centered with flex (not transforms) */
+/* fixed tray — DO NOT center with translate() (breaks fixed pos on iOS) */
 .ribbon-wrap{
-  position: fixed !important;
-  left: 0; right: 0;
+  position:fixed !important;
+  left:0; right:0;
   bottom: env(safe-area-inset-bottom, 0) !important;
-  height: calc(var(--card-h) + 64px) !important; /* headroom for lift */
-  display:flex; justify-content:center; align-items:flex-end;
-  background: transparent !important;
-  overflow: visible !important;
-  pointer-events: none;                   /* tray itself doesn't block */
-  z-index: 2147483646 !important;         /* below drag-layer only */
-  isolation: isolate;
-  transform: none !important;             /* absolutely no transforms */
+  height: calc(var(--card-h) + 72px) !important;
+  background:transparent !important;
+  pointer-events:none;
+  z-index:2147483646 !important;
+  isolation:isolate;
+
+  overflow:visible !important;
+  -webkit-mask:none !important; mask:none !important; clip-path:none !important;
+  transform:none !important; -webkit-transform:none !important;
 }
 
-/* Scrollable hand row inside the tray */
+/* row inside tray */
 .ribbon{
-  position: relative;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0;
-  padding: 0 16px;
-  overflow-x: auto !important;
-  overflow-y: visible !important;          /* do not clip lift/preview */
-  -webkit-overflow-scrolling: touch;
-  pointer-events: auto;                    /* interact with cards */
-  z-index: 2;
-  background: transparent !important;
-  -webkit-mask: none !important;
-  mask: none !important;
-  clip-path: none !important;
+  position:relative; height:100%;
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:0; padding:0 16px 0;
+  overflow-x:auto !important;
+  overflow-y:visible !important;     /* ← prevents “boxed” look */
+  -webkit-overflow-scrolling:touch;
+  pointer-events:auto; z-index:2 !important;
+
+  -webkit-mask:none !important; mask:none !important; clip-path:none !important;
 }
 
-/* Fan overlap */
+/* fan */
 .ribbon .card{
-  position: relative;
-  margin-left: -64px;
-  transform: translateY(8px);
-  transition: transform 120ms ease, filter 120ms ease;
-  will-change: transform;
-  z-index: 1;
+  position:relative; pointer-events:auto;
+  transform:translateY(8px);
+  transition:transform 120ms ease, filter 120ms ease;
+  will-change:transform;
+  margin-left:-56px; z-index:1;
 }
-.ribbon .card:first-child{ margin-left: 0; }
+.ribbon .card:first-child{ margin-left:0; }
 .ribbon .card:hover,
-.ribbon .card.is-dragging{ z-index: 3; }
+.ribbon .card.is-dragging{ transform:translateY(-14px) scale(1.02); z-index:3; }
 
-/* Tighter spacing on mobile */
-@media (max-width: 768px){
-  .ribbon .card{ margin-left: -56px; transform: translateY(8px); }
-}
-
-/* Nothing else should stack above the tray (except drag-layer) */
-.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem{
-  position: relative; z-index: 100 !important; overflow: visible !important;
-}
-#playerSlots, #aiSlots, .slots, .zone{ overflow: visible !important; }
-.leftDock, .rightDock{
-  background: transparent !important;
-  z-index: 20 !important;
-  overflow: visible !important;
-}
-
-/* Absolutely forbid any pseudo-element masks on the tray */
-.ribbon-wrap::before, .ribbon-wrap::after,
-.ribbon::before, .ribbon::after{ content: none !important; }
-
-/* ============================
-   IN-PLACE PREVIEW (real node, not a clone)
-   ============================ */
-
-/* Press pose equals hover so holding doesn’t “drop” first */
+/* press pose = hover (so long-press doesn’t drop) */
 .ribbon .card.is-pressing{
-  transform: translateY(-14px) scale(1.02) !important;
-  transition: none !important;
+  transform:translateY(-14px) scale(1.02) !important;
+  transition:none !important;
 }
 
-/* Grow the actual card, in place. We pick a bottom-center origin
-   so it expands upward from the hand without drifting left/right. */
-.card.is-previewing{
-  position: relative;
-  z-index: 2147483000;
-  transform-origin: 50% 90% !important;           /* bottom-ish center */
-  transform: translateY(-10px) scale(var(--preview-scale)) !important;
+/* kill native ghost & accidental scroll */
+.ribbon .card, .ribbon .card *{
+  -webkit-user-drag:none;
+  user-select:none;
+  touch-action:none;
+}
+
+/* ===========================================
+   HOLD-TO-PREVIEW (scale real card IN PLACE)
+   =========================================== */
+.ribbon .card.is-previewing{
+  position:relative !important; left:auto !important; top:auto !important;
+  transform-origin:50% 50% !important;
+  transform: translate3d(0,-12px,0) scale(var(--preview-scale)) !important;
   filter: drop-shadow(0 16px 36px rgba(0,0,0,.35)) !important;
-  transition: transform 140ms cubic-bezier(.2,.6,.2,1);
-  will-change: transform, filter;
-  pointer-events: none;                            /* avoid hijacking touches */
+  transition: transform 140ms ease, filter 140ms ease !important;
+  will-change:transform, filter;
+  backface-visibility:hidden;
+  contain: layout paint;
+  z-index:2147483000 !important;
 }
 
-/* Do not apply hover effects during preview/drag */
+/* no hover effect while preview/drag */
 .card:hover.is-previewing,
-.card:hover.is-dragging{
-  transform: none;
-  filter: none;
-}
+.card:hover.is-dragging{ transform:none; filter:none; }
 
-/* ============================
-   Mobile scaling (keep MTG ratio)
-   ============================ */
+/* ===========================================
+   Mobile sizing
+   =========================================== */
 @media (max-width: 480px){
   :root{
     --card-w: min(38vw, 220px);
     --card-h: calc(var(--card-w) * var(--card-ratio));
   }
+  .ribbon .card{ margin-left:-48px; transform:translateY(8px); }
+}
+
+/* Convenience */
+#btnDraw{ display:none !important; }
+#btnEnd{
+  position:fixed !important;
+  right:calc(18px + 54px + 12px) !important;
+  bottom:86px !important;
+  z-index:51 !important;
 }
