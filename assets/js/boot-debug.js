@@ -1,11 +1,10 @@
-// boot-debug.js — Dev Drag (guarded, momentum, snap-to-slot, return animation)
-// Drag is OFF unless enabled via ?drag=1 or the bottom-left toggle.
-
+// boot-debug.js — Dev Drag (guarded), fixed hand tray z-order, bottom-safe toggle
 console.log("[DRAG] dev drag bootstrap");
 
 let st = null;             // active drag state
 let dragLayer = null;      // fixed host for real dragged node
 let raf = null;
+let dragBtn = null;
 
 const LIFT_THRESHOLD = 6;  // px to start drag
 const MASS = 1.0;
@@ -264,36 +263,47 @@ function momentumLoop(){
   raf = requestAnimationFrame(step);
 }
 
-/* dev toggle button (bottom-left) */
-function addDevToggle(){
-  if (document.getElementById('dragDevToggle')) return;
-  const btn = document.createElement('button');
-  btn.id = 'dragDevToggle';
-  btn.type = 'button';
-  btn.textContent = devDragEnabled() ? 'Drag: ON' : 'Drag: OFF';
-  Object.assign(btn.style, {
-    position:'fixed', left:'12px', bottom:'12px', zIndex:9999,
-    padding:'8px 10px', border:'0', borderRadius:'10px',
-    background: devDragEnabled() ? '#2c7be5' : '#ccc',
-    color:'#fff', fontWeight:'700', boxShadow:'0 6px 16px rgba(0,0,0,.18)',
-    cursor:'pointer'
-  });
-  btn.addEventListener('click', () => {
-    const now = !devDragEnabled();
-    if (now) localStorage.setItem('enableDragDev','1');
-    else localStorage.removeItem('enableDragDev');
-    btn.textContent = now ? 'Drag: ON' : 'Drag: OFF';
-    btn.style.background = now ? '#2c7be5' : '#ccc';
-  });
-  document.body.appendChild(btn);
+/* ---------- Dev toggle (always above tray) ---------- */
+function mountDragToggle() {
+  if (!dragBtn) {
+    dragBtn = document.createElement('button');
+    dragBtn.id = 'dragDevToggle';
+    dragBtn.type = 'button';
+    dragBtn.style.cssText = `
+      position:fixed; left:12px;
+      bottom:calc(env(safe-area-inset-bottom,0) + 12px);
+      z-index:2147483647;
+      padding:8px 10px; border:0; border-radius:10px;
+      color:#fff; font-weight:700;
+      box-shadow:0 6px 16px rgba(0,0,0,.18); cursor:pointer;
+    `;
+    dragBtn.addEventListener('click', () => {
+      const now = !devDragEnabled();
+      if (now) localStorage.setItem('enableDragDev','1');
+      else localStorage.removeItem('enableDragDev');
+      updateToggleVisual();
+    });
+  }
+  updateToggleVisual();
+  document.body.appendChild(dragBtn); // last child → on top
+}
+function updateToggleVisual() {
+  const on = devDragEnabled();
+  dragBtn.textContent = on ? 'Drag: ON' : 'Drag: OFF';
+  dragBtn.style.background = on ? '#2c7be5' : '#999';
 }
 
-/* boot */
-function initDragBridge(){
-  addDevToggle();
+/* ---------- boot ---------- */
+window.addEventListener('DOMContentLoaded', () => {
+  // Always move the tray to end of <body> so it sits above other content
+  const tray = document.querySelector('.ribbon-wrap');
+  if (tray) document.body.appendChild(tray);
 
-  // Always block the native HTML5 drag ghost
-  document.addEventListener('dragstart', e => e.preventDefault());
+  // Then mount the dev toggle so it sits above the tray
+  mountDragToggle();
+
+  // Always block native HTML5 drag ghost
+  document.addEventListener('dragstart', e => e.preventDefault(), { passive:false });
 
   if (!devDragEnabled()){
     console.log('[DRAG] disabled (toggle or ?drag=1 to enable)');
@@ -307,17 +317,5 @@ function initDragBridge(){
     .observe(document.body, { childList:true, subtree:true });
 
   document.addEventListener('pointerdown', onDown, { passive:false });
-
   console.log('[DRAG] enabled');
-}
-
-// --- Ensure the hand tray sits as the last element in <body> ---
-window.addEventListener('DOMContentLoaded', () => {
-  const tray = document.querySelector('.ribbon-wrap');
-  if (tray && tray.parentElement !== document.body) {
-    document.body.appendChild(tray); // lift above other stacking contexts
-  } else if (tray) {
-    // make sure it's the last child
-    document.body.appendChild(tray);
-  }
 });
