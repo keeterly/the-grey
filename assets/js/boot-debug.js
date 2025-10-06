@@ -154,15 +154,22 @@ function getTranslateXY(el){
     st.targetY = e.pageY - st.offsetY;
   }
 
-  function snapBack(){
-    const { card, originParent, originNext, placeholder, isInstant } = st;
-    // Return node to hand immediately (no sticking in drag layer)
-    if (originNext) originParent.insertBefore(card, originNext);
-    else originParent.appendChild(card);
-    placeholder && placeholder.remove();
-    card.classList.remove('is-dragging', 'is-pressing');
-    if (isInstant) card.classList.remove('pulsing');
+  function safeReturn(card, originParent, originNext) {
+  const ribbon = document.getElementById('ribbon');
+
+  // If the original parent still exists and we can insert before the sibling, do it.
+  if (originParent && originParent.isConnected) {
+    if (originNext && originNext.parentNode === originParent) {
+      try { originParent.insertBefore(card, originNext); return; } catch {}
+    }
+    // Else append at the end of the original parent.
+    try { originParent.appendChild(card); return; } catch {}
   }
+
+  // Fallback: put it back into the ribbon.
+  if (ribbon) ribbon.appendChild(card);
+}
+
 
   function cancelDrag(){
     if (!st) return;
