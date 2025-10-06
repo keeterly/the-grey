@@ -592,3 +592,12 @@ html, body, .wrap{
 }
 
 
+/* jitter-free preview: the card is taken out of flow and scaled on its own layer */
+.card.is-previewing {
+  transition: none !important;                 /* kill hover/drag transitions */
+  will-change: left, top, transform;           /* promote to its own compositor layer */
+  backface-visibility: hidden;
+  contain: layout paint;                        /* avoid touching siblings */
+  z-index: 2147483000;                          /* above everything */
+}
+
