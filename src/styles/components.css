@@ -3,7 +3,7 @@
    MTG size + crisp edge/shadow
    Hand ribbon fixed, centered, no clipping
    iOS/Safari safe; accurate pick-up
-   Hold preview = real card, smooth, 200%
+   Preview = 200% and does NOT shift
    =========================================== */
 
 /* ---------- Theme tokens ---------- */
@@ -24,10 +24,10 @@
   --radius: 18px;
   --shadow: 0 6px 20px rgba(0,0,0,.08);
 
-  /* Hand fan overlap (negative margin on hand cards) */
+  /* hand fan overlap (negative margin) */
   --fan-overlap: -60px;
 
-  /* Hold-to-preview zoom (grow-in-place) */
+  /* Hold-to-preview zoom */
   --preview-scale: 2; /* 200% */
 }
 
@@ -74,4 +74,167 @@ body{
 /* Base card surface */
 .card{
   position:relative;
-  border-radius
+  border-radius:var(--radius);
+  background:linear-gradient(#fff,#faf8f4);
+  background-clip:padding-box;
+  box-shadow:var(--shadow);
+  transform-origin:center center;
+  transition:transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  will-change: transform, box-shadow;
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;
+  contain: paint;
+}
+.card::before{
+  content:"";
+  position:absolute; inset:0;
+  border-radius:inherit;
+  box-shadow:inset 0 0 0 1px #e9e2d7;
+  pointer-events:none;
+}
+
+/* Hover lift (disabled while pressing/previewing/dragging) */
+.card:hover:not(.is-pressing):not(.is-preview):not(.is-previewing):not(.is-dragging){
+  transform:translateY(-12px) scale(1.02);
+  box-shadow:0 10px 26px rgba(0,0,0,.12);
+}
+
+/* ---------- Hand ribbon (fixed, centered, no clipping) ---------- */
+.ribbon-wrap{
+  position:fixed !important;
+  left:50%;
+  bottom:calc(env(safe-area-inset-bottom, 0) + 12px);
+  transform:translateX(-50%);
+  width:100%; max-width:100vw;
+  display:flex; justify-content:center; align-items:flex-end;
+  background:transparent !important;
+  overflow:visible !important;
+  pointer-events:none;
+  z-index:2147483646 !important;
+  isolation:isolate;
+}
+.ribbon{
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:0; overflow:visible !important; pointer-events:auto;
+  isolation:isolate;
+}
+.ribbon .card{
+  position:relative;
+  margin-left:var(--fan-overlap);
+  transform:translateY(6px);
+  transition:transform 120ms ease;
+  will-change:transform;
+  pointer-events:auto;
+  z-index:1;
+}
+.ribbon .card:first-child{ margin-left:0; }
+
+/* Press pose equals hover (no dip on long-press) */
+.ribbon .card.is-pressing{
+  transform:translateY(-12px) scale(1.02) !important;
+  transition:none !important;
+  z-index:5;
+}
+
+/* While measuring the pickup (JS applies .grab-intent for a frame), 
+   the card must be visually untransformed so rect math matches. */
+.ribbon .card.grab-intent{
+  transform:none !important;
+  filter:none !important;
+  transition:none !important;
+  will-change:auto !important;
+}
+
+/* ---------- Drag / Preview states ---------- */
+
+/* Highest layer so the true node is never clipped while dragging */
+.drag-layer{
+  position:fixed; inset:0;
+  z-index:2147483647 !important;
+  pointer-events:none !important;
+}
+
+/* JS sets --drag-x / --drag-y or inline transform; CSS only styles look */
+.card.is-dragging{
+  position:fixed; left:0; top:0;
+  /* NOTE: your JS should write translate3d(...) here; this is a fallback */
+  transform:translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02);
+  filter:drop-shadow(0 12px 24px rgba(0,0,0,.30));
+  cursor:grabbing;
+  transition:none !important;
+  z-index:2147483001;
+  backface-visibility:hidden;
+  contain: layout paint;
+}
+
+/* Grow-in-place preview (works with either class name) 
+   IMPORTANT: no translateX/Y here → no lateral/vertical shift. */
+.card.is-preview,
+.card.is-previewing{
+  position:relative;
+  z-index:2147483000;
+  /* Grow around bottom-center so it expands upward under your finger. */
+  transform-origin:50% 100% !important; /* bottom center */
+  transform: scale(var(--preview-scale)) !important;
+  filter:drop-shadow(0 18px 40px rgba(0,0,0,.40));
+  transition:transform 160ms cubic-bezier(.2,.7,.1,1) !important;
+  pointer-events:none !important;
+  will-change:transform, filter;
+  backface-visibility:hidden;
+  contain: paint;
+}
+
+/* Never let hover/drag styles override preview */
+.card:hover.is-preview,
+.card:hover.is-previewing,
+.card.is-dragging:hover{
+  transform:none; filter:none;
+}
+
+/* ---------- Slots ---------- */
+.slotCell{
+  border-radius:18px; background:var(--panel-soft);
+  outline:1px dashed #e6dfd4; outline-offset:-6px;
+  display:flex; align-items:center; justify-content:center;
+}
+.slotCell.glyph{ border-style:solid; background:#f8f7f4; }
+.slotCell.drop-ok    { outline:2px solid #4caf50; }
+.slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
+.slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
+
+/* ---------- Prevent clipping anywhere ---------- */
+.wrap, .zone, .ribbon, .ribbon-wrap, #playerSlots, #aiSlots{
+  overflow:visible !important;
+  -webkit-mask:none !important; mask:none !important;
+  clip-path:none !important;
+}
+
+/* ---------- Mobile scaling ---------- */
+@media (max-width:768px){
+  :root{ --card-w:min(38vw,220px); --card-h:calc(var(--card-w)*var(--card-ratio)); --fan-overlap:-48px; }
+  .ribbon .card{ margin-left:var(--fan-overlap); transform:translateY(4px); }
+  .card:hover:not(.is-pressing):not(.is-preview):not(.is-previewing):not(.is-dragging){
+    transform:translateY(-10px) scale(1.02);
+  }
+}
+
+/* ---------- Instant pulse halo ---------- */
+@keyframes goldPulse {
+  0% { box-shadow:0 0 0 0 rgba(255,210,90,.45); opacity:1; }
+  70%{ box-shadow:0 0 24px 10px rgba(255,210,90,.18); opacity:.85; }
+  100%{ box-shadow:0 0 0 0 rgba(255,210,90,0); opacity:0; }
+}
+.card.is-instant.pulsing::after{
+  content:"";
+  position:absolute; inset:-2px;
+  border-radius:inherit; pointer-events:none;
+  animation:goldPulse 1.4s ease-out infinite;
+}
+
+/* ---------- End Turn alignment; hide Draw ---------- */
+#btnDraw{ display:none !important; }
+#btnEnd{
+  position:fixed !important;
+  right:calc(18px + 54px + 12px);
+  bottom:86px;
+  z-index:51 !important;
+}
