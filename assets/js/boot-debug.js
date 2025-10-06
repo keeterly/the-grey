@@ -1,18 +1,25 @@
-// boot-debug.js
-console.log("[BRIDGE] Game + UI + Drag initialized and exposed to window.");
+// boot-debug.js — Guarded dev drag (OFF by default; desktop-only)
+console.log("[BRIDGE] boot-debug.js loaded.");
 
-let st = null;           // active drag state
-let dragLayer = null;    // fixed host for the real dragged node
+let st = null;            // active drag state
+let dragLayer = null;     // fixed host for real dragged node
 let raf = null;
 
-const DRAG_THRESHOLD = 6;   // px before lift
-const DAMP = 0.25;          // minimal smoothing (lower = snappier)
+const DRAG_THRESHOLD = 6; // px before lift
+const DAMP = 0.25;        // minimal smoothing (lower = snappier)
 
-/* ------------ helpers ------------ */
+// ---------- Guards ----------
+function devDragEnabled() {
+  // Enable with ?drag=1 or localStorage flag
+  return /\bdrag=1\b/.test(location.search) ||
+         localStorage.getItem('enableDragDev') === '1';
+}
+function isTouch() { return navigator.maxTouchPoints > 0; }
+function isPreviewOpen() {
+  return !!document.querySelector('.preview-overlay, .preview-card');
+}
 
-const isPreviewOpen = () =>
-  !!document.querySelector('.preview-overlay, .preview-card');
-
+// ---------- Helpers ----------
 function ensureDragLayer() {
   dragLayer = document.querySelector('.drag-layer');
   if (!dragLayer) {
@@ -21,7 +28,6 @@ function ensureDragLayer() {
     document.body.appendChild(dragLayer);
   }
 }
-
 function addGlobals() {
   window.addEventListener('pointermove', onMove);
   window.addEventListener('pointerup', onUp);
@@ -34,16 +40,15 @@ function removeGlobals() {
   window.removeEventListener('pointercancel', onUp);
   window.removeEventListener('blur', onUp);
 }
-
-/** reinsert card even if the ribbon changed */
+/** reinsert card even if ribbon changed */
 function safeReturn(card, originParent, originNext, placeholder) {
-  try { if (placeholder && placeholder.parentNode) {
-    // prefer the placeholder (exact spot)
-    placeholder.parentNode.insertBefore(card, placeholder);
-    placeholder.remove();
-    return;
-  }} catch {}
-  // fallback to original parent or ribbon end
+  try {
+    if (placeholder && placeholder.parentNode) {
+      placeholder.parentNode.insertBefore(card, placeholder);
+      placeholder.remove();
+      return;
+    }
+  } catch {}
   if (originParent && originParent.isConnected) {
     try {
       if (originNext && originNext.parentNode === originParent) {
@@ -57,47 +62,47 @@ function safeReturn(card, originParent, originNext, placeholder) {
   const ribbon = document.getElementById('ribbon');
   if (ribbon) ribbon.appendChild(card);
 }
-
 function cancelDragNow() {
   if (!st) return;
   try { st.card.releasePointerCapture?.(st.pid); } catch {}
   cancelAnimationFrame(raf);
   removeGlobals();
-
-  // put node back and clear styles/classes
   safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
   st.card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
   st.card.style.removeProperty('--drag-x');
   st.card.style.removeProperty('--drag-y');
-
   st = null;
 }
 
-/* ------------ init ------------ */
-
+// ---------- Init ----------
 function initDragBridge() {
+  // Hard guards: OFF unless enabled, and never on touch devices
+  if (!devDragEnabled()) { console.log("[DRAG] disabled (pass ?drag=1 to enable)"); return; }
+  if (isTouch()) { console.log("[DRAG] touch device detected — disabled"); return; }
+
   ensureDragLayer();
+
   document.addEventListener('pointerdown', onDown);
-  // Block native ghost image
-  document.addEventListener('dragstart', e => e.preventDefault());
-  // If any preview UI appears asynchronously, cancel an in-flight drag
+  document.addEventListener('dragstart', e => e.preventDefault()); // kill native ghost
+
+  // If a preview shows up mid-drag, cancel immediately
   new MutationObserver(() => { if (isPreviewOpen()) cancelDragNow(); })
     .observe(document.body, { childList: true, subtree: true });
+
+  console.log("[DRAG] dev drag enabled");
 }
 
-/* ------------ core drag ------------ */
-
+// ---------- Core drag ----------
 function onDown(e){
   if (isPreviewOpen()) return;
-
-  // start drags only from hand cards
+  // Start drags only from cards in the ribbon
   const card = e.target.closest('.ribbon .card');
   if (!card || e.button !== 0) return;
 
   e.preventDefault();
   try { card.setPointerCapture(e.pointerId); } catch {}
 
-  // Make press look like hover; freeze transitions.
+  // Press pose like hover; freeze transitions while measuring
   card.classList.add('is-pressing','grab-intent');
 
   // Measure visual position (do NOT subtract transforms)
@@ -115,13 +120,13 @@ function onDown(e){
     offsetX: e.pageX - pageLeft,
     offsetY: e.pageY - pageTop,
 
-    // current/target are the visual position
+    // current/target match the visual pose
     curX: pageLeft,
     curY: pageTop,
     targetX: pageLeft,
     targetY: pageTop,
 
-    lastClientX: e.clientX, // for blur fallback
+    lastClientX: e.clientX,
     lastClientY: e.clientY,
 
     lifted: false,
@@ -140,12 +145,12 @@ function lift(){
 
   const { card, originParent, originNext } = st;
 
-  // Measure again just before moving (still visual coords)
+  // Re-measure just before moving
   const rect = card.getBoundingClientRect();
   const pageLeft = rect.left + window.scrollX;
   const pageTop  = rect.top  + window.scrollY;
 
-  // Keep ribbon spacing with a placeholder
+  // Placeholder to hold ribbon spacing
   const ph = document.createElement('div');
   ph.style.width = rect.width + 'px';
   ph.style.height = rect.height + 'px';
@@ -154,15 +159,15 @@ function lift(){
   if (originNext) originParent.insertBefore(ph, originNext);
   else originParent.appendChild(ph);
 
-  // Recompute grip offset from the *visual* top/left
+  // Recompute grab offset from the *visual* pose
   st.offsetX = st.startX - pageLeft;
   st.offsetY = st.startY - pageTop;
 
-  // IMPORTANT: set CSS vars FIRST so there is no 0,0 frame
+  // Set position variables FIRST → no (0,0) frame
   card.style.setProperty('--drag-x', `${pageLeft}px`);
   card.style.setProperty('--drag-y', `${pageTop}px`);
 
-  // Then switch classes and move the node
+  // Switch classes and move to drag layer
   card.classList.remove('grab-intent','is-pressing');
   card.classList.add('is-dragging');
   if (st.isInstant) card.classList.add('pulsing');
@@ -174,8 +179,8 @@ function lift(){
   st.curY = pageTop;
   st.targetX = pageLeft;
   st.targetY = pageTop;
-
   st.lifted = true;
+
   smoothFollow();
 }
 
@@ -192,19 +197,19 @@ function onMove(e){
   if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
   if (!st.lifted) return;
 
-  // Follow cursor; keep the exact click point under the pointer
+  // Keep the exact grab point under the cursor
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
 }
 
-function onUp(e) {
+function onUp(){
   if (!st) return;
   try { st.card.releasePointerCapture?.(st.pid); } catch {}
 
   cancelAnimationFrame(raf);
   removeGlobals();
 
-  // Always snap DOM back; game state will re-render
+  // Always snap DOM back; state renderer will place it
   safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
   st.card.classList.remove('is-dragging','is-pressing','grab-intent','pulsing');
   st.card.style.removeProperty('--drag-x');
@@ -229,6 +234,6 @@ function smoothFollow() {
   raf = requestAnimationFrame(step);
 }
 
-/* boot */
+// ---------- Boot ----------
 window.initDragBridge = initDragBridge;
 window.addEventListener('DOMContentLoaded', initDragBridge);
