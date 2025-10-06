@@ -1,289 +1,253 @@
-// boot-debug.js
-console.log("[BRIDGE] Game + UI + Drag initialized and exposed to window.");
+/* ============================
+   THE GREY — components.css
+   (MTG dimensions + clean edge/shadow + iOS seam fixes)
+   ============================ */
 
-let st = null;
-let dragLayer = null;
-const DRAG_THRESHOLD = 6;
-const DAMP = 0.25;
+/* ---------- Theme tokens ---------- */
+:root{
+  --bg:#F3EEE5;
+  --panel:#FFF;
+  --panel-soft:#F9F6F0;
+  --ink:#2a2a2a;
+  --muted:#777;
+  --chip:#f2e7d0;
+  --chip-ink:#945c00;
 
-function initDragBridge() {
-  dragLayer = document.querySelector('.drag-layer');
-  if (!dragLayer) {
-    dragLayer = document.createElement('div');
-    dragLayer.className = 'drag-layer';
-    document.body.appendChild(dragLayer);
-  }
+  /* MTG ratio ≈ 3.5 / 2.5 = 1.4 */
+  --card-ratio: 1.4;
+  /* Base desktop width (mobile scaling below) */
+  --card-w: 220px;
+  --card-h: calc(var(--card-w) * var(--card-ratio));
 
-  document.addEventListener('pointerdown', onDown);
-  document.addEventListener('pointermove', onMove);
-  document.addEventListener('pointerup', onUp);
+  --radius: 16px;
+  --shadow: 0 6px 20px rgba(0,0,0,.08);
 }
 
-function onDown(e){
-  if (isPreviewOpen()) return;
-  const card = e.target.closest('.ribbon .card');
-  if (!card || e.button !== 0) return;
+*{ box-sizing:border-box; }
 
-  e.preventDefault();
-  try { card.setPointerCapture(e.pointerId); } catch {}
-
-  // Make press look like hover; freeze transitions.
-  card.classList.add('is-pressing');
-  card.classList.add('grab-intent');
-
-  // Measure the *visual* position (DO NOT subtract transforms)
-  const rect = card.getBoundingClientRect();
-  const pageLeft = rect.left + window.scrollX;
-  const pageTop  = rect.top  + window.scrollY;
-
-  st = {
-    pid: e.pointerId,
-    card,
-    startX: e.pageX,
-    startY: e.pageY,
-    // click point inside the card:
-    offsetX: e.pageX - pageLeft,
-    offsetY: e.pageY - pageTop,
-    // current/target follow the visual position exactly:
-    curX: pageLeft,
-    curY: pageTop,
-    targetX: pageLeft,
-    targetY: pageTop,
-    lastClientX: e.clientX,
-    lastClientY: e.clientY,
-    lifted: false,
-    originParent: card.parentNode,
-    originNext: card.nextSibling,
-    placeholder: null,
-    isInstant: card.classList.contains('is-instant'),
-  };
-
-  window.addEventListener('pointermove', onMove);
-  window.addEventListener('pointerup', onUp);
-  window.addEventListener('pointercancel', onUp);
-  window.addEventListener('blur', onUp);
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
 }
 
+/* ---------- Shell panels ---------- */
+.wrap{ max-width:1200px; margin:24px auto 160px; padding:0 16px; }
+.zone{
+  background:var(--panel); border-radius:14px; box-shadow:var(--shadow);
+  padding:18px; margin:12px 0;
+}
+.zone .title{ font-weight:600; color:#594f43; margin:0 0 8px; }
 
-function lift(){
-  if (!st || st.lifted) return;
-  const { card, originParent, originNext } = st;
-
-  // Measure again right before moving (still visual coords)
-  const rect = card.getBoundingClientRect();
-  const pageLeft = rect.left + window.scrollX;
-  const pageTop  = rect.top  + window.scrollY;
-
-  // Keep ribbon spacing with a placeholder
-  const ph = document.createElement('div');
-  ph.style.width = rect.width + 'px';
-  ph.style.height = rect.height + 'px';
-  ph.style.marginLeft = getComputedStyle(card).marginLeft;
-  st.placeholder = ph;
-  if (originNext) originParent.insertBefore(ph, originNext);
-  else originParent.appendChild(ph);
-
-  // Recompute grip offset from the *visual* top/left
-  st.offsetX = st.startX - pageLeft;
-  st.offsetY = st.startY - pageTop;
-
-  // IMPORTANT: set CSS vars FIRST so there is no 0,0 frame
-  card.style.setProperty('--drag-x', `${pageLeft}px`);
-  card.style.setProperty('--drag-y', `${pageTop}px`);
-
-  // Then switch classes and move the node
-  card.classList.remove('grab-intent','is-pressing');
-  card.classList.add('is-dragging');
-  if (st.isInstant) card.classList.add('pulsing');
-
-  dragLayer.appendChild(card);
-
-  // Initialize state for the follow loop
-  st.curX = pageLeft;
-  st.curY = pageTop;
-  st.targetX = pageLeft;
-  st.targetY = pageTop;
-
-  st.lifted = true;
-  smoothFollow();
+/* ---------- Aetherflow chips ---------- */
+.costCell{ display:flex; justify-content:center; }
+.costChip{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:999px;
+  background:var(--chip); color:var(--chip-ink); font-weight:600;
+  box-shadow: inset 0 1px 0 #fff8, 0 1px 2px rgba(0,0,0,.06);
 }
 
+/* ============================
+   CARD + MTG STYLE
+   ============================ */
 
-function onMove(e){
-  if (isPreviewOpen()) { cancelDragNow(); return; }
-  if (!st) return;
+/* Apply MTG size globally (cards and slots) */
+.card{ width: var(--card-w) !important; height: var(--card-h) !important; }
+.slotCell{ width: var(--card-w) !important; height: var(--card-h) !important; }
 
-  st.lastClientX = e.clientX;
-  st.lastClientY = e.clientY;
-
-  const dx = e.pageX - st.startX;
-  const dy = e.pageY - st.startY;
-
-  if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
-  if (!st.lifted) return;
-
-  // Follow cursor; keep the exact click point under the pointer
-  st.targetX = e.pageX - st.offsetX;
-  st.targetY = e.pageY - st.offsetY;
-}
-
-
-function onUp(e) {
-  if (!st) return;
-  const { card, originParent, placeholder } = st;
-
-  card.classList.remove('is-dragging', 'grab-intent');
-  if (placeholder && originParent) {
-    originParent.insertBefore(card, placeholder);
-    placeholder.remove();
-  }
-  card.style.removeProperty('--drag-x');
-  card.style.removeProperty('--drag-y');
-
-  st = null;
-}
-
-function smoothFollow() {
-  if (!st || !st.lifted) return;
-  const { card } = st;
-
-  st.curX += (st.targetX - st.curX) * DAMP;
-  st.curY += (st.targetY - st.curY) * DAMP;
-
-  card.style.setProperty('--drag-x', `${st.curX}px`);
-  card.style.setProperty('--drag-y', `${st.curY}px`);
-
-  requestAnimationFrame(smoothFollow);
-}
-
-window.initDragBridge = initDragBridge;
-window.addEventListener('DOMContentLoaded', initDragBridge);
-
-
-/* ===== MTG-STYLE CARD EDGE + SHADOW (restores the look) ===== */
-
-/* Base card: strong rounded edge, parchment face, layered shadows */
+/* Base card: parchment face, clean rounded edge, subtle edge line */
 .card{
   position: relative;
-  border-radius: 18px;
-  background: linear-gradient(#fff, #faf8f4);   /* parchment */
-  background-clip: padding-box;                 /* keep corners crisp */
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.8) inset,         /* soft top bevel */
-    0 0 0 1px #e9e2d7 inset,                    /* inner stroke (edge line) */
-    0 10px 26px rgba(0,0,0,.12);                /* ambient drop */
-}
-
-/* Extra definition ring outside the card (very subtle “frame”) */
-.card::before{
-  content:"";
-  position:absolute; inset:-1px;
-  border-radius: 19px;                           /* outer ring follows radius */
-  box-shadow: 0 0 0 1px rgba(0,0,0,.06);         /* faint outside line */
-  pointer-events:none;
-}
-
-/* Optional soft vignette towards the edges (adds depth) */
-.card::after{
-  content:"";
-  position:absolute; inset:0;
-  border-radius: inherit;
-  background: radial-gradient(ellipse at center,
-              transparent 60%, rgba(0,0,0,.06) 100%);
-  mix-blend-mode: multiply;
-  pointer-events:none;
-}
-
-/* Hover lift keeps the rich shadow (NO filter: drop-shadow) */
-.card:hover:not(.is-dragging){
-  transform: translateY(-14px) scale(1.02);
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.85) inset,
-    0 0 0 1px #e9e2d7 inset,
-    0 16px 36px rgba(0,0,0,.22);
-  filter: none !important;
-}
-
-/* DRAGGING — keep the same rounded edge + shadows (no filter) */
-.card.is-dragging{
-  position: fixed;
-  left: 0; top: 0;
-  transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02);
-  border-radius: 18px;
-  background: linear-gradient(#fff,#faf8f4);
-  background-clip: padding-box;
-  /* identical shadow language while dragging */
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.85) inset,
-    0 0 0 1px #e9e2d7 inset,
-    0 18px 40px rgba(0,0,0,.28);
-  filter: none !important;
-  cursor: grabbing;
-  will-change: transform, box-shadow;
-  transition: none !important;
-}
-
-/* Ensure hover can’t override drag visuals */
-.card:hover.is-dragging{
-  transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02) !important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,.85) inset,
-    0 0 0 1px #e9e2d7 inset,
-    0 18px 40px rgba(0,0,0,.28) !important;
-  filter: none !important;
-}
-
-/* If you have “instant” pulsing, keep it but don’t kill the base shadow */
-.card.is-instant.pulsing::after{
-  /* your existing goldPulse still works; this preserves the base edge/shadow */
-  mix-blend-mode: normal;
-}
-
-
-/* ===== ROLLBACK: restore MTG-style edge & shadow; remove vignette ===== */
-
-/* 1) Kill the experimental vignette that washed the screen */
-.card::after { content: none !important; }
-
-/* 2) Reinstate the clean parchment face + crisp rounded edge */
-.card,
-.card.is-dragging{
-  border-radius: 18px;
+  border-radius:18px;
   background: linear-gradient(#fff, #faf8f4);
-  background-clip: padding-box;           /* keep corners crisp */
+  background-clip: padding-box;
+  box-shadow: var(--shadow);
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  filter: none;
 }
 
-/* 3) Subtle printed edge (inner stroke) */
+/* Inner printed edge line (MTG feel) */
 .card::before{
   content:"";
   position:absolute; inset:0;
   border-radius:inherit;
-  box-shadow: inset 0 0 0 1px #e9e2d7;   /* MTG-like edge line */
+  box-shadow: inset 0 0 0 1px #e9e2d7;
   pointer-events:none;
 }
 
-/* 4) Idle/hover shadows (no filter: drop-shadow) */
-.card{
-  box-shadow: 0 6px 20px rgba(0,0,0,.08);
-}
+/* Remove any experimental vignette layer */
+.card::after{ content:none !important; }
+
+/* Hover lift (no filter: drop-shadow to keep corners crisp) */
 .card:hover:not(.is-dragging){
   transform: translateY(-14px) scale(1.02);
   box-shadow: 0 10px 26px rgba(0,0,0,.12);
   filter: none !important;
 }
 
-/* 5) Dragging: same rounded edge + deeper lift (no filter) */
+/* Content blocks inside a card */
+.card .cHead{ margin-bottom:8px; }
+.card .cName{ font-weight:700; letter-spacing:.2px; }
+.card .cType{ font-size:12px; color:var(--muted); }
+.card .cBody{ flex:1 1 auto; color:#3a3a3a; }
+.card .cStats{ display:flex; gap:8px; }
+.card .cStats .stat{
+  font-size:12px; background:#fff6e6; color:#b35a00;
+  border-radius:12px; padding:3px 8px; border:1px solid #f3dfbf;
+}
+
+/* Ribbon hand: cards peek and rise on hover/drag */
+.ribbon .card{
+  pointer-events:auto;
+  position:relative;
+  transform: translateY(10px);
+  transition: transform 120ms ease, filter 120ms ease;
+  will-change: transform;
+  margin-left: -64px;            /* overlap to fan */
+}
+.ribbon .card:hover,
+.ribbon .card.is-dragging{
+  transform: translateY(-14px) scale(1.02);
+}
+
+/* Press pose equals hover (so holding doesn’t “drop” the card) */
+.ribbon .card.is-pressing{
+  transform: translateY(-14px) scale(1.02) !important;
+  transition: none !important;
+}
+
+/* Disable transition while actually dragging */
+.card.is-dragging{ transition: none !important; }
+
+/* ============================
+   SLOTS
+   ============================ */
+.slotCell{
+  border-radius:18px; background:var(--panel-soft);
+  outline:1px dashed #e6dfd4; outline-offset:-6px;
+  display:flex; align-items:center; justify-content:center;
+}
+.slotCell.glyph{ border-style:solid; background:#f8f7f4; }
+.slotCell.drop-ok    { outline:2px solid #4caf50; }
+.slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
+.slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
+
+/* ============================
+   HUD / Controls
+   ============================ */
+.hudRow{ display:flex; align-items:center; justify-content:space-between;
+  gap:12px; padding:10px 16px; }
+.pill{ display:flex; gap:10px; align-items:center; padding:8px 12px;
+  background:var(--panel); border-radius:999px; box-shadow:var(--shadow); }
+.seg{ display:flex; align-items:center; gap:6px; font-weight:600; }
+.seg svg{ width:16px; height:16px; stroke:#222; fill:none; stroke-width:1.8px; }
+.sep{ width:1px; height:18px; background:#e5dfd5; }
+
+/* Aether gem */
+.aeGem{
+  position:fixed; right:18px; bottom:86px; z-index:40;
+  width:54px; height:54px; border-radius:14px;
+  background:radial-gradient(ellipse at 30% 25%,#ffd67a,#f6b441 60%,#d38d1f 100%);
+  box-shadow:0 10px 26px rgba(0,0,0,.18), inset 0 2px 6px #fff8;
+  display:flex; align-items:center; justify-content:center; font-weight:800;
+}
+
+/* Top-right controls (Draw / End / Reset) */
+.fabDial{ position:fixed; right:18px; top:18px; z-index:50; display:flex; flex-direction:column; gap:12px; }
+.fab{ width:40px; height:40px; border-radius:999px; border:0; background:#fff;
+     box-shadow:var(--shadow); cursor:pointer; font-weight:700; }
+
+/* Helpers */
+.emptyCell{ color:#bcb4a7; font-weight:600; }
+
+/* ============================
+   PREVIEW (if/when used)
+   ============================ */
+.preview-overlay{
+  position: fixed; inset: 0;
+  background: rgba(10,10,8,.55);
+  backdrop-filter: blur(2px);
+  display: grid; place-items: center;
+  z-index: 100;
+}
+.preview-card{
+  transform: translateY(-8px) scale(1.25);
+  transform-origin: center;
+  transition: transform 150ms ease;
+  max-width: min(96vw, 800px);
+}
+.preview-card .card{ box-shadow: 0 12px 34px rgba(0,0,0,.28); }
+
+/* Instant pulse halo that doesn’t kill base shadow */
+@keyframes goldPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
+  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
+  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
+}
+.card.is-instant.pulsing::after{
+  content:"";
+  position:absolute; inset:-2px;
+  border-radius:inherit; pointer-events:none;
+  animation: goldPulse 1.4s ease-out infinite;
+}
+
+/* ============================
+   DRAG HOST / STATES
+   ============================ */
+.drag-layer{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+/* Prevent native ghost image on ribbon cards */
+.ribbon .card, .ribbon .card *{
+  -webkit-user-drag: none;
+  user-select: none;
+  touch-action: none;
+}
+
+/* Real card while dragging (MTG edge + deeper shadow) */
 .card.is-dragging{
   position: fixed; left: 0; top: 0;
+  width: var(--card-w) !important; height: var(--card-h) !important;
   transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
+  border-radius:18px;
+  background: linear-gradient(#fff,#faf8f4);
+  background-clip: padding-box;
   box-shadow: 0 18px 40px rgba(0,0,0,.28);
   filter: none !important;
   cursor: grabbing;
   will-change: transform, box-shadow;
-  transition: none !important;
 }
 .card:hover.is-dragging{
   transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02) !important;
   box-shadow: 0 18px 40px rgba(0,0,0,.28) !important;
-  filter: none !important;
+}
+
+/* ============================
+   iOS / Safari seam fixes
+   ============================ */
+.card::after,
+.wrap::before, .wrap::after,
+.zone::before, .zone::after { content:none !important; }
+
+.card, .card:hover, .card.is-dragging{ filter:none !important; }
+
+html, body, .wrap{
+  background: var(--bg) !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* ============================
+   Mobile scaling (keep ratio)
+   ============================ */
+@media (max-width: 480px){
+  :root{
+    --card-w: min(38vw, 220px);
+    --card-h: calc(var(--card-w) * var(--card-ratio));
+  }
 }
