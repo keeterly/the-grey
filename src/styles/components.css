@@ -466,3 +466,38 @@ html, body, .wrap{
   z-index: 2147483647 !important;
   pointer-events: none !important;
 }
+
+
+
+/* === Requested tweaks (preview, hand spacing, buttons) === */
+
+/* 1) Preview size → 250% */
+.preview-card{
+  transform: translateY(-8px) scale(2.5) !important;
+}
+
+/* 2) Tighter spacing between cards in hand (more overlap) */
+.ribbon .card{ margin-left: -72px !important; }          /* was -64 */
+@media (max-width: 768px){
+  .ribbon .card{ margin-left: -60px !important; }        /* was -48/-56 */
+}
+
+/* 3) Remove the Draw icon/button */
+#btnDraw{ display:none !important; }
+
+/* 4) Move End Turn to the right of the Aether gem (same baseline) */
+#btnEnd{
+  position: fixed !important;
+  /* gem is right:18px wide:54px — add a comfy 12px gap */
+  right: calc(18px + 54px + 12px) !important;  /* = 84px */
+  bottom: 86px !important;                     /* same baseline as gem */
+  z-index: 51 !important;                      /* above content, below drag layer */
+}
+
+/* (Optional) keep Reset tucked up with End Turn too */
+#btnReset{
+  position: fixed !important;
+  right: calc(18px + 54px + 12px + 48px + 10px) !important; /* to the left of End Turn */
+  bottom: 86px !important;
+  z-index: 51 !important;
+}
