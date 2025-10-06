@@ -346,3 +346,52 @@ body{
   position: relative; z-index: 100 !important; overflow: visible !important;
 }
 #playerSlots, #aiSlots, .slots, .zone{ overflow: visible !important; }
+
+
+/* === Anti-mask final overrides (bottom-left crop fix) === */
+
+/* Drag layer must be the very top, so dragged cards can never be covered */
+.drag-layer{
+  z-index: 2147483647 !important;   /* above everything */
+  pointer-events: none !important;
+}
+
+/* Tray + ribbon: never paint a background, never clip/mask */
+.ribbon-wrap,
+.ribbon{
+  background: transparent !important;
+  overflow: visible !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+  -webkit-mask: none !important;
+  mask: none !important;
+  clip-path: none !important;
+}
+
+/* Ensure tray sits above normal UI (the drag toggle already has higher z) */
+.ribbon-wrap{ z-index: 2147483646 !important; }
+
+/* Any docks/toolbars should NOT overlay the tray */
+.leftDock, .rightDock{
+  background: transparent !important;
+  z-index: 20 !important;       /* far below tray & drag layer */
+  overflow: visible !important;
+}
+
+/* Common siblings also kept below */
+.wrap, .zone, #topLog, .hudRow, .fabDial, .aetherGem{
+  position: relative;
+  z-index: 100 !important;
+  overflow: visible !important;
+}
+
+/* Absolutely forbid any pseudo-element masks on the tray */
+.ribbon-wrap::before, .ribbon-wrap::after,
+.ribbon::before, .ribbon::after{ content: none !important; }
+
+/* Keep roots untransformed so fixed elements position correctly on iOS */
+html, body, .wrap{
+  transform: none !important;
+  -webkit-transform: none !important;
+  overflow: visible !important;
+}
