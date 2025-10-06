@@ -1,79 +1,57 @@
-// boot-debug.js — MTGArena-like: hold-to-preview (real node), direct drag, no clones.
-console.log("[BRIDGE] drag v3 — arena feel");
+// boot-debug.js — MTGArena feel, transform-only, viewport coords, no clones
+console.log("[BRIDGE] drag v4 — arena feel, stable mobile");
 
-const HOLD_DELAY_MS        = 260;  // time to press & hold for preview
-const DRAG_THRESHOLD_PX    = 10;   // move this much before HOLD to start drag
-const PREVIEW_CANCEL_DIST  = 44;   // finger wiggle allowed while preview is open
-const PREVIEW_SCALE        = 2.5;  // 250 %
-const PREVIEW_IN_MS        = 140;  // grow
-const PREVIEW_OUT_MS       = 120;  // shrink
+/* ---------- Tunables ---------- */
+const HOLD_DELAY_MS        = 260;   // press & hold time for preview
+const DRAG_THRESHOLD_PX    = 10;    // move before HOLD to start drag immediately
+const PREVIEW_CANCEL_DIST  = 44;    // wiggle allowed while previewing
+const PREVIEW_SCALE        = 2.5;   // 250% preview size
+const PREVIEW_IN_MS        = 140;   // grow duration
+const PREVIEW_OUT_MS       = 110;   // shrink duration
+/* -------------------------------- */
 
-let st = null;  // state bucket
+let st = null;
 
-function reset() {
+function resetState(){
   st = {
-    mode: "idle",         // idle | press | preview | drag
+    mode: "idle",              // idle | press | preview | drag
     pid: null,
     card: null,
 
-    // DOM
+    // DOM placement
     originParent: null,
     originNext: null,
     placeholder: null,
 
-    // positions (viewport / client coords only)
-    downCX: 0, downCY: 0,     // where the press started
-    startLeft: 0, startTop: 0,// where the card visually was at lift
-    offsetCX: 0, offsetCY: 0, // where inside the card we grabbed
-    w: 0, h: 0,               // card size
+    // geometry (viewport space)
+    downCX: 0, downCY: 0,      // pointer where press started
+    startLeft: 0, startTop: 0, // card top-left at lift (client)
+    offsetCX: 0, offsetCY: 0,  // grip inside card (client)
+    w: 0, h: 0,
 
-    holdTimer: 0,
-    cancelArmed: false,       // for preview cancel hysteresis
+    holdTimer: 0
   };
 }
+resetState();
 
-/* ---------- tiny DOM helpers ---------- */
-function setFixed(c){ c.style.position="fixed"; c.style.zIndex="2147483000"; c.style.pointerEvents="none"; }
-function clearFixed(c){ c.style.position=""; c.style.zIndex=""; c.style.pointerEvents=""; }
-function setTx(c,x,y,s=1){ c.style.transform=`translate3d(${x}px,${y}px,0) scale(${s})`; }
-function makePH(c, r){
+/* ---------- tiny helpers ---------- */
+function setFixed(el){ el.style.position="fixed"; el.style.zIndex="2147483000"; el.style.pointerEvents="none"; }
+function clearFixed(el){ el.style.position=""; el.style.zIndex=""; el.style.pointerEvents=""; }
+function setTx(el,x,y,s=1){ el.style.transform=`translate3d(${x}px,${y}px,0) scale(${s})`; }
+function makePH(card){
+  const r = card.getBoundingClientRect();
   const ph = document.createElement('div');
-  const cs = getComputedStyle(c);
+  const cs = getComputedStyle(card);
   ph.style.width = r.width + 'px';
   ph.style.height = r.height + 'px';
   ph.style.marginLeft = cs.marginLeft;
   return ph;
 }
-function installPH(){
-  const c = st.card;
-  const r = c.getBoundingClientRect();
-  st.originParent = c.parentNode;
-  st.originNext   = c.nextSibling;
-  st.placeholder  = makePH(c, r);
-  if (st.originNext) st.originParent.insertBefore(st.placeholder, st.originNext);
-  else st.originParent.appendChild(st.placeholder);
-
-  st.w = r.width; st.h = r.height;
-  st.startLeft = r.left; st.startTop = r.top;
-
-  setFixed(c);
-  // start exactly where the card is
-  setTx(c, st.startLeft, st.startTop, 1);
-  // transform origin at the finger position so scale grows around finger
-  const ox = (st.offsetCX / st.w) * 100;
-  const oy = (st.offsetCY / st.h) * 100;
-  c.style.transformOrigin = `${ox}% ${oy}%`;
-  c.style.willChange = "transform";
-}
-
-function restoreCard(){
+function placeBack(){
   const c = st.card;
   if (!c) return;
   c.classList.remove("is-pressing","is-preview","is-dragging");
-  c.style.willChange = "";
-  c.style.transformOrigin = "";
-  c.style.transition = "";
-  c.style.transform = "";
+  c.style.transition=""; c.style.transform=""; c.style.transformOrigin=""; c.style.willChange="";
   clearFixed(c);
   if (st.placeholder && st.originParent){
     st.originParent.insertBefore(c, st.placeholder);
@@ -82,12 +60,12 @@ function restoreCard(){
   st.placeholder = null;
 }
 
-/* ---------- global teardown ---------- */
+/* ---------- global cleanup ---------- */
 function finish(){
-  clearTimeout(st?.holdTimer);
-  if (st?.card) restoreCard();
+  clearTimeout(st.holdTimer);
+  placeBack();
   document.documentElement.style.removeProperty("touch-action");
-  reset();
+  resetState();
 }
 
 /* ---------- pointer wiring ---------- */
@@ -98,21 +76,21 @@ addEventListener("pointercancel", finish, {passive:true});
 addEventListener("blur", finish);
 addEventListener("visibilitychange", () => { if (document.hidden) finish(); });
 
-reset();
-
 /* ---------- handlers ---------- */
 function onDown(e){
+  // Only hand cards
   const card = e.target.closest(".ribbon .card");
   if (!card || e.button === 2) return;
 
   e.preventDefault();
-  reset();
+  resetState();
 
   st.mode = "press";
   st.pid  = e.pointerId;
   st.card = card;
   try { card.setPointerCapture(st.pid); } catch {}
 
+  // baseline press geometry
   const r = card.getBoundingClientRect();
   st.downCX   = e.clientX;
   st.downCY   = e.clientY;
@@ -121,7 +99,7 @@ function onDown(e){
 
   card.classList.add("is-pressing");
 
-  // arm the hold-to-preview
+  // arm hold → preview
   st.holdTimer = setTimeout(() => {
     if (st.mode === "press") openPreview();
   }, HOLD_DELAY_MS);
@@ -135,7 +113,7 @@ function onMove(e){
   const dist = Math.hypot(dx, dy);
 
   if (st.mode === "press"){
-    // moved early enough = start dragging immediately
+    // move before hold = direct drag
     if (dist > DRAG_THRESHOLD_PX){
       clearTimeout(st.holdTimer);
       beginDragFromPress();
@@ -144,26 +122,29 @@ function onMove(e){
   }
 
   if (st.mode === "preview"){
-    // allow some wiggle without cancel
+    // generous wiggle while previewed; if exceeded, switch to drag
     if (dist > PREVIEW_CANCEL_DIST){
-      // cancel preview and switch to drag
-      shrinkPreview(false, () => {
-        // keep fixed; just switch to drag tracking
+      const c = st.card;
+      // shrink to 1x in-place and convert to drag in the next frame
+      c.style.transition = `transform ${PREVIEW_OUT_MS}ms ease-out`;
+      const r = c.getBoundingClientRect();
+      setTx(c, r.left, r.top, 1);
+      setTimeout(() => {
+        c.style.transition = "";
+        c.classList.remove("is-preview");
+        // compute exact grip & enter drag
+        const rr = c.getBoundingClientRect();
+        st.offsetCX = e.clientX - rr.left;
+        st.offsetCY = e.clientY - rr.top;
         st.mode = "drag";
-        st.card.classList.remove("is-preview");
-        st.card.classList.add("is-dragging");
-        // recompute current placement and exact offsets
-        const r = st.card.getBoundingClientRect();
-        st.startLeft = r.left; st.startTop = r.top;
-        st.offsetCX = e.clientX - r.left;
-        st.offsetCY = e.clientY - r.top;
-      });
+        c.classList.add("is-dragging");
+      }, PREVIEW_OUT_MS);
     }
     return;
   }
 
   if (st.mode === "drag"){
-    // no damping → stick to finger (arena feel)
+    // arena feel: stick to the finger (no damping)
     const x = e.clientX - st.offsetCX;
     const y = e.clientY - st.offsetCY;
     setTx(st.card, x, y, 1);
@@ -174,74 +155,80 @@ function onUp(e){
   if (e.pointerId !== st.pid) return;
 
   if (st.mode === "press"){
-    // short tap with no drag: just cleanup
+    // tap with no preview/drag
     finish();
     return;
   }
-
   if (st.mode === "preview"){
-    // shrink back into place smoothly
-    shrinkPreview(true, finish);
+    // shrink back smoothly then restore
+    const c = st.card;
+    const r = c.getBoundingClientRect();
+    c.style.transition = `transform ${PREVIEW_OUT_MS}ms ease-out`;
+    setTx(c, r.left, r.top, 1);
+    setTimeout(finish, PREVIEW_OUT_MS);
     return;
   }
-
   if (st.mode === "drag"){
-    // let game logic decide slotting; we just restore to origin DOM
+    // game logic can read drop target; we restore DOM placement
     finish();
   }
 }
 
-/* ---------- preview ---------- */
+/* ---------- Preview ---------- */
 function openPreview(){
-  if (st.mode !== "press") return;
   const c = st.card;
+  const r = c.getBoundingClientRect();
 
-  // install placeholder & lift to fixed coords
-  installPH();
+  // keep ribbon layout with a placeholder
+  st.originParent = c.parentNode;
+  st.originNext   = c.nextSibling;
+  st.placeholder  = makePH(c);
+  if (st.originNext) st.originParent.insertBefore(st.placeholder, st.originNext);
+  else st.originParent.appendChild(st.placeholder);
 
-  // grow in place
+  st.w = r.width; st.h = r.height;
+  st.startLeft = r.left; st.startTop = r.top;
+
+  // lift in place
+  setFixed(c);
+  // scale around the finger (not the center)
+  const ox = (st.offsetCX / st.w) * 100;
+  const oy = (st.offsetCY / st.h) * 100;
+  c.style.transformOrigin = `${ox}% ${oy}%`;
+  c.style.willChange = "transform";
+
   c.classList.remove("is-pressing");
   c.classList.add("is-preview");
-
   document.documentElement.style.touchAction = "none";
 
+  // grow
   c.style.transition = `transform ${PREVIEW_IN_MS}ms ease-out`;
   setTx(c, st.startLeft, st.startTop, PREVIEW_SCALE);
-
-  st.mode = "preview";
 }
 
-function shrinkPreview(backToFlow, done){
-  const c = st.card;
-  if (!c) return done?.();
-
-  c.style.transition = `transform ${PREVIEW_OUT_MS}ms ease-out`;
-  // shrink at the current on-screen position
-  const r = c.getBoundingClientRect();
-  setTx(c, r.left, r.top, 1);
-
-  // after shrink, optionally put it back into the flow immediately
-  setTimeout(() => {
-    c.style.transition = "";
-    if (backToFlow){
-      // place back before we end, so it snaps to original slot visually
-      restoreCard();
-    } else {
-      // keep fixed (for drag handoff)
-      c.classList.remove("is-preview");
-    }
-    done && done();
-  }, PREVIEW_OUT_MS);
-}
-
-/* ---------- drag ---------- */
+/* ---------- Drag ---------- */
 function beginDragFromPress(){
   const c = st.card;
   c.classList.remove("is-pressing");
   c.classList.add("is-dragging");
 
-  installPH(); // lift to fixed at exact visual position
-  document.documentElement.style.touchAction = "none";
+  // lift to fixed at exact visual rect (no reparenting)
+  const r = c.getBoundingClientRect();
+  st.originParent = c.parentNode;
+  st.originNext   = c.nextSibling;
+  st.placeholder  = makePH(c);
+  if (st.originNext) st.originParent.insertBefore(st.placeholder, st.originNext);
+  else st.originParent.appendChild(st.placeholder);
+
+  setFixed(c);
+  setTx(c, r.left, r.top, 1);
+
+  // align transform-origin to grip point (consistency if user starts to hold mid-drag)
+  const ox = (st.offsetCX / r.width) * 100;
+  const oy = (st.offsetCY / r.height) * 100;
+  c.style.transformOrigin = `${ox}% ${oy}%`;
+  c.style.willChange = "transform";
 
   st.mode = "drag";
+  document.documentElement.style.touchAction = "none";
 }
