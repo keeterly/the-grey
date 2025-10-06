@@ -1,198 +1,131 @@
-:root{
-  --bg:#F3EEE5;
-  --panel:#FFF;
-  --panel-soft:#F9F6F0;
-  --ink:#2a2a2a;
-  --muted:#777;
-  --chip:#f2e7d0;
-  --chip-ink:#945c00;
+// boot-debug.js
+console.log("[BRIDGE] Game + UI + Drag initialized and exposed to window.");
 
-  /* MTG-ish proportions */
-  --card-w: 220px;
-  --card-ratio: 1.4;                 /* h = w * ratio (≈ 3.5/2.5) */
-  --card-h: calc(var(--card-w) * var(--card-ratio));
+let st = null;
+let dragLayer = null;
+const DRAG_THRESHOLD = 6;
+const DAMP = 0.25;
 
-  --radius: 16px;
-  --shadow: 0 6px 20px rgba(0,0,0,.08);
+function initDragBridge() {
+  dragLayer = document.querySelector('.drag-layer');
+  if (!dragLayer) {
+    dragLayer = document.createElement('div');
+    dragLayer.className = 'drag-layer';
+    document.body.appendChild(dragLayer);
+  }
+
+  document.addEventListener('pointerdown', onDown);
+  document.addEventListener('pointermove', onMove);
+  document.addEventListener('pointerup', onUp);
 }
 
-*{ box-sizing:border-box; }
+function onDown(e) {
+  const card = e.target.closest('.card');
+  if (!card || st) return;
 
-body{
-  margin:0; background:var(--bg); color:var(--ink);
-  font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+  st = {
+    card,
+    startX: e.pageX,
+    startY: e.pageY,
+    curX: 0,
+    curY: 0,
+    targetX: 0,
+    targetY: 0,
+    offsetX: 0,
+    offsetY: 0,
+    lifted: false,
+    originParent: card.parentElement,
+    originNext: card.nextSibling
+  };
+
+  card.classList.add('grab-intent');
 }
 
-/* Shell panels */
-.wrap{ max-width:1200px; margin:24px auto 160px; padding:0 16px; }
-.zone{
-  background:var(--panel); border-radius:14px; box-shadow:var(--shadow);
-  padding:18px; margin:12px 0;                      /* tighter vertical rhythm */
-}
-.zone .title{ font-weight:600; color:#594f43; margin:0 0 8px; }
+function lift() {
+  if (!st || st.lifted) return;
+  const card = st.card;
+  const rect = card.getBoundingClientRect();
 
-/* Chips above Aetherflow cells */
-.costCell{ display:flex; justify-content:center; }
-.costChip{
-  display:inline-flex; align-items:center; justify-content:center;
-  width:28px; height:28px; border-radius:999px;
-  background:var(--chip); color:var(--chip-ink); font-weight:600;
-  box-shadow: inset 0 1px 0 #fff8, 0 1px 2px rgba(0,0,0,.06);
-}
+  // exact position on page before reparenting
+  const pageX = rect.left + window.scrollX;
+  const pageY = rect.top + window.scrollY;
 
-/* Card */
-.card{
-  position: relative;                 /* needed for pulse ::after */
-  width:var(--card-w); height:var(--card-h);
-  border-radius:18px; background:linear-gradient(#fff,#faf8f4);
-  box-shadow:var(--shadow);
-  padding:14px; display:flex; flex-direction:column;
-  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
-}
-.card:hover:not(.is-dragging){
-  transform:translateY(-14px) scale(1.02);
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
-}
+  // placeholder to keep layout
+  const ph = document.createElement('div');
+  ph.style.width = rect.width + 'px';
+  ph.style.height = rect.height + 'px';
+  ph.style.marginLeft = getComputedStyle(card).marginLeft;
+  st.placeholder = ph;
 
-.card .cHead{ margin-bottom:8px; }
-.card .cName{ font-weight:700; letter-spacing:.2px; }
-.card .cType{ font-size:12px; color:var(--muted); }
-.card .cBody{ flex:1 1 auto; color:#3a3a3a; }
-.card .cStats{ display:flex; gap:8px; }
-.card .cStats .stat{
-  font-size:12px; background:#fff6e6; color:#b35a00;
-  border-radius:12px; padding:3px 8px; border:1px solid #f3dfbf;
-}
+  if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
+  else st.originParent.appendChild(ph);
 
-/* Ribbon hand: cards peek a bit and rise on hover */
-.ribbon .card {
-  pointer-events: auto;
-  position: relative;
-  transform: translateY(10px);
-  transition: transform 120ms ease, filter 120ms ease;
-  will-change: transform;
-  margin-left: -64px;             /* overlap to create fan */
-}
-.ribbon .card:hover{
-  transform: translateY(-14px) scale(1.02);
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+  // offset between pointer and top-left of card
+  st.offsetX = st.startX - pageX;
+  st.offsetY = st.startY - pageY;
+
+  // lock transform BEFORE adding dragging class
+  card.style.setProperty('--drag-x', `${pageX}px`);
+  card.style.setProperty('--drag-y', `${pageY}px`);
+
+  card.classList.remove('grab-intent', 'is-pressing');
+  dragLayer.appendChild(card);
+
+  // mark as dragging *after* variables are defined
+  card.classList.add('is-dragging');
+
+  st.curX = pageX;
+  st.curY = pageY;
+  st.targetX = pageX;
+  st.targetY = pageY;
+
+  st.lifted = true;
+  requestAnimationFrame(smoothFollow);
 }
 
-/* Press pose matches hover so hold doesn't "drop" */
-.ribbon .card.is-pressing {
-  transform: translateY(-14px) scale(1.02) !important;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
-  transition: none !important; /* freeze while measuring pickup */
+function onMove(e) {
+  if (!st) return;
+
+  const dx = e.pageX - st.startX;
+  const dy = e.pageY - st.startY;
+
+  // pick-up threshold
+  if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+    lift();
+  }
+  if (!st.lifted) return;
+
+  st.targetX = e.pageX - st.offsetX;
+  st.targetY = e.pageY - st.offsetY;
 }
 
-/* Freeze transitions during measurement only (keep current transform) */
-.ribbon .card.grab-intent { transition: none !important; }
+function onUp(e) {
+  if (!st) return;
+  const { card, originParent, placeholder } = st;
 
-/* === DRAGGING: real element follows CSS vars from JS ================== */
-.card.is-dragging{
-  position: fixed;
-  left: 0; top: 0;
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.35));
-  cursor: grabbing;
-  will-change: transform, filter;
-  transition: none !important;
-}
-/* Hover must not fight drag */
-.card:hover.is-dragging { transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02) !important; filter: drop-shadow(0 12px 24px rgba(0,0,0,.35)) !important; }
+  card.classList.remove('is-dragging', 'grab-intent');
+  if (placeholder && originParent) {
+    originParent.insertBefore(card, placeholder);
+    placeholder.remove();
+  }
+  card.style.removeProperty('--drag-x');
+  card.style.removeProperty('--drag-y');
 
-/* Slots */
-.slotCell{
-  width:var(--card-w); height:var(--card-h);
-  border-radius:18px; background:var(--panel-soft);
-  outline:1px dashed #e6dfd4; outline-offset:-6px;
-  display:flex; align-items:center; justify-content:center;
-}
-.slotCell.glyph{ border-style:solid; background:#f8f7f4; }
-.slotCell.drop-ok    { outline:2px solid #4caf50; }
-.slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
-.slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
-
-/* HUD / Controls */
-.hudRow{ display:flex; align-items:center; justify-content:space-between;
-  gap:12px; padding:10px 16px; }
-.pill{ display:flex; gap:10px; align-items:center; padding:8px 12px;
-  background:var(--panel); border-radius:999px; box-shadow:var(--shadow); }
-.seg{ display:flex; align-items:center; gap:6px; font-weight:600; }
-.seg svg{ width:16px; height:16px; stroke:#222; fill:none; stroke-width:1.8px; }
-.sep{ width:1px; height:18px; background:#e5dfd5; }
-
-/* Aether gem */
-.aeGem{
-  position:fixed; right:18px; bottom:86px; z-index:40;
-  width:54px; height:54px; border-radius:14px;
-  background:radial-gradient(ellipse at 30% 25%,#ffd67a,#f6b441 60%,#d38d1f 100%);
-  box-shadow:0 10px 26px rgba(0,0,0,.18), inset 0 2px 6px #fff8;
-  display:flex; align-items:center; justify-content:center; font-weight:800;
+  st = null;
 }
 
-/* Top-right controls (Draw / End / Reset) */
-.fabDial{ position:fixed; right:18px; top:18px; z-index:50; display:flex; flex-direction:column; gap:12px; }
-.fab{ width:40px; height:40px; border-radius:999px; border:0; background:#fff;
-     box-shadow:var(--shadow); cursor:pointer; font-weight:700; }
+function smoothFollow() {
+  if (!st || !st.lifted) return;
+  const { card } = st;
 
-/* Helpers */
-.emptyCell{ color:#bcb4a7; font-weight:600; }
+  st.curX += (st.targetX - st.curX) * DAMP;
+  st.curY += (st.targetY - st.curY) * DAMP;
 
-/* Preview overlay (if/when you use it) */
-.preview-overlay{
-  position: fixed; inset: 0;
-  background: rgba(10,10,8,.55);
-  backdrop-filter: blur(2px);
-  display: grid; place-items: center;
-  z-index: 100;
-}
-.preview-card{
-  transform: translateY(-8px) scale(1.25);
-  transform-origin: center;
-  transition: transform 150ms ease;
-  max-width: min(96vw, 800px);
-}
-.preview-card .card{ box-shadow: 0 12px 34px rgba(0,0,0,.28); }
+  card.style.setProperty('--drag-x', `${st.curX}px`);
+  card.style.setProperty('--drag-y', `${st.curY}px`);
 
-/* Instant pulse as a halo layer (doesn't kill base shadow) */
-@keyframes goldPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
-  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
-  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
-}
-.card.is-instant.pulsing::after{
-  content:"";
-  position:absolute; inset:-2px;
-  border-radius:inherit; pointer-events:none;
-  animation: goldPulse 1.4s ease-out infinite;
+  requestAnimationFrame(smoothFollow);
 }
 
-/* (legacy helper, safe to keep) */
-.instantPulse{ animation:instant .5s ease; }
-@keyframes instant {
-  from{ box-shadow:0 0 0 0 rgba(255,140,0,.6); }
-  to  { box-shadow:0 0 0 18px transparent; }
-}
-
-/* Drag host */
-.drag-layer{
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 999;
-}
-
-/* Prevent native ghost image on ribbon cards */
-.ribbon .card, .ribbon .card *{
-  -webkit-user-drag: none;
-  user-select: none;
-  touch-action: none;
-}
-
-/* press pose equals hover (no "lowering" on hold) */
-.ribbon .card.is-pressing{
-  transform: translateY(-14px) scale(1.02) !important;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
-  transition: none !important;
-}
+window.initDragBridge = initDragBridge;
+window.addEventListener('DOMContentLoaded', initDragBridge);
