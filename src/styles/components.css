@@ -430,4 +430,82 @@ html, body, .wrap{
 }
 
 
+/* ===== Hand tray: bulletproof anti-crop + topmost layer ===== */
 
+/* Root must NOT be transformed or fixed elements lose their anchor on iOS */
+html, body, .wrap{
+  transform: none !important;
+  -webkit-transform: none !important;
+  overflow-x: visible !important;
+  overflow-y: visible !important;
+}
+
+/* The fixed tray pinned to the bottom, above everything */
+.ribbon-wrap{
+  position: fixed !important;
+  left: 0; right: 0;
+  bottom: env(safe-area-inset-bottom, 0) !important;
+
+  /* more headroom so lifted cards never hit the tray edge */
+  height: calc(var(--card-h) + 56px) !important;
+
+  /* absolutely no masking */
+  background: transparent !important;
+  overflow: visible !important;
+
+  /* ignore pointer to allow inner .ribbon to receive it */
+  pointer-events: none;
+
+  /* topmost layer */
+  z-index: 2147483646 !important;
+
+  /* create a fresh stacking context that nothing outside can clip */
+  isolation: isolate;
+  contain: layout style paint;
+}
+
+/* The scrollable hand row inside the tray */
+.ribbon{
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 0 16px 0;
+
+  /* never crop upward lift */
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  -webkit-overflow-scrolling: touch;
+
+  pointer-events: auto;
+  z-index: 2 !important;
+}
+
+/* Cards in the ribbon: may rise above their container */
+.ribbon .card{
+  position: relative;
+  transform: translateY(8px);
+  transition: transform 120ms ease;
+  margin-left: -64px;          /* fan */
+  z-index: 1;
+}
+.ribbon .card:hover,
+.ribbon .card.is-dragging{
+  transform: translateY(-14px) scale(1.02);
+  z-index: 3;                  /* above neighbors & any tray visuals */
+}
+
+/* Absolutely forbid any “mask”/gradient siblings over the tray */
+.ribbon-wrap::before,
+.ribbon-wrap::after { content: none !important; }
+
+/* Make sure common siblings can’t cover the tray */
+.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem {
+  z-index: 100 !important;     /* far below the tray */
+  position: relative;
+  overflow: visible;
+}
+
+/* Slots never clip their content either */
+#playerSlots, #aiSlots, .slots, .zone { overflow: visible !important; }
