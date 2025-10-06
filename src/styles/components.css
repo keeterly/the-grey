@@ -473,7 +473,7 @@ html, body, .wrap{
 
 /* 1) Preview size → 250% */
 .preview-card{
-  transform: translateY(-8px) scale(2.5) !important;
+  transform: translateY(-8px) scale(5.0) !important;
 }
 
 /* 2) Tighter spacing between cards in hand (more overlap) */
