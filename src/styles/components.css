@@ -158,3 +158,83 @@ function smoothFollow() {
 
 window.initDragBridge = initDragBridge;
 window.addEventListener('DOMContentLoaded', initDragBridge);
+
+
+/* ===== MTG-STYLE CARD EDGE + SHADOW (restores the look) ===== */
+
+/* Base card: strong rounded edge, parchment face, layered shadows */
+.card{
+  position: relative;
+  border-radius: 18px;
+  background: linear-gradient(#fff, #faf8f4);   /* parchment */
+  background-clip: padding-box;                 /* keep corners crisp */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.8) inset,         /* soft top bevel */
+    0 0 0 1px #e9e2d7 inset,                    /* inner stroke (edge line) */
+    0 10px 26px rgba(0,0,0,.12);                /* ambient drop */
+}
+
+/* Extra definition ring outside the card (very subtle “frame”) */
+.card::before{
+  content:"";
+  position:absolute; inset:-1px;
+  border-radius: 19px;                           /* outer ring follows radius */
+  box-shadow: 0 0 0 1px rgba(0,0,0,.06);         /* faint outside line */
+  pointer-events:none;
+}
+
+/* Optional soft vignette towards the edges (adds depth) */
+.card::after{
+  content:"";
+  position:absolute; inset:0;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at center,
+              transparent 60%, rgba(0,0,0,.06) 100%);
+  mix-blend-mode: multiply;
+  pointer-events:none;
+}
+
+/* Hover lift keeps the rich shadow (NO filter: drop-shadow) */
+.card:hover:not(.is-dragging){
+  transform: translateY(-14px) scale(1.02);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.85) inset,
+    0 0 0 1px #e9e2d7 inset,
+    0 16px 36px rgba(0,0,0,.22);
+  filter: none !important;
+}
+
+/* DRAGGING — keep the same rounded edge + shadows (no filter) */
+.card.is-dragging{
+  position: fixed;
+  left: 0; top: 0;
+  transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02);
+  border-radius: 18px;
+  background: linear-gradient(#fff,#faf8f4);
+  background-clip: padding-box;
+  /* identical shadow language while dragging */
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.85) inset,
+    0 0 0 1px #e9e2d7 inset,
+    0 18px 40px rgba(0,0,0,.28);
+  filter: none !important;
+  cursor: grabbing;
+  will-change: transform, box-shadow;
+  transition: none !important;
+}
+
+/* Ensure hover can’t override drag visuals */
+.card:hover.is-dragging{
+  transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.85) inset,
+    0 0 0 1px #e9e2d7 inset,
+    0 18px 40px rgba(0,0,0,.28) !important;
+  filter: none !important;
+}
+
+/* If you have “instant” pulsing, keep it but don’t kill the base shadow */
+.card.is-instant.pulsing::after{
+  /* your existing goldPulse still works; this preserves the base edge/shadow */
+  mix-blend-mode: normal;
+}
