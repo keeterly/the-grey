@@ -1,41 +1,30 @@
-// boot-debug.js — 2.5× Hold Preview (always on) + Dev Drag (toggle only)
+// assets/js/boot-debug.js
 /* eslint-disable */
 
-console.log("[DRAG] bootstrap — preview ALWAYS on (2.5×), drag gated by toggle");
+console.log("[THE GREY][UI] Real-card preview (2.5×), dev-drag via toggle/?drag=1");
 
-/* =========================
-   Tunables
-   ========================= */
-const HOLD_MS = 320;                // press-and-hold delay to show preview
-const LIFT_THRESHOLD = 10;          // px to start drag before preview (only when drag is ON)
-const PREVIEW_CANCEL_THRESHOLD = 20;// movement to cancel pending preview
-const PREVIEW_DRAG_THRESHOLD = 18;  // movement to convert preview -> drag (when drag is ON)
-const PREVIEW_SCALE = 2.5;          // 250% preview
+/* ================= Tunables ================= */
+const HOLD_MS = 320;                   // time to press before preview
+const PREVIEW_SCALE = 2.5;             // 250% real-card preview
+const PREVIEW_CANCEL = 20;             // move allowed while waiting to preview
+const DRAG_CONVERT_FROM_PREVIEW = 18;  // move to convert preview -> drag (when enabled)
+const DRAG_LIFT_THRESHOLD = 10;        // move to lift directly before preview (when enabled)
 
-const RETURN_MS = 220;              // animate back to hand
-const SLOT_SNAP_MS = 120;           // animate into slot
-const STIFFNESS = 0.34;             // follow feel
-const DAMPING = 0.22;
-const MASS = 1.0;
+const RETURN_MS = 220;                 // animate back to hand
+const SNAP_MS   = 120;                 // animate into slot
+const STIFFNESS = 0.34;                // follow feel
+const DAMPING   = 0.22;
 
-/* =========================
-   State
-   ========================= */
+/* ================ Helpers / State ================ */
+const dragDevOn = () =>
+  /\bdrag=1\b/.test(location.search) ||
+  localStorage.getItem("enableDragDev") === "1";
+
 let st = null;
 let raf = null;
 let holdTimer = null;
 let dragLayer = null;
 let dragBtn = null;
-let previewNode = null;
-
-/* =========================
-   Helpers
-   ========================= */
-const devDragEnabled = () =>
-  /\bdrag=1\b/.test(location.search) ||
-  localStorage.getItem('enableDragDev') === '1';
-
-const isPreviewOpen = () => !!previewNode;
 
 function ensureDragLayer(){
   dragLayer = document.querySelector('.drag-layer');
@@ -62,6 +51,26 @@ function removeGlobals(){
   window.removeEventListener('blur', onUp);
 }
 
+function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
+
+function animateTo(x, y, ms, done){
+  if (!st) return;
+  const sx = st.curX, sy = st.curY;
+  const dx = x - sx, dy = y - sy;
+  const t0 = performance.now();
+  function step(t){
+    if (!st) return;
+    const p = Math.min(1, (t - t0) / ms);
+    const e = easeOutCubic(p);
+    st.curX = sx + dx * e;
+    st.curY = sy + dy * e;
+    st.card.style.setProperty('--drag-x', `${st.curX}px`);
+    st.card.style.setProperty('--drag-y', `${st.curY}px`);
+    if (p < 1) requestAnimationFrame(step); else done && done();
+  }
+  requestAnimationFrame(step);
+}
+
 function safeReturn(card, originParent, originNext, placeholder){
   try {
     if (placeholder && placeholder.parentNode){
@@ -83,73 +92,31 @@ function safeReturn(card, originParent, originNext, placeholder){
   document.getElementById('ribbon')?.appendChild(card);
 }
 
-function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
-
-function animateTo(x, y, ms, done){
-  if (!st) return;
-  const sx = st.curX, sy = st.curY;
-  const dx = x - sx, dy = y - sy;
-  const t0 = performance.now();
-
-  function step(t){
-    if (!st) return;
-    const p = Math.min(1, (t - t0) / ms);
-    const e = easeOutCubic(p);
-    st.curX = sx + dx * e;
-    st.curY = sy + dy * e;
-    st.card.style.setProperty('--drag-x', `${st.curX}px`);
-    st.card.style.setProperty('--drag-y', `${st.curY}px`);
-    if (p < 1) requestAnimationFrame(step); else done && done();
-  }
-  requestAnimationFrame(step);
+/* ================ Preview (real card) ================ */
+function applyPreview(card){
+  card.dataset.previewing = '1';
+  card.style.willChange = 'transform, box-shadow';
+  card.style.zIndex = '2147483000'; // over everything, below drag-layer
+  // keep a base Y lift like hover, then scale around center
+  card.style.transformOrigin = '50% 50%';
+  card.style.transform = `translateY(-14px) scale(${PREVIEW_SCALE})`;
+  card.style.filter = 'drop-shadow(0 16px 36px rgba(0,0,0,.35))';
+}
+function clearPreview(card){
+  delete card.dataset.previewing;
+  card.style.transform = '';
+  card.style.filter = '';
+  card.style.willChange = '';
+  card.style.zIndex = '';
+  card.style.transformOrigin = '';
 }
 
-/* =========================
-   Preview (true clone @ 2.5×)
-   ========================= */
-function openPreview(fromCard){
-  closePreview();
-
-  const clone = fromCard.cloneNode(true);
-  clone.style.boxShadow = '0 18px 60px rgba(0,0,0,.32)';
-  clone.style.borderRadius = getComputedStyle(fromCard).borderRadius;
-
-  const cs = getComputedStyle(fromCard);
-
-  Object.assign(clone.style, {
-    position: 'fixed',
-    top: '50%',
-    left: '50%',
-    transform: `translate(-50%,-50%) scale(${PREVIEW_SCALE})`,
-    transformOrigin: 'center center',
-    width: cs.width,
-    height: cs.height,
-    zIndex: '2147483647',
-    pointerEvents: 'none',
-    willChange: 'transform, opacity',
-    transition: 'transform .15s ease-out, opacity .15s ease-out',
-    opacity: '1'
-  });
-  clone.classList.remove('is-pressing','grab-intent','is-dragging');
-
-  previewNode = clone;
-  document.body.appendChild(previewNode);
-}
-function closePreview(){
-  if (previewNode){
-    try { previewNode.remove(); } catch {}
-    previewNode = null;
-  }
-}
-
-/* =========================
-   Drag core
-   ========================= */
+/* ================ Drag core ================ */
 function onDown(e){
   const card = e.target.closest('.ribbon .card');
   if (!card || e.button !== 0) return;
 
-  // prevent accidental page scroll on iOS while handling preview/drag
+  // avoid iOS scroll while holding
   e.preventDefault();
 
   try { card.setPointerCapture(e.pointerId); } catch {}
@@ -177,43 +144,52 @@ function onDown(e){
     originParent: card.parentNode,
     originNext: card.nextSibling,
     isInstant: card.classList.contains('is-instant'),
-    lastClientX: e.clientX,
-    lastClientY: e.clientY,
+    lastClientX: e.clientX, lastClientY: e.clientY,
   };
 
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
-    if (!st || st.lifted) return;
-    openPreview(card);
+    if (!st || st.lifted || st.previewed) return;
+    applyPreview(card);
     st.previewed = true;
   }, HOLD_MS);
 
   addGlobals();
 }
 
-function lift(){
+function lift(fromPreview){
   if (!st || st.lifted) return;
+  if (!dragDevOn()) return; // keep drag behind toggle
 
-  if (!devDragEnabled()) return; // only allow lifting when dev drag is ON
-
-  closePreview();
   clearTimeout(holdTimer);
 
   const card = st.card;
-  const r = card.getBoundingClientRect();
-  const pageLeft = r.left + window.scrollX;
-  const pageTop  = r.top  + window.scrollY;
 
-  // placeholder keeps ribbon spacing
+  // If we are previewing (scaled), measure the *visual* rect now and use that.
+  // Then remove preview styles, so when we reposition into drag-layer it won't jump.
+  let pageLeft, pageTop;
+  if (fromPreview && card.dataset.previewing === '1'){
+    const rr = card.getBoundingClientRect(); // visual rect at 2.5×
+    pageLeft = rr.left + window.scrollX;
+    pageTop  = rr.top  + window.scrollY;
+    clearPreview(card);
+  } else {
+    const r = card.getBoundingClientRect();
+    pageLeft = r.left + window.scrollX;
+    pageTop  = r.top  + window.scrollY;
+  }
+
+  // placeholder to keep ribbon spacing
   const ph = document.createElement('div');
-  ph.style.width = r.width + 'px';
-  ph.style.height = r.height + 'px';
+  const baseR = card.getBoundingClientRect(); // now unscaled
+  ph.style.width = baseR.width + 'px';
+  ph.style.height = baseR.height + 'px';
   ph.style.marginLeft = getComputedStyle(card).marginLeft;
   st.placeholder = ph;
   if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
   else st.originParent.appendChild(ph);
 
-  // set coords before moving to avoid flash at (0,0)
+  // set CSS vars before moving the node to avoid a 0,0 frame
   card.style.setProperty('--drag-x', `${pageLeft}px`);
   card.style.setProperty('--drag-y', `${pageTop}px`);
 
@@ -240,23 +216,28 @@ function onMove(e){
   const dy = e.pageY - st.startY;
   const dist = Math.hypot(dx, dy);
 
-  // while preview is visible: tolerate small moves; convert to drag after threshold (drag must be ON)
-  if (!st.lifted && st.previewed){
-    if (devDragEnabled() && dist > PREVIEW_DRAG_THRESHOLD) {
-      lift();
+  // BEFORE preview fires
+  if (!st.previewed && !st.lifted){
+    if (dist > PREVIEW_CANCEL) {
+      clearTimeout(holdTimer); // don't show preview
+    }
+    if (dragDevOn() && dist > DRAG_LIFT_THRESHOLD){
+      lift(false);
     }
     return;
   }
 
-  // before preview fires: cancel intent if user moves enough; start drag if allowed
-  if (!st.lifted && !st.previewed){
-    if (dist > PREVIEW_CANCEL_THRESHOLD) closePreview();
-    if (devDragEnabled() && dist > LIFT_THRESHOLD) lift();
+  // WHILE preview is showing (real card enlarged)
+  if (st.previewed && !st.lifted){
+    if (dragDevOn() && dist > DRAG_CONVERT_FROM_PREVIEW){
+      lift(true); // lift from visual position of the scaled card
+    }
+    return;
   }
 
+  // DRAGGING
   if (!st.lifted) return;
 
-  closePreview();
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
 }
@@ -269,20 +250,17 @@ function onUp(e){
   removeGlobals();
   clearTimeout(holdTimer);
 
-  // never lifted => just close preview and reset
+  // Not lifted => clear preview / press pose and exit
   if (!st.lifted){
-    closePreview();
+    clearPreview(st.card);
     st.card.classList.remove('is-pressing','grab-intent');
     st = null;
     return;
   }
 
-  closePreview();
-
   // Determine drop (player slots only)
   let cx = Number.isFinite(e?.clientX) ? e.clientX : st.lastClientX;
   let cy = Number.isFinite(e?.clientY) ? e.clientY : st.lastClientY;
-
   let dropSlot = null;
   if (Number.isFinite(cx) && Number.isFinite(cy)) {
     st.card.style.visibility = 'hidden';
@@ -296,7 +274,7 @@ function onUp(e){
     const r = dropSlot.getBoundingClientRect();
     const toX = r.left + window.scrollX;
     const toY = r.top  + window.scrollY;
-    animateTo(toX, toY, SLOT_SNAP_MS, () => {
+    animateTo(toX, toY, SNAP_MS, () => {
       safeReturn(st.card, st.originParent, st.originNext, st.placeholder);
       st.card.classList.remove('is-dragging','pulsing');
       st.card.style.removeProperty('--drag-x');
@@ -311,7 +289,7 @@ function onUp(e){
       st = null;
     });
   } else {
-    // back to placeholder
+    // Back to placeholder
     const pr = st.placeholder.getBoundingClientRect();
     const toX = pr.left + window.scrollX;
     const toY = pr.top  + window.scrollY;
@@ -330,8 +308,8 @@ function momentumLoop(){
   const step = () => {
     if (!st || !st.lifted) return;
 
-    const ax = (st.targetX - st.curX) * STIFFNESS / MASS;
-    const ay = (st.targetY - st.curY) * STIFFNESS / MASS;
+    const ax = (st.targetX - st.curX) * STIFFNESS;
+    const ay = (st.targetY - st.curY) * STIFFNESS;
 
     st.vx = (st.vx + ax) * (1 - DAMPING);
     st.vy = (st.vy + ay) * (1 - DAMPING);
@@ -347,9 +325,7 @@ function momentumLoop(){
   raf = requestAnimationFrame(step);
 }
 
-/* =========================
-   Dev toggle UI
-   ========================= */
+/* ================ Dev toggle UI ================ */
 function mountDragToggle(){
   if (dragBtn) return;
   dragBtn = document.createElement('button');
@@ -365,7 +341,7 @@ function mountDragToggle(){
     box-shadow:0 6px 16px rgba(0,0,0,.18); cursor:pointer;
   `;
   dragBtn.addEventListener('click', () => {
-    const now = !devDragEnabled();
+    const now = !dragDevOn();
     if (now) localStorage.setItem('enableDragDev','1');
     else localStorage.removeItem('enableDragDev');
     updateToggleVisual();
@@ -374,25 +350,24 @@ function mountDragToggle(){
   updateToggleVisual();
 }
 function updateToggleVisual(){
-  const on = devDragEnabled();
+  const on = dragDevOn();
   dragBtn.textContent = on ? 'Drag: ON' : 'Drag: OFF';
   dragBtn.style.background = on ? '#2c7be5' : '#999';
 }
 
-/* =========================
-   Boot
-   ========================= */
+/* ================ Boot ================ */
 window.addEventListener('DOMContentLoaded', () => {
-  // ensure the tray is a direct child of body so it never masks the drag layer
+  // Make sure the ribbon tray isn’t inside a clipping container
   const tray = document.querySelector('.ribbon-wrap');
   if (tray && tray.parentNode !== document.body) document.body.appendChild(tray);
-
-  mountDragToggle();
 
   // Prevent native ghost image
   document.addEventListener('dragstart', e => e.preventDefault(), { passive:false });
 
   ensureDragLayer();
+  mountDragToggle();
+
   document.addEventListener('pointerdown', onDown, { passive:false });
-  console.log('[DRAG] ready — preview 2.5× always ON, drag requires toggle/?drag=1');
+
+  console.log('[THE GREY][UI] ready — real-card preview 2.5×; drag requires toggle/?drag=1');
 });
