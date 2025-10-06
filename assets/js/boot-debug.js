@@ -1,26 +1,30 @@
-// boot-debug.js — Dev Drag + 500% Hold Preview
-console.log("[DRAG] dev drag bootstrap (500% preview)");
+// boot-debug.js — Dev Drag + 500% Hold Preview (lenient hold)
+/* eslint-disable */
+
+console.log("[DRAG] dev drag bootstrap — 5x preview + lenient hold");
 
 /* =========================
    Tunables
    ========================= */
-const LIFT_THRESHOLD = 10;      // px (more tolerant than before)
-const HOLD_MS = 350;            // press-and-hold to preview
-const RETURN_MS = 220;          // animate back to hand
-const SLOT_SNAP_MS = 120;       // animate into slot
-const STIFFNESS = 0.34;         // spring-ish follow
+const HOLD_MS = 350;                 // time to show preview
+const LIFT_THRESHOLD = 12;           // pixels to start drag (before preview)
+const PREVIEW_CANCEL_THRESHOLD = 18; // movement to cancel preview (small wiggles OK)
+const PREVIEW_DRAG_THRESHOLD = 24;   // movement to convert preview -> drag
+const RETURN_MS = 220;               // animate back to hand
+const SLOT_SNAP_MS = 120;            // animate into slot
+const STIFFNESS = 0.34;              // spring-ish follow
 const DAMPING = 0.22;
 const MASS = 1.0;
 
 /* =========================
    State
    ========================= */
-let st = null;                  // active drag
-let raf = null;
-let holdTimer = null;
-let dragLayer = null;
-let dragBtn = null;
-let previewNode = null;
+let st = null;                  // active drag state
+let raf = null;                 // rAF id for momentum loop
+let holdTimer = null;           // setTimeout id
+let dragLayer = null;           // fixed layer for dragged card
+let dragBtn = null;             // debug toggle button
+let previewNode = null;         // DOM node for preview clone
 
 /* =========================
    Helpers
@@ -36,6 +40,9 @@ function ensureDragLayer(){
   if (!dragLayer){
     dragLayer = document.createElement('div');
     dragLayer.className = 'drag-layer';
+    Object.assign(dragLayer.style, {
+      position:'fixed', inset:'0', pointerEvents:'none', zIndex:'2147483647'
+    });
     document.body.appendChild(dragLayer);
   }
 }
@@ -71,8 +78,8 @@ function safeReturn(card, originParent, originNext, placeholder){
       return;
     } catch {}
   }
-  const ribbon = document.getElementById('ribbon');
-  if (ribbon) ribbon.appendChild(card);
+  // last resort
+  document.getElementById('ribbon')?.appendChild(card);
 }
 
 function easeOutCubic(t){ return 1 - Math.pow(1 - t, 3); }
@@ -97,31 +104,48 @@ function animateTo(x, y, ms, done){
 }
 
 /* =========================
-   Preview (500% clone)
+   Preview (true 5× clone)
    ========================= */
 function openPreview(fromCard){
-  closePreview(); // safety
-  // Clone so the real card stays put
+  closePreview();
+
   const clone = fromCard.cloneNode(true);
+  // Make sure shadows/edges look strong at 5x
+  clone.style.boxShadow = '0 18px 60px rgba(0,0,0,.32)';
+  clone.style.borderRadius = getComputedStyle(fromCard).borderRadius;
+
   Object.assign(clone.style, {
     position: 'fixed',
     top: '50%',
     left: '50%',
-    transform: 'translate(-50%, -50%) scale(5)', // 500%
+    transform: 'translate(-50%,-50%) scale(5)', // 500%
     transformOrigin: 'center center',
-    zIndex: '9999',
+    width: getComputedStyle(fromCard).width, // baseline for accurate scale
+    height: getComputedStyle(fromCard).height,
+    zIndex: '2147483647',
     pointerEvents: 'none',
+    willChange: 'transform, opacity',
     transition: 'transform .15s ease-out, opacity .15s ease-out',
     opacity: '1'
   });
   clone.classList.remove('is-pressing','grab-intent','is-dragging');
+
   previewNode = clone;
   document.body.appendChild(previewNode);
+  if (document.body.style.overflow !== 'hidden'){
+    // prevent iOS scroll nudge during preview
+    document.body.dataset.prevOverflow = document.body.style.overflow || '';
+    document.body.style.overflow = 'hidden';
+  }
 }
 function closePreview(){
   if (previewNode){
     try { previewNode.remove(); } catch {}
     previewNode = null;
+  }
+  if ('prevOverflow' in (document.body.dataset || {})){
+    document.body.style.overflow = document.body.dataset.prevOverflow;
+    delete document.body.dataset.prevOverflow;
   }
 }
 
@@ -132,7 +156,7 @@ function onDown(e){
   if (!devDragEnabled()) return;
   if (isPreviewOpen()) return;
 
-  const card = e.target.closest('.ribbon .card'); // only drag from hand
+  const card = e.target.closest('.ribbon .card'); // only hand cards
   if (!card || e.button !== 0) return;
 
   e.preventDefault();
@@ -156,6 +180,7 @@ function onDown(e){
     targetX: pageLeft, targetY: pageTop,
     vx: 0, vy: 0,
     lifted: false,
+    previewed: false,
     placeholder: null,
     originParent: card.parentNode,
     originNext: card.nextSibling,
@@ -167,8 +192,9 @@ function onDown(e){
   // Start hold-to-preview timer
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
-    if (!st || st.lifted) return;       // don't preview if we've started dragging
+    if (!st || st.lifted) return;
     openPreview(card);
+    st.previewed = true;
   }, HOLD_MS);
 
   addGlobals();
@@ -177,7 +203,7 @@ function onDown(e){
 function lift(){
   if (!st || st.lifted) return;
 
-  // If a preview is open, close it before lifting
+  // If a preview is open, close before lifting
   closePreview();
   clearTimeout(holdTimer);
 
@@ -186,7 +212,7 @@ function lift(){
   const pageLeft = r.left + window.scrollX;
   const pageTop  = r.top  + window.scrollY;
 
-  // keep hand spacing
+  // keep hand spacing with placeholder
   const ph = document.createElement('div');
   ph.style.width = r.width + 'px';
   ph.style.height = r.height + 'px';
@@ -220,15 +246,27 @@ function onMove(e){
 
   const dx = e.pageX - st.startX;
   const dy = e.pageY - st.startY;
+  const dist = Math.hypot(dx, dy);
 
-  // If user moves more than threshold, cancel preview and start drag
-  if (!st.lifted && Math.hypot(dx, dy) > LIFT_THRESHOLD){
-    lift();
+  // If preview visible: tolerate small motion; convert to drag only after bigger move
+  if (!st.lifted && st.previewed){
+    if (dist > PREVIEW_DRAG_THRESHOLD) {
+      lift();
+    }
+    return; // while previewing (and under threshold), do not drag
+  }
+
+  // If NO preview: start drag after small-ish move
+  if (!st.lifted && !st.previewed){
+    // also cancel preview intent if user moves a decent amount before it shows
+    if (dist > PREVIEW_CANCEL_THRESHOLD) closePreview();
+    if (dist > LIFT_THRESHOLD) lift();
   }
 
   if (!st.lifted) return;
 
-  closePreview(); // preview must not stay while dragging
+  // live dragging
+  closePreview();
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
 }
@@ -329,6 +367,7 @@ function mountDragToggle(){
     z-index:2147483647;
     padding:8px 10px; border:0; border-radius:10px;
     color:#fff; font-weight:700;
+    background:#2c7be5;
     box-shadow:0 6px 16px rgba(0,0,0,.18); cursor:pointer;
   `;
   dragBtn.addEventListener('click', () => {
@@ -350,13 +389,13 @@ function updateToggleVisual(){
    Boot
    ========================= */
 window.addEventListener('DOMContentLoaded', () => {
-  // Put tray at end of body so it sits above normal content
+  // Ensure tray sits at end of body for stacking
   const tray = document.querySelector('.ribbon-wrap');
-  if (tray) document.body.appendChild(tray);
+  if (tray && tray.parentNode !== document.body) document.body.appendChild(tray);
 
   mountDragToggle();
 
-  // Always block native HTML5 ghost
+  // Prevent native ghost
   document.addEventListener('dragstart', e => e.preventDefault(), { passive:false });
 
   if (!devDragEnabled()){
@@ -365,11 +404,6 @@ window.addEventListener('DOMContentLoaded', () => {
   }
 
   ensureDragLayer();
-
-  // If preview somehow appears mid-drag, cancel cleanly
-  new MutationObserver(() => { if (isPreviewOpen() && (!st || st.lifted)) {/* noop */} })
-    .observe(document.body, { childList:true, subtree:true });
-
   document.addEventListener('pointerdown', onDown, { passive:false });
-  console.log('[DRAG] enabled with 500% hold-preview');
+  console.log('[DRAG] enabled — 5x preview + lenient hold');
 });
