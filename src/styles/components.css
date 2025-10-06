@@ -1,8 +1,8 @@
-/* ============================
+/* =========================
    THE GREY — components.css
    MTG dimensions • clean edge/shadow
-   Hand ribbon fixed (no cropping) • iOS-safe
-   ============================ */
+   Hand ribbon fixed + iOS-safe (no clipping)
+   ========================= */
 
 /* ---------- Theme tokens ---------- */
 :root{
@@ -16,13 +16,14 @@
 
   /* MTG ratio ≈ 3.5 / 2.5 = 1.4 */
   --card-ratio: 1.4;
-  --card-w: 220px;                                 /* desktop base width */
+  --card-w: 220px;                         /* desktop base width */
   --card-h: calc(var(--card-w) * var(--card-ratio));
 
-  --radius: 16px;
+  --radius: 18px;
   --shadow: 0 6px 20px rgba(0,0,0,.08);
 }
 
+/* ---------- Base ---------- */
 *{ box-sizing:border-box; }
 
 html, body{
@@ -30,11 +31,15 @@ html, body{
   background:var(--bg);
   color:var(--ink);
   font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+  /* Ensure fixed children behave correctly on iOS */
+  transform:none !important;
+  -webkit-transform:none !important;
+  overflow:visible !important;
 }
 
-/* Leave space so content never sits under the fixed hand tray */
+/* Leave space so page content never sits under the fixed hand tray */
 body{
-  padding-bottom: calc(var(--card-h) + 72px + env(safe-area-inset-bottom, 0)) !important;
+  padding-bottom: calc(var(--card-h) + 28px + env(safe-area-inset-bottom, 0)) !important;
 }
 
 /* ---------- Shell panels ---------- */
@@ -54,46 +59,37 @@ body{
   box-shadow: inset 0 1px 0 #fff8, 0 1px 2px rgba(0,0,0,.06);
 }
 
-/* ============================
-   CARD + MTG STYLE
-   ============================ */
+/* =========================
+   Card — MTG look
+   ========================= */
 
 /* Apply MTG size globally (cards and slots) */
-.card{ width: var(--card-w) !important; height: var(--card-h) !important; }
-.slotCell{ width: var(--card-w) !important; height: var(--card-h) !important; }
+.card{ width: var(--card-w); height: var(--card-h); }
+.slotCell{ width: var(--card-w); height: var(--card-h); }
 
 /* Base card: parchment face, clean rounded edge, subtle edge line */
 .card{
-  position: relative;
-  border-radius:18px;
-  background: linear-gradient(#fff, #faf8f4);
-  background-clip: padding-box;
+  position:relative;
+  border-radius:var(--radius);
+  background:linear-gradient(#fff,#faf8f4);
+  background-clip:padding-box;
   box-shadow: var(--shadow);
+  padding:14px;
+  display:flex; flex-direction:column;
+
+  /* Compositor-friendly */
+  transform-origin:center center;
+  will-change:transform;
   transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
-  filter: none;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  -webkit-transform: translateZ(0);
-  transform: translateZ(0);
+
+  user-select:none; -webkit-user-drag:none; touch-action:pan-y;
+  -webkit-backface-visibility:hidden; backface-visibility:hidden;
 }
 
 /* Inner printed edge line (MTG feel) */
 .card::before{
-  content:"";
-  position:absolute; inset:0;
-  border-radius:inherit;
-  box-shadow: inset 0 0 0 1px #e9e2d7;
-  pointer-events:none;
-}
-
-/* No vignette overlay */
-.card::after{ content:none !important; }
-
-/* Hover lift (no filter: drop-shadow to keep corners crisp) */
-.card:hover:not(.is-dragging){
-  transform: translateY(-14px) scale(1.02);
-  box-shadow: 0 10px 26px rgba(0,0,0,.12);
-  filter: none !important;
+  content:""; position:absolute; inset:0; border-radius:inherit;
+  box-shadow: inset 0 0 0 1px #e9e2d7; pointer-events:none;
 }
 
 /* Content blocks inside a card */
@@ -107,525 +103,52 @@ body{
   border-radius:12px; padding:3px 8px; border:1px solid #f3dfbf;
 }
 
-/* Ribbon hand: cards peek and rise on hover/drag */
-.ribbon .card{
-  pointer-events:auto;
+/* Hover lift (only when NOT previewing or dragging) */
+.card:hover:not(.is-preview):not(.is-dragging){
+  transform: translateY(-14px) scale(1.02);
+  box-shadow: 0 10px 26px rgba(0,0,0,.12);
+  filter:none;
+}
+
+/* =========================
+   Hand (Ribbon)
+   ========================= */
+
+/* Fixed tray pinned to the bottom center, never clipping */
+.ribbon-wrap{
+  position:fixed !important;
+  left:50%; bottom: calc(env(safe-area-inset-bottom, 0) + 8px);
+  transform:translateX(-50%);
+  width:100%; max-width:100vw;
+  display:flex; justify-content:center; align-items:flex-end;
+  overflow:visible !important; pointer-events:none;
+  z-index:2147483646 !important; isolation:isolate;
+  background:transparent !important;
+}
+
+/* Scrollable hand row inside the tray */
+.ribbon{
   position:relative;
-  transform: translateY(8px);
-  transition: transform 120ms ease, filter 120ms ease;
-  will-change: transform;
-  margin-left: -64px;            /* overlap to fan */
-  z-index: 1;
-}
-.ribbon .card:hover,
-.ribbon .card.is-dragging{
-  transform: translateY(-14px) scale(1.02);
-  z-index: 3;
+  height:calc(var(--card-h) + 16px);
+  display:flex; align-items:flex-end; justify-content:center;
+  gap:0; padding:0 16px 0;
+  overflow-x:auto !important; overflow-y:visible !important;
+  -webkit-overflow-scrolling:touch;
+  pointer-events:auto; z-index:2 !important;
+  background:transparent !important;
 }
 
-/* Press pose equals hover (so holding doesn’t “drop” the card) */
-.ribbon .card.is-pressing{
-  transform: translateY(-14px) scale(1.02) !important;
-  transition: none !important;
-}
-
-/* Disable transition while actually dragging */
-.card.is-dragging{ transition: none !important; }
-
-/* ============================
-   SLOTS
-   ============================ */
-.slotCell{
-  border-radius:18px; background:var(--panel-soft);
-  outline:1px dashed #e6dfd4; outline-offset:-6px;
-  display:flex; align-items:center; justify-content:center;
-}
-.slotCell.glyph{ border-style:solid; background:#f8f7f4; }
-.slotCell.drop-ok    { outline:2px solid #4caf50; }
-.slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
-.slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
-
-/* ============================
-   HUD / Controls
-   ============================ */
-.hudRow{ display:flex; align-items:center; justify-content:space-between;
-  gap:12px; padding:10px 16px; }
-.pill{ display:flex; gap:10px; align-items:center; padding:8px 12px;
-  background:var(--panel); border-radius:999px; box-shadow:var(--shadow); }
-.seg{ display:flex; align-items:center; gap:6px; font-weight:600; }
-.seg svg{ width:16px; height:16px; stroke:#222; fill:none; stroke-width:1.8px; }
-.sep{ width:1px; height:18px; background:#e5dfd5; }
-
-/* Aether gem */
-.aeGem{
-  position:fixed; right:18px; bottom:86px; z-index:40;
-  width:54px; height:54px; border-radius:14px;
-  background:radial-gradient(ellipse at 30% 25%,#ffd67a,#f6b441 60%,#d38d1f 100%);
-  box-shadow:0 10px 26px rgba(0,0,0,.18), inset 0 2px 6px #fff8;
-  display:flex; align-items:center; justify-content:center; font-weight:800;
-}
-
-/* Top-right controls (Draw / End / Reset) */
-.fabDial{ position:fixed; right:18px; top:18px; z-index:50; display:flex; flex-direction:column; gap:12px; }
-.fab{ width:40px; height:40px; border-radius:999px; border:0; background:#fff;
-     box-shadow:var(--shadow); cursor:pointer; font-weight:700; }
-
-/* Helpers */
-.emptyCell{ color:#bcb4a7; font-weight:600; }
-
-/* ============================
-   PREVIEW (if/when used)
-   ============================ */
-.preview-overlay{
-  position: fixed; inset: 0;
-  background: rgba(10,10,8,.55);
-  backdrop-filter: blur(2px);
-  display: grid; place-items: center;
-  z-index: 100;
-}
-.preview-card{
-  transform: translateY(-8px) scale(1.25);
-  transform-origin: center;
-  transition: transform 150ms ease;
-  max-width: min(96vw, 800px);
-}
-.preview-card .card{ box-shadow: 0 12px 34px rgba(0,0,0,.28); }
-
-/* Instant pulse halo that doesn’t kill base shadow */
-@keyframes goldPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(255,210,90,.45); opacity: 1; }
-  70%  { box-shadow: 0 0 24px 10px rgba(255,210,90,.18); opacity: .85; }
-  100% { box-shadow: 0 0 0 0 rgba(255,210,90,0); opacity: 0; }
-}
-.card.is-instant.pulsing::after{
-  content:"";
-  position:absolute; inset:-2px;
-  border-radius:inherit; pointer-events:none;
-  animation: goldPulse 1.4s ease-out infinite;
-}
-
-/* ============================
-   DRAG HOST / STATES
-   ============================ */
-.drag-layer{
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 999;
-}
-
-/* Prevent native ghost image on ribbon cards */
-.ribbon .card, .ribbon .card *{
-  -webkit-user-drag: none;
-  user-select: none;
-  touch-action: none;
-}
-
-/* Real card while dragging (MTG edge + deeper shadow) */
-.card.is-dragging{
-  position: fixed; left: 0; top: 0;
-  width: var(--card-w) !important; height: var(--card-h) !important;
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
-  border-radius:18px;
-  background: linear-gradient(#fff,#faf8f4);
-  background-clip: padding-box;
-  box-shadow: 0 18px 40px rgba(0,0,0,.28);
-  filter: none !important;
-  cursor: grabbing;
-  will-change: transform, box-shadow;
-}
-.card:hover.is-dragging{
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02) !important;
-  box-shadow: 0 18px 40px rgba(0,0,0,.28) !important;
-}
-
-/* ============================
-   Hand ribbon (fixed bottom, anti-crop)
-   ============================ */
-
-/* Fixed tray pinned to the bottom (above most UI) */
-.ribbon-wrap{
-  position: fixed !important;
-  left: 0; right: 0;
-  bottom: 0;
-  height: calc(var(--card-h) + 56px) !important;  /* headroom for lift */
-  background: transparent !important;
-  overflow: visible !important;
-  pointer-events: none;
-  z-index: 2147483646 !important;                /* below dev toggle */
-  isolation: isolate;
-}
-
-/* The scrollable hand row inside the tray */
-.ribbon{
-  position: relative;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-  gap: 0;
-  padding: 0 16px 0;
-  overflow-x: auto !important;
-  overflow-y: visible !important;                /* ← key for no clipping */
-  -webkit-overflow-scrolling: touch;
-  pointer-events: auto;
-  z-index: 2 !important;
-}
-
-/* Make sure common siblings can’t cover the tray */
-.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem {
-  position: relative;
-  z-index: 100 !important;
-  overflow: visible !important;
-}
-
-/* Slots never clip content */
-#playerSlots, #aiSlots, .slots, .zone { overflow: visible !important; }
-
-/* ============================
-   iOS / Safari: keep roots untransformed to preserve fixed positioning
-   ============================ */
-html, body, .wrap{
-  transform: none !important;
-  -webkit-transform: none !important;
-}
-
-/* ============================
-   Mobile scaling (keep MTG ratio)
-   ============================ */
-@media (max-width: 480px){
-  :root{
-    --card-w: min(38vw, 220px);
-    --card-h: calc(var(--card-w) * var(--card-ratio));
-  }
-}
-
-
-/* === FINAL mobile tray fix (iOS Chrome/Safari safe-area) === */
-
-/* Keep fixed elements truly fixed (no transforms on roots) */
-html, body, .wrap{
-  transform: none !important;
-  -webkit-transform: none !important;
-  overflow: visible !important;
-}
-
-/* Reserve just enough space for scrolling; no huge white strip */
-body{
-  padding-bottom: calc(var(--card-h) + 28px + env(safe-area-inset-bottom, 0)) !important;
-}
-
-/* Hand tray: sit ABOVE the safe-area, with more headroom, never clip */
-.ribbon-wrap{
-  position: fixed !important;
-  left: 0; right: 0;
-  bottom: env(safe-area-inset-bottom, 0) !important; /* <- key change */
-  height: calc(var(--card-h) + 64px) !important;     /* more lift room */
-  background: transparent !important;
-  overflow: visible !important;
-  pointer-events: none;
-  z-index: 2147483646 !important;
-  isolation: isolate;
-}
-
-/* Inner scroller must never crop upward lift */
-.ribbon{
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-  -webkit-overflow-scrolling: touch;
-  align-items: flex-end;
-  pointer-events: auto;
-}
-
-/* Lifted cards above neighbors */
-.ribbon .card{ position: relative; z-index: 1; }
-.ribbon .card:hover,
-.ribbon .card.is-dragging{ z-index: 3; }
-
-/* Nothing else should stack above the tray */
-.wrap, .zone, #topLog, .hudRow, .fabDial, .leftDock, .aetherGem{
-  position: relative; z-index: 100 !important; overflow: visible !important;
-}
-#playerSlots, #aiSlots, .slots, .zone{ overflow: visible !important; }
-
-
-/* === Anti-mask final overrides (bottom-left crop fix) === */
-
-/* Drag layer must be the very top, so dragged cards can never be covered */
-.drag-layer{
-  z-index: 2147483647 !important;   /* above everything */
-  pointer-events: none !important;
-}
-
-/* Tray + ribbon: never paint a background, never clip/mask */
-.ribbon-wrap,
-.ribbon{
-  background: transparent !important;
-  overflow: visible !important;
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
-  -webkit-mask: none !important;
-  mask: none !important;
-  clip-path: none !important;
-}
-
-/* Ensure tray sits above normal UI (the drag toggle already has higher z) */
-.ribbon-wrap{ z-index: 2147483646 !important; }
-
-/* Any docks/toolbars should NOT overlay the tray */
-.leftDock, .rightDock{
-  background: transparent !important;
-  z-index: 20 !important;       /* far below tray & drag layer */
-  overflow: visible !important;
-}
-
-/* Common siblings also kept below */
-.wrap, .zone, #topLog, .hudRow, .fabDial, .aetherGem{
-  position: relative;
-  z-index: 100 !important;
-  overflow: visible !important;
-}
-
-/* Absolutely forbid any pseudo-element masks on the tray */
-.ribbon-wrap::before, .ribbon-wrap::after,
-.ribbon::before, .ribbon::after{ content: none !important; }
-
-/* Keep roots untransformed so fixed elements position correctly on iOS */
-html, body, .wrap{
-  transform: none !important;
-  -webkit-transform: none !important;
-  overflow: visible !important;
-}
-
-/* === CARD HAND CENTERING FIX === */
-
-/* Hand wrapper: anchor to bottom center of viewport */
-.ribbon-wrap {
-  position: fixed;
-  left: 50%;
-  bottom: 12px;
-  transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  width: 100%;
-  max-width: 100vw;
-  pointer-events: none; /* prevents tray from blocking play area */
-  z-index: 2147483646 !important;
-}
-
-/* Actual row of cards */
-.ribbon {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  gap: 0;
-  pointer-events: auto; /* allow dragging */
-  overflow: visible !important;
-}
-
-/* Each card overlaps slightly to form a fan */
-.ribbon .card {
-  position: relative;
-  margin-left: -64px;
+/* Cards peek and overlap slightly (fan) */
+.ribbon .card{
+  position:relative;
   transform: translateY(10px);
   transition: transform 120ms ease, filter 120ms ease;
   will-change: transform;
+  margin-left:-56px;                   /* tighter fan */
+  z-index:1;
 }
+.ribbon .card:first-child{ margin-left:0; }
 
-/* Center pivot for fan effect */
-.ribbon .card:first-child {
-  margin-left: 0;
-}
-
-/* Hover + drag effects preserved */
-.ribbon .card:hover,
-.ribbon .card.is-dragging {
-  transform: translateY(-14px) scale(1.02);
-  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.4));
-}
-
-/* For mobile: slightly closer together */
-@media (max-width: 768px) {
-  .ribbon .card {
-    margin-left: -48px;
-    transform: translateY(8px);
-  }
-  .ribbon .card:hover,
-  .ribbon .card.is-dragging {
-    transform: translateY(-10px) scale(1.02);
-  }
-  .ribbon-wrap {
-    bottom: 6px;
-  }
-}
-
-/* Make sure drag layer still stays above everything */
-.drag-layer {
-  position: fixed;
-  inset: 0;
-  z-index: 2147483647 !important;
-  pointer-events: none !important;
-}
-
-
-
-/* === Requested tweaks (preview, hand spacing, buttons) === */
-
-/* 1) Preview size → 250% */
-.preview-card{
-  transform: translateY(-8px) scale(5.0) !important;
-}
-
-/* 2) Tighter spacing between cards in hand (more overlap) */
-.ribbon .card{ margin-left: -72px !important; }          /* was -64 */
-@media (max-width: 768px){
-  .ribbon .card{ margin-left: -60px !important; }        /* was -48/-56 */
-}
-
-/* 3) Remove the Draw icon/button */
-#btnDraw{ display:none !important; }
-
-/* 4) Move End Turn to the right of the Aether gem (same baseline) */
-#btnEnd{
-  position: fixed !important;
-  /* gem is right:18px wide:54px — add a comfy 12px gap */
-  right: calc(18px + 54px + 12px) !important;  /* = 84px */
-  bottom: 86px !important;                     /* same baseline as gem */
-  z-index: 51 !important;                      /* above content, below drag layer */
-}
-
-/* (Optional) keep Reset tucked up with End Turn too */
-#btnReset{
-  position: fixed !important;
-  right: calc(18px + 54px + 12px + 48px + 10px) !important; /* to the left of End Turn */
-  bottom: 86px !important;
-  z-index: 51 !important;
-}
-
-
-/* === Card Preview (500% zoom) === */
-.card.preview-card {
-  position: fixed !important;
-  z-index: 9999 !important;
-  transform-origin: center center !important;
-  transform: scale(5) translate(-50%, -50%) !important;
-  top: 50% !important;
-  left: 50% !important;
-  pointer-events: none !important;
-  transition: transform 0.15s ease-out, opacity 0.15s ease-out !important;
-}
-
-/* Slight fade-in for readability */
-.card.preview-card.show {
-  opacity: 1;
-}
-
-
-
-
-/* ---------- HAND (ribbon) ---------- */
-.ribbon-wrap,
-.ribbon {
-  position: relative;
-  overflow: visible !important;        /* DO NOT CLIP the hand */
-  isolation: isolate;                  /* give z-index a home without clipping */
-}
-
-.ribbon {
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;             /* center the hand */
-  gap: 22px;                           /* a bit tighter spacing */
-  padding: 10px 16px;
-  pointer-events: auto;
-}
-
-/* individual cards in the hand fan slightly */
-.ribbon .card {
-  position: relative;
-  transform: translateY(10px);
-  transition: transform 120ms ease, filter 120ms ease;
-  will-change: transform, filter;
-  pointer-events: auto;
-}
-
-/* lift/fan on hover – but never when previewing/dragging */
-.ribbon .card:hover:not(.is-dragging):not(.is-previewing) {
-  transform: translateY(-14px) scale(1.02);
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
-}
-
-/* pressing pose (so hold doesn't "drop" the card) */
-.ribbon .card.is-pressing {
-  transform: translateY(-14px) scale(1.02) !important;
-  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
-  transition: none !important;
-}
-
-/* while dragging we fully own transforms via JS */
-.card.is-dragging {
-  transition: none !important;
-}
-
-/* ---------- REAL-CARD PREVIEW (hold to zoom) ---------- */
-:root { --preview-scale: 2.5; }        /* 250% */
-
-.card.is-previewing {
-  position: relative;                  /* keep in normal flow */
-  z-index: 2147483000;                 /* above everything */
-  transform-origin: 50% 50% !important;
-  transform: translate3d(0,-14px,0) scale(var(--preview-scale)) !important;
-  filter: drop-shadow(0 16px 36px rgba(0,0,0,.35)) !important;
-  will-change: transform, filter;
-}
-
-/* don't apply hover styling while previewing or dragging */
-.card:hover.is-previewing,
-.card:hover.is-dragging {
-  transform: none;
-  filter: none;
-}
-
-/* Make sure no parent clips the hand/preview */
-.zone, .wrap {
-  overflow: visible !important;
-}
-
-
-/* jitter-free preview: the card is taken out of flow and scaled on its own layer */
-.card.is-previewing {
-  transition: none !important;                 /* kill hover/drag transitions */
-  will-change: left, top, transform;           /* promote to its own compositor layer */
-  backface-visibility: hidden;
-  contain: layout paint;                        /* avoid touching siblings */
-  z-index: 2147483000;                          /* above everything */
-}
-
-/* ensure preview/drag are smooth and don't reflow siblings */
-.card.is-previewing {
-  transition: none !important;
-  will-change: left, top, transform;
-  backface-visibility: hidden;
-  contain: layout paint;
-}
-
-/* real-node dragging: position is driven by CSS vars set in JS */
-.card.is-dragging {
-  position: fixed;
-  left: 0; top: 0;
-  transform: translate3d(var(--drag-x, 0px), var(--drag-y, 0px), 0) scale(1.02);
-  filter: drop-shadow(0 12px 24px rgba(0,0,0,.32));
-  cursor: grabbing;
-  transition: none !important;
-}
-
-/* keep everything on the compositor and grow around your finger */
-.ribbon .card {
-  transform-origin: center center;
-  will-change: transform;
-}
-.ribbon .card.is-preview {
-  /* the JS animates transform; this just ensures no other transitions interfere */
-  transition-property: transform;
-}
-
+/* Hover/drag lift from ribbon (visual only; JS owns transforms during drag) */
+.ribbon .card:hover:not(.is-preview):not(.is-dragging){
+  transform: translateY(-14px)
