@@ -1,18 +1,18 @@
-// boot-debug.js — Dev Drag + 500% Hold Preview (lenient hold)
+// boot-debug.js — 5× Hold Preview (always on) + Dev Drag (toggle only)
 /* eslint-disable */
 
-console.log("[DRAG] dev drag bootstrap — 5x preview + lenient hold");
+console.log("[DRAG] bootstrap — preview ALWAYS on, drag gated by toggle");
 
 /* =========================
    Tunables
    ========================= */
-const HOLD_MS = 350;                 // time to show preview
-const LIFT_THRESHOLD = 12;           // pixels to start drag (before preview)
-const PREVIEW_CANCEL_THRESHOLD = 18; // movement to cancel preview (small wiggles OK)
-const PREVIEW_DRAG_THRESHOLD = 24;   // movement to convert preview -> drag
+const HOLD_MS = 350;                 // press-and-hold delay to show preview
+const LIFT_THRESHOLD = 12;           // px to start drag before preview (only when drag is ON)
+const PREVIEW_CANCEL_THRESHOLD = 18; // movement to cancel pending preview
+const PREVIEW_DRAG_THRESHOLD = 24;   // movement to convert preview -> drag (when drag is ON)
 const RETURN_MS = 220;               // animate back to hand
 const SLOT_SNAP_MS = 120;            // animate into slot
-const STIFFNESS = 0.34;              // spring-ish follow
+const STIFFNESS = 0.34;              // follow feel
 const DAMPING = 0.22;
 const MASS = 1.0;
 
@@ -110,9 +110,11 @@ function openPreview(fromCard){
   closePreview();
 
   const clone = fromCard.cloneNode(true);
-  // Make sure shadows/edges look strong at 5x
+  // strong edges at big scale
   clone.style.boxShadow = '0 18px 60px rgba(0,0,0,.32)';
   clone.style.borderRadius = getComputedStyle(fromCard).borderRadius;
+
+  const cs = getComputedStyle(fromCard);
 
   Object.assign(clone.style, {
     position: 'fixed',
@@ -120,8 +122,8 @@ function openPreview(fromCard){
     left: '50%',
     transform: 'translate(-50%,-50%) scale(5)', // 500%
     transformOrigin: 'center center',
-    width: getComputedStyle(fromCard).width, // baseline for accurate scale
-    height: getComputedStyle(fromCard).height,
+    width: cs.width,
+    height: cs.height,
     zIndex: '2147483647',
     pointerEvents: 'none',
     willChange: 'transform, opacity',
@@ -132,8 +134,9 @@ function openPreview(fromCard){
 
   previewNode = clone;
   document.body.appendChild(previewNode);
+
+  // prevent iOS scroll nudge while preview is open
   if (document.body.style.overflow !== 'hidden'){
-    // prevent iOS scroll nudge during preview
     document.body.dataset.prevOverflow = document.body.style.overflow || '';
     document.body.style.overflow = 'hidden';
   }
@@ -153,13 +156,14 @@ function closePreview(){
    Drag core
    ========================= */
 function onDown(e){
-  if (!devDragEnabled()) return;
-  if (isPreviewOpen()) return;
-
-  const card = e.target.closest('.ribbon .card'); // only hand cards
+  // PREVIEW should always work on hand cards
+  const card = e.target.closest('.ribbon .card');
   if (!card || e.button !== 0) return;
 
+  // Let the page scroll if user is clearly panning vertically and Drag=OFF
+  // (we still attach handlers; preview timer will cancel if they pan too far)
   e.preventDefault();
+
   try { card.setPointerCapture(e.pointerId); } catch {}
 
   ensureDragLayer();
@@ -189,7 +193,7 @@ function onDown(e){
     lastClientY: e.clientY,
   };
 
-  // Start hold-to-preview timer
+  // Hold-to-preview ALWAYS
   clearTimeout(holdTimer);
   holdTimer = setTimeout(() => {
     if (!st || st.lifted) return;
@@ -203,7 +207,10 @@ function onDown(e){
 function lift(){
   if (!st || st.lifted) return;
 
-  // If a preview is open, close before lifting
+  // If Drag is OFF, do not lift — keep preview only
+  if (!devDragEnabled()) return;
+
+  // Close preview and lift to drag
   closePreview();
   clearTimeout(holdTimer);
 
@@ -248,19 +255,19 @@ function onMove(e){
   const dy = e.pageY - st.startY;
   const dist = Math.hypot(dx, dy);
 
-  // If preview visible: tolerate small motion; convert to drag only after bigger move
+  // If preview visible: tolerate small motion; convert to drag only after bigger move (and only when drag is ON)
   if (!st.lifted && st.previewed){
-    if (dist > PREVIEW_DRAG_THRESHOLD) {
+    if (devDragEnabled() && dist > PREVIEW_DRAG_THRESHOLD) {
       lift();
     }
     return; // while previewing (and under threshold), do not drag
   }
 
-  // If NO preview: start drag after small-ish move
+  // If NO preview: start drag after small-ish move (only when drag is ON)
   if (!st.lifted && !st.previewed){
     // also cancel preview intent if user moves a decent amount before it shows
     if (dist > PREVIEW_CANCEL_THRESHOLD) closePreview();
-    if (dist > LIFT_THRESHOLD) lift();
+    if (devDragEnabled() && dist > LIFT_THRESHOLD) lift();
   }
 
   if (!st.lifted) return;
@@ -279,6 +286,16 @@ function onUp(e){
   removeGlobals();
 
   clearTimeout(holdTimer);
+
+  // If we never lifted (drag OFF or user just held), just close preview + clear states
+  if (!st.lifted){
+    closePreview();
+    st.card.classList.remove('is-pressing','grab-intent');
+    st = null;
+    return;
+  }
+
+  // Drag path (Drag=ON)
   closePreview();
 
   // Determine drop (player slots only)
@@ -286,7 +303,7 @@ function onUp(e){
   let cy = Number.isFinite(e?.clientY) ? e.clientY : st.lastClientY;
 
   let dropSlot = null;
-  if (st.lifted && Number.isFinite(cx) && Number.isFinite(cy)) {
+  if (Number.isFinite(cx) && Number.isFinite(cy)) {
     st.card.style.visibility = 'hidden';
     const hit = document.elementFromPoint(cx, cy);
     st.card.style.visibility = '';
@@ -294,7 +311,7 @@ function onUp(e){
     if (dropSlot && !dropSlot.closest('#playerSlots')) dropSlot = null; // only player board
   }
 
-  if (st.lifted && dropSlot){
+  if (dropSlot){
     const r = dropSlot.getBoundingClientRect();
     const toX = r.left + window.scrollX;
     const toY = r.top  + window.scrollY;
@@ -312,7 +329,7 @@ function onUp(e){
       } catch {}
       st = null;
     });
-  } else if (st.lifted){
+  } else {
     // animate back to placeholder
     const pr = st.placeholder.getBoundingClientRect();
     const toX = pr.left + window.scrollX;
@@ -324,10 +341,6 @@ function onUp(e){
       st.card.style.removeProperty('--drag-y');
       st = null;
     });
-  } else {
-    // never dragged; just clear press state
-    st.card.classList.remove('is-pressing','grab-intent');
-    st = null;
   }
 }
 
@@ -398,12 +411,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Prevent native ghost
   document.addEventListener('dragstart', e => e.preventDefault(), { passive:false });
 
-  if (!devDragEnabled()){
-    console.log('[DRAG] disabled (toggle or ?drag=1 to enable)');
-    return;
-  }
-
   ensureDragLayer();
   document.addEventListener('pointerdown', onDown, { passive:false });
-  console.log('[DRAG] enabled — 5x preview + lenient hold');
+  console.log('[DRAG] ready — preview always ON, drag requires toggle/?drag=1');
 });
