@@ -23,18 +23,18 @@
   --radius: 18px;
   --shadow: 0 6px 20px rgba(0,0,0,.08);
 
-  /* Hold-to-preview zoom */
-  --preview-scale: 3; /* 300% */
+  /* Hold-to-preview zoom (grow-in-place) */
+  --preview-scale: 3; /* 300% on hold */
 }
 
 *{ box-sizing:border-box; }
 
+/* Keep fixed children truly fixed on iOS; never clip */
 html, body{
   margin:0;
   background:var(--bg);
   color:var(--ink);
   font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,Inter,Arial,sans-serif;
-  /* keep fixed children truly fixed on iOS */
   transform:none !important;
   -webkit-transform:none !important;
   overflow:visible !important;
@@ -63,19 +63,24 @@ body{
   box-shadow: inset 0 1px 0 #fff8, 0 1px 2px rgba(0,0,0,.06);
 }
 
-/* ---------- Base Card ---------- */
+/* ---------- Card / MTG dimensions ---------- */
+.card{ width:var(--card-w); height:var(--card-h); }
+.slotCell{ width:var(--card-w); height:var(--card-h); }
+
+/* Base card surface */
 .card{
-  width:var(--card-w); height:var(--card-h);
   position:relative;
   border-radius:var(--radius);
   background:linear-gradient(#fff,#faf8f4);
   background-clip:padding-box;
   box-shadow:var(--shadow);
-  transition:transform .18s ease, box-shadow .18s ease;
   transform-origin:center center;
-  -webkit-backface-visibility:hidden;
+  transition:transform .18s ease, box-shadow .18s ease;
+  /* keep on GPU and isolated (less jank on iOS) */
+  will-change: transform, box-shadow;
   backface-visibility:hidden;
-  will-change:transform, box-shadow;
+  -webkit-backface-visibility:hidden;
+  contain: paint;              /* isolates internal repaints */
 }
 .card::before{
   content:"";
@@ -85,19 +90,20 @@ body{
   pointer-events:none;
 }
 
-/* Hover and drag states */
-.card:hover:not(.is-dragging):not(.is-previewing){
+/* Hover lift (disabled while dragging/previewing) */
+.card:hover:not(.is-dragging):not(.is-preview):not(.is-previewing){
   transform:translateY(-14px) scale(1.02);
   box-shadow:0 10px 26px rgba(0,0,0,.12);
 }
 
-/* ---------- Ribbon (hand) ---------- */
+/* ---------- Hand ribbon (fixed, centered, no clipping) ---------- */
 .ribbon-wrap{
   position:fixed !important;
-  left:50%; bottom:env(safe-area-inset-bottom,12px);
+  left:50%;
+  bottom:calc(env(safe-area-inset-bottom, 0) + 12px);
   transform:translateX(-50%);
-  display:flex; justify-content:center; align-items:flex-end;
   width:100%; max-width:100vw;
+  display:flex; justify-content:center; align-items:flex-end;
   background:transparent !important;
   overflow:visible !important;
   pointer-events:none;
@@ -107,49 +113,82 @@ body{
 .ribbon{
   display:flex; align-items:flex-end; justify-content:center;
   gap:0; overflow:visible !important; pointer-events:auto;
+  /* gives the preview a clean stacking context, without clipping */
+  isolation:isolate;
 }
 .ribbon .card{
-  margin-left:-60px; transform:translateY(8px);
-  transition:transform 120ms ease;
-  pointer-events:auto;
+  position:relative;
+  margin-left:-60px;              /* fan overlap */
+  transform:translateY(8px);
+  transition:transform 120ms ease; /* quick, but not jarring */
   will-change:transform;
+  pointer-events:auto;
+  z-index:1;
 }
 .ribbon .card:first-child{ margin-left:0; }
 
-/* Lift/fan */
-.ribbon .card:hover:not(.is-dragging):not(.is-previewing),
+/* Press pose equals hover (no dip on long-press) */
 .ribbon .card.is-pressing{
-  transform:translateY(-14px) scale(1.02);
-  filter:drop-shadow(0 8px 16px rgba(0,0,0,.4));
-  z-index:10;
-}
-
-/* ---------- Drag & Preview States ---------- */
-.card.is-dragging{
-  position:fixed; left:0; top:0;
-  transform:translate3d(var(--drag-x,0px), var(--drag-y,0px),0) scale(1.02);
-  filter:drop-shadow(0 12px 24px rgba(0,0,0,.3));
-  cursor:grabbing;
+  transform:translateY(-14px) scale(1.02) !important;
   transition:none !important;
-  z-index:2147483001;
+  z-index:5;
 }
 
-.card.is-previewing{
-  z-index:2147483000;
-  transform:translateY(-20px) scale(var(--preview-scale)) !important;
-  filter:drop-shadow(0 18px 40px rgba(0,0,0,.4));
-  transition:transform 180ms ease-out;
-  pointer-events:none !important;
-  will-change:transform, filter;
-}
+/* ---------- Drag / Preview states ---------- */
 
-/* ---------- Drag Layer ---------- */
+/* Absolutely top most layer for the true node while dragging */
 .drag-layer{
-  position:fixed;
-  inset:0;
+  position:fixed; inset:0;
   z-index:2147483647 !important;
   pointer-events:none !important;
 }
+
+/* JS sets --drag-x / --drag-y; keep transforms only (no layout) */
+.card.is-dragging{
+  position:fixed; left:0; top:0;
+  transform:translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) scale(1.02);
+  filter:drop-shadow(0 12px 24px rgba(0,0,0,.30));
+  cursor:grabbing;
+  transition:none !important;          /* avoid fighting with hover */
+  z-index:2147483001;
+  backface-visibility:hidden;
+  contain: layout paint;               /* ensure independence */
+}
+
+/* Grow-in-place preview (supports either class name) */
+.card.is-preview,
+.card.is-previewing{
+  /* stay in normal flow so it "belongs" to the hand visually */
+  position:relative;
+  z-index:2147483000;
+  /* IMPORTANT: only a transform, no layout changes */
+  transform:translate3d(0,-16px,0) scale(var(--preview-scale)) !important;
+  filter:drop-shadow(0 18px 40px rgba(0,0,0,.40));
+  transition:transform 180ms ease-out !important;
+  pointer-events:none !important;      /* prevent accidental taps while zoomed */
+  will-change:transform, filter;
+  backface-visibility:hidden;
+  contain: paint;                       /* isolate internal repaints */
+}
+
+/* Never let hover/drag styles override preview */
+.card:hover.is-preview,
+.card:hover.is-previewing,
+.card.is-dragging:hover{
+  transform:none;
+  filter:none;
+}
+
+/* ---------- Slots ---------- */
+.slotCell{
+  border-radius:18px; background:var(--panel-soft);
+  outline:1px dashed #e6dfd4; outline-offset:-6px;
+  display:flex; align-items:center; justify-content:center;
+}
+.slotCell.glyph{ border-style:solid; background:#f8f7f4; }
+.slotCell.drop-ok    { outline:2px solid #4caf50; }
+.slotCell.drop-no    { outline:2px solid #e57373; opacity:.6; }
+.slotCell.drop-hover { box-shadow:0 0 0 4px #4caf5033 inset; }
 
 /* ---------- Prevent clipping anywhere ---------- */
 .wrap, .zone, .ribbon, .ribbon-wrap, #playerSlots, #aiSlots{
@@ -163,10 +202,12 @@ body{
 @media (max-width:768px){
   :root{ --card-w:min(38vw,220px); --card-h:calc(var(--card-w)*var(--card-ratio)); }
   .ribbon .card{ margin-left:-48px; transform:translateY(6px); }
-  .ribbon .card:hover{ transform:translateY(-10px) scale(1.02); }
+  .ribbon .card:hover:not(.is-dragging):not(.is-preview):not(.is-previewing){
+    transform:translateY(-10px) scale(1.02);
+  }
 }
 
-/* ---------- Instant pulse ---------- */
+/* ---------- Instant pulse halo ---------- */
 @keyframes goldPulse {
   0% { box-shadow:0 0 0 0 rgba(255,210,90,.45); opacity:1; }
   70%{ box-shadow:0 0 24px 10px rgba(255,210,90,.18); opacity:.85; }
@@ -179,7 +220,7 @@ body{
   animation:goldPulse 1.4s ease-out infinite;
 }
 
-/* ---------- End Turn button alignment ---------- */
+/* ---------- End Turn alignment; hide Draw ---------- */
 #btnDraw{ display:none !important; }
 #btnEnd{
   position:fixed !important;
