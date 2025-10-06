@@ -519,3 +519,76 @@ html, body, .wrap{
 .card.preview-card.show {
   opacity: 1;
 }
+
+
+
+
+/* ---------- HAND (ribbon) ---------- */
+.ribbon-wrap,
+.ribbon {
+  position: relative;
+  overflow: visible !important;        /* DO NOT CLIP the hand */
+  isolation: isolate;                  /* give z-index a home without clipping */
+}
+
+.ribbon {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;             /* center the hand */
+  gap: 22px;                           /* a bit tighter spacing */
+  padding: 10px 16px;
+  pointer-events: auto;
+}
+
+/* individual cards in the hand fan slightly */
+.ribbon .card {
+  position: relative;
+  transform: translateY(10px);
+  transition: transform 120ms ease, filter 120ms ease;
+  will-change: transform, filter;
+  pointer-events: auto;
+}
+
+/* lift/fan on hover – but never when previewing/dragging */
+.ribbon .card:hover:not(.is-dragging):not(.is-previewing) {
+  transform: translateY(-14px) scale(1.02);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4));
+}
+
+/* pressing pose (so hold doesn't "drop" the card) */
+.ribbon .card.is-pressing {
+  transform: translateY(-14px) scale(1.02) !important;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.4)) !important;
+  transition: none !important;
+}
+
+/* while dragging we fully own transforms via JS */
+.card.is-dragging {
+  transition: none !important;
+}
+
+/* ---------- REAL-CARD PREVIEW (hold to zoom) ---------- */
+:root { --preview-scale: 2.5; }        /* 250% */
+
+.card.is-previewing {
+  position: relative;                  /* keep in normal flow */
+  z-index: 2147483000;                 /* above everything */
+  transform-origin: 50% 50% !important;
+  transform: translate3d(0,-14px,0) scale(var(--preview-scale)) !important;
+  filter: drop-shadow(0 16px 36px rgba(0,0,0,.35)) !important;
+  will-change: transform, filter;
+}
+
+/* don't apply hover styling while previewing or dragging */
+.card:hover.is-previewing,
+.card:hover.is-dragging {
+  transform: none;
+  filter: none;
+}
+
+/* Make sure no parent clips the hand/preview */
+.zone, .wrap {
+  overflow: visible !important;
+}
+
+
