@@ -19,85 +19,114 @@ function initDragBridge() {
   document.addEventListener('pointerup', onUp);
 }
 
-function onDown(e) {
-  const card = e.target.closest('.card');
-  if (!card || st) return;
+function onDown(e){
+  if (isPreviewOpen()) return;
+  const card = e.target.closest('.ribbon .card');
+  if (!card || e.button !== 0) return;
+
+  e.preventDefault();
+  try { card.setPointerCapture(e.pointerId); } catch {}
+
+  // Make press look like hover; freeze transitions.
+  card.classList.add('is-pressing');
+  card.classList.add('grab-intent');
+
+  // Measure the *visual* position (DO NOT subtract transforms)
+  const rect = card.getBoundingClientRect();
+  const pageLeft = rect.left + window.scrollX;
+  const pageTop  = rect.top  + window.scrollY;
 
   st = {
+    pid: e.pointerId,
     card,
     startX: e.pageX,
     startY: e.pageY,
-    curX: 0,
-    curY: 0,
-    targetX: 0,
-    targetY: 0,
-    offsetX: 0,
-    offsetY: 0,
+    // click point inside the card:
+    offsetX: e.pageX - pageLeft,
+    offsetY: e.pageY - pageTop,
+    // current/target follow the visual position exactly:
+    curX: pageLeft,
+    curY: pageTop,
+    targetX: pageLeft,
+    targetY: pageTop,
+    lastClientX: e.clientX,
+    lastClientY: e.clientY,
     lifted: false,
-    originParent: card.parentElement,
-    originNext: card.nextSibling
+    originParent: card.parentNode,
+    originNext: card.nextSibling,
+    placeholder: null,
+    isInstant: card.classList.contains('is-instant'),
   };
 
-  card.classList.add('grab-intent');
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointercancel', onUp);
+  window.addEventListener('blur', onUp);
 }
 
-function lift() {
+
+function lift(){
   if (!st || st.lifted) return;
-  const card = st.card;
+  const { card, originParent, originNext } = st;
+
+  // Measure again right before moving (still visual coords)
   const rect = card.getBoundingClientRect();
+  const pageLeft = rect.left + window.scrollX;
+  const pageTop  = rect.top  + window.scrollY;
 
-  // exact position on page before reparenting
-  const pageX = rect.left + window.scrollX;
-  const pageY = rect.top + window.scrollY;
-
-  // placeholder to keep layout
+  // Keep ribbon spacing with a placeholder
   const ph = document.createElement('div');
   ph.style.width = rect.width + 'px';
   ph.style.height = rect.height + 'px';
   ph.style.marginLeft = getComputedStyle(card).marginLeft;
   st.placeholder = ph;
+  if (originNext) originParent.insertBefore(ph, originNext);
+  else originParent.appendChild(ph);
 
-  if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
-  else st.originParent.appendChild(ph);
+  // Recompute grip offset from the *visual* top/left
+  st.offsetX = st.startX - pageLeft;
+  st.offsetY = st.startY - pageTop;
 
-  // offset between pointer and top-left of card
-  st.offsetX = st.startX - pageX;
-  st.offsetY = st.startY - pageY;
+  // IMPORTANT: set CSS vars FIRST so there is no 0,0 frame
+  card.style.setProperty('--drag-x', `${pageLeft}px`);
+  card.style.setProperty('--drag-y', `${pageTop}px`);
 
-  // lock transform BEFORE adding dragging class
-  card.style.setProperty('--drag-x', `${pageX}px`);
-  card.style.setProperty('--drag-y', `${pageY}px`);
+  // Then switch classes and move the node
+  card.classList.remove('grab-intent','is-pressing');
+  card.classList.add('is-dragging');
+  if (st.isInstant) card.classList.add('pulsing');
 
-  card.classList.remove('grab-intent', 'is-pressing');
   dragLayer.appendChild(card);
 
-  // mark as dragging *after* variables are defined
-  card.classList.add('is-dragging');
-
-  st.curX = pageX;
-  st.curY = pageY;
-  st.targetX = pageX;
-  st.targetY = pageY;
+  // Initialize state for the follow loop
+  st.curX = pageLeft;
+  st.curY = pageTop;
+  st.targetX = pageLeft;
+  st.targetY = pageTop;
 
   st.lifted = true;
-  requestAnimationFrame(smoothFollow);
+  smoothFollow();
 }
 
-function onMove(e) {
+
+function onMove(e){
+  if (isPreviewOpen()) { cancelDragNow(); return; }
   if (!st) return;
+
+  st.lastClientX = e.clientX;
+  st.lastClientY = e.clientY;
 
   const dx = e.pageX - st.startX;
   const dy = e.pageY - st.startY;
 
-  // pick-up threshold
-  if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
-    lift();
-  }
+  if (!st.lifted && Math.hypot(dx, dy) > DRAG_THRESHOLD) lift();
   if (!st.lifted) return;
 
+  // Follow cursor; keep the exact click point under the pointer
   st.targetX = e.pageX - st.offsetX;
   st.targetY = e.pageY - st.offsetY;
 }
+
 
 function onUp(e) {
   if (!st) return;
