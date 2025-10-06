@@ -1,19 +1,44 @@
 // boot-debug.js
-console.log("[BRIDGE] UI Drag/Preview bridge loaded");
+console.log("[BRIDGE] Drag/Preview bridge (no-clone) loaded");
 
 /* ---------- Tunables ---------- */
 const DRAG_THRESHOLD       = 8;      // px to start drag during press
-const PREVIEW_DELAY_MS     = 260;    // hold time to preview
-const PREVIEW_CANCEL_DIST  = 18;     // wiggle allowed in preview before drag
-const PREVIEW_SCALE        = 2.5;    // 250%
-const PREVIEW_EASE_MS      = 120;    // preview ease-in
-const FOLLOW_DAMP          = 0.28;   // drag smoothing
+const PREVIEW_DELAY_MS     = 260;    // press & hold time
+const PREVIEW_CANCEL_DIST  = 30;     // wiggle allowed during preview
+const PREVIEW_SCALE        = 2.5;    // 250% preview
+const PREVIEW_EASE_MS      = 140;    // zoom ease
+const FOLLOW_DAMP          = 0.28;   // drag smoothing (lower = tighter)
 /* -------------------------------- */
 
 let dragLayer = null;
 
+// Ensure we have the minimal CSS needed even if component.css is stale
+(function injectSafetyCSS(){
+  const id = "drag-safety-css";
+  if (document.getElementById(id)) return;
+  const s = document.createElement("style");
+  s.id = id;
+  s.textContent = `
+    .card.is-pressing { transition: none !important; }
+    .card.is-previewing {
+      pointer-events: none !important;
+      will-change: transform, filter;
+      z-index: 2147483000 !important;
+    }
+    .card.is-dragging {
+      position: fixed !important;
+      left: 0 !important; top: 0 !important;
+      transform: translate3d(var(--drag-x,0px), var(--drag-y,0px), 0) !important;
+      pointer-events: none !important;
+      will-change: transform, filter;
+      z-index: 2147483000 !important;
+    }
+  `;
+  document.head.appendChild(s);
+})();
+
 const st = {
-  mode: "idle",            // "idle" | "press" | "preview" | "drag"
+  mode: "idle",    // "idle" | "press" | "preview" | "drag"
   pid: null,
   card: null,
 
@@ -23,9 +48,12 @@ const st = {
 
   // preview/drag shared
   originParent: null,
-  originNext: null,
-  placeholder: null,
-  restore: null,           // original inline styles
+  originNext:   null,
+  placeholder:  null,
+  restore:      null,
+
+  // cancel hysteresis
+  cancelArmed: 0,
 
   // drag
   curX: 0, curY: 0,
@@ -34,100 +62,127 @@ const st = {
   raf: 0
 };
 
-function initDragBridge(){
-  dragLayer = document.querySelector('.drag-layer');
-  if(!dragLayer){
-    dragLayer = document.createElement('div');
-    dragLayer.className = 'drag-layer';
+function initBridge(){
+  dragLayer = document.querySelector(".drag-layer");
+  if (!dragLayer) {
+    dragLayer = document.createElement("div");
+    dragLayer.className = "drag-layer";
     Object.assign(dragLayer.style, {
-      position:'fixed', inset:0,
-      pointerEvents:'none', zIndex:2147483000
+      position: "fixed", inset: 0, pointerEvents: "none",
+      zIndex: 2147483000
     });
     document.body.appendChild(dragLayer);
   }
 
-  addEventListener('pointerdown', onDown, {passive:false});
-  addEventListener('pointermove', onMove, {passive:false});
-  addEventListener('pointerup', onUp, {passive:false});
-  addEventListener('pointercancel', onUp, {passive:false});
-  addEventListener('blur', onUp);
+  addEventListener("pointerdown", onDown, {passive:false});
+  addEventListener("pointermove", onMove, {passive:false});
+  addEventListener("pointerup", onUp, {passive:false});
+  addEventListener("pointercancel", onUp, {passive:false});
+  addEventListener("blur", onUp);
 }
 
-function resetState(){
+function reset(){
   clearTimeout(st.pressTimer);
   cancelAnimationFrame(st.raf);
-  Object.assign(st, {
-    mode:"idle", pid:null, card:null,
-    downX:0, downY:0, pressTimer:0,
-    originParent:null, originNext:null, placeholder:null,
-    restore:null,
-    curX:0, curY:0, targetX:0, targetY:0, offsetX:0, offsetY:0, raf:0
-  });
+  // restore touch-action if we disabled it
+  document.documentElement.style.removeProperty("touch-action");
+  st.placeholder?.remove();
+  st.placeholder = null;
+  st.card = null;
+  st.mode = "idle";
+  st.pid = null;
+  st.cancelArmed = 0;
 }
 
 /* ---------- Handlers ---------- */
+
 function onDown(e){
-  const card = e.target.closest('.ribbon .card');
-  if(!card || e.button !== 0) return;
+  const card = e.target.closest(".ribbon .card");
+  if (!card || e.button !== 0) return;
 
   e.preventDefault();
   try { card.setPointerCapture(e.pointerId); } catch {}
 
-  st.mode = "press";
-  st.pid = e.pointerId;
-  st.card = card;
+  st.mode  = "press";
+  st.pid   = e.pointerId;
+  st.card  = card;
   st.downX = e.pageX;
   st.downY = e.pageY;
+  st.cancelArmed = 0;
 
-  card.classList.add('is-pressing');
+  card.classList.add("is-pressing");
 
   st.pressTimer = setTimeout(() => {
-    if(st.mode === "press") enterPreview(card);
+    if (st.mode === "press") enterPreview(card);
   }, PREVIEW_DELAY_MS);
 }
 
 function onMove(e){
-  if(st.pid !== e.pointerId || st.mode === "idle") return;
+  if (st.pid !== e.pointerId || st.mode === "idle") return;
 
   const dx = e.pageX - st.downX;
   const dy = e.pageY - st.downY;
   const dist = Math.hypot(dx, dy);
 
-  if(st.mode === "press"){
-    if(dist > DRAG_THRESHOLD) enterDragFromPress(e);
+  if (st.mode === "press") {
+    if (dist > DRAG_THRESHOLD) enterDragFromPress(e);
     return;
   }
 
-  if(st.mode === "preview"){
-    if(dist > PREVIEW_CANCEL_DIST) handoffPreviewToDrag(e);
+  if (st.mode === "preview") {
+    // hysteresis: need to exceed threshold on two consecutive moves
+    if (dist > PREVIEW_CANCEL_DIST) {
+      if (++st.cancelArmed >= 2) handoffPreviewToDrag(e);
+    } else {
+      st.cancelArmed = 0;
+    }
     return;
   }
 
-  if(st.mode === "drag"){
+  if (st.mode === "drag") {
     st.targetX = e.pageX - st.offsetX;
     st.targetY = e.pageY - st.offsetY;
   }
 }
 
 function onUp(e){
-  if(st.pid !== e.pointerId) return;
+  if (st.pid !== e.pointerId) return;
 
-  if(st.mode === "preview"){
+  if (st.mode === "preview") {
     leavePreview(st.card);
-  } else if(st.mode === "drag"){
-    endDrag();
-  } else {
-    st.card?.classList.remove('is-pressing');
+    reset();
+    return;
   }
-  resetState();
+
+  if (st.mode === "drag") {
+    endDrag();
+    reset();
+    return;
+  }
+
+  // simple press release
+  st.card?.classList.remove("is-pressing");
+  reset();
 }
 
-/* ---------- Preview (same node, reparented) ---------- */
+/* ---------- Preview (same node) ---------- */
+
 function enterPreview(card){
-  // measure BEFORE moving
+  // measure BEFORE moving/transforming
   const r = card.getBoundingClientRect();
 
-  // save inline styles to restore later
+  // keep ribbon layout
+  st.originParent = card.parentNode;
+  st.originNext   = card.nextSibling;
+  const ph = document.createElement("div");
+  ph.style.width  = r.width + "px";
+  ph.style.height = r.height + "px";
+  ph.style.marginLeft = getComputedStyle(card).marginLeft;
+  st.placeholder = ph;
+  if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
+  else st.originParent.appendChild(ph);
+
+  // save inline to restore
   st.restore = {
     position: card.style.position,
     left: card.style.left,
@@ -140,128 +195,113 @@ function enterPreview(card){
     transition: card.style.transition
   };
 
-  // placeholder to keep ribbon layout
-  st.originParent = card.parentNode;
-  st.originNext   = card.nextSibling;
-  const ph = document.createElement('div');
-  ph.style.width  = r.width + 'px';
-  ph.style.height = r.height + 'px';
-  ph.style.marginLeft = getComputedStyle(card).marginLeft;
-  st.placeholder = ph;
-  if(st.originNext) st.originParent.insertBefore(ph, st.originNext);
-  else st.originParent.appendChild(ph);
-
-  // RE-PARENT to global layer FIRST, then fix-position (avoids transform-containing block)
+  // reparent to the global fixed layer FIRST (prevents transform containing block issues)
   dragLayer.appendChild(card);
 
   st.mode = "preview";
-  card.classList.remove('is-pressing');
-  card.classList.add('is-previewing');
+  card.classList.remove("is-pressing");
+  card.classList.add("is-previewing");
 
   Object.assign(card.style, {
-    position:'fixed',
+    position: "fixed",
     left: `${r.left}px`,
     top:  `${r.top}px`,
     width: `${r.width}px`,
     height:`${r.height}px`,
-    zIndex:'2147483000',
-    transition:`transform ${PREVIEW_EASE_MS}ms ease`
+    transition: `transform ${PREVIEW_EASE_MS}ms ease`,
+    transformOrigin: "50% 50%"
   });
 
-  card.style.transformOrigin = '50% 50%';
+  // one smooth zoom
+  // (force reflow so the transition starts)
+  void card.offsetWidth;
   card.style.transform = `translate3d(0,0,0) scale(${PREVIEW_SCALE})`;
-  card.style.filter = 'drop-shadow(0 18px 38px rgba(0,0,0,.35))';
+  card.style.filter = "drop-shadow(0 18px 38px rgba(0,0,0,.35))";
 
-  // stop iOS long-press scroll
-  document.documentElement.style.touchAction = 'none';
+  // avoid iOS long-press text selection / scroll
+  document.documentElement.style.touchAction = "none";
 }
 
 function leavePreview(card){
-  // shrink back to 1:1 quickly
-  card.style.transition = 'transform 90ms ease';
-  card.style.transform  = 'translate3d(0,0,0) scale(1)';
-  card.style.filter     = '';
+  // shrink back immediately (no flicker)
+  card.style.transition = "transform 90ms ease";
+  card.style.transform  = "translate3d(0,0,0) scale(1)";
+  card.style.filter     = "";
 
   requestAnimationFrame(() => {
-    restoreToRibbon(card);           // back to original parent / inline
-    card.classList.remove('is-previewing');
-    card.style.removeProperty('transform-origin');
-    document.documentElement.style.removeProperty('touch-action');
+    restoreToRibbon(card);
+    card.classList.remove("is-previewing");
+    card.style.removeProperty("transform-origin");
   });
 }
 
 function restoreToRibbon(card){
   const s = st.restore || {};
-  // return to original parent at placeholder
-  if(st.placeholder && st.originParent){
+  if (st.placeholder && st.originParent) {
     st.originParent.insertBefore(card, st.placeholder);
   }
-  // restore inline styles
-  card.style.position   = s.position ?? '';
-  card.style.left       = s.left ?? '';
-  card.style.top        = s.top ?? '';
-  card.style.width      = s.width ?? '';
-  card.style.height     = s.height ?? '';
-  card.style.transform  = s.transform ?? '';
-  card.style.filter     = s.filter ?? '';
-  card.style.zIndex     = s.zIndex ?? '';
-  card.style.transition = s.transition ?? '';
-  // remove placeholder
+  card.style.position   = s.position ?? "";
+  card.style.left       = s.left ?? "";
+  card.style.top        = s.top ?? "";
+  card.style.width      = s.width ?? "";
+  card.style.height     = s.height ?? "";
+  card.style.transform  = s.transform ?? "";
+  card.style.filter     = s.filter ?? "";
+  card.style.zIndex     = s.zIndex ?? "";
+  card.style.transition = s.transition ?? "";
   st.placeholder?.remove();
   st.placeholder = null;
 }
 
 /* ---------- Drag ---------- */
+
 function enterDragFromPress(e){
   clearTimeout(st.pressTimer);
-  st.card.classList.remove('is-pressing');
+  st.card.classList.remove("is-pressing");
 
   const r = st.card.getBoundingClientRect();
-  previewToDrag(e, r, /*cameFromPreview=*/false);
+  startDragAtRect(e, r, /*cameFromPreview=*/false);
 }
 
 function handoffPreviewToDrag(e){
-  // currently fixed in dragLayer and scaled. Unscale first frame, then drag.
   const card = st.card;
-  card.style.transition = 'transform 90ms ease';
-  card.style.transform  = 'translate3d(0,0,0) scale(1)';
-  card.style.filter     = '';
 
-  requestAnimationFrame(() => {
-    card.classList.remove('is-previewing');
-    card.style.removeProperty('transform-origin');
-    document.documentElement.style.removeProperty('touch-action');
+  // kill transition, snap scale to 1 without animating (prevents jitter)
+  card.style.transition = "none";
+  card.style.transform  = "translate3d(0,0,0) scale(1)";
+  card.style.filter     = "";
+  void card.offsetWidth; // reflow to commit
 
-    const r = card.getBoundingClientRect(); // fixed coords in viewport
-    previewToDrag(e, r, /*cameFromPreview=*/true);
-  });
+  const r = card.getBoundingClientRect();
+  card.classList.remove("is-previewing");
+  card.style.removeProperty("transform-origin");
+  document.documentElement.style.removeProperty("touch-action");
+
+  startDragAtRect(e, r, /*cameFromPreview=*/true);
 }
 
-function previewToDrag(e, rect, cameFromPreview){
+function startDragAtRect(e, rect, cameFromPreview){
   const card = st.card;
 
-  // If we arrived from press (not preview), we must create placeholder + reparent now.
-  if(!cameFromPreview){
-    // placeholder
+  if (!cameFromPreview) {
+    // create placeholder & move to layer now
     st.originParent = card.parentNode;
     st.originNext   = card.nextSibling;
-    const ph = document.createElement('div');
-    ph.style.width  = rect.width + 'px';
-    ph.style.height = rect.height + 'px';
+    const ph = document.createElement("div");
+    ph.style.width  = rect.width + "px";
+    ph.style.height = rect.height + "px";
     ph.style.marginLeft = getComputedStyle(card).marginLeft;
     st.placeholder = ph;
-    if(st.originNext) st.originParent.insertBefore(ph, st.originNext);
+    if (st.originNext) st.originParent.insertBefore(ph, st.originNext);
     else st.originParent.appendChild(ph);
 
-    // reparent to layer before any fixed/translate work
     dragLayer.appendChild(card);
   }
 
-  st.mode = "drag";
-
-  // page-space position & grip offset
+  // set fixed baseline and CSS vars BEFORE drag class to avoid (0,0) flash
   const pageLeft = rect.left + window.scrollX;
   const pageTop  = rect.top  + window.scrollY;
+
   st.offsetX = e.pageX - pageLeft;
   st.offsetY = e.pageY - pageTop;
 
@@ -270,34 +310,38 @@ function previewToDrag(e, rect, cameFromPreview){
   st.targetX = pageLeft;
   st.targetY = pageTop;
 
-  card.classList.add('is-dragging');
-  card.style.setProperty('--drag-x', `${st.curX}px`);
-  card.style.setProperty('--drag-y', `${st.curY}px`);
+  card.style.position = "fixed";
+  card.style.left = "0";
+  card.style.top  = "0";
+  card.style.setProperty("--drag-x", `${st.curX}px`);
+  card.style.setProperty("--drag-y", `${st.curY}px`);
 
+  card.classList.add("is-dragging");
   follow();
 }
 
 function follow(){
-  if(st.mode !== "drag") return;
+  if (st.mode !== "drag") return;
   st.curX += (st.targetX - st.curX) * FOLLOW_DAMP;
   st.curY += (st.targetY - st.curY) * FOLLOW_DAMP;
   const c = st.card;
-  c.style.setProperty('--drag-x', `${st.curX}px`);
-  c.style.setProperty('--drag-y', `${st.curY}px`);
+  c.style.setProperty("--drag-x", `${st.curX}px`);
+  c.style.setProperty("--drag-y", `${st.curY}px`);
   st.raf = requestAnimationFrame(follow);
 }
 
 function endDrag(){
   const c = st.card;
-  c.classList.remove('is-dragging');
-  c.style.removeProperty('--drag-x');
-  c.style.removeProperty('--drag-y');
+  c.classList.remove("is-dragging");
+  c.style.removeProperty("--drag-x");
+  c.style.removeProperty("--drag-y");
+  c.style.left = c.style.top = c.style.position = "";
 
-  if(st.placeholder && st.originParent){
+  if (st.placeholder && st.originParent) {
     st.originParent.insertBefore(c, st.placeholder);
     st.placeholder.remove();
   }
 }
 
 /* ---------- init ---------- */
-window.addEventListener('DOMContentLoaded', initDragBridge);
+window.addEventListener("DOMContentLoaded", initBridge);
