@@ -302,3 +302,38 @@ html, body, .wrap{
 .ribbon .card.is-dragging{
   transform: translateY(-14px) scale(1.02);
 }
+
+
+/* --- FIX: do NOT transform html/body/.wrap (breaks position:fixed on iOS) --- */
+html, body, .wrap{
+  transform: none !important;
+  -webkit-transform: none !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Safe per-element GPU nudge to avoid the 1px seam without breaking fixed */
+.card, .zone{
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Keep the hand ribbon fixed to the bottom */
+.ribbon-wrap{
+  position: fixed !important;
+  left: 0; right: 0; bottom: 0;
+  z-index: 60;
+  height: calc(var(--card-h) + 20px);
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(0,0,0,.06), transparent 26%);
+}
+.ribbon{
+  height: 100%;
+  display: flex; align-items: flex-end;
+  gap: 0; padding: 0 20px 12px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  pointer-events: auto;
+}
