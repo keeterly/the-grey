@@ -362,5 +362,72 @@ html, body, .wrap{
 
 /* Optional: soften the tray gradient so it doesn't “mask” edges */
 .ribbon-wrap{
-  background: linear-gradient(to top, rgba(0,0,0,.05), transparent 28%) !important;
+  background: linear-gradient(to top, rgba(0,0,0,.05), transparent 28%) !/* ===== Hand tray anti-crop override (paste at end) ===== */
+
+/* Never transform the root container — keeps fixed elements truly fixed */
+html, body, .wrap{
+  transform: none !important;
+  -webkit-transform: none !important;
 }
+
+/* Hand tray pinned to the bottom with safe-area and no masking */
+.ribbon-wrap{
+  position: fixed !important;
+  left: 0; right: 0;
+  /* sit exactly on top of the safe area (works on iOS Chrome/Safari) */
+  bottom: env(safe-area-inset-bottom, 0) !important;
+
+  /* extra headroom so lifted cards aren't clipped */
+  height: calc(var(--card-h) + 44px) !important;
+
+  /* no gradient/fade that could visually “cut” cards */
+  background: transparent !important;
+
+  /* make sure nothing in here is clipped */
+  overflow: visible !important;
+
+  /* pass pointer only to the inner ribbon */
+  pointer-events: none;
+
+  /* sit above boards/HUD */
+  z-index: 2147483646;
+}
+
+/* The scrollable hand row */
+.ribbon{
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  padding: 0 16px 0;                 /* bottom padding not needed; wrap has height */
+
+  overflow-x: auto !important;
+  overflow-y: visible !important;     /* <- key to avoid cropping */
+  -webkit-overflow-scrolling: touch;
+
+  pointer-events: auto;               /* re-enable interactions */
+  z-index: 2147483647;                /* above tray bg */
+}
+
+/* Cards in hand: overlap fan and lift without being cropped */
+.ribbon .card{
+  position: relative;
+  transform: translateY(8px);
+  transition: transform 120ms ease;
+  margin-left: -64px;                 /* fan effect */
+  z-index: 1;
+}
+.ribbon .card:hover,
+.ribbon .card.is-dragging{
+  transform: translateY(-14px) scale(1.02);
+  z-index: 2;                         /* above neighbors & tray */
+}
+
+/* Keep slots from adding any unexpected clipping */
+#playerSlots, #aiSlots{
+  overflow: visible !important;
+}
+
+
+
