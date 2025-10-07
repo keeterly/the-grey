@@ -1,0 +1,53 @@
+
+/* The Grey — Hand & DnD improvements */
+.tg-hand-lowered { margin-top: 8px; transform: translateY(24px); }
+
+.tg-card { touch-action: none; cursor: grab; }
+.tg-card:active { cursor: grabbing; }
+.tg-card-fan { transform-origin: 50% 100%; }
+
+/* Ghost drag element */
+.tg-ghost {
+  position: fixed; left: 0; top: 0;
+  transform: translate3d(0,0,0);
+  will-change: transform;
+  pointer-events: none;
+  z-index: 1000;
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.25));
+}
+
+/* Hold-to-preview overlay */
+#tgPreviewLayer {
+  position: fixed; inset: 0; z-index: 1100;
+  display: none; align-items: center; justify-content: center;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,.35), rgba(0,0,0,.55));
+}
+#tgPreviewLayer.active { display: flex; }
+#tgPreviewLayer .tg-preview-card {
+  transform-origin: center center;
+  transform: scale(1.6);
+  max-width: min(90vw, 28rem);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0,0,0,.45);
+}
+
+/* Instant pulse while held/dragging */
+@keyframes tgGoldPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255,200,0,.55); }
+  60%  { box-shadow: 0 0 0 18px rgba(255,200,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,200,0,0); }
+}
+.instant.tg-held,
+[data-type="Instant"].tg-held,
+.tg-card.tg-held.tg-instant {
+  animation: tgGoldPulse 1.2s ease-out infinite;
+  outline: 2px solid rgba(255,210,0,.9);
+  outline-offset: -2px;
+  border-radius: 10px;
+}
+
+/* Slot hover highlight */
+.tg-slot-hover {
+  box-shadow: 0 0 0 3px rgba(120,160,255,.9) inset, 0 0 20px rgba(120,160,255,.3);
+  transition: box-shadow .12s ease-out;
+}
