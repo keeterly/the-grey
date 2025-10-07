@@ -1,3 +1,12 @@
+on:
+  push:
+    branches: ['**']       # run on any branch
+    paths: ['incoming/**'] # any file in incoming/
+  workflow_dispatch:       # keep manual trigger too
+
+
+
+
 name: Apply incoming bundle and open PR
 
 on:
