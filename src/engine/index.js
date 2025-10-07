@@ -1,20 +1,22 @@
 // =========================================================
 // THE GREY — ENGINE ENTRY (factory + boot sequence)
-// - Uses your real initialState() + Rules.reduce()
-// - Compatible with reducers that return a NEW state object
-// - Boots the game: ENSURE_MARKET then START_TURN {first:true}
-// - Exposes reset() and window.GameEngine.create for the UI/bridge
+// - Uses your real initial state (from state.js) + reduce() from rules.js
+// - Reducer can return a NEW state object (we merge in place)
+// - Boot: INIT → ENSURE_MARKET → START_TURN { first: true }
+// - Exposes window.GameEngine.create(...) and window.game
 // =========================================================
 
-import { reduce, initialState } from './rules.js';
+import { reduce } from './rules.js';
 import * as Cards   from './cards.js';
 import * as Weavers from './weavers.js';
 import * as RNG     from './rng.js';
-import { initialState } from './state.js';
+import { initialState as makeInitialState } from './state.js';
 
-// Pick sensible defaults that exist in your WEAVERS table:
-const DEFAULT_PLAYER_WEAVER = Weavers.defaultPlayer || 'Stormbinder';
-const DEFAULT_AI_WEAVER     = Weavers.defaultAI     || 'Stormbinder';
+// ---------- Helpers ----------
+function deepClone(x) {
+  if (typeof structuredClone === 'function') return structuredClone(x);
+  return JSON.parse(JSON.stringify(x));
+}
 
 // Replace state object in-place when reducer returns a new one
 function mergeStateInPlace(cur, next) {
@@ -22,15 +24,21 @@ function mergeStateInPlace(cur, next) {
   for (const k of Object.keys(next)) cur[k] = next[k];
 }
 
+// Pick sensible defaults that exist in your WEAVERS table:
+const DEFAULT_PLAYER_WEAVER = Weavers.defaultPlayer || 'Stormbinder';
+const DEFAULT_AI_WEAVER     = Weavers.defaultAI     || 'Stormbinder';
+
+// ---------- Engine Factory ----------
 export function createGame(opts = {}) {
   const playerWeaver = opts.playerWeaver || DEFAULT_PLAYER_WEAVER;
   const aiWeaver     = opts.aiWeaver     || DEFAULT_AI_WEAVER;
 
+  // State container (mutated in-place for compatibility with UI/bridge)
   let S;
 
-  // Safe reducer wrapper that supports "return new state" style reducers
+  // Reducer wrapper that supports pure "return new state" reducers
   function reduceSafe(state, action) {
-    const out = Rules.reduce(state, action);
+    const out = reduce(state, action);
     if (out && out !== state && typeof out === 'object') {
       mergeStateInPlace(state, out);
     }
@@ -52,7 +60,10 @@ export function createGame(opts = {}) {
 
   function bootFreshState() {
     try {
-      S = initialState({ playerWeaver, aiWeaver });
+      // accept function or plain-object initial state
+      S = (typeof makeInitialState === 'function')
+        ? makeInitialState({ playerWeaver, aiWeaver })
+        : deepClone(makeInitialState);
     } catch (err) {
       console.warn('[ENGINE] initialState failed; creating minimal fallback.', err);
       S = {
@@ -67,10 +78,10 @@ export function createGame(opts = {}) {
     // Optional INIT for logs/metrics
     dispatch({ type: 'INIT' });
 
-    // Make sure Aetherflow is filled
+    // Ensure Aetherflow/market is filled
     dispatch({ type: 'ENSURE_MARKET' });
 
-    // Start player turn (your rules typically draw opening hand here)
+    // Start player turn (opening draws typically happen in the reducer)
     dispatch({ type: 'START_TURN', first: true });
 
     return S;
@@ -92,7 +103,7 @@ export function createGame(opts = {}) {
   return game;
 }
 
-// Global exposure for bridge/index.html
+// ---------- Global exposure for bridge/index.html ----------
 if (typeof window !== 'undefined') {
   window.GameEngine = window.GameEngine || {};
   window.GameEngine.create = (opts) => createGame(opts);
@@ -100,17 +111,10 @@ if (typeof window !== 'undefined') {
   console.log('[ENGINE] GameEngine.create ready; window.game initialized.');
 }
 
-
-import { reduce, initialState } from './rules.js';
-
-let currentState = initialState;
-
-function dispatch(action) {
-  try {
-    currentState = reduce(currentState, action);
-    // re-render with currentState...
-  } catch (err) {
-    console.error('[ENGINE] dispatch error:', err, action, { hasState: !!currentState });
-  }
-}
-
+/* 
+NOTE:
+- We intentionally removed any duplicate "mini dispatcher" at the bottom
+  to avoid redeclarations and double-booting.
+- Ensure your import path in HTML/other scripts points to /src/engine/index.js
+  and NOT /src/ui/index.js.
+*/
