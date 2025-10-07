@@ -270,3 +270,11 @@ transform-origin: bottom center;
   overflow-x: hidden;
 }
 
+<div class="ribbon-wrap">
+  <div class="ribbon-scroller">
+    <div class="hand">
+      <!-- .card elements -->
+    </div>
+  </div>
+</div>
+
