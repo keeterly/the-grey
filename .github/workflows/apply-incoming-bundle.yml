@@ -3,11 +3,11 @@ name: Apply incoming bundle and open PR
 on:
   push:
     branches: ['**']          # any branch (incl. v2.0)
-    paths: ['incoming/**']    # files under incoming/
+    paths: ['incoming/**']
   workflow_dispatch:
     inputs:
       file:
-        description: 'Optional: incoming/<file>.zip or .patch to apply'
+        description: 'incoming/<file>.zip or .patch'
         required: false
         type: string
 
@@ -24,14 +24,14 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Show context (debug)
+      - name: Debug context
         shell: bash
         run: |
-          echo "Event: $GITHUB_EVENT_NAME"
-          echo "Ref:   $GITHUB_REF   (branch: ${GITHUB_REF##*/})"
-          echo "SHA:   $GITHUB_SHA"
-          echo "Input file: '${{ inputs.file }}'"
-          echo "Repo incoming/:"
+          echo "Event:  $GITHUB_EVENT_NAME"
+          echo "Ref:    $GITHUB_REF  (branch: ${GITHUB_REF##*/})"
+          echo "SHA:    $GITHUB_SHA"
+          echo "Input:  '${{ inputs.file }}'"
+          echo "incoming/:"
           ls -l incoming || true
 
       - name: Determine payload file
@@ -41,24 +41,18 @@ jobs:
           set -euo pipefail
           CANDIDATE="${{ inputs.file }}"
           if [[ -z "$CANDIDATE" ]]; then
-            # If this was a push, prefer a file changed in this commit
             if git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -q '^incoming/'; then
               CANDIDATE=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" \
                 | grep '^incoming/' | grep -Ei '\.(zip|patch)$' | head -n1 || true)
             fi
-            # Otherwise pick the newest .zip/.patch in incoming/
             if [[ -z "${CANDIDATE:-}" ]]; then
               CANDIDATE=$(ls -t incoming/*.{zip,ZIP,patch,PATCH} 2>/dev/null | head -n1 || true)
             fi
           fi
           echo "Candidate: $CANDIDATE"
-          if [[ -z "${CANDIDATE:-}" ]]; then
-            echo "file=" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          echo "file=$CANDIDATE" >> "$GITHUB_OUTPUT"
+          echo "file=${CANDIDATE:-}" >> "$GITHUB_OUTPUT"
 
-      - name: Stop if no candidate found
+      - name: Stop if no candidate
         if: steps.pick.outputs.file == ''
         shell: bash
         run: |
@@ -66,12 +60,18 @@ jobs:
           exit 0
 
       - name: Apply payload
+        if: steps.pick.outputs.file != ''
         id: apply
         shell: bash
         run: |
           set -euo pipefail
           FILE="${{ steps.pick.outputs.file }}"
           echo "Applying: $FILE"
+          if [[ ! -f "$FILE" ]]; then
+            echo "::error::File not found: $FILE"
+            exit 1
+          fi
+
           mkdir -p _work/apply
 
           if [[ "$FILE" =~ \.zip$|\.ZIP$ ]]; then
@@ -79,12 +79,9 @@ jobs:
             echo "Bundle contents (top 2 levels):"
             find _work/apply -maxdepth 2 -type f -print
 
-            # Find the grey-fixes root no matter how the zip is nested
             FIXROOT=$(find _work/apply -type d -path "*/the-grey-fixes" | head -n1 || true)
-
             if [[ -n "${FIXROOT:-}" ]]; then
               echo "Fix root: $FIXROOT"
-              # If a helper exists, run it (do not require +x bit)
               if [[ -f "$FIXROOT/apply_the_grey_fixes.sh" ]]; then
                 echo "Running helper script…"
                 bash "$FIXROOT/apply_the_grey_fixes.sh"
@@ -93,7 +90,7 @@ jobs:
                 rsync -a --exclude 'incoming/' "$FIXROOT"/ ./
               fi
             else
-              echo "No 'the-grey-fixes' dir found; copying whole unzipped payload."
+              echo "No the-grey-fixes/ dir; copying whole payload."
               rsync -a --exclude 'incoming/' _work/apply/ ./
             fi
 
@@ -101,19 +98,16 @@ jobs:
             echo "Applying patch…"
             git apply --index "$FILE"
           else
-            echo "Unsupported file type: $FILE"
+            echo "::error::Unsupported file type: $FILE"
             exit 1
           fi
 
-          # Do not commit the payload itself
           git reset incoming || true
           git add -A || true
 
           if git diff --cached --quiet; then
-            echo "No staged changes after applying payload."
             echo "changed=false" >> "$GITHUB_OUTPUT"
           else
-            echo "Changes staged."
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
@@ -121,8 +115,8 @@ jobs:
         if: steps.apply.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          base: ${{ github.ref_name }}                     # PR back into the branch you ran on (e.g. v2.0)
-          branch: bot/apply-incoming-${{ github.run_id }}  # temp branch name
+          base: ${{ github.ref_name }}
+          branch: bot/apply-incoming-${{ github.run_id }}
           delete-branch: true
           title: "bot: apply incoming payload"
           body: |
