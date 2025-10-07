@@ -6,7 +6,7 @@
 // - Exposes reset() and window.GameEngine.create for the UI/bridge
 // =========================================================
 
-import * as Rules   from './rules.js';
+import { reduce, initialState } from './rules.js';
 import * as Cards   from './cards.js';
 import * as Weavers from './weavers.js';
 import * as RNG     from './rng.js';
