@@ -1,308 +1,99 @@
-// =========================================================
-// THE GREY — UI (v3.14)
-// - Lower/wider hand (doesn’t block board)
-// - Press-and-hold preview handled by drag.js (just keep support)
-// - ENSURE_MARKET on buy
-// =========================================================
+// index.js — app boot + dispatcher (pure-state friendly)
+//
+// IMPORTANT:
+// - Do NOT redeclare `initialState` here. We import it from rules.js.
+// - Keep render logic elsewhere; we invoke it via window.renderGame(state) if present,
+//   or fall back to a no-op to avoid crashes during early boot.
+//
+// If you need to debug: open DevTools and use window.getState() / window.dispatch({type:'...'}).
 
-const $  = (s, r=document) => r.querySelector(s);
-const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+import { reduce, initialState } from './rules.js';
 
-let elRibbon, elPlayerSlots, elAiSlots, elMarketCells;
-let G = null;
+// --- App state ---
+let currentState = initialState;
 
-/* ---------- card factory ---------- */
-function makeCardEl(card, variant) {
-  const el = document.createElement('div');
-  el.className = 'card';
-  if (variant === 'hand')   el.classList.add('handCard');
-  if (variant === 'flow')   el.classList.add('marketCard');
-  if (variant === 'slot')   el.classList.add('slotCard');
-  if (variant === 'aiSlot') el.classList.add('slotCard');
+// --- Utilities ---
+const $ = (sel, root = document) => root.querySelector(sel);
 
-  el.dataset.cid   = card.id || '';
-  el.dataset.ctype = card.t || '';
-  el.dataset.cname = card.n || '';
-  el.dataset.cost  = String(card.p || 1);
-
-  el.innerHTML = `
-    <div class="cHead">
-      <div class="cName">${card.n || 'Card'}</div>
-      <div class="cType">${card.t || ''}</div>
-    </div>
-    <div class="cBody">
-      ${card.txt ? `<div class="cText">${card.txt}</div>` : ''}
-    </div>
-    <div class="cStats">
-      ${('v' in card) ? `<span class="stat v">+${card.v||0}⚡</span>` : ''}
-      ${('p' in card) ? `<span class="stat p">${card.p||1}↯</span>` : ''}
-    </div>
-  `;
-  return el;
-}
-
-/* ---------- lightweight anim helpers ---------- */
-function flyElement(el, toRect, {duration=350, scale=0.92, easing='cubic-bezier(.2,.8,.2,1)'} = {}) {
-  const from = el.getBoundingClientRect();
-  const ghost = el.cloneNode(true);
-  Object.assign(ghost.style, {
-    position:'fixed', pointerEvents:'none', margin:'0',
-    left:`${from.left}px`, top:`${from.top}px`,
-    width:`${from.width}px`, height:`${from.height}px`,
-    zIndex:'9999', transformOrigin:'50% 50%'
-  });
-  document.body.appendChild(ghost);
-
-  const dx = toRect.left - from.left;
-  const dy = toRect.top  - from.top;
-
-  return ghost.animate([
-    { transform: `translate(0,0) scale(1)`, opacity: 1 },
-    { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, opacity: .85 }
-  ], { duration, easing }).finished.then(() => ghost.remove());
-}
-
-async function animateBuyToDiscard(sourceEl) {
-  const chip = $('#chipDiscard') || $('#chipDeck') || document.body;
-  await flyElement(sourceEl, chip.getBoundingClientRect(), { duration: 420, scale: 0.88 });
-}
-
-async function animateDiscardHand() {
-  const handCards = $$('.ribbon .handCard');
-  const chip = $('#chipDiscard') || document.body;
-  const r = chip.getBoundingClientRect();
-
-  for (let i = 0; i < handCards.length; i++) {
-    await flyElement(handCards[i], r, { duration: 260 + i*28, scale: 0.86 });
+// Fire a DOM event so other scripts (bridge/drag/ui) can react after each update.
+function emitStateChange(state, action) {
+  try {
+    document.dispatchEvent(
+      new CustomEvent('game:state', { detail: { state, action } })
+    );
+  } catch (e) {
+    // CustomEvent may fail on very old browsers; ignore silently.
   }
 }
 
-async function animateDrawHand() {
-  const deck = $('#chipDeck') || document.body;
-  const r = deck.getBoundingClientRect();
-  const handCards = $$('.ribbon .handCard');
-
-  handCards.forEach((el, i) => {
-    const to = el.getBoundingClientRect();
-    const ghost = el.cloneNode(true);
-    ghost.classList.remove('handCard');
-    Object.assign(ghost.style, {
-      position:'fixed', left:`${r.left}px`, top:`${r.top}px`,
-      width:`${to.width}px`, height:`${to.height}px`,
-      zIndex:'9999', pointerEvents:'none'
-    });
-    document.body.appendChild(ghost);
-    ghost.animate(
-      [
-        { transform: 'translate(0,0) scale(.9)', opacity: .0 },
-        { transform: `translate(${to.left - r.left}px, ${to.top - r.top}px) scale(1)`, opacity: 1 }
-      ],
-      { duration: 260 + i*24, easing: 'cubic-bezier(.2,.8,.2,1)' }
-    ).finished.then(() => ghost.remove());
-  });
-
-  requestAnimationFrame(fanHandFallback);
-}
-
-/* ---------- hand fan (lower + wider) ---------- */
-function fanHandFallback() {
-  const cards = $$('.handCard', elRibbon);
-  const n = cards.length;
-  if (!n) return;
-
-  const wrapW = elRibbon.clientWidth || 800;
-  const spacing = Math.max(30, Math.min(60, Math.floor(wrapW / Math.max(n + 2, 4)))); // a bit wider
-  const angleMax  = 10;
-  const liftScale = 8;
-  const baseY     = 58;   // LOWER again so hand sits further down
-  const mid = (n - 1) / 2;
-
-  cards.forEach((c, i) => {
-    const t = (i - mid);
-    const x = t * spacing;
-    const y = baseY - Math.abs(t) * (liftScale / Math.max(1, n/6));
-    const a = (t / mid || 0) * angleMax;
-    c.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
-    c.style.zIndex = String(100 + i);
-  });
-}
-
-/* ---------- Market ---------- */
-function renderMarket() {
-  for (let i = 0; i < 5; i++) {
-    const cell = elMarketCells[i];
-    if (!cell) continue;
-    cell.innerHTML = '';
-    const c = G.state.flowRow[i];
-    if (!c) continue;
-
-    const cardEl = makeCardEl(c, 'flow');
-    cardEl.onclick = async () => {
-      await animateBuyToDiscard(cardEl);
-      G.dispatch({ type: 'BUY_FLOW', index: i });
-      G.dispatch({ type: 'ENSURE_MARKET' });
-      renderAll();
-    };
-    cell.appendChild(cardEl);
+// Centralized render shim.
+// Prefer defining window.renderGame = (state) => { ... } in your UI code.
+function render(state) {
+  if (typeof window.renderGame === 'function') {
+    window.renderGame(state);
+  } else if (typeof window.render === 'function') {
+    // fallback if your UI used window.render before
+    window.render(state);
+  } else {
+    // no-op; nothing to draw yet
   }
 }
 
-/* ---------- Hand ---------- */
-function renderHand() {
-  elRibbon.innerHTML = '';
-  G.state.hand.forEach((c, idx) => {
-    const cardEl = makeCardEl(c, 'hand');
-    cardEl.onclick = (e) => {
-      e.stopPropagation();
-      const drop = cardEl.dataset.dropSlot;
-      const dropSlot = (drop !== undefined && drop !== '') ? parseInt(drop, 10) : null;
-      cardEl.dataset.dropSlot = '';
+// --- Dispatch ---
+function dispatch(action) {
+  try {
+    // Ensure a plain object action
+    const a = action && typeof action === 'object' ? action : { type: String(action) };
 
-      if (c.t === 'Instant') {
-        G.dispatch({ type: 'CHANNEL_FROM_HAND', index: idx });
-      } else if (c.t === 'Glyph') {
-        G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: null });
-      } else {
-        let s = dropSlot;
-        if (s == null || s < 0 || s > 2) s = G.state.slots.findIndex(x => !x);
-        G.dispatch({ type: 'PLAY_FROM_HAND', index: idx, slot: (s >= 0 ? s : null) });
-      }
-      renderAll();
-    };
-    elRibbon.appendChild(cardEl);
-  });
+    // Reduce
+    currentState = reduce(currentState, a);
 
-  requestAnimationFrame(fanHandFallback);
+    // Render + notify
+    render(currentState);
+    emitStateChange(currentState, a);
+  } catch (err) {
+    console.error('[ENGINE] dispatch error:', err, action, { hasState: !!currentState });
+  }
 }
 
-/* ---------- Player / AI ---------- */
-function renderPlayerSlots() {
-  elPlayerSlots.innerHTML = '';
-  for (let i = 0; i < 4; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'slotCell';
-    cell.dataset.slotIndex = String(i);
-    if (i === 3) cell.classList.add('glyph');
+// --- Wiring / Controls (safe: only if present in DOM) ---
+function wireControls() {
+  // Example buttons; keep if your HTML uses these IDs or data-actions.
+  const endTurnBtn = $('#endTurn, [data-action="endTurn"]');
+  if (endTurnBtn) endTurnBtn.addEventListener('click', () => dispatch({ type: 'END_TURN' }));
 
-    if (i < 3) {
-      const slot = G.state.slots[i];
-      if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'slot'));
-      else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
-    } else {
-      if ((G.state.glyphs||[]).length > 0) {
-        const face = document.createElement('div');
-        face.className = 'card glyphCard faceDown';
-        face.innerHTML = `
-          <div class="cHead"><div class="cName">Glyph</div><div class="cType">Face Down</div></div>
-          <div class="cBody"></div>
-          <div class="cStats"></div>
-        `;
-        cell.appendChild(face);
-      } else {
-        cell.innerHTML = `<div class="emptyCell">Glyph</div>`;
-      }
+  // Delegate clicks for any element with data-dispatch='{"type":"..."}'
+  document.addEventListener('click', (ev) => {
+    const el = ev.target.closest('[data-dispatch]');
+    if (!el) return;
+    try {
+      const payload = JSON.parse(el.getAttribute('data-dispatch'));
+      if (payload && payload.type) dispatch(payload);
+    } catch (_) {
+      // ignore malformed payloads
     }
-
-    cell.onclick = () => {
-      if (i < 3 && G.state.slots[i]) {
-        G.dispatch({ type: 'ADVANCE', slot: i });
-        renderAll();
-      }
-    };
-
-    elPlayerSlots.appendChild(cell);
-  }
-}
-function renderAiSlots() {
-  elAiSlots.innerHTML = '';
-  for (let i = 0; i < 3; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'slotCell ai';
-    const slot = G.state.ai.slots[i];
-    if (slot && slot.c) cell.appendChild(makeCardEl(slot.c, 'aiSlot'));
-    else cell.innerHTML = `<div class="emptyCell">Empty</div>`;
-    elAiSlots.appendChild(cell);
-  }
+  });
 }
 
-/* ---------- Counts ---------- */
-function renderCounts() {
-  $('#deckCount').textContent    = String(G.state.deck.length);
-  $('#discardCount').textContent = String(G.state.disc.length);
-  $('#aeGemCount').textContent   = String(G.state.ae || 0);
+// --- Boot ---
+function boot() {
+  wireControls();
+
+  // First paint
+  render(currentState);
+  emitStateChange(currentState, { type: '@@INIT' });
+
+  // Expose for debugging
+  window.dispatch = dispatch;
+  window.getState = () => currentState;
+
+  // Optional: log version banner from a <meta name="build"> tag if present
+  const build = $('meta[name="build"]')?.getAttribute('content');
+  if (build) console.log('[THE GREY] build:', build);
 }
 
-/* ---------- full redraw ---------- */
-function renderAll() {
-  renderMarket();
-  renderHand();
-  renderPlayerSlots();
-  renderAiSlots();
-  renderCounts();
-
-  if (window.DragCards?.refresh) window.DragCards.refresh();
-}
-
-/* ---------- buttons ---------- */
-function wireButtons() {
-  const btnDraw  = $('#btnDraw');
-  const btnEnd   = $('#btnEnd');
-  const btnReset = $('#btnReset');
-
-  if (btnDraw)  btnDraw.onclick  = async () => { 
-    G.dispatch({ type:'DRAW' }); 
-    renderAll(); 
-    await animateDrawHand();
-  };
-
-  if (btnEnd)   btnEnd.onclick   = async () => {
-    await animateDiscardHand();
-    G.dispatch({ type:'END_TURN' });
-
-    G.dispatch({ type:'AI_DRAW' });
-    G.dispatch({ type:'AI_PLAY_SPELL' });
-    G.dispatch({ type:'AI_CHANNEL' });
-    G.dispatch({ type:'AI_ADVANCE' });
-    G.dispatch({ type:'AI_BUY' });
-    G.dispatch({ type:'AI_SPEND_TRANCE' });
-
-    G.dispatch({ type:'START_TURN' });
-    renderAll();
-    await animateDrawHand();
-  };
-
-  if (btnReset) btnReset.onclick = () => {
-    if (window.GameEngine?.create) {
-      window.game = G = window.GameEngine.create();
-      G.dispatch({ type:'ENSURE_MARKET' });
-      G.dispatch({ type:'START_TURN', first:true });
-      renderAll();
-      fanHandFallback();
-    }
-  };
-
-  window.addEventListener('resize', () => requestAnimationFrame(fanHandFallback));
-}
-
-/* ---------- init ---------- */
-export function init(game) {
-  G = game;
-
-  elRibbon      = $('.ribbon');
-  elPlayerSlots = $('#playerSlots');
-  elAiSlots     = $('#aiSlots');
-  elMarketCells = $$('.marketCard');
-
-  wireButtons();
-
-  G.dispatch({ type:'ENSURE_MARKET' });
-  G.dispatch({ type:'START_TURN', first:true });
-
-  renderAll();
-  fanHandFallback();
-
-  const boot = document.querySelector('.bootCheck');
-  if (boot) boot.style.display = 'none';
-
-  console.log('[UI] v3.14 — lower+wide hand, buy refills, preview via drag.js');
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot, { once: true });
+} else {
+  boot();
 }
