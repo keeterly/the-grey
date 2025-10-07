@@ -39,8 +39,9 @@ html, body{
   transform:none !important;
   -webkit-transform:none !important;
 
-  /* Never clip the hand/preview */
-  overflow:visible !important;
+  /* remove the global overflow: visible !important; */
+  overflow-x: hidden;   /* ensure no horizontal scrollbars */
+  overflow-y: visible;  /* keep vertical behavior */
 }
 
 /* Reserve room so the hand tray doesn’t overlap content */
