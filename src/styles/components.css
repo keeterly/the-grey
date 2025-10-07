@@ -53,7 +53,7 @@ body{
 .wrap, .zone, .slots, #playerSlots, #aiSlots,
 #topLog, .hudRow, .fabDial, .leftDock, .rightDock{
   position:relative; z-index:100;
-  overflow:visible !important;
+  
   -webkit-mask:none !important; mask:none !important; clip-path:none !important;
 }
 
@@ -176,11 +176,7 @@ transform-origin: bottom center;
   pointer-events:none;
   z-index:2147483646 !important;
 
-  /* The “nuclear” anti-mask: */
-  overflow:visible !important;
-  -webkit-mask:none !important; mask:none !important; clip-path:none !important;
-  transform:none !important; -webkit-transform:none !important;
-  isolation:unset !important; contain: none !important;
+  
 }
 .ribbon{
   position:relative; height:100%;
