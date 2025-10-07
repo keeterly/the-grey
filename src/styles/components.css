@@ -89,6 +89,8 @@ body{
   transition:transform .18s ease, box-shadow .18s ease;
   -webkit-backface-visibility:hidden; backface-visibility:hidden;
   transform:translateZ(0);
+transform-origin: bottom center;
+  will-change: transform;
 }
 .card::before{
   content:""; position:absolute; inset:0; border-radius:inherit;
@@ -267,5 +269,8 @@ body{
 }
 
 /* components.css or layout.css */
-.ribbon-wrap { left: 50%; transform: translateX(-50%); width: 100%; max-width: 1200px; }
+.ribbon-wrap {
+   max-width: 100%;
+  overflow-x: hidden;
+}
 
