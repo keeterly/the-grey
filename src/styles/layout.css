@@ -150,7 +150,7 @@ body {
   will-change: transform;
   transform-origin: 50% 90%;
 }
-body{ padding-bottom: 180px; } /* never clip the ribbon */
+
 
 /* ---------------- Deck / Discard / FAB ---------------- */
 
