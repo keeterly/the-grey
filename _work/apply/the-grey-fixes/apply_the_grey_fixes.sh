@@ -1,40 +1,33 @@
+
 #!/usr/bin/env bash
 set -euo pipefail
+echo "[bot] Applying RNG+Perf bundle + Pages CI"
 
-echo "Applying The Grey fix helpers..."
+mkdir -p src/lib src/styles src/ui .github/workflows
+cp -f the-grey-fixes/src/lib/seeded-rng.js src/lib/seeded-rng.js
+cp -f the-grey-fixes/src/styles/perf.css src/styles/perf.css
+cp -f the-grey-fixes/src/ui/anim-helpers.js src/ui/anim-helpers.js
+cp -f the-grey-fixes/README_RNG_PERF.md README_RNG_PERF.md
+cp -f the-grey-fixes/.github/workflows/ci.yml .github/workflows/ci.yml
 
-# Ensure repo root (has .git)
-if [ ! -d .git ]; then
-  echo "Run this from your repo root (where .git exists)."
-  exit 1
+RNG_FILE=""
+if [ -f "rng.js" ]; then RNG_FILE="rng.js";
+elif [ -f "src/rng.js" ]; then RNG_FILE="src/rng.js";
+else RNG_FILE=$(git ls-files | grep -E '(^|/)rng\.js$' | head -n1 || true);
 fi
 
-# Copy hygiene files
-cp -r the-grey-fixes/.github . || true
-cp -r the-grey-fixes/scripts . || true
-cp -r the-grey-fixes/src/styles . || true
-cp the-grey-fixes/LICENSE .
-cp the-grey-fixes/.gitignore .
-
-# Generate stamp
-node scripts/write-stamp.mjs || true
-
-# Best-effort reducer fix (backup first)
-if [ -f "rules.js" ]; then
-  cp rules.js rules.js.bak
-  # Replace occurrences of 'state.' with 'S.' only in END_TURN case block heuristically
-  # (Non-destructive: keeps backup)
-  perl -0777 -pe 'if(m/case\s*[\'\"\`]END_TURN[\'\"\`]:([\s\S]*?)break;/){$b=$&;$nb=$b;$nb=~s/\bstate\./S./g;$_=~s/\Q$b\E/$nb/} $_' rules.js > rules.js.tmp && mv rules.js.tmp rules.js
-fi
-
-# Best-effort getState shim in engine.js
-if [ -f "engine.js" ]; then
-  cp engine.js engine.js.bak
-  # If getState() not present, add a simple shim after 'get state()'
-  if ! grep -q "getState()" engine.js; then
-    perl -0777 -pe 's/(get\s+state\s*\(\)\s*\{[\s\S]*?\})/\1\n\n  getState() { return this.state; }/ if /get\s+state\s*\(\)/' engine.js > engine.js.tmp || true
-    [ -s engine.js.tmp ] && mv engine.js.tmp engine.js || rm -f engine.js.tmp
+if [ -n "${RNG_FILE}" ]; then
+  cp "${RNG_FILE}" "${RNG_FILE}.bak"
+  if ! grep -q "__the_grey_rng__" "${RNG_FILE}"; then
+    perl -0777 -pe 'BEGIN{$/=undef} s/^\s*(?=.)/\/\* [bot] Seeded RNG shim *\/\n(function(g){function mulberry32(a){let t=(a+=0x6D2B79F5);t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)\/4294967296}function mk(s){s=s>>>0;let x=s||0x1A2B3C4D;return function(){x=(x+0x9E3779B9)>>>0;return mulberry32(x)}}var SEED=(typeof g.__THE_GREY_SEED!=="undefined")?g.__THE_GREY_SEED:null;var RNG=SEED==null?Math.random:mk(SEED);g.__the_grey_rng__=RNG;})(typeof globalThis!=="undefined"?globalThis:window);function __rng(){return(typeof __the_grey_rng__==="function"?__the_grey_rng__:Math.random)();}\n\n/s' "${RNG_FILE}" > "${RNG_FILE}.tmp" && mv "${RNG_FILE}.tmp" "${RNG_FILE}"
   fi
+  perl -0777 -pe 's/\bMath\.random\s*\(\s*\)/__rng()/g' "${RNG_FILE}" > "${RNG_FILE}.tmp" && mv "${RNG_FILE}.tmp" "${RNG_FILE}"
+else
+  echo "[bot] No rng.js found; skipped RNG patch."
 fi
 
-echo "Done. Review diffs, commit, and push."
+if [ -f "index.html" ] && ! grep -q 'src/styles/perf.css' index.html; then
+  perl -0777 -pe 's#</head>#  <link rel="stylesheet" href="src/styles/perf.css">\n</head>#i' index.html > index.html.tmp && mv index.html.tmp index.html || true
+fi
+
+echo "[bot] Done"
