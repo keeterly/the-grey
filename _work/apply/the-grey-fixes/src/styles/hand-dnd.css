@@ -6,7 +6,6 @@
 .tg-card:active { cursor: grabbing; }
 .tg-card-fan { transform-origin: 50% 100%; }
 
-/* Ghost drag element */
 .tg-ghost {
   position: fixed; left: 0; top: 0;
   transform: translate3d(0,0,0);
@@ -16,7 +15,6 @@
   filter: drop-shadow(0 8px 16px rgba(0,0,0,.25));
 }
 
-/* Hold-to-preview overlay */
 #tgPreviewLayer {
   position: fixed; inset: 0; z-index: 1100;
   display: none; align-items: center; justify-content: center;
@@ -31,7 +29,6 @@
   box-shadow: 0 20px 40px rgba(0,0,0,.45);
 }
 
-/* Instant pulse while held/dragging */
 @keyframes tgGoldPulse {
   0%   { box-shadow: 0 0 0 0 rgba(255,200,0,.55); }
   60%  { box-shadow: 0 0 0 18px rgba(255,200,0,0); }
@@ -46,7 +43,6 @@
   border-radius: 10px;
 }
 
-/* Slot hover highlight */
 .tg-slot-hover {
   box-shadow: 0 0 0 3px rgba(120,160,255,.9) inset, 0 0 20px rgba(120,160,255,.3);
   transition: box-shadow .12s ease-out;
