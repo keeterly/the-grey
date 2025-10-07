@@ -1,8 +1,7 @@
 
-# The Grey — Hand Drag & Hold-to-Preview
+# The Grey — Hand Drag & Hold-to-Preview (v2, auto-detect)
+- Automatically finds your hand strip (bottom scrollable with portrait cards) if no explicit selector.
+- Adds hold-to-preview, smooth drag ghost, slot hover highlight.
+- No engine hookups changed.
 
-Adds:
-- `src/ui/hand-dnd.js` — pointer-based drag with ghost, slot highlight, and press/hold preview
-- `src/styles/hand-dnd.css` — overlay, instant pulse, and visual polish
-
-The apply script wires CSS + module into `index.html`. Tweak selectors in the module init if your DOM differs.
+The apply script wires CSS and a `<script type="module" src="src/ui/hand-dnd.js">` tag into `index.html`.
