@@ -1,0 +1,89 @@
+name: Apply incoming bundle and open PR
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'incoming/**.zip'
+      - 'incoming/**.patch'
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find incoming payloads in this commit
+        id: diff
+        run: |
+          set -euo pipefail
+          ADDED=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^incoming/.*\.\(zip\|patch\)$' || true)
+          echo "added<<EOF" >> $GITHUB_OUTPUT
+          echo "$ADDED" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Fail if nothing found
+        if: steps.diff.outputs.added == ''
+        run: |
+          echo "No new payloads detected in incoming/*.zip or *.patch"
+          exit 1
+
+      - name: Prepare workspace
+        run: |
+          mkdir -p _work/apply
+          echo "${{ steps.diff.outputs.added }}" | sed '/^\s*$/d' > _work/incoming_list.txt
+          cat _work/incoming_list.txt
+
+      - name: Process each payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          while read -r FILE; do
+            echo "Processing: $FILE"
+            SAFE_NAME="$(basename "$FILE" | sed 's/[^a-zA-Z0-9._-]/-/g')"
+            BRANCH="bot/apply-${SAFE_NAME%-*}-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$BRANCH"
+
+            if [[ "$FILE" == *.zip ]]; then
+              unzip -o "$FILE" -d _work/apply
+              # If an apply script exists, run it; otherwise just copy contents
+              if [[ -x "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" ]]; then
+                (cd . && bash "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" || true)
+              else
+                rsync -av --exclude 'incoming/' _work/apply/ ./
+              fi
+            elif [[ "$FILE" == *.patch ]]; then
+              git apply --index "$FILE"
+            fi
+
+            # Avoid committing the incoming payload itself
+            git reset incoming || true
+
+            # If there are changes, commit and open PR
+            if ! git diff --cached --quiet; then
+              git commit -m "bot: apply $FILE"
+              git push origin "$BRANCH"
+
+              # Open a PR
+              gh pr create --fill --base main --head "$BRANCH" || true
+            else
+              echo "No changes after applying $FILE"
+            fi
+
+            # clean for next loop
+            git checkout main
+            git branch -D "$BRANCH" || true
+            rm -rf _work/apply/*
+          done < _work/incoming_list.txt
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Done
+        run: echo "All payloads processed."
