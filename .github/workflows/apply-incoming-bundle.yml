@@ -2,10 +2,9 @@ name: Apply incoming bundle and open PR
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'incoming/**.zip'
-      - 'incoming/**.patch'
+    branches: ['**']            # any branch
+    paths: ['incoming/**']      # any file inside incoming/
+  workflow_dispatch: {}         # allow manual runs
 
 permissions:
   contents: write
@@ -15,75 +14,92 @@ jobs:
   apply:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Find incoming payloads in this commit
-        id: diff
+      - name: Detect incoming payloads in this commit
+        id: detect
         run: |
           set -euo pipefail
-          ADDED=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^incoming/.*\.\(zip\|patch\)$' || true)
+          # List files from this push that live under incoming/
+          ADDED=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^incoming/' || true)
           echo "added<<EOF" >> $GITHUB_OUTPUT
           echo "$ADDED" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+          echo "Detected:"
+          echo "$ADDED"
 
-      - name: Fail if nothing found
-        if: steps.diff.outputs.added == ''
+      - name: Stop if nothing detected
+        if: steps.detect.outputs.added == ''
         run: |
-          echo "No new payloads detected in incoming/*.zip or *.patch"
+          echo "No files under incoming/ in this commit."
           exit 1
 
       - name: Prepare workspace
         run: |
           mkdir -p _work/apply
-          echo "${{ steps.diff.outputs.added }}" | sed '/^\s*$/d' > _work/incoming_list.txt
+          echo "${{ steps.detect.outputs.added }}" | sed '/^\s*$/d' > _work/incoming_list.txt
           cat _work/incoming_list.txt
 
-      - name: Process each payload
-        shell: bash
+      - name: Apply payloads
         run: |
           set -euo pipefail
+          CHANGES=0
           while read -r FILE; do
             echo "Processing: $FILE"
+
+            # Create a working branch per file
             SAFE_NAME="$(basename "$FILE" | sed 's/[^a-zA-Z0-9._-]/-/g')"
             BRANCH="bot/apply-${SAFE_NAME%-*}-$(date +%Y%m%d-%H%M%S)"
             git checkout -b "$BRANCH"
 
-            if [[ "$FILE" == *.zip ]]; then
+            if [[ "$FILE" == *.zip || "$FILE" == *.ZIP ]]; then
               unzip -o "$FILE" -d _work/apply
-              # If an apply script exists, run it; otherwise just copy contents
+              # If our helper exists, run it; otherwise copy contents (excluding incoming/)
               if [[ -x "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" ]]; then
-                (cd . && bash "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" || true)
+                (bash "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" || true)
               else
-                rsync -av --exclude 'incoming/' _work/apply/ ./
+                rsync -a --exclude 'incoming/' _work/apply/ ./
               fi
-            elif [[ "$FILE" == *.patch ]]; then
+            elif [[ "$FILE" == *.patch || "$FILE" == *.PATCH ]]; then
               git apply --index "$FILE"
+            else
+              echo "Skipping non-zip/patch: $FILE"
             fi
 
-            # Avoid committing the incoming payload itself
+            # Don’t commit the payload itself
             git reset incoming || true
 
-            # If there are changes, commit and open PR
             if ! git diff --cached --quiet; then
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
               git commit -m "bot: apply $FILE"
-              git push origin "$BRANCH"
-
-              # Open a PR
-              gh pr create --fill --base main --head "$BRANCH" || true
+              echo "$BRANCH" >> _work/branches.txt
+              CHANGES=1
             else
-              echo "No changes after applying $FILE"
+              echo "No staged changes for $FILE"
+              git checkout -
+              git branch -D "$BRANCH" || true
             fi
 
-            # clean for next loop
-            git checkout main
-            git branch -D "$BRANCH" || true
             rm -rf _work/apply/*
           done < _work/incoming_list.txt
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Done
-        run: echo "All payloads processed."
+          if [[ "$CHANGES" -eq 0 ]]; then
+            echo "No changes to commit."
+            exit 0
+          fi
+
+      - name: Create PR(s)
+        if: success()
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: ${{ github.ref_name }}-autobot
+          delete-branch: false
+          title: "bot: apply incoming payload(s)"
+          body: |
+            This PR was opened automatically after applying payload(s) from `incoming/`.
+            Review commit history for details.
+          commit-message: "bot: apply incoming payload(s)"
