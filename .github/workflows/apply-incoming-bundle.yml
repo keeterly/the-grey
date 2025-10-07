@@ -1,66 +1,3 @@
-name: Apply incoming bundle and open PR
-
-on:
-  push:
-    branches: ['**']          # runs on any branch (incl. 2.0)
-    paths: ['incoming/**']    # any file under incoming/
-  workflow_dispatch:
-    inputs:
-      file:
-        description: 'Optional: incoming/<file>.zip or .patch'
-        required: false
-        type: string
-
-permissions:
-  contents: write
-  pull-requests: write
-
-jobs:
-  apply:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Show context (debug)
-        run: |
-          echo "Ref: $GITHUB_REF"
-          echo "Branch: ${GITHUB_REF##*/}"
-          echo "Inputs.file: '${{ inputs.file }}'"
-          echo "Files under incoming/:"
-          ls -l incoming || true
-
-      - name: Determine payload file
-        id: pick
-        shell: bash
-        run: |
-          set -euo pipefail
-          CANDIDATE="${{ inputs.file }}"
-          if [[ -z "$CANDIDATE" ]]; then
-            # On push: use files from this commit
-            if git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep -q '^incoming/'; then
-              CANDIDATE=$(git diff-tree --no-commit-id --name-only -r "$GITHUB_SHA" | grep '^incoming/' | grep -Ei '\.(zip|patch)$' | head -n1 || true)
-            fi
-            # On manual run or if not found: pick newest *.zip or *.patch
-            if [[ -z "$CANDIDATE" ]]; then
-              CANDIDATE=$(ls -t incoming/*.{zip,ZIP,patch,PATCH} 2>/dev/null | head -n1 || true)
-            fi
-          fi
-          echo "Candidate: $CANDIDATE"
-          if [[ -z "${CANDIDATE:-}" ]]; then
-            echo "file=" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-          echo "file=$CANDIDATE" >> $GITHUB_OUTPUT
-
-      - name: Stop if no candidate found
-        if: steps.pick.outputs.file == ''
-        run: |
-          echo "No .zip or .patch found under incoming/. Provide inputs.file or push a file to incoming/."
-          exit 0
-
       - name: Apply payload
         id: apply
         shell: bash
@@ -74,12 +11,16 @@ jobs:
             unzip -o "$FILE" -d _work/apply
             echo "Bundle contents:"
             find _work/apply -maxdepth 2 -type f -print
-            if [[ -x "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" ]]; then
+
+            # ✅ RUN helper if it exists (don't require +x on the file)
+            if [[ -f "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" ]]; then
               echo "Running helper script…"
-              bash "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh" || true
+              bash "_work/apply/the-grey-fixes/apply_the_grey_fixes.sh"
             else
+              echo "No helper script; copying bundle contents."
               rsync -a --exclude 'incoming/' _work/apply/ ./
             fi
+
           elif [[ "$FILE" =~ \.patch$|\.PATCH$ ]]; then
             git apply --index "$FILE"
           else
@@ -87,7 +28,6 @@ jobs:
             exit 1
           fi
 
-          # Don't include the payload itself
           git reset incoming || true
           git add -A || true
 
@@ -96,21 +36,3 @@ jobs:
           else
             echo "changed=true" >> $GITHUB_OUTPUT
           fi
-
-      - name: Create Pull Request
-        if: steps.apply.outputs.changed == 'true'
-        uses: peter-evans/create-pull-request@v6
-        with:
-          base: ${{ github.ref_name }}                     # PR into the branch you ran on (e.g. 2.0)
-          branch: bot/apply-incoming-${{ github.run_id }}  # temp branch name
-          delete-branch: true
-          title: "bot: apply incoming payload"
-          body: |
-            Automatically applied `${{ steps.pick.outputs.file }}` on `${{ github.ref_name }}`.
-            Review the diff; backups may appear as *.bak.
-          commit-message: "bot: apply ${{ steps.pick.outputs.file }}"
-          committer: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
-
-      - name: No changes (info)
-        if: steps.apply.outputs.changed != 'true'
-        run: echo "No changes detected; nothing to PR."
