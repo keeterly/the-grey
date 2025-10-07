@@ -265,3 +265,7 @@ body{
   bottom:86px !important;
   z-index:51 !important;
 }
+
+/* components.css or layout.css */
+.ribbon-wrap { left: 50%; transform: translateX(-50%); width: 100%; max-width: 1200px; }
+
