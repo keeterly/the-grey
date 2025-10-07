@@ -99,3 +99,18 @@ if (typeof window !== 'undefined') {
   if (!window.game) window.game = createGame();
   console.log('[ENGINE] GameEngine.create ready; window.game initialized.');
 }
+
+
+import { reduce, initialState } from './rules.js';
+
+let currentState = initialState;
+
+function dispatch(action) {
+  try {
+    currentState = reduce(currentState, action);
+    // re-render with currentState...
+  } catch (err) {
+    console.error('[ENGINE] dispatch error:', err, action, { hasState: !!currentState });
+  }
+}
+
