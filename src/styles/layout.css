@@ -188,18 +188,6 @@ body {
 }
 
 
-/* Hand ribbon wrapper sits low so it doesn't obscure board */
-.ribbon-wrap {
-  position: fixed;
-  left: 50%;
-  bottom: -22px;               /* tuck a bit below the viewport */
-  transform: translateX(-50%);
-  width: 100%;
-  max-width: 1200px;
-  pointer-events: none;         /* only cards accept input */
-  z-index: 50;
-}
-
 /* The ribbon itself just arranges cards */
 .ribbon {
   display: flex;
