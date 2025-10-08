@@ -10,6 +10,21 @@
 html, body { height: 100%; }
 body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family: "Inter", system-ui, sans-serif; }
 
+/* --- Minimal hearts in HUD --- */
+.pill-hp { display:flex; align-items:center; gap:10px; }
+.pill-hp .label { font-weight:600; opacity:.85; }
+
+.pill-hp .hearts { display:flex; gap:6px; align-items:center; }
+.pill-hp .heart {
+  font-size:16px;
+  line-height:1;
+  color:#d35;                 /* filled */
+  text-shadow: 0 1px 0 rgba(0,0,0,.05);
+  transform: translateY(1px);
+}
+.pill-hp .heart.is-empty { opacity:.25; }
+
+
 /* ---------- Cards ---------- */
 .card{
   background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
