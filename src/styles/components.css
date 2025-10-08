@@ -73,20 +73,20 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 
 /* each card sits in an absolute wrapper we animate */
 .cardWrap{
-  position:absolute; bottom:40px; left:0;   /* JS sets left:px */
+  position:absolute; bottom:40px; left:0;
   width: var(--card-w); height: var(--card-h);
   transform-origin: bottom center;
   z-index:100;
 
-  /* small arc + tilt (Y+rot only) */
   --wy: 0px; --wrot: 0deg;
   transform: translateY(var(--wy)) rotate(var(--wrot));
   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
-  opacity: 0; /* fades to 1 after layout */
+  opacity: 0;
 }
+
 
 /* raise/preview */
 @media (hover:hover){
