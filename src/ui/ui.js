@@ -259,11 +259,9 @@ function renderHand(ribbonEl,state){
 
 /* ---------- Main render ---------- */
 export function renderGame(state){
-  const setTxt=(id,v)=>{const n=$(id); if(n) n.textContent=String(v);};
-  setTxt('#hud-you-hp',state?.hp??0);
-  setTxt('#hud-you-ae',state?.ae??0);
-  setTxt('#hud-ai-hp',state?.ai?.hp??0);
-  setTxt('#hud-ai-ae',state?.ai?.ae??0);
+  renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
+  renderHearts('#hud-ai-hearts', state?.ai?.hp ?? 0, 5);
+
   setTxt('#count-deck',state?.deck?.length??0);
   setTxt('#count-discard',state?.disc?.length??0);
   setTxt('#count-ae',state?.ae??0);
