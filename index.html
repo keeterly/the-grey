@@ -5,99 +5,69 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>The Grey — Modular</title>
 
-  <base href="./">
+  <base href="./" />
 
   <link rel="stylesheet" href="./src/styles/theme.css">
   <link rel="stylesheet" href="./src/styles/layout.css">
   <link rel="stylesheet" href="./src/styles/components.css">
   <link rel="stylesheet" href="./src/styles/overrides.css">
   <meta name="theme-color" content="#EEE8DC" />
-
-
-<style>
-/* DEV ONLY: verify if card drag uses a ghost image */
-@keyframes _devspin { from { transform: rotate(0) } to { transform: rotate(360deg) } }
-.ribbon .card::before{
-  content:""; position:absolute; right:8px; top:8px;
-  width:10px; height:10px; border-radius:50%;
-  background:#f66; box-shadow:0 0 6px #f66;
-  animation:_devspin 1s linear infinite; z-index:3;
-}
-</style>
-
-
-
-  
 </head>
+
 <body>
   <!-- HUD -->
   <div class="hudRow" id="hud">
     <div class="pill" id="pillYou">
-      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> HP <span id="hpValue">0</span></div>
+      <div class="seg">♡ HP <span id="hud-you-hp">0</span></div>
       <div class="sep"></div>
-      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> Æ <span id="aeValue">0</span></div>
+      <div class="seg">⚡ Æ <span id="hud-you-ae">0</span></div>
     </div>
     <div class="pill" id="pillAi">
-      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.5-7 9-7 9Z"/></svg> AI HP <span id="aiHpValue">0</span></div>
+      <div class="seg">♡ AI HP <span id="hud-ai-hp">0</span></div>
       <div class="sep"></div>
-      <div class="seg"><svg viewBox="0 0 24 24" fill="none"><path d="M14 3 4 15h6l-2 6 12-14h-6z"/></svg> AI Æ <span id="aiAeValue">0</span></div>
+      <div class="seg">⚡ AI Æ <span id="hud-ai-ae">0</span></div>
     </div>
   </div>
 
   <!-- Toast -->
   <div id="topLog" class="topLog" aria-live="polite"></div>
 
+  <!-- MAIN WRAP -->
   <div class="wrap">
+
     <!-- AI Board -->
     <div class="zone">
       <div class="title">AI Board</div>
-      <div class="slots fixedRow" id="aiSlots"></div>
+      <div id="aiBoard" class="slots fixedRow"></div>
     </div>
 
     <!-- Aetherflow -->
     <div class="zone">
       <div class="title" style="text-align:center">Aetherflow</div>
-      <div class="flowWrap">
-        <div class="flowGrid fixedRow">
-          <div class="costCell"><div class="costChip">4</div></div>
-          <div class="costCell"><div class="costChip">3</div></div>
-          <div class="costCell"><div class="costChip">2</div></div>
-          <div class="costCell"><div class="costChip">2</div></div>
-          <div class="costCell"><div class="costChip">2</div></div>
-
-          <div class="marketCard" data-flow="0"></div>
-          <div class="marketCard" data-flow="1"></div>
-          <div class="marketCard" data-flow="2"></div>
-          <div class="marketCard" data-flow="3"></div>
-          <div class="marketCard" data-flow="4"></div>
-        </div>
-      </div>
+      <div id="aetherflow" class="flowWrap slots fixedRow"></div>
     </div>
 
     <!-- Player Board -->
     <div class="zone">
       <div class="title">Your Board</div>
-      <div class="slots fixedRow" id="playerSlots"></div>
+      <div id="yourBoard" class="slots fixedRow"></div>
     </div>
   </div>
 
   <!-- Glyph tray -->
-<div class="glyphTray" id="glyphTray"></div>
-
+  <div class="glyphTray" id="glyphTray"></div>
 
   <!-- LEFT: Deck & Discard -->
   <div class="leftDock">
-    <button class="chipCirc" id="chipDeck" aria-label="Deck" title="Deck">
-      <!-- Deck icon: stacked cards -->
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <button class="chipCirc" id="chipDeck" title="Deck">
+      <svg viewBox="0 0 24 24" width="22" height="22">
         <rect x="6" y="5" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/>
         <rect x="4" y="3" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.2" opacity=".55"/>
       </svg>
       <small id="deckCount">0</small>
     </button>
-    <button class="chipCirc" id="chipDiscard" aria-label="Discard" title="Discard">
-      <!-- Discard icon: tray with down arrow -->
-      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+    <button class="chipCirc" id="chipDiscard" title="Discard">
+      <svg viewBox="0 0 24 24" width="22" height="22">
         <path d="M5 14h14v5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-5Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
         <path d="M12 4v9m0 0l-3-3m3 3l3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
       </svg>
@@ -106,7 +76,7 @@
   </div>
 
   <!-- RIGHT: Aether gem -->
-  <button class="aetherGem" id="aeGem" aria-label="Aether" title="Aether">
+  <button class="aetherGem" id="aeGem" title="Aether">
     <span class="gemInner"><span id="aeGemCount">0</span></span>
   </button>
 
@@ -134,13 +104,12 @@
     })();
   </script>
 
-  <!-- Bridge -> globals -->
+  <!-- Bridge bootstrap -->
   <script type="module">
     import { exposeToWindow } from "./bridge.js";
     exposeToWindow();
   </script>
 
-  <!-- Legacy debug -->
   <script defer src="./assets/js/boot-debug.js"></script>
 </body>
 </html>
