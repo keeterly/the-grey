@@ -37,42 +37,49 @@ function renderFlow(container, state) {
   });
 }
 
-/* ---------- Hand fan math (viewport-based) ---------- */
-function computeFan(viewW, cardW, n) {
+/* ---------- Hand fan math ---------- */
+function computeFan(containerWidth, cardWidth, n) {
   if (n <= 1) return { spread: 0, rot: 0 };
-  const preferred = 120; // nice desktop spacing
-  const maxSpread = Math.max(58, (viewW - cardW) / (n - 1)); // keep fully on-screen
+  // spacing that keeps edges on-screen: center*spread + cardW/2 <= width/2
+  const maxSpread = Math.max(58, (containerWidth - cardWidth) / (n - 1));
+  const preferred = 120;                  // looks great on desktop
   const spread = Math.min(preferred, maxSpread);
-  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
+  const rot = Math.max(6, Math.min(16, (spread / 120) * 12)); // proportional tilt
   return { spread, rot };
 }
 
-function layoutHand(container) {
-  const wraps = Array.from(container.children); // .cardWraps
+function layoutHand(ribbonEl) {
+  const wraps = Array.from(ribbonEl.children); // .cardWrap nodes
   if (!wraps.length) return;
 
-  // use viewport width to truly center on phones
-  const viewW = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-
-  // read card width from computed style on ribbon (.ribbon)
-  const cs = getComputedStyle(container);
+  // measure the actual inner width of ribbon (accounts for safe-area padding already applied on wrapper)
+  const width = ribbonEl.getBoundingClientRect().width;
+  const cs = getComputedStyle(ribbonEl);
   const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
 
   const n = wraps.length;
-  const { spread, rot } = computeFan(viewW, cardW, n);
+  const { spread, rot } = computeFan(width, cardW, n);
   const center = (n - 1) / 2;
 
-  wraps.forEach((wrap, idx) => {
-    const card = wrap.firstElementChild; // the .card inside
-    if (!card) return;
-    const offset = (idx - center) * spread;
-    const tilt   = (idx - center) * rot;
-    const arcY   = -2 * Math.abs(idx - center);
+  // first ensure all wrappers start invisible for a clean fade+slide
+  wraps.forEach(w => { w.style.opacity = '0'; });
 
-    card.style.setProperty('--tx', `${offset}px`);
-    card.style.setProperty('--ty', `${arcY}px`);
-    card.style.setProperty('--rot', `${tilt}deg`);
-    wrap.style.zIndex = String(100 + idx);
+  // next frame: apply positions & fade in so transitions fire
+  requestAnimationFrame(() => {
+    wraps.forEach((wrap, idx) => {
+      const offset = (idx - center) * spread;
+      const tilt   = (idx - center) * rot;
+      const arcY   = -2 * Math.abs(idx - center);
+
+      wrap.style.setProperty('--wx', `${offset}px`);
+      wrap.style.setProperty('--wy', `${arcY}px`);
+      wrap.style.setProperty('--wrot', `${tilt}deg`);
+      wrap.style.zIndex = String(100 + idx);
+
+      // stagger the opacity a touch for a pleasant cascade
+      wrap.style.transitionDelay = `${idx * 25}ms`;
+      wrap.style.opacity = '1';
+    });
   });
 }
 
@@ -89,6 +96,7 @@ function renderHand(container, state) {
     const phantom = cardEl({ title: '—', classes: 'is-phantom' });
     wrap.appendChild(phantom);
     container.appendChild(wrap);
+    layoutHand(container);
     return;
   }
 
@@ -104,17 +112,17 @@ function renderHand(container, state) {
     container.appendChild(wrap);
   });
 
-  // let the DOM paint first, then layout using viewport width
-  requestAnimationFrame(() => layoutHand(container));
+  layoutHand(container);
 }
 
 /* ---------- Public renderer ---------- */
 export function renderGame(state) {
-  // HUD ids are optional; ignore if not present
-  $('#hud-you-hp')?.replaceChildren(document.createTextNode(String(state?.hp ?? 0)));
-  $('#hud-you-ae')?.replaceChildren(document.createTextNode(String(state?.ae ?? 0)));
-  $('#hud-ai-hp')?.replaceChildren(document.createTextNode(String(state?.ai?.hp ?? 0)));
-  $('#hud-ai-ae')?.replaceChildren(document.createTextNode(String(state?.ai?.ae ?? 0)));
+  // HUD text if present
+  const setTxt = (id, v) => { const n = $(id); if (n) n.textContent = String(v); };
+  setTxt('#hud-you-hp', state?.hp ?? 0);
+  setTxt('#hud-you-ae', state?.ae ?? 0);
+  setTxt('#hud-ai-hp', state?.ai?.hp ?? 0);
+  setTxt('#hud-ai-ae', state?.ai?.ae ?? 0);
 
   renderSlots($('#aiBoard'), state?.ai?.slots, 'Empty');
   renderFlow($('#aetherflow'), state);
@@ -134,9 +142,7 @@ export function init(game) {
   renderGame(game.state);
 
   // Engine → re-render
-  document.addEventListener('game:state', (ev) => {
-    renderGame(ev.detail?.state ?? game.state);
-  });
+  document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
   // Keep fan centered on rotate/resize
   const ribbon = $('#ribbon');
