@@ -65,19 +65,24 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 
 /* We animate the WRAPPER, not the card */
 .cardWrap{
-  position:absolute; left:0; bottom:40px;   /* ← from left edge, not 50% */
-  width: var(--card-w); height: var(--card-h);
+  position:absolute;
+  left:0;                   /* absolute pixel anchoring from JS */
+  bottom:40px;
+  width: var(--card-w);
+  height: var(--card-h);
   transform-origin: bottom center;
   z-index:100;
 
-  /* JS sets these per card — now absolute px from left edge */
-  --wx: 0px;   /* translateX in px from left edge */
-  --wy: 0px;   /* slight arc lift */
+  /* only Y + rotation stay on transform; X is done by `left` */
+  --wy: 0px;
   --wrot: 0deg;
 
-  transform: translate3d(var(--wx), var(--wy), 0) rotate(var(--wrot));
-  transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .22s ease;
-  opacity: 0;  /* will fade to 1 when layout is applied */
+  transform: translateY(var(--wy)) rotate(var(--wrot));
+  transition:
+    left .28s cubic-bezier(.2,.8,.2,1),
+    transform .28s cubic-bezier(.2,.8,.2,1),
+    opacity .22s ease;
+  opacity: 0;
 }
 
 /* the actual visual card; hover/tap raises this element */
