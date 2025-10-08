@@ -1,7 +1,8 @@
 /* ============================================================
-   THE GREY — components.css (v2.3)
-   - Responsive, math-driven hand (centered, any count)
-   - Auto respects mobile safe areas
+   THE GREY — components.css (v2.4)
+   - JS-driven hand fan (centered, any count)
+   - Safe-area padding
+   - Fix: no transform animation (fade only) to avoid Safari override
    ============================================================ */
 
 /* -------- Base -------- */
@@ -17,7 +18,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
-  transition: transform .25s ease, filter .25s ease;
+  transition: filter .25s ease; /* (no transform here) */
 }
 .cHead{ padding:10px 12px 4px; }
 .cName{ font-size:14px; font-weight:600; }
@@ -32,9 +33,9 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 
 /* -------- Instant pulse -------- */
 @keyframes uiPulse{
-  0%{ filter:brightness(1); transform: translateY(-14px) scale(1.04) }
+  0%{ filter:brightness(1); }
   50%{ filter:brightness(1.15) }
-  100%{ filter:brightness(1); transform: translateY(-14px) scale(1.04) }
+  100%{ filter:brightness(1); }
 }
 
 /* ============================================================
@@ -74,33 +75,36 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   --tx: 0px; --ty: 0px; --rot: 0deg;
   transform: translateX(var(--tx)) translateY(var(--ty)) rotate(var(--rot));
   z-index: 100;
-  animation: drawIn .25s ease-out;
+
+  /* Fade-in only (do NOT animate transform) */
+  opacity: 0;
+  animation: fadeIn .25s ease-out forwards;
+}
+
+@keyframes fadeIn{
+  from { opacity: 0; filter: blur(1px); }
+  to   { opacity: 1; filter: none; }
 }
 
 /* Hover raise (desktop only) */
 @media (hover:hover){
   .ribbon .card:hover{
-    transform: translateY(-80px) rotate(0deg) scale(1.12);
+    transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
     z-index:999;
     filter: brightness(1.08);
   }
 }
 
 /* Instant pulse in hand */
-.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
+.ribbon .card.is-instant{ animation: fadeIn .25s ease-out forwards, uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
-
-@keyframes drawIn{
-  from{ transform: translateY(60px) scale(.9); opacity:0; }
-  to  { transform: translateY(0) scale(1); opacity:1; }
-}
 
 /* -------- Mobile tuning -------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height: 260px; }
   .ribbon{ --card-w: 160px; --card-h: 220px; }
   .ribbon .card:active{
-    transform: translateY(-70px) rotate(0deg) scale(1.18);
+    transform: translateY(-70px) rotate(0deg) scale(1.18) !important;
     z-index:999;
   }
 }
