@@ -15,20 +15,22 @@
 </head>
 
 <body>
+
+  
   <!-- HUD -->
-  <div class="hudRow" id="hud">
-    <div class="pill" id="pillYou">
-      <div class="seg">♡ HP <span id="hud-you-hp">0</span></div>
-      <div class="sep"></div>
-      <div class="seg">⚡ Æ <span id="hud-you-ae">0</span></div>
-    </div>
-    <div class="pill" id="pillAi">
-      <div class="seg">♡ AI HP <span id="hud-ai-hp">0</span></div>
-      <div class="sep"></div>
-      <div class="seg">⚡ AI Æ <span id="hud-ai-ae">0</span></div>
-    </div>
+<div class="hudRow" id="hud">
+  <div class="pill pill-hp" id="pillYou" aria-label="Your HP">
+    <div class="label">HP</div>
+    <div class="hearts" id="hud-you-hearts"></div>
   </div>
 
+  <div class="pill pill-hp" id="pillAi" aria-label="AI HP">
+    <div class="label">AI HP</div>
+    <div class="hearts" id="hud-ai-hearts"></div>
+  </div>
+</div>
+
+  
   <!-- Toast -->
   <div id="topLog" class="topLog" aria-live="polite"></div>
 
