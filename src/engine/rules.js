@@ -1,24 +1,18 @@
 // /src/engine/rules.js
 // ---------------------------------------------------------
-// Browser-safe reducer (no Node 'process' required).
-// - Pure reducer: takes (state, action) and returns next state
-// - Safe dev logging guarded by IS_DEV (works in browser builds)
-// - Includes boot actions used by your engine: INIT, ENSURE_MARKET, START_TURN
-// - Provides a few basic actions as no-throw placeholders
+// Browser-safe reducer (no Node “process” dependency)
 // ---------------------------------------------------------
 
-// /src/engine/rules.js
+// If running in the browser, define a minimal process shim *only* if missing.
+// Prevents “ReferenceError: process is not defined” when hosted on GitHub Pages.
 if (typeof window !== "undefined" && typeof window.process === "undefined") {
   window.process = { env: { NODE_ENV: "production" } };
 }
-export function reduce(state, action) { … }
 
 // Safe dev flag (works in Node or browser)
 const IS_DEV =
-  (typeof process !== "undefined" &&
-    process &&
-    process.env &&
-    process.env.NODE_ENV !== "production");
+  typeof process !== "undefined" &&
+  process?.env?.NODE_ENV !== "production";
 
 // ---- Action constants (exported for convenience) ----
 export const Action = {
@@ -32,6 +26,7 @@ export const Action = {
   GAIN_AETHER: "GAIN_AETHER",
   SET_MODE: "SET_MODE",
 };
+
 
 // -------- Utility helpers (pure) --------
 function clone(x) {
