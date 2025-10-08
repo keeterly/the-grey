@@ -56,41 +56,41 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
 }
 
 
-/* ---------- Boards (show empty slots only) ---------- */
+/* ---------- Boards (real cards OR empty slots) ---------- */
 function renderSlots(container, slots) {
   if (!container) return;
   container.innerHTML = '';
 
-  const list = Array.isArray(slots) ? slots : [null, null, null];
+  // Always render exactly 3 board positions
+  const list = Array.isArray(slots) ? slots.slice(0, 3) : [];
+  while (list.length < 3) list.push(null);
 
   list.forEach((s, i) => {
-    const wrap = el('div', 'boardSlot');
+    const wrap = el('div', 'boardSlot');   // sized flex child
     wrap.dataset.slotIndex = String(i);
 
     if (s) {
-      // Actual card in this slot
+      // Render the real card that’s actually in the slot
       wrap.appendChild(cardEl({
         title: s.name || s.title || 'Card',
         subtype: s.type || s.subtype || 'Spell'
       }));
     } else {
-      // Show an empty slot (droppable)
-      const slot = el('div', 'emptySlot');
-      wrap.appendChild(slot);
+      // Render an empty, droppable slot
+      wrap.appendChild(el('div', 'emptySlot'));
     }
 
     container.appendChild(wrap);
   });
 }
 
-/* ---------- Aetherflow row (same visuals, optional) ---------- */
+/* ---------- Aetherflow row (real items render; otherwise empty boxes) ---------- */
 function renderFlow(container, state) {
   if (!container) return;
   container.innerHTML = '';
 
-  const row = Array.isArray(state?.flowRow)
-    ? state.flowRow
-    : [null, null, null, null, null];
+  const row = Array.isArray(state?.flowRow) ? state.flowRow.slice(0, 5) : [];
+  while (row.length < 5) row.push(null);
 
   row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
@@ -99,8 +99,8 @@ function renderFlow(container, state) {
     if (cell) {
       wrap.appendChild(cardEl({
         title: cell.name || 'Aether',
-        subtype: 'Instant',
-        right: String(i + 1)
+        subtype: cell.type || cell.subtype || 'Instant',
+        right: String(i + 1),
       }));
     } else {
       wrap.appendChild(el('div', 'emptySlot'));
@@ -109,6 +109,7 @@ function renderFlow(container, state) {
     container.appendChild(wrap);
   });
 }
+
 
 
 
