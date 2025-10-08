@@ -79,7 +79,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 /* each card sits in an absolute wrapper we animate */
 /* each card sits in an absolute wrapper we animate */
 .cardWrap{
-  position:absolute; bottom:40px; left:0;
+  position:absolute; bottom:40px; left:50PX;
   width: var(--card-w); height: var(--card-h);
   transform-origin: bottom center;
   z-index:100;
