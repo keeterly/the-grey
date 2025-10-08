@@ -1,10 +1,14 @@
 /* ============================================================
-   THE GREY — components.css (Enhanced Fan, Drag + Preview)
+   THE GREY — components.css (FAN STRIP EDITION — STABLE)
+   - Centered fan strip for the hand
+   - Smooth arc + hover raise
+   - Works on desktop & mobile
    ============================================================ */
 
 /* ---------- Base ---------- */
 * { box-sizing: border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color: transparent; }
-html, body { height: 100%; margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family:"Inter", system-ui, sans-serif; }
+html, body { height: 100%; }
+body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family: "Inter", system-ui, sans-serif; }
 
 /* ---------- Cards ---------- */
 .card{
@@ -14,9 +18,7 @@ html, body { height: 100%; margin:0; padding:0; background:#f3efe8; color:#3a312
   width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
-  transition:
-    transform .25s cubic-bezier(.2,.8,.2,1),
-    filter .2s ease;
+  transition: filter .22s ease;
 }
 .cHead{ padding:10px 12px 4px; }
 .cName{ font-size:14px; font-weight:600; }
@@ -24,166 +26,91 @@ html, body { height: 100%; margin:0; padding:0; background:#f3efe8; color:#3a312
 .cBody{ flex:1; padding:0 12px; font-size:13px; }
 .cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
-/* ---------- Zones ---------- */
+/* ---------- Zones (boards/flow rows) ---------- */
 #aiBoard, #aetherflow, #yourBoard{
-  display:flex;
-  gap:16px;
-  justify-content:center;
-  align-items:flex-start;
-  flex-wrap:nowrap;
-  overflow:visible;
-  min-height: 260px;
-}
-
-.boardSlot{
-  width: 180px;
-  height: 250px;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  border-radius:14px;
-  position:relative;
-  transition: background .25s ease, transform .25s ease;
-}
-
-/* Empty slots invisible (no placeholder card) */
-.boardSlot:empty{
-  background: none;
-  border:none;
-  pointer-events:none;
-}
-
-/* ---------- Drop targets (drag highlight) ---------- */
-.boardSlot.drop-target{
-  outline: 2px dashed rgba(0,0,0,.15);
-}
-.boardSlot.drop-accept{
-  outline: 2px solid rgba(0,0,0,.3);
-  background: rgba(255,255,200,.2);
+  display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start;
 }
 
 /* ---------- Instant pulse ---------- */
-@keyframes uiPulse {
-  0%{filter:brightness(1)}
-  50%{filter:brightness(1.12)}
-  100%{filter:brightness(1)}
-}
+@keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
 
 /* ============================================================
    HAND / RIBBON
    ============================================================ */
+
+/* fixed footer container; centers its inner strip */
 .ribbon-wrap{
-  position:fixed;
-  left:0; bottom:0;
-  width:100%;
+  position:fixed; left:0; bottom:0; width:100%;
   height:300px;
-  padding-left:max(12px, env(safe-area-inset-left));
-  padding-right:max(12px, env(safe-area-inset-right));
-  padding-bottom:max(8px, env(safe-area-inset-bottom));
-  display:flex;
-  justify-content:center;
-  align-items:flex-end;
-  pointer-events:none;
-  z-index:100;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  display:flex; justify-content:center; align-items:flex-end;
+  pointer-events:none; z-index:100;
 }
 
+/* flexible shell — the inner "strip" will be centered inside this */
 .ribbon{
-  --card-w:180px;
-  --card-h:250px;
+  --card-w: 180px;   /* JS reads these for math */
+  --card-h: 250px;
+
   position:relative;
-  width:100%;
-  height:100%;
+  width:100%; height:100%;
   pointer-events:auto;
 }
 
+/* Centered strip that we will position explicitly from JS */
 .fan{
-  position:relative;
-  height:calc(var(--card-h) + 40px);
-  width:0px;
-  margin:0;
-  left:0;
-  pointer-events:auto;
-  transition:left .28s cubic-bezier(.2,.8,.2,1);
+  position: relative;
+  height: calc(var(--card-h) + 40px);
+  width: 0px;                 /* JS sets exact width */
+  margin: 0;                  /* stop relying on auto-centering */
+  left: 0;                    /* JS will set pixel 'left' */
+  pointer-events: auto;
+  transition: left .28s cubic-bezier(.2,.8,.2,1); /* smooth when resizing/rotating */
 }
 
+/* each card sits in an absolute wrapper we animate */
 .cardWrap{
-  position:absolute;
-  bottom:40px;
-  left:0;
-  width:var(--card-w);
-  height:var(--card-h);
-  transform-origin:bottom center;
+  position:absolute; bottom:40px; left:0;   /* JS sets left:px */
+  width: var(--card-w); height: var(--card-h);
+  transform-origin: bottom center;
   z-index:100;
-  --wy:0px; --wrot:0deg;
-  transform:translateY(var(--wy)) rotate(var(--wrot));
+
+  /* small arc + tilt (Y+rot only) */
+  --wy: 0px; --wrot: 0deg;
+  transform: translateY(var(--wy)) rotate(var(--wrot));
   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
-  opacity:0;
+  opacity: 0; /* fades to 1 after layout */
 }
 
-/* Hover raise (desktop) */
+/* raise/preview on hover (desktop) */
 @media (hover:hover){
   .cardWrap:hover .card{
     transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
-    filter:brightness(1.08);
-    transition:transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
+    filter: brightness(1.08);
+    transition: transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
   }
   .cardWrap:hover{ z-index:999; }
 }
 
-/* Instant pulse effect */
+/* instant visual */
 .ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
 /* ---------- Mobile tuning ---------- */
-@media (max-width:768px){
+@media (max-width: 768px){
   .ribbon-wrap{ height:260px; }
-  .ribbon{ --card-w:160px; --card-h:220px; }
+  .ribbon{ --card-w: 160px; --card-h: 220px; }
   .cardWrap:active .card{
     transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
   }
   .cardWrap:active{ z-index:999; }
 }
 
-@media (max-width:420px){
-  .ribbon{ --card-w:148px; --card-h:205px; }
-}
-
-/* ============================================================
-   PREVIEW MODE (click-to-preview)
-   ============================================================ */
-.cardWrap.is-preview{
-  z-index:9999 !important;
-}
-.cardWrap.is-preview .card{
-  position:relative;
-  transform:translateY(-100px) scale(1.5);
-  transition:transform .25s cubic-bezier(.2,.9,.2,1.1), filter .2s ease;
-  filter:brightness(1.1);
-}
-
-/* ============================================================
-   DRAGGING
-   ============================================================ */
-.dragging{
-  opacity:.8;
-  filter:brightness(1.05);
-  transform:scale(1.05);
-  z-index:9999;
-}
-
-.dragBadge{
-  position:fixed;
-  top:0; left:0;
-  background:#fff6ca;
-  border:1px solid rgba(0,0,0,.2);
-  padding:4px 8px;
-  border-radius:8px;
-  font-size:12px;
-  box-shadow:0 2px 6px rgba(0,0,0,.15);
-  transform:translate(-9999px,-9999px);
-  pointer-events:none;
-  z-index:10000;
+@media (max-width: 420px){
+  .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
