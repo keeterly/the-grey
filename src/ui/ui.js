@@ -53,21 +53,32 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
   return c;
 }
 
-/* ---------- Boards ---------- */
-function renderSlots(container, slots, fallbackTitle='Empty'){
+/* ---------- Boards (show empty slots only) ---------- */
+function renderSlots(container, slots) {
   if (!container) return;
-  container.innerHTML='';
-  const list = Array.isArray(slots) && slots.length ? slots : [null,null,null];
-  list.forEach((s,i)=>{
-    const wrap = el('div','boardSlot');
-    wrap.dataset.slotIndex=String(i);
-    wrap.appendChild(
-      s ? cardEl({title:s.name||s.title||'Card',subtype:s.type||s.subtype||'Spell'})
-        : cardEl({title:fallbackTitle,subtype:'—'})
-    );
+  container.innerHTML = '';
+
+  const list = Array.isArray(slots) ? slots : [null, null, null];
+
+  list.forEach((s, i) => {
+    const wrap = el('div', 'boardSlot');
+    wrap.dataset.slotIndex = String(i);
+
+    if (s) {
+      wrap.appendChild(cardEl({
+        title: s.name || s.title || 'Card',
+        subtype: s.type || s.subtype || 'Spell',
+      }));
+    } else {
+      // empty slot placeholder (no "Empty" card)
+      const slot = el('div', 'emptySlot');
+      wrap.appendChild(slot);
+    }
+
     container.appendChild(wrap);
   });
 }
+
 
 /* ---------- Aetherflow ---------- */
 function renderFlow(container,state){
