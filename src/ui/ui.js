@@ -153,6 +153,11 @@ export function renderGame(state) {
   setTxt('#hud-ai-hp', state?.ai?.hp ?? 0);
   setTxt('#hud-ai-ae', state?.ai?.ae ?? 0);
 
+  // NEW: dock counters
+  setTxt('#count-deck', state?.deck?.length ?? 0);
+  setTxt('#count-discard', state?.disc?.length ?? 0);
+  setTxt('#count-ae', state?.ae ?? 0);
+  
   // Boards
   renderSlots($('#aiBoard'), state?.ai?.slots, 'Empty');
   renderFlow($('#aetherflow'), state);
@@ -171,24 +176,17 @@ export function renderGame(state) {
   setTxt('#count-ae', aether);
 }
 
-/* ---------- Init ---------- */
 export function init(game) {
   window.renderGame = renderGame;
 
-  // Optional legacy buttons (still work if present)
+  // Buttons
   $('#btnDraw')?.addEventListener('click', () => game.dispatch({ type: 'DRAW', amount: 1 }));
   $('#btnEnd') ?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
-  $('#btnReset')?.addEventListener('click', () => game.reset());
-
-  // New dock button
-  $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
+  $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' })); // NEW
 
   renderGame(game.state);
-
-  // Engine → re-render
   document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
-  // Keep the fan centered
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
   window.addEventListener('resize', onResize, { passive: true });
