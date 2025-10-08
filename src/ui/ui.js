@@ -1,8 +1,9 @@
-// /src/ui/ui.js
+// /src/ui/ui.js — UI layer for The Grey (render boards, flow, and hand)
 function $(q, r = document) { return r.querySelector(q); }
 function $all(q, r = document) { return Array.from(r.querySelectorAll(q)); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
+// --- Card template
 function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
   const c = el('div', `card ${classes}`.trim());
   c.innerHTML = `
@@ -16,6 +17,7 @@ function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {})
   return c;
 }
 
+// --- Board + Flow helpers
 function renderSlots(container, slots, fallbackTitle = 'Empty') {
   if (!container) return;
   container.innerHTML = '';
@@ -44,53 +46,57 @@ function renderFlow(container, state) {
   });
 }
 
-
-// Helper: compute a safe spread/rotation so the fan fits the viewport
-function applyHandLayout(container, n) {
-  // n = number of cards
-  const cs = getComputedStyle(container);
-  const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
-
-  // available width inside ribbon (minus a little breathing room)
-  const avail = container.clientWidth - 16; // px
-  let spread;
-
-  if (n <= 1) {
-    spread = 0;
-  } else {
-    // Max spread that keeps leftmost/rightmost visible:
-    // center offset = (n-1)/2 * spread ; add half card width
-    const maxSpread = (avail - cardW) / (n - 1); // px
-    // Our preferred spacing:
-    const pref = 120; // desktop-ish default
-    // Clamp between 70 and maxSpread
-    spread = Math.max(70, Math.min(pref, maxSpread));
-  }
-
-  // Rotation scales with spread (feels nice on mobile)
-  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
-
-  container.style.setProperty('--n', String(Math.max(n, 1)));
-  container.style.setProperty('--spread', `${spread}px`);
-  container.style.setProperty('--rot', `${rot}deg`);
+// --- Fan layout helpers (JS-driven so it works on Safari + desktop)
+function computeFan(containerWidth, cardWidth, n) {
+  if (n <= 1) return { spread: 0, rot: 0 };
+  const preferred = 120;                             // nice desktop spacing
+  const maxSpread = Math.max(50, (containerWidth - cardWidth) / (n - 1));
+  const spread = Math.min(preferred, maxSpread);    // clamp to fit
+  const rot = Math.max(6, Math.min(16, (spread / 120) * 12)); // proportional tilt
+  return { spread, rot };
 }
 
+function applyFanToExisting(container) {
+  const cards = Array.from(container.children);
+  if (!cards.length) return;
+  const cs = getComputedStyle(container);
+  const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
+  const width = container.clientWidth || window.innerWidth;
+  const n = cards.length;
+  const { spread, rot } = computeFan(width, cardW, n);
+  const center = (n - 1) / 2;
 
+  cards.forEach((node, idx) => {
+    const offset = (idx - center) * spread;
+    const tilt   = (idx - center) * rot;
+    const arcY   = -2 * Math.abs(idx - center);
+    node.style.setProperty('--tx', `${offset}px`);
+    node.style.setProperty('--ty', `${arcY}px`);
+    node.style.setProperty('--rot', `${tilt}deg`);
+    node.style.zIndex = String(100 + idx);
+  });
+}
 
+// --- Hand renderer (uses JS to set per-card transforms)
 function renderHand(container, state) {
   if (!container) return;
   container.innerHTML = '';
 
   const hand = Array.isArray(state?.hand) ? state.hand : [];
-  applyHandLayout(container, hand.length);
+  const cs = getComputedStyle(container);
+  const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
+  const width = container.clientWidth || window.innerWidth;
+
+  const { spread, rot } = computeFan(width, cardW, hand.length || 1);
+  container.style.setProperty('--n', String(Math.max(hand.length, 1)));
 
   if (hand.length === 0) {
     const phantom = cardEl({ title: '—', classes: 'is-phantom' });
-    phantom.style.visibility = 'hidden';
-    phantom.style.setProperty('--i', '0');
     container.appendChild(phantom);
     return;
   }
+
+  const center = (hand.length - 1) / 2;
 
   hand.forEach((c, idx) => {
     const isInstant = (c.type || c.subtype) === 'Instant';
@@ -99,22 +105,23 @@ function renderHand(container, state) {
       subtype: c.type || c.subtype || 'Spell',
       classes: isInstant ? 'is-instant' : '',
     });
-    node.style.setProperty('--i', String(idx));
+
+    const offset = (idx - center) * spread;
+    const tilt   = (idx - center) * rot;
+    const arcY   = -2 * Math.abs(idx - center);
+
+    node.style.setProperty('--tx', `${offset}px`);
+    node.style.setProperty('--ty', `${arcY}px`);
+    node.style.setProperty('--rot', `${tilt}deg`);
+    node.style.zIndex = String(100 + idx);
+
     container.appendChild(node);
   });
 }
 
-// Recompute layout on rotate/resize
-window.addEventListener('resize', () => {
-  const ribbon = document.getElementById('ribbon');
-  if (!ribbon) return;
-  const n = parseInt(getComputedStyle(ribbon).getPropertyValue('--n')) || 1;
-  applyHandLayout(ribbon, n);
-});
-
-// PUBLIC
+// --- Public renderer for entire app
 export function renderGame(state) {
-  // HUD (optional)
+  // HUD (optional ids)
   $('#hud-you-hp')?.replaceChildren(document.createTextNode(String(state?.hp ?? 0)));
   $('#hud-you-ae')?.replaceChildren(document.createTextNode(String(state?.ae ?? 0)));
   $('#hud-ai-hp')?.replaceChildren(document.createTextNode(String(state?.ai?.hp ?? 0)));
@@ -126,20 +133,23 @@ export function renderGame(state) {
   renderHand($('#ribbon'), state);
 }
 
+// --- Init: wire buttons + first paint + resize handling
 export function init(game) {
-  // Expose renderer so other modules can call it
-  window.renderGame = renderGame;
+  window.renderGame = renderGame;  // expose for engine/console
 
-  // Wire buttons if present
+  // Buttons (if present)
   $('#btnDraw')?.addEventListener('click', () => game.dispatch({ type: 'DRAW', amount: 1 }));
   $('#btnEnd')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
   $('#btnReset')?.addEventListener('click', () => game.reset());
 
-  // First paint
   renderGame(game.state);
 
-  // Re-render on engine broadcasts
+  // Re-render when engine broadcasts new state
   document.addEventListener('game:state', (ev) => {
     renderGame(ev.detail?.state ?? game.state);
   });
+
+  // Keep fan centered on rotate/resize
+  const ribbon = $('#ribbon');
+  window.addEventListener('resize', () => ribbon && applyFanToExisting(ribbon), { passive: true });
 }
