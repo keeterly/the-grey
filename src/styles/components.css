@@ -1,8 +1,8 @@
 /* ============================================================
-   THE GREY — components.css (v2.4)
+   THE GREY — components.css (v2.5)
    - JS-driven hand fan (centered, any count)
+   - Wrapper-based entry animation (keeps transforms intact)
    - Safe-area padding
-   - Fix: no transform animation (fade only) to avoid Safari override
    ============================================================ */
 
 /* -------- Base -------- */
@@ -18,7 +18,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
-  transition: filter .25s ease; /* (no transform here) */
+  transition: filter .25s ease; /* keep transform under JS control */
 }
 .cHead{ padding:10px 12px 4px; }
 .cName{ font-size:14px; font-weight:600; }
@@ -33,9 +33,9 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 
 /* -------- Instant pulse -------- */
 @keyframes uiPulse{
-  0%{ filter:brightness(1); }
-  50%{ filter:brightness(1.15) }
-  100%{ filter:brightness(1); }
+  0%{ filter:brightness(1) }
+  50%{ filter:brightness(1.12) }
+  100%{ filter:brightness(1) }
 }
 
 /* ============================================================
@@ -52,8 +52,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 }
 
 .ribbon{
-  /* Hand globals (JS may adjust these) */
-  --n: 1;                 /* number of cards (informational) */
+  --n: 1;                 /* info only */
   --card-w: 180px;
   --card-h: 250px;
 
@@ -64,49 +63,54 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   perspective: 1200px; transform-style: preserve-3d;
 }
 
-.ribbon .card{
+/* Wrapper that we animate (not the transform-bearing .card) */
+.cardWrap{
   position:absolute; left:50%; bottom:40px;
   width: var(--card-w); height: var(--card-h);
   margin-left: calc(var(--card-w)/-2);
   transform-origin: bottom center;
-  cursor: grab;
+  z-index:100;
 
-  /* JS sets --tx, --ty, --rot per card */
-  --tx: 0px; --ty: 0px; --rot: 0deg;
-  transform: translateX(var(--tx)) translateY(var(--ty)) rotate(var(--rot));
-  z-index: 100;
-
-  /* Fade-in only (do NOT animate transform) */
+  /* entry animation lives here so card transforms aren’t touched */
   opacity: 0;
-  animation: fadeIn .25s ease-out forwards;
+  animation: handEnter .25s ease-out forwards;
 }
 
-@keyframes fadeIn{
-  from { opacity: 0; filter: blur(1px); }
-  to   { opacity: 1; filter: none; }
+@keyframes handEnter{
+  from { opacity: 0; transform: translateY(20px) scale(.96); filter: blur(1px); }
+  to   { opacity: 1; transform: translateY(0) scale(1); filter: none; }
+}
+
+/* The actual card uses JS-driven transform variables */
+.card{
+  /* JS sets these on the .card element */
+  --tx: 0px; --ty: 0px; --rot: 0deg;
+  transform: translateX(var(--tx)) translateY(var(--ty)) rotate(var(--rot));
 }
 
 /* Hover raise (desktop only) */
 @media (hover:hover){
-  .ribbon .card:hover{
+  .cardWrap:hover .card{
     transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
-    z-index:999;
     filter: brightness(1.08);
   }
+  .cardWrap:hover{ z-index: 999; }
 }
 
 /* Instant pulse in hand */
-.ribbon .card.is-instant{ animation: fadeIn .25s ease-out forwards, uiPulse 1.8s ease-in-out infinite; }
+.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
 /* -------- Mobile tuning -------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height: 260px; }
   .ribbon{ --card-w: 160px; --card-h: 220px; }
-  .ribbon .card:active{
-    transform: translateY(-70px) rotate(0deg) scale(1.18) !important;
-    z-index:999;
+
+  /* Touch raise */
+  .cardWrap:active .card{
+    transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
   }
+  .cardWrap:active{ z-index: 999; }
 }
 
 @media (max-width: 420px){
