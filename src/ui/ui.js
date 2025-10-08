@@ -4,6 +4,35 @@
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
+
+// ----- DnD helpers -----
+let _gameRef = null; // store game to dispatch on drop
+
+function getBoardSlotsEl() { return document.querySelector('#yourBoard'); }
+function getBoardSlotNodes() {
+  const root = getBoardSlotsEl();
+  if (!root) return [];
+  return Array.from(root.querySelectorAll('.boardSlot'));
+}
+function markSlots(mode){ // '', 'target', 'accept'
+  const nodes = getBoardSlotNodes();
+  nodes.forEach(n => {
+    n.classList.remove('drop-target','drop-accept');
+    if (mode === 'target') n.classList.add('drop-target');
+    if (mode === 'accept') n.classList.add('drop-accept');
+  });
+}
+function slotIndexFromPoint(x, y){
+  const nodes = getBoardSlotNodes();
+  for (let i=0;i<nodes.length;i++){
+    const r = nodes[i].getBoundingClientRect();
+    if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return i;
+  }
+  return -1;
+}
+
+
+
 /* ------------------ Card template ------------------ */
 function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
   const c = el('div', `card ${classes}`.trim());
@@ -24,16 +53,23 @@ function renderSlots(container, slots, fallbackTitle = 'Empty') {
   container.innerHTML = '';
 
   const list = Array.isArray(slots) && slots.length ? slots : [null, null, null];
-  for (const s of list) {
+  list.forEach((s, i) => {
+    const wrap = el('div', 'boardSlot');       // <- droppable wrapper
+    wrap.dataset.slotIndex = String(i);
+
     if (!s) {
-      container.appendChild(cardEl({ title: fallbackTitle, subtype: '—' }));
+      // empty placeholder
+      wrap.appendChild(cardEl({ title: fallbackTitle, subtype: '—' }));
     } else {
-      container.appendChild(
-        cardEl({ title: s.name || s.title || 'Card', subtype: s.type || s.subtype || 'Spell' })
-      );
+      wrap.appendChild(cardEl({
+        title: s.name || s.title || 'Card',
+        subtype: s.type || s.subtype || 'Spell'
+      }));
     }
-  }
+    container.appendChild(wrap);
+  });
 }
+
 
 function renderFlow(container, state) {
   if (!container) return;
@@ -128,17 +164,20 @@ function renderHand(ribbonEl, state) {
     return;
   }
 
-  hand.forEach(c => {
-    const w = el('div', 'cardWrap');
-    const isInstant = (c.type || c.subtype) === 'Instant';
-    w.appendChild(cardEl({
-      title: c.name || c.title || 'Card',
-      subtype: c.type || c.subtype || 'Spell',
-      classes: isInstant ? 'is-instant' : ''
-    }));
-    fan.appendChild(w);
-    attachMobilePeekHandlers(w);
+  hand.forEach((c, handIndex) => {
+  const w = el('div', 'cardWrap');
+  const isInstant = (c.type || c.subtype) === 'Instant';
+  const node = cardEl({
+    title: c.name || c.title || 'Card',
+    subtype: c.type || c.subtype || 'Spell',
+    classes: isInstant ? 'is-instant' : '',
   });
+  w.appendChild(node);
+  fan.appendChild(w);
+
+  // enable drag & drop for this card
+  enableDnDForCard(w, handIndex);
+});
 
   layoutHand(ribbonEl);
 }
@@ -177,6 +216,7 @@ export function renderGame(state) {
 }
 
 export function init(game) {
+    _gameRef = game;                    // <-- add this
   window.renderGame = renderGame;
 
   // Buttons
@@ -192,4 +232,99 @@ export function init(game) {
   window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('orientationchange', onResize, { passive: true });
 }
+
+function enableMouseDnDOnCard(wrap, handIndex){
+  // HTML5 Drag & Drop (mouse/desktop)
+  wrap.draggable = true;
+
+  wrap.addEventListener('dragstart', (e) => {
+    wrap.classList.add('dragging');
+    e.dataTransfer.setData('text/plain', String(handIndex));
+    e.dataTransfer.effectAllowed = 'move';
+    // light up slots
+    markSlots('target');
+  });
+
+  wrap.addEventListener('dragend', () => {
+    wrap.classList.remove('dragging');
+    markSlots('');
+  });
+
+  // Allow drop over the board container
+  const board = getBoardSlotsEl();
+  if (board && !board._dragListenersAdded){
+    board.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      const i = slotIndexFromPoint(e.clientX, e.clientY);
+      markSlots(i >= 0 ? 'accept' : 'target');
+    });
+    board.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const src = Number(e.dataTransfer.getData('text/plain'));
+      const tgt = slotIndexFromPoint(e.clientX, e.clientY);
+      markSlots('');
+      if (tgt >= 0 && Number.isFinite(src)){
+        _gameRef?.dispatch?.({ type:'PLAY_FROM_HAND', handIndex: src, slot: tgt });
+      }
+    });
+    board._dragListenersAdded = true;
+  }
+}
+
+function enableTouchDnDOnCard(wrap, handIndex){
+  // Pointer/touch fallback (mobile)
+  let dragging = false;
+  const badge = document.querySelector('.dragBadge') || document.body.appendChild(el('div','dragBadge'));
+
+  const onMove = (x,y) => {
+    badge.style.transform = `translate(${x+12}px, ${y+12}px)`;
+    const idx = slotIndexFromPoint(x,y);
+    markSlots(idx >= 0 ? 'accept' : 'target');
+  };
+
+  const onUp = (x,y) => {
+    if (!dragging) return;
+    dragging = false;
+    wrap.classList.remove('dragging');
+    badge.style.transform = 'translate(-9999px,-9999px)';
+    const tgt = slotIndexFromPoint(x,y);
+    markSlots('');
+    if (tgt >= 0) {
+      _gameRef?.dispatch?.({ type:'PLAY_FROM_HAND', handIndex, slot: tgt });
+    }
+  };
+
+  wrap.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length !== 1) return;
+    dragging = true;
+    wrap.classList.add('dragging');
+    badge.textContent = 'Drag to a slot';
+    const t = ev.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
+
+  wrap.addEventListener('touchmove', (ev) => {
+    if (!dragging) return;
+    const t = ev.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
+
+  wrap.addEventListener('touchend', (ev) => {
+    const t = ev.changedTouches[0];
+    onUp(t.clientX, t.clientY);
+  }, { passive: true });
+
+  wrap.addEventListener('touchcancel', () => {
+    dragging = false;
+    wrap.classList.remove('dragging');
+    badge.style.transform = 'translate(-9999px,-9999px)';
+    markSlots('');
+  }, { passive: true });
+}
+
+function enableDnDForCard(wrap, handIndex){
+  enableMouseDnDOnCard(wrap, handIndex);
+  enableTouchDnDOnCard(wrap, handIndex);
+}
+
 
