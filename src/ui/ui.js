@@ -1,11 +1,12 @@
-// /src/ui/ui.js — Fixed Drag & Preview
+// /src/ui/ui.js — Empty slots, centered hand, fixed drag, 50% preview
 
+/* ------------------ tiny DOM helpers ------------------ */
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
 let _gameRef = null;
 
-/* ---------- Board Helpers ---------- */
+/* ------------------ Board helpers ------------------ */
 function getBoardSlotsEl() { return document.querySelector('#yourBoard'); }
 function getBoardSlotNodes() {
   const root = getBoardSlotsEl();
@@ -13,7 +14,7 @@ function getBoardSlotNodes() {
 }
 function markSlots(mode) {
   getBoardSlotNodes().forEach(n => {
-    n.classList.remove('drop-target','drop-accept');
+    n.classList.remove('drop-target', 'drop-accept');
     if (mode === 'target') n.classList.add('drop-target');
     if (mode === 'accept') n.classList.add('drop-accept');
   });
@@ -27,22 +28,18 @@ function slotIndexFromPoint(x, y) {
   return -1;
 }
 
-
-/* ---------- HUD Hearts ---------- */
+/* ------------------ HUD hearts ------------------ */
 function renderHearts(selector, hp, max = 5) {
-  const el = $(selector);
-  if (!el) return;
+  const node = $(selector);
+  if (!node) return;
   const val = Math.max(0, Math.min(max, Number(hp) || 0));
   let html = '';
-  for (let i = 0; i < max; i++) {
-    html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
-  }
-  el.innerHTML = html;
+  for (let i = 0; i < max; i++) html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
+  node.innerHTML = html;
 }
 
-
-/* ---------- Card template ---------- */
-function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
+/* ------------------ Card / slot elements ------------------ */
+function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
   const c = el('div', `card ${classes}`.trim());
   c.innerHTML = `
     <div class="cHead">
@@ -54,13 +51,15 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
   `;
   return c;
 }
+function emptySlotEl() {
+  return el('div', 'emptySlot');
+}
 
-
-// How many spaces each board should show
+/* how many visible slots per row */
 const AI_SLOT_COUNT = 3;
 const PLAYER_SLOT_COUNT = 3;
 
-// Renders a row of fixed slots: empty boxes unless a real card exists
+/* ------------------ Boards / Flow ------------------ */
 function renderSlots(container, slots = [], slotCount = 3) {
   if (!container) return;
   container.innerHTML = '';
@@ -69,25 +68,21 @@ function renderSlots(container, slots = [], slotCount = 3) {
     const wrap = el('div', 'boardSlot');
     wrap.dataset.slotIndex = String(i);
 
-    const s = slots[i]; // may be undefined/null
-    if (s) {
-      // real card in this slot
-      wrap.appendChild(cardEl({
-        title: s.name || s.title || 'Card',
-        subtype: s.type || s.subtype || 'Spell'
-      }));
+    const s = slots[i];
+    if (s && (s.name || s.title)) {
+      wrap.appendChild(
+        cardEl({
+          title: s.name || s.title || 'Card',
+          subtype: s.type || s.subtype || 'Spell',
+        })
+      );
     } else {
-      // empty visual (no placeholder card)
-      const empty = el('div', 'emptySlot');
-      wrap.appendChild(empty);
+      wrap.appendChild(emptySlotEl());
     }
-
     container.appendChild(wrap);
   }
 }
 
-
-/* ---------- Aetherflow row (real items render; otherwise empty boxes) ---------- */
 function renderFlow(container, state) {
   if (!container) return;
   container.innerHTML = '';
@@ -97,27 +92,25 @@ function renderFlow(container, state) {
 
   row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
-    wrap.dataset.slotIndex = String(i);
+    wrap.dataset.flowIndex = String(i);
 
-    if (cell) {
-      wrap.appendChild(cardEl({
-        title: cell.name || 'Aether',
-        subtype: cell.type || cell.subtype || 'Instant',
-        right: String(i + 1),
-      }));
+    if (cell && (cell.name || cell.title)) {
+      wrap.appendChild(
+        cardEl({
+          title: cell.name || 'Aether',
+          subtype: cell.type || cell.subtype || 'Instant',
+          right: String(i + 1),
+        })
+      );
     } else {
-      wrap.appendChild(el('div', 'emptySlot'));
+      wrap.appendChild(emptySlotEl());
     }
-
     container.appendChild(wrap);
   });
 }
 
-
-
-
-/* ---------- Layout Hand ---------- */
-function layoutHand(ribbonEl){
+/* ------------------ Hand layout (centered + arc) ------------------ */
+function layoutHand(ribbonEl) {
   const fan = ribbonEl.querySelector('.fan');
   if (!fan) return;
 
@@ -125,198 +118,239 @@ function layoutHand(ribbonEl){
   const anchorRect = anchor.getBoundingClientRect();
   const ribbonRect = ribbonEl.getBoundingClientRect();
 
-  const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w'))||180;
+  const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
   const n = Math.max(1, fan.children.length);
-  const preferred = 120;
-  const maxSpread = Math.max(58, (anchorRect.width - cardW)/Math.max(1,n-1));
-  const spread = Math.min(preferred, maxSpread);
-  const stripW = (n-1)*spread + cardW;
-  const fanLeft = Math.round((anchorRect.left+anchorRect.width/2)-(ribbonRect.left+stripW/2));
 
-  fan.style.left = `${fanLeft}px`;
+  const preferred = 120;
+  const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
+  const spread = Math.min(preferred, maxSpread);
+
+  const stripW = (n - 1) * spread + cardW;
+  const fanLeft = Math.round((anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2));
+
+  fan.style.left  = `${fanLeft}px`;
   fan.style.width = `${stripW}px`;
 
-  const centerIdx = (n-1)/2;
-  fan.querySelectorAll('.cardWrap').forEach(w=>w.style.opacity='0');
-  requestAnimationFrame(()=>{
-    fan.querySelectorAll('.cardWrap').forEach((wrap,idx)=>{
-      const x = Math.round(idx*spread);
-      const tilt = (idx-centerIdx)*10;
-      const arcY = -2*Math.abs(idx-centerIdx);
+  const centerIdx = (n - 1) / 2;
+  fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
+  requestAnimationFrame(() => {
+    fan.querySelectorAll('.cardWrap').forEach((wrap, idx) => {
+      const x = Math.round(idx * spread);
+      const tilt = (idx - centerIdx) * 10;
+      const arcY = -2 * Math.abs(idx - centerIdx);
       wrap.style.left = `${x}px`;
-      wrap.style.setProperty('--wrot',`${tilt}deg`);
-      wrap.style.setProperty('--wy',`${arcY}px`);
-      wrap.style.zIndex = String(100+idx);
-      wrap.style.transitionDelay = `${idx*24}ms`;
-      wrap.style.opacity='1';
+      wrap.style.setProperty('--wrot', `${tilt}deg`);
+      wrap.style.setProperty('--wy', `${arcY}px`);
+      wrap.style.zIndex = String(100 + idx);
+      wrap.style.transitionDelay = `${idx * 24}ms`;
+      wrap.style.opacity = '1';
     });
   });
 }
 
-/* ---------- Click-to-Preview (50% enlarge) ---------- */
-function enableClickPreview(wrap){
-  wrap.addEventListener('click',()=>{
-    const already = wrap.classList.toggle('is-preview');
-    // Close all others
-    document.querySelectorAll('.cardWrap.is-preview').forEach(el=>{
-      if(el!==wrap) el.classList.remove('is-preview');
-    });
-    if(already){
-      // close on second click
-      wrap.classList.remove('is-preview');
-    }
-  });
-  document.addEventListener('click',(ev)=>{
-    if(!wrap.contains(ev.target)) wrap.classList.remove('is-preview');
+/* ------------------ Click-to-preview (50% bigger) ------------------ */
+// We control preview via inline transform so we don't depend on CSS changes.
+function openPreview(wrap) {
+  closeAllPreviews();
+  wrap.classList.add('is-preview');
+  const card = wrap.querySelector('.card');
+  if (card) {
+    card.style.transform = 'translateY(-80px) rotate(0deg) scale(1.5)';
+    card.style.filter = 'brightness(1.08)';
+  }
+  wrap.style.zIndex = '999';
+}
+function closePreview(wrap) {
+  wrap.classList.remove('is-preview');
+  const card = wrap.querySelector('.card');
+  if (card) {
+    card.style.transform = '';
+    card.style.filter = '';
+  }
+  wrap.style.zIndex = '';
+}
+function closeAllPreviews() {
+  document.querySelectorAll('.cardWrap.is-preview').forEach(closePreview);
+}
+function enableClickPreview(wrap) {
+  wrap.addEventListener('click', (e) => {
+    // ignore if we are dragging
+    if (wrap.classList.contains('dragging')) return;
+    e.stopPropagation();
+    if (wrap.classList.contains('is-preview')) closePreview(wrap);
+    else openPreview(wrap);
   });
 }
+document.addEventListener('click', closeAllPreviews);
 
-/* ---------- DnD: Desktop ---------- */
-function enableMouseDnDOnCard(wrap,handIndex){
-  wrap.draggable=true;
-  wrap.addEventListener('dragstart',(e)=>{
+/* ------------------ Drag & Drop ------------------ */
+// Desktop
+function enableMouseDnDOnCard(wrap, handIndex) {
+  wrap.draggable = true;
+
+  wrap.addEventListener('dragstart', (e) => {
     wrap.classList.add('dragging');
-    e.dataTransfer.setData('text/plain',String(handIndex));
-    e.dataTransfer.effectAllowed='move';
-    // Prevent preview
-    wrap.classList.remove('is-preview');
+    closePreview(wrap);
+
+    // Make the drag image originate from the cursor position
+    const card = wrap.querySelector('.card') || wrap;
+    const r = card.getBoundingClientRect();
+    const offX = Math.max(0, Math.min(r.width,  e.clientX - r.left));
+    const offY = Math.max(0, Math.min(r.height, e.clientY - r.top));
+    e.dataTransfer.setDragImage(card, offX, offY);
+
+    e.dataTransfer.setData('text/plain', String(handIndex));
+    e.dataTransfer.effectAllowed = 'move';
+
     markSlots('target');
-    // Set drag image offset fix
-    const img = wrap.querySelector('.card');
-    const rect = img.getBoundingClientRect();
-    e.dataTransfer.setDragImage(img, rect.width/2, rect.height/2);
   });
-  wrap.addEventListener('dragend',()=>{
+
+  wrap.addEventListener('dragend', () => {
     wrap.classList.remove('dragging');
     markSlots('');
   });
 
   const board = getBoardSlotsEl();
-  if(board && !board._dragListenersAdded){
-    board.addEventListener('dragover',(e)=>{
+  if (board && !board._dragListenersAdded) {
+    board.addEventListener('dragover', (e) => {
       e.preventDefault();
-      const i = slotIndexFromPoint(e.clientX,e.clientY);
-      markSlots(i>=0?'accept':'target');
+      const i = slotIndexFromPoint(e.clientX, e.clientY);
+      markSlots(i >= 0 ? 'accept' : 'target');
     });
-    board.addEventListener('drop',(e)=>{
+    board.addEventListener('drop', (e) => {
       e.preventDefault();
       const src = Number(e.dataTransfer.getData('text/plain'));
-      const tgt = slotIndexFromPoint(e.clientX,e.clientY);
+      const tgt = slotIndexFromPoint(e.clientX, e.clientY);
       markSlots('');
-      if(tgt>=0 && Number.isFinite(src)){
-        _gameRef?.dispatch?.({type:'PLAY_FROM_HAND',handIndex:src,slot:tgt});
+      if (tgt >= 0 && Number.isFinite(src)) {
+        _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex: src, slot: tgt });
       }
     });
-    board._dragListenersAdded=true;
+    board._dragListenersAdded = true;
   }
 }
 
-/* ---------- DnD: Touch ---------- */
-function enableTouchDnDOnCard(wrap,handIndex){
-  let dragging=false;
-  const badge=document.querySelector('.dragBadge')||document.body.appendChild(el('div','dragBadge'));
-  const onMove=(x,y)=>{
-    badge.style.transform=`translate(${x+12}px,${y+12}px)`;
-    const idx=slotIndexFromPoint(x,y);
-    markSlots(idx>=0?'accept':'target');
+// Touch
+function enableTouchDnDOnCard(wrap, handIndex) {
+  let dragging = false;
+  const badge = document.querySelector('.dragBadge') || document.body.appendChild(el('div', 'dragBadge'));
+
+  const onMove = (x, y) => {
+    badge.style.transform = `translate(${x + 12}px, ${y + 12}px)`;
+    const idx = slotIndexFromPoint(x, y);
+    markSlots(idx >= 0 ? 'accept' : 'target');
   };
-  const onUp=(x,y)=>{
-    if(!dragging) return;
-    dragging=false;
+  const onUp = (x, y) => {
+    if (!dragging) return;
+    dragging = false;
     wrap.classList.remove('dragging');
-    badge.style.transform='translate(-9999px,-9999px)';
-    const tgt=slotIndexFromPoint(x,y);
+    badge.style.transform = 'translate(-9999px,-9999px)';
+    const tgt = slotIndexFromPoint(x, y);
     markSlots('');
-    if(tgt>=0){
-      _gameRef?.dispatch?.({type:'PLAY_FROM_HAND',handIndex,slot:tgt});
+    if (tgt >= 0) {
+      _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex, slot: tgt });
     }
   };
 
-  wrap.addEventListener('touchstart',(ev)=>{
-    if(ev.touches.length!==1) return;
-    dragging=true;
+  wrap.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length !== 1) return;
+    dragging = true;
+    closePreview(wrap);
     wrap.classList.add('dragging');
-    badge.textContent='Drag to slot';
-    const t=ev.touches[0];
-    onMove(t.clientX,t.clientY);
-  },{passive:true});
+    badge.textContent = 'Drag to slot';
+    const t = ev.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
 
-  wrap.addEventListener('touchmove',(ev)=>{
-    if(!dragging) return;
-    const t=ev.touches[0];
-    onMove(t.clientX,t.clientY);
-  },{passive:true});
+  wrap.addEventListener('touchmove', (ev) => {
+    if (!dragging) return;
+    const t = ev.touches[0];
+    onMove(t.clientX, t.clientY);
+  }, { passive: true });
 
-  wrap.addEventListener('touchend',(ev)=>{
-    const t=ev.changedTouches[0];
-    onUp(t.clientX,t.clientY);
-  },{passive:true});
+  wrap.addEventListener('touchend', (ev) => {
+    const t = ev.changedTouches[0];
+    onUp(t.clientX, t.clientY);
+  }, { passive: true });
 
-  wrap.addEventListener('touchcancel',()=>{
-    dragging=false;
+  wrap.addEventListener('touchcancel', () => {
+    dragging = false;
     wrap.classList.remove('dragging');
-    badge.style.transform='translate(-9999px,-9999px)';
+    badge.style.transform = 'translate(-9999px,-9999px)';
     markSlots('');
-  },{passive:true});
+  }, { passive: true });
 }
 
-/* ---------- Render Hand ---------- */
-function renderHand(ribbonEl,state){
-  if(!ribbonEl) return;
-  ribbonEl.innerHTML='';
-  const fan=el('div','fan');
+/* ------------------ Render the hand ------------------ */
+function renderHand(ribbonEl, state) {
+  if (!ribbonEl) return;
+  ribbonEl.innerHTML = '';
+  const fan = el('div', 'fan');
   ribbonEl.appendChild(fan);
-  const hand=Array.isArray(state?.hand)?state.hand:[];
-  if(hand.length===0){
-    const w=el('div','cardWrap');
-    w.appendChild(cardEl({title:'—',classes:'is-phantom'}));
+
+  const hand = Array.isArray(state?.hand) ? state.hand : [];
+  if (hand.length === 0) {
+    const w = el('div', 'cardWrap');
+    w.appendChild(cardEl({ title: '—', classes: 'is-phantom' }));
     fan.appendChild(w);
     layoutHand(ribbonEl);
     return;
   }
-  hand.forEach((c,i)=>{
-    const w=el('div','cardWrap');
-    const isInstant=(c.type||c.subtype)==='Instant';
-    const node=cardEl({
-      title:c.name||c.title||'Card',
-      subtype:c.type||c.subtype||'Spell',
-      classes:isInstant?'is-instant':''
+
+  hand.forEach((c, i) => {
+    const w = el('div', 'cardWrap');
+    const isInstant = (c.type || c.subtype) === 'Instant';
+    const node = cardEl({
+      title: c.name || c.title || 'Card',
+      subtype: c.type || c.subtype || 'Spell',
+      classes: isInstant ? 'is-instant' : '',
     });
     w.appendChild(node);
     fan.appendChild(w);
-    enableMouseDnDOnCard(w,i);
-    enableTouchDnDOnCard(w,i);
+
+    enableMouseDnDOnCard(w, i);
+    enableTouchDnDOnCard(w, i);
     enableClickPreview(w);
   });
+
   layoutHand(ribbonEl);
 }
 
-/* ---------- Main render ---------- */
-export function renderGame(state){
-  const setTxt=(id,v)=>{const n=$(id); if(n) n.textContent=String(v);};
+/* ------------------ Public render ------------------ */
+export function renderGame(state) {
+  const setTxt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
+
+  // hearts
   renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
-  renderHearts('#hud-ai-hearts', state?.ai?.hp ?? 0, 5);
+  renderHearts('#hud-ai-hearts',  state?.ai?.hp ?? 0, 5);
 
-  setTxt('#count-deck',state?.deck?.length??0);
-  setTxt('#count-discard',state?.disc?.length??0);
-  setTxt('#count-ae',state?.ae??0);
+  // counters (if present in UI)
+  setTxt('#count-deck',    Array.isArray(state?.deck) ? state.deck.length : 0);
+  setTxt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
+  setTxt('#count-ae',      state?.ae ?? 0);
 
- renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
-renderFlow($('#aetherflow'), state);                         // unchanged
-renderSlots($('#yourBoard'), state?.slots ?? [], PLAYER_SLOT_COUNT);
+  // boards & flow (empty slots if null)
+  renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
+  renderFlow($('#aetherflow'), state);
+  renderSlots($('#yourBoard'), state?.slots ?? [],  PLAYER_SLOT_COUNT);
 
-  renderHand($('#ribbon'),state);
+  // hand
+  renderHand($('#ribbon'), state);
 }
 
-/* ---------- Init ---------- */
-export function init(game){
-  _gameRef=game;
-  window.renderGame=renderGame;
-  $('#dock-end')?.addEventListener('click',()=>game.dispatch({type:'END_TURN'}));
+/* ------------------ Init ------------------ */
+export function init(game) {
+  _gameRef = game;
+  window.renderGame = renderGame;
+
+  // End turn (if dock button exists)
+  $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
+
   renderGame(game.state);
-  document.addEventListener('game:state',(ev)=>renderGame(ev.detail?.state??game.state));
-  const ribbon=$('#ribbon');
-  const onResize=()=>ribbon&&layoutHand(ribbon);
-  window.addEventListener('resize',onResize,{passive:true});
-  window.addEventListener('orientationchange',onResize,{passive:true});
+  document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
+
+  const ribbon = $('#ribbon');
+  const onResize = () => ribbon && layoutHand(ribbon);
+  window.addEventListener('resize', onResize, { passive: true });
+  window.addEventListener('orientationchange', onResize, { passive: true });
 }
