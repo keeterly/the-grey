@@ -244,6 +244,48 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   background: linear-gradient(180deg,#ffb34d,#ff8a1c);
 }
 
+
+
+/* ===== Drag & Drop ===== */
+.cardWrap.dragging { opacity: .85; filter: drop-shadow(0 10px 20px rgba(0,0,0,.25)); }
+
+.boardSlot{
+  position: relative;
+  width: var(--card-w);
+  height: var(--card-h);
+  border-radius: 14px;
+  outline: 2px dashed transparent;
+  outline-offset: 4px;
+  transition: outline-color .12s ease, background .12s ease, box-shadow .12s ease;
+}
+.boardSlot.drop-target{
+  outline-color: rgba(70, 55, 40, .25);
+  background: rgba(70, 55, 40, .05);
+  box-shadow: inset 0 0 0 2px rgba(70,55,40,.08);
+}
+.boardSlot.drop-accept{
+  outline-color: #3aa86d;
+  background: rgba(58,168,109,.08);
+  box-shadow: inset 0 0 0 2px rgba(58,168,109,.18);
+}
+
+/* Mobile helper badge while dragging */
+.dragBadge{
+  position: fixed;
+  left: 0; top: 0;
+  transform: translate(-9999px,-9999px);
+  padding: 6px 10px;
+  border-radius: 10px;
+  background:#3a3128;
+  color:#fff; font: 600 12px/1 system-ui, sans-serif;
+  z-index: 9999;
+  pointer-events: none;
+}
+
+
+
+
+
 /* Mobile sizing */
 @media (max-width: 480px){
   .chip.icon{ width: 40px; height: 40px; border-radius: 11px; }
