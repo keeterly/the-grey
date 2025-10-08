@@ -278,3 +278,14 @@ transform-origin: bottom center;
   </div>
 </div>
 
+
+/* Pulse for Instants in hand */
+@keyframes uiPulse {
+  0% { filter: brightness(1); transform: translateY(-14px) scale(1.04); }
+  50% { filter: brightness(1.12); }
+  100% { filter: brightness(1); transform: translateY(-14px) scale(1.04); }
+}
+.ribbon #ribbon .card.is-instant {
+  animation: uiPulse 1.6s ease-in-out infinite;
+}
+
