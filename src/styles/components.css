@@ -1,16 +1,16 @@
 /* ============================================================
-   THE GREY — components.css (v2.5)
-   - JS-driven hand fan (centered, any count)
-   - Wrapper-based entry animation (keeps transforms intact)
-   - Safe-area padding
+   THE GREY — components.css (v2.6)
+   - Centered hand (any count), desktop + mobile
+   - Smooth slide-in (wrapper transforms with transitions)
+   - Safe-area padding respected on iOS
    ============================================================ */
 
-/* -------- Base -------- */
+/* ---------- Base ---------- */
 * { box-sizing: border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; }
 body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family: "Inter", system-ui, sans-serif; }
 
-/* -------- Cards -------- */
+/* ---------- Cards ---------- */
 .card{
   background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
   border-radius: 14px;
@@ -18,7 +18,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
-  transition: filter .25s ease; /* keep transform under JS control */
+  transition: filter .25s ease; /* transforms are controlled by wrapper */
 }
 .cHead{ padding:10px 12px 4px; }
 .cName{ font-size:14px; font-weight:600; }
@@ -26,20 +26,20 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .cBody{ flex:1; padding:0 12px; font-size:13px; }
 .cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
-/* -------- Zones (boards/flow) -------- */
+/* ---------- Zones (boards/flow) ---------- */
 #aiBoard, #aetherflow, #yourBoard{
   display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start;
 }
 
-/* -------- Instant pulse -------- */
-@keyframes uiPulse{
+/* ---------- Instant pulse (no transform, Safari-safe) ---------- */
+@keyframes uiPulse {
   0%{ filter:brightness(1) }
   50%{ filter:brightness(1.12) }
   100%{ filter:brightness(1) }
 }
 
 /* ============================================================
-   HAND / RIBBON — centered fan for any hand size (JS-driven)
+   HAND / RIBBON — JS-driven fan + transition animation
    ============================================================ */
 .ribbon-wrap{
   position:fixed; left:0; bottom:0; width:100%;
@@ -52,7 +52,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 }
 
 .ribbon{
-  --n: 1;                 /* info only */
+  --n: 1;               /* info only */
   --card-w: 180px;
   --card-h: 250px;
 
@@ -63,7 +63,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   perspective: 1200px; transform-style: preserve-3d;
 }
 
-/* Wrapper that we animate (not the transform-bearing .card) */
+/* We animate the WRAPPER, not the card */
 .cardWrap{
   position:absolute; left:50%; bottom:40px;
   width: var(--card-w); height: var(--card-h);
@@ -71,24 +71,19 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   transform-origin: bottom center;
   z-index:100;
 
-  /* entry animation lives here so card transforms aren’t touched */
-  opacity: 0;
-  animation: handEnter .25s ease-out forwards;
+  /* JS sets these per card */
+  --wx: 0px;   /* translateX */
+  --wy: 0px;   /* slight arc lift */
+  --wrot: 0deg;
+
+  transform: translateX(var(--wx)) translateY(var(--wy)) rotate(var(--wrot));
+  transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+  opacity: 0;  /* will fade to 1 when layout is applied */
 }
 
-@keyframes handEnter{
-  from { opacity: 0; transform: translateY(20px) scale(.96); filter: blur(1px); }
-  to   { opacity: 1; transform: translateY(0) scale(1); filter: none; }
-}
+/* the actual visual card; hover/tap raises this element */
+.cardWrap .card{ will-change: transform; }
 
-/* The actual card uses JS-driven transform variables */
-.card{
-  /* JS sets these on the .card element */
-  --tx: 0px; --ty: 0px; --rot: 0deg;
-  transform: translateX(var(--tx)) translateY(var(--ty)) rotate(var(--rot));
-}
-
-/* Hover raise (desktop only) */
 @media (hover:hover){
   .cardWrap:hover .card{
     transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
@@ -101,16 +96,15 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
-/* -------- Mobile tuning -------- */
+/* ---------- Mobile tuning ---------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height: 260px; }
   .ribbon{ --card-w: 160px; --card-h: 220px; }
 
-  /* Touch raise */
   .cardWrap:active .card{
     transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
   }
-  .cardWrap:active{ z-index: 999; }
+  .cardWrap:active{ z-index:999; }
 }
 
 @media (max-width: 420px){
