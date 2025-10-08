@@ -56,44 +56,45 @@ function layoutHand(ribbonEl) {
   const wraps = Array.from(fan.children);
   if (!wraps.length) return;
 
-  // Measure available width of the ribbon *container*
-  const ribbonRect = ribbonEl.getBoundingClientRect();
-  const ribbonWidth = ribbonRect.width;
+  // Measure the OUTER wrap (accounts for safe-area + iOS quirks)
+  const wrap = ribbonEl.closest('.ribbon-wrap') || ribbonEl.parentElement || ribbonEl;
+  const wrapRect = wrap.getBoundingClientRect();
+  const wrapCS = getComputedStyle(wrap);
+  const padX = parseFloat(wrapCS.paddingLeft) + parseFloat(wrapCS.paddingRight);
+  const containerWidth = wrapRect.width - padX;
 
-  // Card width from CSS variables on the ribbon
+  // Card width from CSS vars on the ribbon
   const cs = getComputedStyle(ribbonEl);
   const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
 
   const n = wraps.length;
-  // spacing that keeps edges on-screen
   const preferred = 120;
-  const maxSpread = Math.max(58, (ribbonWidth - cardW) / Math.max(1, n - 1));
+  const maxSpread = Math.max(58, (containerWidth - cardW) / Math.max(1, n - 1));
   const spread = Math.min(preferred, maxSpread);
   const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
 
-  // Strip total width and explicit centering via 'left'
+  // Set strip width and explicit centered left (absolute positioning)
   const stripW = (n - 1) * spread + cardW;
   fan.style.width = `${stripW}px`;
-  const stripLeft = Math.round((ribbonWidth - stripW) / 2);
-  fan.style.left = `${stripLeft}px`;          // <— hard center the strip
+  const stripLeft = Math.max(0, Math.round((containerWidth - stripW) / 2));
+  fan.style.left = `${stripLeft}px`;
 
   const centerIdx = (n - 1) / 2;
 
-  // Prime for clean transition
+  // Prime for clean transitions
   wraps.forEach(w => { w.style.opacity = '0'; });
 
-  // Apply positions next frame so transitions fire
   requestAnimationFrame(() => {
     wraps.forEach((wrap, idx) => {
-      const x    = Math.round(idx * spread);                 // left inside the strip
+      const x    = Math.round(idx * spread);                 // left inside strip
       const tilt = (idx - centerIdx) * rot;
       const arcY = -2 * Math.abs(idx - centerIdx);
 
-      wrap.style.left = `${x}px`;                            // per-card X
-      wrap.style.setProperty('--wrot', `${tilt}deg`);        // tilt
-      wrap.style.setProperty('--wy', `${arcY}px`);           // arc lift
+      wrap.style.left = `${x}px`;
+      wrap.style.setProperty('--wrot', `${tilt}deg`);
+      wrap.style.setProperty('--wy', `${arcY}px`);
       wrap.style.zIndex = String(100 + idx);
-      wrap.style.transitionDelay = `${idx * 24}ms`;          // small cascade
+      wrap.style.transitionDelay = `${idx * 24}ms`;          // subtle cascade
       wrap.style.opacity = '1';
     });
   });
