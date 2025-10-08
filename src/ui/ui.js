@@ -56,33 +56,36 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
 }
 
 
-/* ---------- Boards (real cards OR empty slots) ---------- */
-function renderSlots(container, slots) {
+// How many spaces each board should show
+const AI_SLOT_COUNT = 3;
+const PLAYER_SLOT_COUNT = 3;
+
+// Renders a row of fixed slots: empty boxes unless a real card exists
+function renderSlots(container, slots = [], slotCount = 3) {
   if (!container) return;
   container.innerHTML = '';
 
-  // Always render exactly 3 board positions
-  const list = Array.isArray(slots) ? slots.slice(0, 3) : [];
-  while (list.length < 3) list.push(null);
-
-  list.forEach((s, i) => {
-    const wrap = el('div', 'boardSlot');   // sized flex child
+  for (let i = 0; i < slotCount; i++) {
+    const wrap = el('div', 'boardSlot');
     wrap.dataset.slotIndex = String(i);
 
+    const s = slots[i]; // may be undefined/null
     if (s) {
-      // Render the real card that’s actually in the slot
+      // real card in this slot
       wrap.appendChild(cardEl({
         title: s.name || s.title || 'Card',
         subtype: s.type || s.subtype || 'Spell'
       }));
     } else {
-      // Render an empty, droppable slot
-      wrap.appendChild(el('div', 'emptySlot'));
+      // empty visual (no placeholder card)
+      const empty = el('div', 'emptySlot');
+      wrap.appendChild(empty);
     }
 
     container.appendChild(wrap);
-  });
+  }
 }
+
 
 /* ---------- Aetherflow row (real items render; otherwise empty boxes) ---------- */
 function renderFlow(container, state) {
@@ -298,9 +301,10 @@ export function renderGame(state){
   setTxt('#count-discard',state?.disc?.length??0);
   setTxt('#count-ae',state?.ae??0);
 
-  renderSlots($('#aiBoard'),state?.ai?.slots,'Empty');
-  renderFlow($('#aetherflow'),state);
-  renderSlots($('#yourBoard'),state?.slots,'Empty');
+ renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
+renderFlow($('#aetherflow'), state);                         // unchanged
+renderSlots($('#yourBoard'), state?.slots ?? [], PLAYER_SLOT_COUNT);
+
   renderHand($('#ribbon'),state);
 }
 
