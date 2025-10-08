@@ -1,4 +1,4 @@
-// /src/ui/ui.js — Fan Strip layout (centered, smooth, Safari-safe)
+// /src/ui/ui.js — Fan strip layout (centered, smooth, Safari-safe)
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
@@ -38,18 +38,6 @@ function renderFlow(container, state) {
 }
 
 /* ---------- Hand math ---------- */
-function spreadAndTilt(stripWidth, cardW, n) {
-  if (n <= 1) return { spread: 0, rot: 0, stripW: cardW };
-
-  // preferred desktop spread; clamp to keep edges on-screen
-  const preferred = 120;
-  const maxSpread = Math.max(58, (stripWidth - cardW) / (n - 1));
-  const spread = Math.min(preferred, maxSpread);
-  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
-  const handPixelWidth = (n - 1) * spread + cardW;
-  return { spread, rot, stripW: handPixelWidth };
-}
-
 function layoutHand(ribbonEl){
   const fan = ribbonEl.querySelector('.fan');
   if (!fan) return;
@@ -57,33 +45,34 @@ function layoutHand(ribbonEl){
   // anchor = same centered column your boards use
   const anchor = document.querySelector('main.grid') || document.body;
 
-  // --- measure the actual container the fan is positioned in ---
-  const ribbonRect = ribbonEl.getBoundingClientRect();     // <-- we anchor to THIS
+  // the fan will be positioned relative to the ribbon itself
+  const ribbonRect = ribbonEl.getBoundingClientRect();
   const anchorRect = anchor.getBoundingClientRect();
 
-  // card and spread math
+  // card & spread
   const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
-  const n = fan.children.length;
+  const n = fan.children.length || 1;
   const preferred = 120;
   const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
   const spread = Math.min(preferred, maxSpread);
   const stripW = (n - 1) * spread + cardW;
 
-  // center the fan so that its center equals the anchor center, IN RIBBON COORDS
-  // (ribbonRect.left + fanLeft + stripW/2) === (anchorRect.left + anchorRect.width/2)
+  // center the fan to the anchor center in ribbon coords
   const fanLeft = Math.round(
     (anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2)
   );
   fan.style.left = `${fanLeft}px`;
+  fan.style.width = `${stripW}px`;
 
-  // animate the cards
+  // arc / tilt / fade-in
   const centerIdx = (n - 1) / 2;
   fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
   requestAnimationFrame(() => {
     fan.querySelectorAll('.cardWrap').forEach((wrap, idx) => {
       const x    = Math.round(idx * spread);
-      const tilt = (idx - centerIdx) * 10;
-      const arcY = -2 * Math.abs(idx - centerIdx);
+      const tilt = (idx - centerIdx) * 10;          // -… +…
+      const arcY = -2 * Math.abs(idx - centerIdx);  // small arc
+
       wrap.style.left = `${x}px`;
       wrap.style.setProperty('--wrot', `${tilt}deg`);
       wrap.style.setProperty('--wy', `${arcY}px`);
@@ -94,9 +83,29 @@ function layoutHand(ribbonEl){
   });
 }
 
-
-
 /* ---------- Hand renderer ---------- */
+function attachMobilePeekHandlers(wrap){
+  // Single-finger press previews; tap outside to clear
+  let pressed = false, timer = null;
+
+  const add = () => { wrap.classList.add('is-peek'); };
+  const clear = () => { wrap.classList.remove('is-peek'); pressed = false; };
+
+  wrap.addEventListener('touchstart', (ev) => {
+    if (ev.touches.length !== 1) return;
+    pressed = true;
+    timer = setTimeout(() => pressed && add(), 70);   // small delay feels better
+  }, { passive:true });
+
+  wrap.addEventListener('touchend', () => { clearTimeout(timer); clear(); }, { passive:true });
+  wrap.addEventListener('touchcancel', () => { clearTimeout(timer); clear(); }, { passive:true });
+
+  // tap anywhere else to drop preview
+  document.addEventListener('touchstart', (ev) => {
+    if (!wrap.contains(ev.target)) clear();
+  }, { passive:true });
+}
+
 function renderHand(ribbonEl, state) {
   if (!ribbonEl) return;
   ribbonEl.innerHTML = ''; // reset shell
@@ -122,46 +131,4 @@ function renderHand(ribbonEl, state) {
     const node = cardEl({
       title: c.name || c.title || 'Card',
       subtype: c.type || c.subtype || 'Spell',
-      classes: isInstant ? 'is-instant' : '',
-    });
-    w.appendChild(node);
-    fan.appendChild(w);
-  });
-
-  layoutHand(ribbonEl);
-}
-
-/* ---------- Public renderer ---------- */
-export function renderGame(state) {
-  const setTxt = (id, v) => { const n = $(id); if (n) n.textContent = String(v); };
-  setTxt('#hud-you-hp', state?.hp ?? 0);
-  setTxt('#hud-you-ae', state?.ae ?? 0);
-  setTxt('#hud-ai-hp', state?.ai?.hp ?? 0);
-  setTxt('#hud-ai-ae', state?.ai?.ae ?? 0);
-
-  renderSlots($('#aiBoard'), state?.ai?.slots, 'Empty');
-  renderFlow($('#aetherflow'), state);
-  renderSlots($('#yourBoard'), state?.slots, 'Empty');
-  renderHand($('#ribbon'), state);
-}
-
-/* ---------- Init ---------- */
-export function init(game) {
-  window.renderGame = renderGame;
-
-  // Buttons (if present)
-  $('#btnDraw')?.addEventListener('click', () => game.dispatch({ type: 'DRAW', amount: 1 }));
-  $('#btnEnd')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
-  $('#btnReset')?.addEventListener('click', () => game.reset());
-
-  renderGame(game.state);
-
-  // Engine → re-render
-  document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
-
-  // Maintain centering on resize/rotate
-  const ribbon = $('#ribbon');
-  const onResize = () => ribbon && layoutHand(ribbon);
-  window.addEventListener('resize', onResize, { passive: true });
-  window.addEventListener('orientationchange', onResize, { passive: true });
-}
+      classes:
