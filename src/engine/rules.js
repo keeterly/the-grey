@@ -1,20 +1,9 @@
-// /src/engine/rules.js
-// ---------------------------------------------------------
-// Browser-safe reducer (no Node “process” dependency)
-// ---------------------------------------------------------
-
-// If running in the browser, define a minimal process shim *only* if missing.
-// Prevents “ReferenceError: process is not defined” when hosted on GitHub Pages.
+// /src/engine/rules.js — browser-safe reducer with DRAW + opening hand
 if (typeof window !== "undefined" && typeof window.process === "undefined") {
   window.process = { env: { NODE_ENV: "production" } };
 }
+const IS_DEV = typeof process !== "undefined" && process?.env?.NODE_ENV !== "production";
 
-// Safe dev flag (works in Node or browser)
-const IS_DEV =
-  typeof process !== "undefined" &&
-  process?.env?.NODE_ENV !== "production";
-
-// ---- Action constants (exported for convenience) ----
 export const Action = {
   INIT: "INIT",
   ENSURE_MARKET: "ENSURE_MARKET",
@@ -27,106 +16,97 @@ export const Action = {
   SET_MODE: "SET_MODE",
 };
 
-
-// -------- Utility helpers (pure) --------
-function clone(x) {
-  if (typeof structuredClone === "function") return structuredClone(x);
-  return JSON.parse(JSON.stringify(x));
+function clone(x){ if (typeof structuredClone === "function") return structuredClone(x); return JSON.parse(JSON.stringify(x)); }
+function normState(s) {
+  const n = { ...s };
+  n.deck  = Array.isArray(s.deck)  ? s.deck  : [];
+  n.hand  = Array.isArray(s.hand)  ? s.hand  : [];
+  n.disc  = Array.isArray(s.disc)  ? s.disc  : [];
+  n.slots = Array.isArray(s.slots) ? s.slots : [null,null,null];
+  n.glyphs= Array.isArray(s.glyphs)? s.glyphs: [];
+  const ai = { ...(s.ai||{}) };
+  ai.deck  = Array.isArray(ai.deck)  ? ai.deck  : [];
+  ai.hand  = Array.isArray(ai.hand)  ? ai.hand  : [];
+  ai.disc  = Array.isArray(ai.disc)  ? ai.disc  : [];
+  ai.slots = Array.isArray(ai.slots) ? ai.slots : [null,null,null];
+  ai.glyphs= Array.isArray(ai.glyphs)? ai.glyphs: [];
+  n.ai = ai;
+  n.flowDeck = Array.isArray(s.flowDeck) ? s.flowDeck : [];
+  n.flowRow  = Array.isArray(s.flowRow)  ? s.flowRow  : [null,null,null,null,null];
+  n._log = Array.isArray(s._log) ? s._log : [];
+  n.turn = Number.isFinite(s.turn) ? s.turn : 1;
+  n.mode = s.mode || "main";
+  n.hp = Number.isFinite(s.hp) ? s.hp : 5;
+  n.ae = Number.isFinite(s.ae) ? s.ae : 0;
+  if (!n.ai.hp) n.ai.hp = 5;
+  if (!Number.isFinite(n.ai.ae)) n.ai.ae = 0;
+  return n;
 }
 
-function withDefaultArrays(s) {
-  // Ensure expected arrays exist so we never throw during boot
-  const next = { ...s };
-
-  // player side
-  next.deck = Array.isArray(s.deck) ? s.deck : [];
-  next.hand = Array.isArray(s.hand) ? s.hand : [];
-  next.disc = Array.isArray(s.disc) ? s.disc : [];
-  next.slots = Array.isArray(s.slots) ? s.slots : [null, null, null];
-  next.glyphs = Array.isArray(s.glyphs) ? s.glyphs : [];
-
-  // ai side
-  const ai = { ...(s.ai || {}) };
-  ai.deck = Array.isArray(ai.deck) ? ai.deck : [];
-  ai.hand = Array.isArray(ai.hand) ? ai.hand : [];
-  ai.disc = Array.isArray(ai.disc) ? ai.disc : [];
-  ai.slots = Array.isArray(ai.slots) ? ai.slots : [null, null, null];
-  ai.glyphs = Array.isArray(ai.glyphs) ? ai.glyphs : [];
-  next.ai = ai;
-
-  // aetherflow
-  next.flowDeck = Array.isArray(s.flowDeck) ? s.flowDeck : [];
-  next.flowRow = Array.isArray(s.flowRow) ? s.flowRow : [null, null, null, null, null];
-
-  // misc
-  next._log = Array.isArray(s._log) ? s._log : [];
-  next.turn = Number.isFinite(s.turn) ? s.turn : 1;
-  next.mode = s.mode || "main";
-
-  // trance meta (just keep shape)
-  const tz = s.trance || {};
-  next.trance = {
-    you: tz.you || { cur: 0, cap: 6, weaver: "Stormbinder" },
-    ai: tz.ai || { cur: 0, cap: 6, weaver: "Stormbinder" },
-  };
-
-  // stats
-  next.hp = Number.isFinite(s.hp) ? s.hp : 5;
-  next.ae = Number.isFinite(s.ae) ? s.ae : 0;
-
-  if (!next.ai.hp) next.ai.hp = 5;
-  if (!next.ai.ae && next.ai.ae !== 0) next.ai.ae = 0;
-
-  return next;
-}
-
-// Fill the aether market/row if there are holes (placeholder logic)
 function ensureMarket(s) {
-  const next = clone(withDefaultArrays(s));
-  next.flowRow = next.flowRow.map(v => (v == null ? { id: `af_${Math.random().toString(36).slice(2)}` } : v));
-  return next;
+  const n = clone(normState(s));
+  n.flowRow = n.flowRow.map(v => v ?? { id:`af_${Math.random().toString(36).slice(2)}`, name:'Aether', type:'Instant' });
+  return n;
 }
 
-// Start of turn housekeeping (placeholder: just sets mode and could draw, etc.)
-function startTurn(s, { first = false } = {}) {
-  const next = clone(withDefaultArrays(s));
-  next.mode = "main";
-  // Opening hand draw could happen here if desired.
-  // Example (no-op by default to avoid surprising behavior):
-  // if (first && next.hand.length === 0) { /* draw X cards */ }
-  return next;
+// --- Deck helpers (very simple placeholders) ---
+function ensureDeck(n) {
+  const base = [
+    { name:'Ember', type:'Spell' },
+    { name:'Meditate', type:'Instant' },
+    { name:'Apprentice Bolt', type:'Spell' },
+    { name:'Ward Sigil', type:'Glyph' },
+    { name:'Frost Bolt', type:'Spell' },
+  ];
+  if (!Array.isArray(n.deck) || n.deck.length === 0) {
+    n.deck = Array.from({ length: 12 }, (_, i) => clone(base[i % base.length]));
+  }
+  return n;
+}
+function drawN(n, who='you', amount=1) {
+  const side = (who === 'ai') ? n.ai : n;
+  for (let i=0; i<amount; i++){
+    if (!side.deck.length) break;
+    side.hand.push(side.deck.shift());
+  }
+  return n;
+}
+
+function startTurn(s, { first=false }={}) {
+  let n = clone(normState(s));
+  n.mode = "main";
+  n = ensureDeck(n);
+  if (first && (!n.hand || n.hand.length === 0)) {
+    n = drawN(n, 'you', 5);
+  }
+  return n;
 }
 
 function endTurn(s) {
-  const next = clone(withDefaultArrays(s));
-  next.turn = (next.turn || 1) + 1;
-  next.mode = "main";
-  return next;
+  const n = clone(normState(s));
+  n.turn = (n.turn || 1) + 1;
+  n.mode = "main";
+  return n;
 }
 
-function gainAether(s, who = "you", amount = 1) {
-  const next = clone(withDefaultArrays(s));
-  if (who === "ai") next.ai.ae = Math.max(0, (next.ai.ae || 0) + amount);
-  else next.ae = Math.max(0, (next.ae || 0) + amount);
-  return next;
+function gainAether(s, who='you', amount=1) {
+  const n = clone(normState(s));
+  if (who === "ai") n.ai.ae = Math.max(0, (n.ai.ae||0) + amount);
+  else n.ae = Math.max(0, (n.ae||0) + amount);
+  return n;
 }
 
-function setMode(s, mode = "main") {
-  const next = clone(withDefaultArrays(s));
-  next.mode = mode;
-  return next;
-}
+function setMode(s, mode='main'){ const n = clone(normState(s)); n.mode = mode; return n; }
 
-// ---- The reducer (pure) ----
-export function reduce(state, action) {
+export function reduce(state, action){
   const a = action || {};
-  const type = a.type || "";
+  const t = a.type || "";
+  let n = state;
 
-  switch (type) {
+  switch (t) {
     case Action.INIT:
     case "INIT":
-      // Leave state as-is; useful for logging/metrics
-      return withDefaultArrays(state);
+      return normState(state);
 
     case Action.ENSURE_MARKET:
     case "ENSURE_MARKET":
@@ -140,6 +120,14 @@ export function reduce(state, action) {
     case "END_TURN":
       return endTurn(state);
 
+    case Action.DRAW:
+    case "DRAW": {
+      n = clone(normState(state));
+      n = ensureDeck(n);
+      const amt = Number(a.amount ?? 1) || 1;
+      return drawN(n, a.who === 'ai' ? 'ai' : 'you', amt);
+    }
+
     case Action.GAIN_AETHER:
     case "GAIN_AETHER":
       return gainAether(state, a.who || "you", Number(a.amount ?? 1) || 1);
@@ -148,20 +136,13 @@ export function reduce(state, action) {
     case "SET_MODE":
       return setMode(state, a.mode || "main");
 
-    // Placeholder no-ops to avoid crashes; wire your real logic later
-    case Action.DRAW:
-    case "DRAW":
-    case Action.PLAY_CARD:
     case "PLAY_CARD":
-    case Action.DISCARD:
     case "DISCARD":
-      return withDefaultArrays(state);
+      // placeholders; wire real rules when ready
+      return normState(state);
 
     default:
-      if (IS_DEV && type) {
-        // Safe in browser (no process ReferenceError)
-        console.warn("[rules.reduce] Unknown action:", type, a);
-      }
-      return withDefaultArrays(state);
+      if (IS_DEV && t) console.warn("[rules.reduce] Unknown action:", t, a);
+      return normState(state);
   }
 }
