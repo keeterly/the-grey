@@ -1,8 +1,8 @@
 /* ============================================================
-   THE GREY — components.css (v2.6)
-   - Centered hand (any count), desktop + mobile
-   - Smooth slide-in (wrapper transforms with transitions)
-   - Safe-area padding respected on iOS
+   THE GREY — components.css (FAN STRIP EDITION)
+   - The hand is a centered "fan strip" whose width is set by JS
+   - Cards are absolutely positioned inside that strip using left:px
+   - Smooth slide-in; safe-area respected; Safari-proof
    ============================================================ */
 
 /* ---------- Base ---------- */
@@ -18,7 +18,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
-  transition: filter .25s ease; /* transforms are controlled by wrapper */
+  transition: filter .22s ease;
 }
 .cHead{ padding:10px 12px 4px; }
 .cName{ font-size:14px; font-weight:600; }
@@ -26,21 +26,19 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .cBody{ flex:1; padding:0 12px; font-size:13px; }
 .cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
-/* ---------- Zones (boards/flow) ---------- */
+/* ---------- Zones ---------- */
 #aiBoard, #aetherflow, #yourBoard{
   display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start;
 }
 
-/* ---------- Instant pulse (no transform, Safari-safe) ---------- */
-@keyframes uiPulse {
-  0%{ filter:brightness(1) }
-  50%{ filter:brightness(1.12) }
-  100%{ filter:brightness(1) }
-}
+/* ---------- Instant pulse ---------- */
+@keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
 
 /* ============================================================
-   HAND / RIBBON — JS-driven fan + transition animation
+   HAND / RIBBON
    ============================================================ */
+
+/* fixed footer container; centers its inner strip */
 .ribbon-wrap{
   position:fixed; left:0; bottom:0; width:100%;
   height:300px;
@@ -51,60 +49,61 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   pointer-events:none; z-index:100;
 }
 
+/* flexible shell — the inner "strip" will be centered inside this */
 .ribbon{
-  --n: 1;               /* info only */
-  --card-w: 180px;
+  --card-w: 180px;   /* JS reads these for math */
   --card-h: 250px;
 
   position:relative;
-  width: 100%;
-  height:100%;
+  width:100%; height:100%;
   pointer-events:auto;
-  perspective: 1200px; transform-style: preserve-3d;
 }
 
-/* We animate the WRAPPER, not the card */
+/* the centered fan strip; JS sets its exact pixel width */
+.fan{
+  position:relative;
+  height: calc(var(--card-h) + 40px);  /* space above baseline */
+  width: 0px;                          /* JS sets real width */
+  margin-inline:auto;                   /* <-- centers the strip */
+  pointer-events:auto;
+}
+
+/* each card sits in an absolute wrapper we animate */
 .cardWrap{
-  position:absolute;
-  left:0;                   /* absolute pixel anchoring from JS */
-  bottom:40px;
-  width: var(--card-w);
-  height: var(--card-h);
+  position:absolute; bottom:40px; left:0;   /* JS sets left:px */
+  width: var(--card-w); height: var(--card-h);
   transform-origin: bottom center;
   z-index:100;
 
-  /* only Y + rotation stay on transform; X is done by `left` */
-  --wy: 0px;
-  --wrot: 0deg;
-
+  /* small arc + tilt (Y+rot only) */
+  --wy: 0px; --wrot: 0deg;
   transform: translateY(var(--wy)) rotate(var(--wrot));
   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
-  opacity: 0;
+  opacity: 0; /* fades to 1 after layout */
 }
 
-/* the actual visual card; hover/tap raises this element */
-.cardWrap .card{ will-change: transform; }
-
+/* raise/preview */
 @media (hover:hover){
   .cardWrap:hover .card{
     transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
     filter: brightness(1.08);
+    transition: transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
   }
-  .cardWrap:hover{ z-index: 999; }
+  .cardWrap:hover{ z-index:999; }
 }
 
-/* Instant pulse in hand */
+/* instant visual */
 .ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
 /* ---------- Mobile tuning ---------- */
 @media (max-width: 768px){
-  .ribbon-wrap{ height: 260px; }
+  .Ribbon, .ribbon{}
+  .ribbon-wrap{ height:260px; }
   .ribbon{ --card-w: 160px; --card-h: 220px; }
-
   .cardWrap:active .card{
     transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
   }
