@@ -34,7 +34,6 @@
 
   <!-- MAIN WRAP -->
   <div class="wrap">
-
     <!-- AI Board -->
     <div class="zone">
       <div class="title">AI Board</div>
@@ -57,9 +56,44 @@
   <!-- Glyph tray -->
   <div class="glyphTray" id="glyphTray"></div>
 
-
   <!-- Hand ribbon -->
   <section class="ribbon-wrap"><div class="ribbon" id="ribbon"></div></section>
+
+  <!-- ---------- ICON DOCKS (moved ABOVE scripts) ---------- -->
+  <!-- LEFT: Deck / Discard -->
+  <div id="leftDock" class="dock dock--left" aria-label="Deck and Discard">
+    <button id="dock-deck" class="chip icon" title="Deck" aria-label="Deck">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="4" y="6" width="13" height="16" rx="2"/>
+        <rect x="7" y="3" width="13" height="16" rx="2" style="opacity:.35"/>
+      </svg>
+      <span class="badge" id="count-deck">0</span>
+    </button>
+
+    <button id="dock-discard" class="chip icon" title="Discard" aria-label="Discard">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 7h8l-1 12H9L8 7z"/>
+        <path d="M9 7V5h6v2" style="opacity:.4"/>
+      </svg>
+      <span class="badge" id="count-discard">0</span>
+    </button>
+  </div>
+
+  <!-- RIGHT: Aether Gem / End Turn -->
+  <div id="rightDock" class="dock dock--right" aria-label="Aether and End Turn">
+    <div id="dock-ae" class="chip icon gem" title="Aether" aria-label="Aether">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/></svg>
+      <span class="badge" id="count-ae">0</span>
+    </div>
+
+    <button id="dock-end" class="chip icon cta" title="End Turn" aria-label="End Turn">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12h6l-2-2m2 2-2 2" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
+      </svg>
+    </button>
+  </div>
+  <!-- ------------------------------------------------------- -->
 
   <!-- Build stamp -->
   <script>
@@ -82,46 +116,5 @@
   </script>
 
   <script defer src="./assets/js/boot-debug.js"></script>
-
-
-<!-- LEFT: Deck / Discard -->
-<div id="leftDock" class="dock dock--left" aria-label="Deck and Discard">
-  <button id="dock-deck" class="chip icon" title="Deck" aria-label="Deck">
-    <!-- stacked cards -->
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <rect x="4" y="6" width="13" height="16" rx="2"/>
-      <rect x="7" y="3" width="13" height="16" rx="2" style="opacity:.35"/>
-    </svg>
-    <span class="badge" id="count-deck">0</span>
-  </button>
-
-  <button id="dock-discard" class="chip icon" title="Discard" aria-label="Discard">
-    <!-- trash can -->
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M8 7h8l-1 12H9L8 7z"/>
-      <path d="M9 7V5h6v2" style="opacity:.4"/>
-    </svg>
-    <span class="badge" id="count-discard">0</span>
-  </button>
-</div>
-
-<!-- RIGHT: Aether Gem / End Turn -->
-<div id="rightDock" class="dock dock--right" aria-label="Aether and End Turn">
-  <div id="dock-ae" class="chip icon gem" title="Aether" aria-label="Aether">
-    <!-- diamond -->
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/></svg>
-    <span class="badge" id="count-ae">0</span>
-  </div>
-
-  <button id="dock-end" class="chip icon cta" title="End Turn" aria-label="End Turn">
-    <!-- arrow-in-circle -->
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" />
-      <path d="M8 12h6l-2-2m2 2-2 2" style="fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"/>
-    </svg>
-  </button>
-</div>
-
-
 </body>
 </html>
