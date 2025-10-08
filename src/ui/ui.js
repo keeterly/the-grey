@@ -56,32 +56,44 @@ function layoutHand(ribbonEl) {
   const wraps = Array.from(fan.children);
   if (!wraps.length) return;
 
-  const ribbonWidth = ribbonEl.getBoundingClientRect().width;
+  // Measure available width of the ribbon *container*
+  const ribbonRect = ribbonEl.getBoundingClientRect();
+  const ribbonWidth = ribbonRect.width;
+
+  // Card width from CSS variables on the ribbon
   const cs = getComputedStyle(ribbonEl);
   const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
 
-  // we *first* compute with available ribbon width, then set the strip to the exact hand width,
-  // which is centered by margin:auto in CSS.
   const n = wraps.length;
-  const { spread, rot, stripW } = spreadAndTilt(ribbonWidth, cardW, n);
+  // spacing that keeps edges on-screen
+  const preferred = 120;
+  const maxSpread = Math.max(58, (ribbonWidth - cardW) / Math.max(1, n - 1));
+  const spread = Math.min(preferred, maxSpread);
+  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
+
+  // Strip total width and explicit centering via 'left'
+  const stripW = (n - 1) * spread + cardW;
   fan.style.width = `${stripW}px`;
+  const stripLeft = Math.round((ribbonWidth - stripW) / 2);
+  fan.style.left = `${stripLeft}px`;          // <— hard center the strip
 
   const centerIdx = (n - 1) / 2;
 
-  // hide first so transitions fire
+  // Prime for clean transition
   wraps.forEach(w => { w.style.opacity = '0'; });
 
+  // Apply positions next frame so transitions fire
   requestAnimationFrame(() => {
     wraps.forEach((wrap, idx) => {
-      const x    = idx * spread;                         // left:px inside the centered strip
+      const x    = Math.round(idx * spread);                 // left inside the strip
       const tilt = (idx - centerIdx) * rot;
       const arcY = -2 * Math.abs(idx - centerIdx);
 
-      wrap.style.left = `${Math.round(x)}px`;
-      wrap.style.setProperty('--wrot', `${tilt}deg`);
-      wrap.style.setProperty('--wy', `${arcY}px`);
+      wrap.style.left = `${x}px`;                            // per-card X
+      wrap.style.setProperty('--wrot', `${tilt}deg`);        // tilt
+      wrap.style.setProperty('--wy', `${arcY}px`);           // arc lift
       wrap.style.zIndex = String(100 + idx);
-      wrap.style.transitionDelay = `${idx * 24}ms`;
+      wrap.style.transitionDelay = `${idx * 24}ms`;          // small cascade
       wrap.style.opacity = '1';
     });
   });
