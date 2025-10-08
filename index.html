@@ -111,5 +111,35 @@
   </script>
 
   <script defer src="./assets/js/boot-debug.js"></script>
+
+
+  <!-- Right-side control dock -->
+<div id="rightDock" class="dock">
+  <button id="dock-deck" class="chip" title="Deck">
+    <!-- simple SVG card stack -->
+    <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/><rect x="8" y="3" width="14" height="14" rx="2" style="opacity:.25"/></svg>
+    <span class="label">Deck</span>
+    <span class="count" id="count-deck">0</span>
+  </button>
+
+  <button id="dock-discard" class="chip" title="Discard">
+    <!-- recycle-ish -->
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10l-1 12H8L7 7z"/><path d="M9 7V5h6v2" style="opacity:.4"/></svg>
+    <span class="label">Discard</span>
+    <span class="count" id="count-discard">0</span>
+  </button>
+
+  <div id="dock-ae" class="chip gem" title="Aether">
+    <!-- little diamond -->
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 9-9 9-9-9z"/></svg>
+    <span class="label">Æ</span>
+    <span class="count" id="count-ae">0</span>
+  </div>
+
+  <button id="dock-end" class="chip cta" title="End Turn">
+    <span class="label">End Turn</span>
+  </button>
+</div>
+
 </body>
 </html>
