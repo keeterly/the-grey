@@ -1,8 +1,5 @@
 /* ============================================================
-   THE GREY — components.css (FAN STRIP EDITION)
-   - The hand is a centered "fan strip" whose width is set by JS
-   - Cards are absolutely positioned inside that strip using left:px
-   - Smooth slide-in; safe-area respected; Safari-proof
+   THE GREY — components.css (Fan strip, mobile + desktop)
    ============================================================ */
 
 /* ---------- Base ---------- */
@@ -14,11 +11,12 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .card{
   background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
   border-radius: 14px;
-  box-shadow: 0 3px 6px rgba(0,0,0,.1);
+  box-shadow: 0 3px 6px rgba(0,0,0,.10);
   width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
-  transition: filter .22s ease;
+  transition: filter .22s ease, transform .18s ease;
+  will-change: transform, filter;
 }
 .cHead{ padding:10px 12px 4px; }
 .cName{ font-size:14px; font-weight:600; }
@@ -26,10 +24,8 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .cBody{ flex:1; padding:0 12px; font-size:13px; }
 .cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
-/* ---------- Zones ---------- */
-#aiBoard, #aetherflow, #yourBoard{
-  display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start;
-}
+/* ---------- Zones (rows) ---------- */
+.fixedRow{ display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start; }
 
 /* ---------- Instant pulse ---------- */
 @keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
@@ -38,51 +34,87 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
    HAND / RIBBON
    ============================================================ */
 
-/* --- HAND CONTAINER --- */
+/* fixed footer container; centers its inner strip */
 .ribbon-wrap{
-  position: fixed;
-  left: 0; bottom: 0; width: 100%;
-  height: 300px;
+  position:fixed; left:0; bottom:0; width:100%;
+  height:300px;
   padding-left: max(12px, env(safe-area-inset-left));
   padding-right: max(12px, env(safe-area-inset-right));
   padding-bottom: max(8px, env(safe-area-inset-bottom));
-  display: flex; justify-content: center; align-items: flex-end;
-  pointer-events: none; z-index: 100;
+  display:flex; justify-content:center; align-items:flex-end;
+  pointer-events:none; z-index:100;
 }
 
-/* the element your .fan is positioned *inside* */
+/* anti-legacy overrides (in case an old layout.css still sneaks in) */
+.ribbon-wrap{
+  transform:none !important;
+  max-width:none !important;
+  left:0 !important; bottom:0 !important;
+}
+
+/* shell the fan lives in */
 .ribbon{
-  position: relative;     /* <-- important */
-  width: 100%; height: 100%;
-  pointer-events: auto;
+  --card-w: 180px;
+  --card-h: 250px;
+  position:relative;
+  width:100%; height:100%;
+  pointer-events:auto;
 }
 
-/* the strip we move with left:px from JS */
+/* the fan strip (JS sets width & left) */
 .fan{
-  position: absolute;     /* <-- was relative; must be absolute */
-  bottom: 0;
-  left: 0;                /* JS sets an exact pixel 'left' */
+  position:absolute; bottom:0; left:0;
   height: calc(var(--card-h) + 40px);
-  width: 0;               /* JS sets exact width */
-  pointer-events: auto;
+  width: 0px;
+  pointer-events:auto;
   transition: left .28s cubic-bezier(.2,.8,.2,1);
 }
 
-
-/* each card sits in an absolute wrapper we animate */
 /* each card sits in an absolute wrapper we animate */
 .cardWrap{
-  position:absolute; bottom:40px; left:50PX;
+  position:absolute; bottom:40px; left:0;
   width: var(--card-w); height: var(--card-h);
   transform-origin: bottom center;
   z-index:100;
 
+  /* small arc + tilt (Y+rot only). JS sets CSS vars. */
   --wy: 0px; --wrot: 0deg;
-  /* tiny X offset proportional to rotation prevents visual “shear” at edges */
-  transform: translateX(calc((var(--wrot) * 1px) / 2.5)) translateY(var(--wy)) rotate(var(--wrot));
+  transform: translateY(var(--wy)) rotate(var(--wrot));
   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
-  opacity: 0;
+  opacity: 0; /* fade in on layout */
+}
+
+/* ---------- Preview interactions ---------- */
+
+/* Desktop hover */
+@media (hover:hover){
+  .cardWrap:hover .card{
+    transform: translateY(-84px) rotate(0deg) scale(1.12);
+    filter: brightness(1.08);
+  }
+  .cardWrap:hover{ z-index:999; }
+}
+
+/* Mobile press (JS toggles .is-peek) */
+.cardWrap.is-peek .card{
+  transform: translateY(-72px) rotate(0deg) scale(1.14);
+  filter: brightness(1.06);
+}
+.cardWrap.is-peek{ z-index:999; }
+
+/* Instant visual */
+.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
+.ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
+
+/* ---------- Mobile sizing ---------- */
+@media (max-width: 768px){
+  .ribbon-wrap{ height:260px; }
+  .ribbon{ --card-w: 160px; --card-h: 220px; }
+}
+@media (max-width: 420px){
+  .ribbon-wrap{ height:240px; }
+  .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
