@@ -1,4 +1,4 @@
-// /src/ui/ui.js — UI layer for The Grey
+// /src/ui/ui.js — Fan Strip layout (centered, smooth, Safari-safe)
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
@@ -37,90 +37,93 @@ function renderFlow(container, state) {
   });
 }
 
-/* ---------- Hand fan math ---------- */
-function computeFan(containerWidth, cardWidth, n) {
-  if (n <= 1) return { spread: 0, rot: 0 };
-  // spacing that keeps edges on-screen: center*spread + cardW/2 <= width/2
-  const maxSpread = Math.max(58, (containerWidth - cardWidth) / (n - 1));
-  const preferred = 120;                  // looks great on desktop
+/* ---------- Hand math ---------- */
+function spreadAndTilt(stripWidth, cardW, n) {
+  if (n <= 1) return { spread: 0, rot: 0, stripW: cardW };
+
+  // preferred desktop spread; clamp to keep edges on-screen
+  const preferred = 120;
+  const maxSpread = Math.max(58, (stripWidth - cardW) / (n - 1));
   const spread = Math.min(preferred, maxSpread);
-  const rot = Math.max(6, Math.min(16, (spread / 120) * 12)); // proportional tilt
-  return { spread, rot };
+  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
+  const handPixelWidth = (n - 1) * spread + cardW;
+  return { spread, rot, stripW: handPixelWidth };
 }
 
 function layoutHand(ribbonEl) {
-  const wraps = Array.from(ribbonEl.children);
+  const fan = ribbonEl.querySelector('.fan');
+  if (!fan) return;
+  const wraps = Array.from(fan.children);
   if (!wraps.length) return;
 
-  const width = ribbonEl.getBoundingClientRect().width;
+  const ribbonWidth = ribbonEl.getBoundingClientRect().width;
   const cs = getComputedStyle(ribbonEl);
   const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
 
+  // we *first* compute with available ribbon width, then set the strip to the exact hand width,
+  // which is centered by margin:auto in CSS.
   const n = wraps.length;
-  const maxSpread = Math.max(58, (width - cardW) / Math.max(1, n - 1));
-  const preferred = 120;
-  const spread = Math.min(preferred, maxSpread);
-  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
-  const centerIndex = (n - 1) / 2;
+  const { spread, rot, stripW } = spreadAndTilt(ribbonWidth, cardW, n);
+  fan.style.width = `${stripW}px`;
 
-  const handPixelWidth = (n - 1) * spread + cardW;
-  const baseX = (width - handPixelWidth) / 2;        // left edge of the first card
+  const centerIdx = (n - 1) / 2;
 
-  // start hidden for clean transition
+  // hide first so transitions fire
   wraps.forEach(w => { w.style.opacity = '0'; });
 
   requestAnimationFrame(() => {
     wraps.forEach((wrap, idx) => {
-      const x     = baseX + idx * spread;            // absolute px from left
-      const tilt  = (idx - centerIndex) * rot;
-      const arcY  = -2 * Math.abs(idx - centerIndex);
+      const x    = idx * spread;                         // left:px inside the centered strip
+      const tilt = (idx - centerIdx) * rot;
+      const arcY = -2 * Math.abs(idx - centerIdx);
 
-      wrap.style.left = `${Math.round(x)}px`;        // <- authoritative X
-      wrap.style.setProperty('--wy', `${arcY}px`);
+      wrap.style.left = `${Math.round(x)}px`;
       wrap.style.setProperty('--wrot', `${tilt}deg`);
+      wrap.style.setProperty('--wy', `${arcY}px`);
       wrap.style.zIndex = String(100 + idx);
-
-      wrap.style.transitionDelay = `${idx * 24}ms`;  // subtle cascade
+      wrap.style.transitionDelay = `${idx * 24}ms`;
       wrap.style.opacity = '1';
     });
   });
 }
 
-/* ---------- Hand renderer (wrapper + inner card) ---------- */
-function renderHand(container, state) {
-  if (!container) return;
-  container.innerHTML = '';
+/* ---------- Hand renderer ---------- */
+function renderHand(ribbonEl, state) {
+  if (!ribbonEl) return;
+  ribbonEl.innerHTML = ''; // reset shell
+
+  // build/append the centered fan strip
+  const fan = el('div', 'fan');
+  ribbonEl.appendChild(fan);
 
   const hand = Array.isArray(state?.hand) ? state.hand : [];
-  container.style.setProperty('--n', String(Math.max(hand.length, 1)));
 
   if (hand.length === 0) {
-    const wrap = el('div', 'cardWrap');
-    const phantom = cardEl({ title: '—', classes: 'is-phantom' });
-    wrap.appendChild(phantom);
-    container.appendChild(wrap);
-    layoutHand(container);
+    const w = el('div', 'cardWrap');
+    const ph = cardEl({ title: '—', classes: 'is-phantom' });
+    w.appendChild(ph);
+    fan.appendChild(w);
+    layoutHand(ribbonEl);
     return;
   }
 
-  hand.forEach((c) => {
-    const wrap = el('div', 'cardWrap');
+  hand.forEach(c => {
+    const w = el('div', 'cardWrap');
     const isInstant = (c.type || c.subtype) === 'Instant';
     const node = cardEl({
       title: c.name || c.title || 'Card',
       subtype: c.type || c.subtype || 'Spell',
       classes: isInstant ? 'is-instant' : '',
     });
-    wrap.appendChild(node);
-    container.appendChild(wrap);
+    w.appendChild(node);
+    fan.appendChild(w);
   });
 
-  layoutHand(container);
+  layoutHand(ribbonEl);
 }
 
 /* ---------- Public renderer ---------- */
 export function renderGame(state) {
-  // HUD text if present
   const setTxt = (id, v) => { const n = $(id); if (n) n.textContent = String(v); };
   setTxt('#hud-you-hp', state?.hp ?? 0);
   setTxt('#hud-you-ae', state?.ae ?? 0);
@@ -147,7 +150,7 @@ export function init(game) {
   // Engine → re-render
   document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
-  // Keep fan centered on rotate/resize
+  // Maintain centering on resize/rotate
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
   window.addEventListener('resize', onResize, { passive: true });
