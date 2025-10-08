@@ -49,46 +49,38 @@ function computeFan(containerWidth, cardWidth, n) {
 }
 
 function layoutHand(ribbonEl) {
-  const wraps = Array.from(ribbonEl.children); // .cardWrap nodes
+  const wraps = Array.from(ribbonEl.children);
   if (!wraps.length) return;
 
-  // Measure the real inner width of the ribbon, then read CSS card width.
   const width = ribbonEl.getBoundingClientRect().width;
   const cs = getComputedStyle(ribbonEl);
   const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
 
   const n = wraps.length;
-  // Spread so edges always remain on-screen:
-  const maxSpread = Math.max(58, (width - cardW) / Math.max(1, (n - 1)));
+  const maxSpread = Math.max(58, (width - cardW) / Math.max(1, n - 1));
   const preferred = 120;
   const spread = Math.min(preferred, maxSpread);
   const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
   const centerIndex = (n - 1) / 2;
 
-  // Compute the X where the middle card should start so the group is centered.
   const handPixelWidth = (n - 1) * spread + cardW;
-  const baseX = (width - handPixelWidth) / 2; // ← anchor for the first card
+  const baseX = (width - handPixelWidth) / 2;        // left edge of the first card
 
-  // Prime for clean animation
+  // start hidden for clean transition
   wraps.forEach(w => { w.style.opacity = '0'; });
 
-  // Apply precise positions next frame to ensure transitions fire
   requestAnimationFrame(() => {
     wraps.forEach((wrap, idx) => {
-      const offset = idx * spread;
-      const tilt   = (idx - centerIndex) * rot;
-      const arcY   = -2 * Math.abs(idx - centerIndex);
+      const x     = baseX + idx * spread;            // absolute px from left
+      const tilt  = (idx - centerIndex) * rot;
+      const arcY  = -2 * Math.abs(idx - centerIndex);
 
-      // Absolute pixel X from left edge (no 50% math, no negative margins)
-      const x = baseX + offset;
-
-      wrap.style.setProperty('--wx', `${x}px`);
+      wrap.style.left = `${Math.round(x)}px`;        // <- authoritative X
       wrap.style.setProperty('--wy', `${arcY}px`);
       wrap.style.setProperty('--wrot', `${tilt}deg`);
       wrap.style.zIndex = String(100 + idx);
 
-      // tiny stagger for a smooth cascade; feels like your “nice” animation
-      wrap.style.transitionDelay = `${idx * 24}ms`;
+      wrap.style.transitionDelay = `${idx * 24}ms`;  // subtle cascade
       wrap.style.opacity = '1';
     });
   });
