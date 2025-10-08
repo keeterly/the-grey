@@ -116,3 +116,11 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 @media (max-width: 420px){
   .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
+
+@supports (-webkit-touch-callout: none) {
+  .ribbon-wrap {
+    margin-left: env(safe-area-inset-left);
+    margin-right: env(safe-area-inset-right);
+  }
+}
+
