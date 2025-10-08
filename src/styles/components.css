@@ -1,15 +1,14 @@
 /* ============================================================
-   THE GREY — COMPONENTS.CSS (v2.0)
-   Includes: global card styling, layout containers,
-   aetherflow zones, fanned player hand (ribbon),
-   and instant pulse animation.
+   THE GREY — COMPONENTS.CSS (v2.1)
+   Mobile + desktop responsive, proper card fanning
    ============================================================ */
 
-/* ----------- Base resets ----------- */
+/* ----------- Base ----------- */
 * {
   box-sizing: border-box;
   -webkit-user-select: none;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -19,27 +18,6 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-}
-
-h1, h2, h3, h4, h5, h6, p {
-  margin: 0;
-  padding: 0;
-  font-weight: 500;
-}
-
-button {
-  cursor: pointer;
-  border: none;
-  background: #d7cbbb;
-  color: #3a3128;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-weight: 500;
-  transition: background 0.15s ease;
-}
-
-button:hover {
-  background: #e3d7c8;
 }
 
 /* ----------- Boards ----------- */
@@ -53,13 +31,6 @@ button:hover {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-}
-
-.board h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: #4a4036;
-  margin-bottom: 8px;
 }
 
 .zone {
@@ -85,86 +56,32 @@ button:hover {
   overflow: hidden;
 }
 
-.card .cHead {
-  padding: 10px 12px 4px 12px;
-}
+.card .cHead { padding: 10px 12px 4px 12px; }
+.card .cName { font-size: 14px; font-weight: 600; }
+.card .cType { font-size: 11px; opacity: 0.6; }
+.card .cBody { flex: 1; padding: 0 12px; font-size: 13px; }
+.card .cStats { font-size: 11px; opacity: 0.6; text-align: right; padding: 4px 10px 8px 0; }
 
-.card .cName {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.card .cType {
-  font-size: 11px;
-  font-weight: 400;
-  opacity: 0.6;
-}
-
-.card .cBody {
-  flex: 1;
-  padding: 0 12px;
-  font-size: 13px;
-  line-height: 1.4;
-  color: #3a3128;
-}
-
-.card .cStats {
-  font-size: 11px;
-  opacity: 0.6;
-  text-align: right;
-  padding: 4px 10px 8px 0;
-}
-
-.card:hover {
-  transform: translateY(-4px);
-  filter: brightness(1.05);
-}
-
-/* ----------- Board + Flow Containers ----------- */
-#aetherflow, #aiBoard, #yourBoard {
-  display: flex;
-  justify-content: flex-start;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: nowrap;
-  overflow: visible;
-}
-
-/* ----------- HUD ----------- */
-.hud {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #3a3128;
-}
-
-/* ----------- Pulse for Instants ----------- */
+/* ----------- Pulse (Instants) ----------- */
 @keyframes uiPulse {
   0% { filter: brightness(1); transform: translateY(-14px) scale(1.04); }
-  50% { filter: brightness(1.12); }
+  50% { filter: brightness(1.15); }
   100% { filter: brightness(1); transform: translateY(-14px) scale(1.04); }
 }
 
 /* ============================================================
-   PLAYER HAND (RIBBON)
+   PLAYER HAND (RIBBON) — FANNED + RESPONSIVE
    ============================================================ */
 .ribbon-wrap {
   position: fixed;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 260px;
-  pointer-events: none;
+  height: 300px;
   display: flex;
   justify-content: center;
   align-items: flex-end;
+  pointer-events: none;
   z-index: 100;
 }
 
@@ -173,52 +90,97 @@ button:hover {
   display: flex;
   justify-content: center;
   align-items: flex-end;
-  gap: 0;
-  transform: translateY(40px);
+  height: 100%;
+  width: 100%;
+  max-width: 900px;
+  perspective: 1200px;
+  transform-style: preserve-3d;
   pointer-events: auto;
   overflow: visible;
-  height: 100%;
 }
 
 .ribbon .card {
-  position: relative;
-  flex: 0 0 auto;
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
   width: 180px;
   height: 250px;
-  margin-left: -110px;
-  transition: transform 0.25s ease, filter 0.25s ease, z-index 0.1s;
+  margin-left: -90px;
   transform-origin: bottom center;
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transition: transform 0.25s ease, z-index 0.1s, filter 0.2s;
   cursor: grab;
-  border-radius: 14px;
-  background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
 }
 
-.ribbon .card:first-child {
-  margin-left: 0;
-}
+/* --- Fanning (default desktop) --- */
+.ribbon .card:nth-child(1) { transform: rotate(-18deg) translateX(-250px) translateY(-10px); z-index: 1; }
+.ribbon .card:nth-child(2) { transform: rotate(-9deg)  translateX(-125px) translateY(-5px);  z-index: 2; }
+.ribbon .card:nth-child(3) { transform: rotate(0deg)   translateX(0px)    translateY(0px);   z-index: 3; }
+.ribbon .card:nth-child(4) { transform: rotate(9deg)   translateX(125px)  translateY(-5px);  z-index: 2; }
+.ribbon .card:nth-child(5) { transform: rotate(18deg)  translateX(250px)  translateY(-10px); z-index: 1; }
 
+/* Hover (desktop) */
 .ribbon .card:hover {
-  transform: translateY(-60px) scale(1.1);
+  transform: translateY(-80px) scale(1.15) rotate(0deg) !important;
   z-index: 50;
-  filter: brightness(1.05);
+  filter: brightness(1.08);
 }
 
+/* Instant pulse */
 .ribbon .card.is-instant {
   animation: uiPulse 1.8s ease-in-out infinite;
 }
 
+/* Phantom placeholder */
 .ribbon .card.is-phantom {
   opacity: 0;
   pointer-events: none;
 }
 
-/* Draw-in animation */
+/* Draw animation */
 @keyframes drawIn {
-  from { transform: translateY(40px) scale(0.9); opacity: 0; }
+  from { transform: translateY(60px) scale(0.9); opacity: 0; }
   to { transform: translateY(0) scale(1); opacity: 1; }
 }
+.ribbon .card { animation: drawIn 0.25s ease-out; }
 
-.ribbon .card {
-  animation: drawIn 0.25s ease-out;
+/* ============================================================
+   MOBILE OPTIMIZATION
+   ============================================================ */
+@media (max-width: 768px) {
+  .ribbon-wrap {
+    height: 240px;
+  }
+
+  .ribbon .card {
+    width: 150px;
+    height: 210px;
+    margin-left: -75px;
+  }
+
+  /* tighter fan */
+  .ribbon .card:nth-child(1) { transform: rotate(-16deg) translateX(-190px) translateY(-8px); }
+  .ribbon .card:nth-child(2) { transform: rotate(-8deg)  translateX(-95px)  translateY(-4px); }
+  .ribbon .card:nth-child(3) { transform: rotate(0deg)   translateX(0px)    translateY(0px); }
+  .ribbon .card:nth-child(4) { transform: rotate(8deg)   translateX(95px)   translateY(-4px); }
+  .ribbon .card:nth-child(5) { transform: rotate(16deg)  translateX(190px)  translateY(-8px); }
+
+  /* Slightly larger overall */
+  .ribbon .card:hover,
+  .ribbon .card:active {
+    transform: translateY(-60px) scale(1.25) rotate(0deg) !important;
+  }
+}
+
+/* ============================================================
+   HUD / META
+   ============================================================ */
+.hud {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 14px;
+  font-size: 13px;
+  font-weight: 600;
 }
