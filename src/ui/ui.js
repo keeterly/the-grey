@@ -259,6 +259,7 @@ function renderHand(ribbonEl,state){
 
 /* ---------- Main render ---------- */
 export function renderGame(state){
+  const setTxt=(id,v)=>{const n=$(id); if(n) n.textContent=String(v);};
   renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
   renderHearts('#hud-ai-hearts', state?.ai?.hp ?? 0, 5);
 
