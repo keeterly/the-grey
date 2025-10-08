@@ -7,11 +7,11 @@
 // - Provides a few basic actions as no-throw placeholders
 // ---------------------------------------------------------
 
-// If running in the browser, define a minimal process shim *only* if missing.
-// This prevents "ReferenceError: process is not defined" in GitHub Pages.
+// /src/engine/rules.js
 if (typeof window !== "undefined" && typeof window.process === "undefined") {
   window.process = { env: { NODE_ENV: "production" } };
 }
+export function reduce(state, action) { … }
 
 // Safe dev flag (works in Node or browser)
 const IS_DEV =
