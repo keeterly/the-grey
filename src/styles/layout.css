@@ -1,1 +1,122 @@
+/* =========================================================
+   THE GREY — LAYOUT (locked rows + centered trance + ribbon)
+   ========================================================= */
+
+:root{
+  /* Keep in sync with components.css .card size */
+  --card-w: 180px;
+  --card-h: 252px;   /* ~MTG aspect */
+  --gap:    14px;
+
+  --wrap-max: 1200px;
+  --zone-bg: #fcfbf8;
+  --pane-bg: #f5f1e8;
+  --chip-bg: #f4ead8;
+  --chip-fg: #7a6042;
+}
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--pane-bg);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial;
+  color: #222;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+/* ---------------- HUD ---------------- */
+
+.hudRow{
+  width: 100%;
+  max-width: var(--wrap-max);
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 12px;
+  margin: 4px auto 8px;
+}
+.hudRow > #pillYou{ justify-self: start; }
+.hudRow > #pillAi { justify-self: end;  }
+.tranceDock { justify-self: center; }
+
+/* ---------------- Shell ---------------- */
+
+.wrap{
+  width: 100%;
+  max-width: var(--wrap-max);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 0 auto 24px;
+  padding: 0 8px;
+}
+.zone{
+  background: var(--zone-bg);
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.05);
+  padding: 10px 12px 14px;
+}
+.zone .title{ font-weight: 600; margin: 6px 0 8px; }
+
+/* ---------------- Slots / Rows ---------------- */
+
+.slots,
+.glyphTray{
+  display:flex;
+  align-items:flex-start;
+  justify-content:center;
+  gap: var(--gap);
+  flex-wrap: nowrap;
+  overflow: visible;
+}
+.fixedRow{
+  min-height: calc(var(--card-h) + 8px);
+  max-height: calc(var(--card-h) + 8px);
+}
+
+.slotCell{
+  width: var(--card-w);
+  height: var(--card-h);
+  background:#f9f6f1;
+  border: 1px dashed rgba(0,0,0,.08);
+  border-radius: 12px;
+  display:flex; align-items:center; justify-content:center;
+  transition: background .2s ease, transform .12s ease, outline-color .12s ease;
+}
+.slotCell .emptyCell{ color:#b9b0a4; }
+.slotCell.ai{ background:#f2efe8; }
+
+/* Drag affordances */
+.slotCell.drop-ok    { outline: 2px solid rgba(90,160,110,.35); background:#f6fbf7; }
+.slotCell.drop-no    { filter: grayscale(.3) brightness(.96); opacity:.7; }
+.slotCell.drop-hover { outline: 3px solid rgba(90,160,110,.55); transform: translateY(-2px); }
+
+/* ---------------- Aetherflow (GRID = perfect alignment) ---------------- */
+
+.flowWrap{ display:flex; justify-content:center; }
+.flowGrid{
+  display: grid;
+  grid-template-columns: repeat(5, var(--card-w));
+  grid-template-rows: 26px var(--card-h);
+  gap: var(--gap);
+  align-items: start;
+  justify-content: center;
+}
+.costCell{ grid-row:1; height:26px; position:relative; }
+.marketCard{ grid-row:2; width: var(--card-w); height: var(--card-h); }
+
+.costChip{
+  position:absolute;
+  top:-12px; left:50%; transform:translateX(-50%);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  border-radius:999px; width:26px; height:26px;
+  display:grid; place-items:center;
+  font-size:12px; font-weight:700;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06);
+}
 
