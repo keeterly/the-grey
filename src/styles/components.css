@@ -6,44 +6,63 @@
    ============================================================ */
 
 /* ---------- Base ---------- */
-* { box-sizing: border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color: transparent; }
+* { 
+  box-sizing: border-box; 
+  -webkit-user-select: none; 
+  user-select: none; 
+  -webkit-tap-highlight-color: transparent; 
+}
 html, body { height: 100%; }
-body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family: "Inter", system-ui, sans-serif; }
+body { 
+  margin: 0; 
+  padding: 0; 
+  background: #f3efe8; 
+  color: #3a3128; 
+  overflow-x: hidden; 
+  font-family: "Inter", system-ui, sans-serif; 
+}
 
 /* --- Minimal hearts in HUD --- */
-.pill-hp { display:flex; align-items:center; gap:10px; }
-.pill-hp .label { font-weight:600; opacity:.85; }
-
-.pill-hp .hearts { display:flex; gap:6px; align-items:center; }
+.pill-hp { display: flex; align-items: center; gap: 10px; }
+.pill-hp .label { font-weight: 600; opacity: .85; }
+.pill-hp .hearts { display: flex; gap: 6px; align-items: center; }
 .pill-hp .heart {
-  font-size:16px;
-  line-height:1;
-  color:#d35;                 /* filled */
+  font-size: 16px;
+  line-height: 1;
+  color: #d35;
   text-shadow: 0 1px 0 rgba(0,0,0,.05);
   transform: translateY(1px);
 }
-.pill-hp .heart.is-empty { opacity:.25; }
-
+.pill-hp .heart.is-empty { opacity: .25; }
 
 /* ---------- Cards ---------- */
-.card{
+.card {
   background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
   border-radius: 14px;
   box-shadow: 0 3px 6px rgba(0,0,0,.1);
-  width: 180px; height: 250px;
-  display:flex; flex-direction:column; justify-content:space-between;
-  overflow:hidden;
+  width: 180px;
+  height: 250px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
   transition: filter .22s ease;
 }
-.cHead{ padding:10px 12px 4px; }
-.cName{ font-size:14px; font-weight:600; }
-.cType{ font-size:11px; opacity:.6; }
-.cBody{ flex:1; padding:0 12px; font-size:13px; }
-.cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
+.cHead { padding: 10px 12px 4px; }
+.cName { font-size: 14px; font-weight: 600; }
+.cType { font-size: 11px; opacity: .6; }
+.cBody { flex: 1; padding: 0 12px; font-size: 13px; }
+.cStats { font-size: 11px; opacity: .6; text-align: right; padding: 4px 10px 8px 0; }
 
 /* ---------- Zones (boards/flow rows) ---------- */
-#aiBoard, #aetherflow, #yourBoard{
-  display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start;
+#aiBoard, #aetherflow, #yourBoard {
+  display: flex;
+  gap: 16px;
+  flex-wrap: nowrap;
+  overflow: visible;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: var(--card-h, 250px);
 }
 
 /* --- Empty slot visual (no placeholder card) --- */
@@ -53,7 +72,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   border-radius: 12px;
   border: 2px dashed rgba(0,0,0,0.12);
   background: transparent;
-  transition: border-color .15s ease, background .15s ease;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 
 /* When dragging over the board but not a specific slot */
@@ -65,98 +84,119 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .boardSlot.drop-accept .emptySlot {
   border-color: #c59a5b;
   background: rgba(255,235,200,0.15);
+  box-shadow: 0 0 0 3px rgba(197,154,91,0.12) inset;
 }
 
-/* Ensure each slot keeps card footprint */
+/* Ensure each slot keeps card footprint and centers child */
 .boardSlot {
   width: var(--card-w, 180px);
   height: var(--card-h, 250px);
   display: flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;
+  position: relative;
 }
 
+/* Ensure cards in slots fill the same footprint */
+.boardSlot > .card {
+  width: 100%;
+  height: 100%;
+}
 
 /* ---------- Instant pulse ---------- */
-@keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
+@keyframes uiPulse { 
+  0% { filter: brightness(1); } 
+  50% { filter: brightness(1.12); } 
+  100% { filter: brightness(1); } 
+}
 
 /* ============================================================
    HAND / RIBBON
    ============================================================ */
 
 /* fixed footer container; centers its inner strip */
-.ribbon-wrap{
-  position:fixed; left:0; bottom:0; width:100%;
-  height:300px;
+.ribbon-wrap {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  width: 100%;
+  height: 300px;
   padding-left: max(12px, env(safe-area-inset-left));
   padding-right: max(12px, env(safe-area-inset-right));
   padding-bottom: max(8px, env(safe-area-inset-bottom));
-  display:flex; justify-content:center; align-items:flex-end;
-  pointer-events:none; z-index:100;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 100;
 }
 
 /* flexible shell — the inner "strip" will be centered inside this */
-.ribbon{
-  --card-w: 180px;   /* JS reads these for math */
+.ribbon {
+  --card-w: 180px;
   --card-h: 250px;
-
-  position:relative;
-  width:100%; height:100%;
-  pointer-events:auto;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto;
 }
 
 /* Centered strip that we will position explicitly from JS */
-.fan{
+.fan {
   position: relative;
   height: calc(var(--card-h) + 40px);
-  width: 0px;                 /* JS sets exact width */
-  margin: 0;                  /* stop relying on auto-centering */
-  left: 0;                    /* JS will set pixel 'left' */
+  width: 0px;
+  margin: 0;
+  left: 0;
   pointer-events: auto;
-  transition: left .28s cubic-bezier(.2,.8,.2,1); /* smooth when resizing/rotating */
+  transition: left .28s cubic-bezier(.2,.8,.2,1);
 }
 
 /* each card sits in an absolute wrapper we animate */
-.cardWrap{
-  position:absolute; bottom:40px; left:0;   /* JS sets left:px */
-  width: var(--card-w); height: var(--card-h);
+.cardWrap {
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  width: var(--card-w);
+  height: var(--card-h);
   transform-origin: bottom center;
-  z-index:100;
+  z-index: 100;
 
-  /* small arc + tilt (Y+rot only) */
-  --wy: 0px; --wrot: 0deg;
+  --wy: 0px;
+  --wrot: 0deg;
   transform: translateY(var(--wy)) rotate(var(--wrot));
   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
-  opacity: 0; /* fades to 1 after layout */
+  opacity: 0;
 }
 
 /* raise/preview on hover (desktop) */
-@media (hover:hover){
-  .cardWrap:hover .card{
+@media (hover:hover) {
+  .cardWrap:hover .card {
     transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
     filter: brightness(1.08);
     transition: transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
   }
-  .cardWrap:hover{ z-index:999; }
+  .cardWrap:hover { z-index: 999; }
 }
 
 /* instant visual */
-.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
-.ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
+.ribbon .card.is-instant { animation: uiPulse 1.8s ease-in-out infinite; }
+.ribbon .card.is-phantom { opacity: 0; pointer-events: none; }
 
 /* ---------- Mobile tuning ---------- */
-@media (max-width: 768px){
-  .ribbon-wrap{ height:260px; }
-  .ribbon{ --card-w: 160px; --card-h: 220px; }
-  .cardWrap:active .card{
+@media (max-width: 768px) {
+  .ribbon-wrap { height: 260px; }
+  .ribbon { --card-w: 160px; --card-h: 220px; }
+  .cardWrap:active .card {
     transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
   }
-  .cardWrap:active{ z-index:999; }
+  .cardWrap:active { z-index: 999; }
 }
 
-@media (max-width: 420px){
-  .ribbon{ --card-w: 148px; --card-h: 205px; }
+@media (max-width: 420px) {
+  .ribbon { --card-w: 148px; --card-h: 205px; }
 }
