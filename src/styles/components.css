@@ -1,1 +1,28 @@
+/* ============================================================
+   THE GREY — components.css (FAN STRIP EDITION)
+   - The hand is a centered "fan strip" whose width is set by JS
+   - Cards are absolutely positioned inside that strip using left:px
+   - Smooth slide-in; safe-area respected; Safari-proof
+   ============================================================ */
+
+/* ---------- Base ---------- */
+* { box-sizing: border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
+body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family: "Inter", system-ui, sans-serif; }
+
+/* ---------- Cards ---------- */
+.card{
+  background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
+  border-radius: 14px;
+  box-shadow: 0 3px 6px rgba(0,0,0,.1);
+  width: 180px; height: 250px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  overflow:hidden;
+  transition: filter .22s ease;
+}
+.cHead{ padding:10px 12px 4px; }
+.cName{ font-size:14px; font-weight:600; }
+.cType{ font-size:11px; opacity:.6; }
+.cBody{ flex:1; padding:0 12px; font-size:13px; }
+.cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
