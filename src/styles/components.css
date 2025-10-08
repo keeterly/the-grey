@@ -164,12 +164,101 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .dock .chip.cta:hover{ background:#ffd48a; }
 .dock .chip.cta:active{ background:#ffc96a; }
 
+
+/* === Dock widgets (deck, discard, aether, end turn) ======================= */
+.dock{
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  z-index: 250;                 /* above ribbon (which uses ~100) */
+  pointer-events: auto;
+}
+
+.dock--left{
+  left: max(12px, env(safe-area-inset-left));
+}
+
+.dock--right{
+  right: max(12px, env(safe-area-inset-right));
+}
+
+/* pill-like icon button */
+.chip.icon{
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 6px 16px rgba(0,0,0,.12), 0 1px 0 rgba(0,0,0,.04) inset;
+  display: grid;
+  place-items: center;
+  color: #6a5d51;               /* icon color */
+  cursor: pointer;
+  position: relative;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+.chip.icon:hover{ transform: translateY(-1px); box-shadow: 0 10px 20px rgba(0,0,0,.16), 0 1px 0 rgba(0,0,0,.04) inset; }
+.chip.icon:active{ transform: translateY(0);  box-shadow: 0 4px 12px rgba(0,0,0,.10), 0 1px 0 rgba(0,0,0,.04) inset; }
+
+.chip.icon svg{
+  width: 22px;
+  height: 22px;
+  fill: currentColor;
+  display: block;
+}
+
+/* numeric badge */
+.badge{
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #222;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .2px;
+  box-shadow: 0 2px 6px rgba(0,0,0,.25);
+}
+
+/* aether gem look + tiny pulse */
+.chip.icon.gem{
+  color: #d49a16;
+  background: linear-gradient(180deg, #fff8e3, #f7e4b8);
+}
+.chip.icon.gem svg{ filter: drop-shadow(0 2px 2px rgba(212,154,22,.35)); }
+@keyframes aePulse { 0%{transform:scale(1)} 50%{transform:scale(1.06)} 100%{transform:scale(1)} }
+#dock-ae .badge{ animation: aePulse 1.8s ease-in-out infinite; }
+
+/* call-to-action for End Turn */
+.chip.icon.cta{
+  color: #ffffff;
+  background: linear-gradient(180deg,#ffb34d,#ff8a1c);
+}
+
+/* Mobile sizing */
+@media (max-width: 480px){
+  .chip.icon{ width: 40px; height: 40px; border-radius: 11px; }
+  .chip.icon svg{ width: 20px; height: 20px; }
+  .badge{ bottom: -5px; right: -5px; height: 16px; min-width: 16px; font-size: 10px; }
+}
+
+
+
+
 /* Mobile: tuck closer & slightly larger touch targets */
 @media (max-width: 768px){
   .dock{ gap: 8px; }
   .dock .chip{ min-height: 44px; }
 }
-
 
 
 /* ---------- Mobile sizing ---------- */
