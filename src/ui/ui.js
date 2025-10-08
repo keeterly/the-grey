@@ -18,13 +18,15 @@ function markSlots(mode) {
     if (mode === 'accept') n.classList.add('drop-accept');
   });
 }
-function slotIndexFromPoint(x,y){
-  for (const [i,node] of getBoardSlotNodes().entries()){
-    const r = node.getBoundingClientRect();
-    if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return i;
+function slotIndexFromPoint(x, y) {
+  const nodes = getBoardSlotNodes();
+  for (let i = 0; i < nodes.length; i++) {
+    const r = nodes[i].getBoundingClientRect();
+    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
   }
   return -1;
 }
+
 
 /* ---------- HUD Hearts ---------- */
 function renderHearts(selector, hp, max = 5) {
@@ -53,43 +55,30 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
   return c;
 }
 
-/* ---------- Boards (show empty slots only) ---------- */
-function renderSlots(container, slots) {
+
+
+/* ---------- Aetherflow row (optional: same visuals) ---------- */
+function renderFlow(container, state) {
   if (!container) return;
   container.innerHTML = '';
 
-  const list = Array.isArray(slots) ? slots : [null, null, null];
+  const row = Array.isArray(state?.flowRow) ? state.flowRow : [null, null, null, null, null];
 
-  list.forEach((s, i) => {
+  row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
     wrap.dataset.slotIndex = String(i);
 
-    if (s) {
+    if (cell) {
       wrap.appendChild(cardEl({
-        title: s.name || s.title || 'Card',
-        subtype: s.type || s.subtype || 'Spell',
+        title: cell.name || 'Aether',
+        subtype: 'Instant',
+        right: String(i + 1)
       }));
     } else {
-      // empty slot placeholder (no "Empty" card)
-      const slot = el('div', 'emptySlot');
-      wrap.appendChild(slot);
+      wrap.appendChild(el('div', 'emptySlot'));
     }
 
     container.appendChild(wrap);
-  });
-}
-
-
-/* ---------- Aetherflow ---------- */
-function renderFlow(container,state){
-  if (!container) return;
-  container.innerHTML='';
-  const row = Array.isArray(state?.flowRow)?state.flowRow:[null,null,null,null,null];
-  row.forEach((slot,i)=>{
-    container.appendChild(
-      slot ? cardEl({title:slot.name||'Aether',subtype:'Instant',right:String(i+1)})
-           : cardEl({title:'Empty',subtype:'—'})
-    );
   });
 }
 
