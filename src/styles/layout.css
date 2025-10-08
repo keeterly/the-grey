@@ -120,3 +120,122 @@ body {
   box-shadow: 0 1px 2px rgba(0,0,0,.06);
 }
 
+
+/* ---------------- Glyph tray ---------------- */
+
+.glyphTray{ justify-content:flex-start; }
+.glyphTray .card.glyphCard{
+  width: calc(var(--card-w)*.85);
+  height: calc(var(--card-h)*.85);
+}
+
+/* ---------------- Ribbon (Hand) ---------------- */
+
+/* ---------------- Ribbon (Hand) ---------------- */
+
+/* Outer wrapper fills the bottom and lets the inner ribbon center itself */
+.ribbon-wrap{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: calc(var(--card-h) + 84px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;     /* only cards accept input */
+  z-index: 50;
+  padding: 0;               /* IMPORTANT: no horizontal padding */
+  transform: none;          /* kill legacy translateX(-50%) centering */
+}
+
+/* The ribbon is just a positioning container for the fan strip */
+.ribbon{
+  position: relative;
+  width: 100%;
+  height: 100%;
+  padding: 0;               /* IMPORTANT: avoid offset vs. fan math */
+  margin: 0;
+  transform: none;          /* remove old translateY */
+  display: block;           /* no flex centering here—fan handles width/left */
+  pointer-events: auto;
+  perspective: 800px;       /* keep your nice hover scale look */
+}
+
+/* keep the rest of layout.css below this point as-is */
+.handCard{
+  position: relative;
+  will-change: transform;
+  transform-origin: 50% 90%;
+}
+
+
+/* ---------------- Deck / Discard / FAB ---------------- */
+
+.deckBar{
+  position:fixed; bottom:14px; left:14px; display:flex; gap:8px; z-index:35;
+}
+.fabDial.topRight{
+  position:fixed; top:14px; right:14px;
+  display:flex; flex-direction:column; gap:8px; z-index:35;
+}
+
+/* Aether gem */
+.aeGem{
+  position:fixed; right:18px; bottom:78px; z-index:34;
+  width:38px; height:38px; border-radius:10px;
+  background:#f2c46d; color:#432c09;
+  display:grid; place-items:center; font-weight:800;
+  box-shadow: 0 4px 8px rgba(0,0,0,.15);
+}
+
+
+/* Hand ribbon wrapper sits low so it doesn't obscure board */
+.ribbon-wrap {
+  position: fixed;
+  left: 50%;
+  bottom: -22px;               /* tuck a bit below the viewport */
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 1200px;
+  pointer-events: none;         /* only cards accept input */
+  z-index: 50;
+}
+
+/* The ribbon itself just arranges cards */
+.ribbon {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  height: 188px;                /* target height for card visuals */
+}
+
+/* overall vertical tightening */
+.wrap {
+  display: grid;
+  gap: 10px;              /* was larger; reduce inter-zone gap */
+}
+
+/* each zone block */
+.zone {
+  margin: 6px 0 10px;     /* less top/bottom margin */
+  padding-top: 4px;       /* tiny breathing room if needed */
+}
+
+/* section titles */
+.zone .title {
+  margin: 0 0 6px 0;      /* reduce space under titles */
+  line-height: 1.1;
+}
+
+/* if rows themselves add extra space */
+.fixedRow, .slots, .flowWrap {
+  margin-top: 4px;        /* keep small, consistent spacing */
+}
+
+
+
+/* ---------------- Responsive ---------------- */
+
+@media (max-width:1120px){ :root{ --wrap-max:1000px; --card-w:168px; --card-h:240px; } }
+@media (max-width:980px) { :root{ --wrap-max:900px;  --card-w:160px; --card-h:228px; } }
+@media (max-width:860px) { :root{ --wrap-max:820px;  --card-w:152px; --card-h:216px; } }
+
