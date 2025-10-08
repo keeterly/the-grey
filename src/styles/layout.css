@@ -131,18 +131,19 @@ body {
 
 /* ---------------- Ribbon (Hand) ---------------- */
 
-/* The ribbon is just a positioning container for the fan strip */
+/* The ribbon is just a positioning container for the fan strip 
 .ribbon{
   position: relative;
   width: 100%;
   height: 100%;
-  padding: 0;               /* IMPORTANT: avoid offset vs. fan math */
+  padding: 0;              
   margin: 0;
-  transform: none;          /* remove old translateY */
-  display: block;           /* no flex centering here—fan handles width/left */
+  transform: none;         
+  display: block;           
   pointer-events: auto;
-  perspective: 800px;       /* keep your nice hover scale look */
+  perspective: 800px;       
 }
+*/
 
 /* keep the rest of layout.css below this point as-is */
 .handCard{
