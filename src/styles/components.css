@@ -38,7 +38,7 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 }
 
 /* ============================================================
-   HAND / RIBBON — centered fan for any hand size
+   HAND / RIBBON — centered fan for any hand size (JS-driven)
    ============================================================ */
 .ribbon-wrap{
   position:fixed; left:0; bottom:0; width:100%;
@@ -48,14 +48,11 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   padding-bottom: max(8px, env(safe-area-inset-bottom));
   display:flex; justify-content:center; align-items:flex-end;
   pointer-events:none; z-index:100;
-  /* background: rgba(255,0,0,.0);  debug */
 }
 
 .ribbon{
-  /* Hand parameters via CSS variables (overridable) */
-  --n: 1;                 /* number of cards (set by JS)        */
-  --spread: 120px;        /* horizontal spacing per step (JS)    */
-  --rot: 10deg;           /* rotation per step (JS)              */
+  /* Hand globals (JS may adjust these) */
+  --n: 1;                 /* number of cards (informational) */
   --card-w: 180px;
   --card-h: 250px;
 
@@ -73,21 +70,17 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   transform-origin: bottom center;
   cursor: grab;
 
-  /* place by index: translateX = (i - center) * spread; rotate similarly */
-  transform:
-    translateX(calc( (var(--i) - (var(--n) - 1)/2 ) * var(--spread) ))
-    translateY(calc( (abs(var(--i) - (var(--n) - 1)/2) * -2px) )) /* tiny arc */
-    rotate( calc( (var(--i) - (var(--n) - 1)/2 ) * var(--rot) ));
-  z-index: calc(100 + (var(--i)));
+  /* JS sets --tx, --ty, --rot per card */
+  --tx: 0px; --ty: 0px; --rot: 0deg;
+  transform: translateX(var(--tx)) translateY(var(--ty)) rotate(var(--rot));
+  z-index: 100;
   animation: drawIn .25s ease-out;
 }
 
-/* Hover raise (desktop) */
+/* Hover raise (desktop only) */
 @media (hover:hover){
   .ribbon .card:hover{
-    transform:
-      translateX(calc( (var(--i) - (var(--n) - 1)/2 ) * var(--spread) ))
-      translateY(-80px) rotate(0deg) scale(1.12);
+    transform: translateY(-80px) rotate(0deg) scale(1.12);
     z-index:999;
     filter: brightness(1.08);
   }
@@ -107,14 +100,11 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   .ribbon-wrap{ height: 260px; }
   .ribbon{ --card-w: 160px; --card-h: 220px; }
   .ribbon .card:active{
-    transform:
-      translateX(calc( (var(--i) - (var(--n) - 1)/2 ) * var(--spread) ))
-      translateY(-70px) rotate(0deg) scale(1.18);
+    transform: translateY(-70px) rotate(0deg) scale(1.18);
     z-index:999;
   }
 }
 
-/* Super narrow */
 @media (max-width: 420px){
   .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
