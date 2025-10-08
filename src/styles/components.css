@@ -59,13 +59,15 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   pointer-events:auto;
 }
 
-/* the centered fan strip; JS sets its exact pixel width */
+/* Centered strip that we will position explicitly from JS */
 .fan{
-  position:relative;
-  height: calc(var(--card-h) + 40px);  /* space above baseline */
-  width: 0px;                          /* JS sets real width */
-  margin-inline:auto;                   /* <-- centers the strip */
-  pointer-events:auto;
+  position: relative;
+  height: calc(var(--card-h) + 40px);
+  width: 0px;                 /* JS sets exact width */
+  margin: 0;                  /* <- stop relying on auto-centering */
+  left: 0;                    /* <- JS will set pixel 'left' */
+  pointer-events: auto;
+  transition: left .28s cubic-bezier(.2,.8,.2,1); /* smooth when resizing/rotating */
 }
 
 /* each card sits in an absolute wrapper we animate */
