@@ -38,43 +38,36 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
    HAND / RIBBON
    ============================================================ */
 
-/* fixed footer container; centers its inner strip */
+/* --- HAND CONTAINER --- */
 .ribbon-wrap{
-  position:fixed; left:0; bottom:0; width:100%;
-  height:300px;
+  position: fixed;
+  left: 0; bottom: 0; width: 100%;
+  height: 300px;
   padding-left: max(12px, env(safe-area-inset-left));
   padding-right: max(12px, env(safe-area-inset-right));
   padding-bottom: max(8px, env(safe-area-inset-bottom));
-  display:flex; justify-content:center; align-items:flex-end;
-  pointer-events:none; z-index:100;
+  display: flex; justify-content: center; align-items: flex-end;
+  pointer-events: none; z-index: 100;
 }
 
-/* flexible shell — the inner "strip" will be centered inside this */
+/* the element your .fan is positioned *inside* */
 .ribbon{
-  --card-w: 180px;   /* JS reads these for math */
-  --card-h: 250px;
-
-  position:relative;
-  width:100%; height:100%;
-  pointer-events:auto;
-}
-
-
-
-/* Centered strip that we position explicitly from JS */
-/*
-.fan{
-  position: absolute;
-  bottom: 0;
-  left: 0;           
-  height: calc(var(--card-h) + 40px);
-  width: 0px;           
-  margin: 0;            
+  position: relative;     /* <-- important */
+  width: 100%; height: 100%;
   pointer-events: auto;
-  transition: left .28s cubic-bezier(.2,.8,.2,1); 
 }
 
-*/
+/* the strip we move with left:px from JS */
+.fan{
+  position: absolute;     /* <-- was relative; must be absolute */
+  bottom: 0;
+  left: 0;                /* JS sets an exact pixel 'left' */
+  height: calc(var(--card-h) + 40px);
+  width: 0;               /* JS sets exact width */
+  pointer-events: auto;
+  transition: left .28s cubic-bezier(.2,.8,.2,1);
+}
+
 
 /* each card sits in an absolute wrapper we animate */
 /* each card sits in an absolute wrapper we animate */
