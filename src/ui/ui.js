@@ -56,13 +56,41 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
 }
 
 
+/* ---------- Boards (show empty slots only) ---------- */
+function renderSlots(container, slots) {
+  if (!container) return;
+  container.innerHTML = '';
 
-/* ---------- Aetherflow row (optional: same visuals) ---------- */
+  const list = Array.isArray(slots) ? slots : [null, null, null];
+
+  list.forEach((s, i) => {
+    const wrap = el('div', 'boardSlot');
+    wrap.dataset.slotIndex = String(i);
+
+    if (s) {
+      // Actual card in this slot
+      wrap.appendChild(cardEl({
+        title: s.name || s.title || 'Card',
+        subtype: s.type || s.subtype || 'Spell'
+      }));
+    } else {
+      // Show an empty slot (droppable)
+      const slot = el('div', 'emptySlot');
+      wrap.appendChild(slot);
+    }
+
+    container.appendChild(wrap);
+  });
+}
+
+/* ---------- Aetherflow row (same visuals, optional) ---------- */
 function renderFlow(container, state) {
   if (!container) return;
   container.innerHTML = '';
 
-  const row = Array.isArray(state?.flowRow) ? state.flowRow : [null, null, null, null, null];
+  const row = Array.isArray(state?.flowRow)
+    ? state.flowRow
+    : [null, null, null, null, null];
 
   row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
@@ -81,6 +109,8 @@ function renderFlow(container, state) {
     container.appendChild(wrap);
   });
 }
+
+
 
 /* ---------- Layout Hand ---------- */
 function layoutHand(ribbonEl){
