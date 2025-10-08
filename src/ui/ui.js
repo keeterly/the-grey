@@ -44,29 +44,31 @@ function renderFlow(container, state) {
   });
 }
 
-// NEW: render the player's hand into the ribbon
+// NEW hand renderer (drop-in replacement)
 function renderHand(container, state) {
   if (!container) return;
   container.innerHTML = '';
+
   const hand = Array.isArray(state?.hand) ? state.hand : [];
+  container.style.setProperty('--n', String(Math.max(hand.length, 1)));
 
   if (hand.length === 0) {
-    // keep ribbon height consistent
-    const phantom = cardEl({ title: '—', subtype: '', classes: 'is-phantom' });
+    const phantom = cardEl({ title: '—', classes: 'is-phantom' });
     phantom.style.visibility = 'hidden';
+    phantom.style.setProperty('--i', '0');
     container.appendChild(phantom);
     return;
   }
 
-  hand.forEach((c) => {
+  hand.forEach((c, idx) => {
     const isInstant = (c.type || c.subtype) === 'Instant';
-    container.appendChild(
-      cardEl({
-        title: c.name || c.title || 'Card',
-        subtype: c.type || c.subtype || 'Spell',
-        classes: isInstant ? 'is-instant' : '',
-      })
-    );
+    const node = cardEl({
+      title: c.name || c.title || 'Card',
+      subtype: c.type || c.subtype || 'Spell',
+      classes: isInstant ? 'is-instant' : '',
+    });
+    node.style.setProperty('--i', String(idx));
+    container.appendChild(node);
   });
 }
 
