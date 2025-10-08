@@ -62,16 +62,19 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 
 
 /* Centered strip that we position explicitly from JS */
+/*
 .fan{
-  position: absolute;        /* was: relative */
+  position: absolute;
   bottom: 0;
-  left: 0;                   /* JS sets pixel 'left' */
+  left: 0;           
   height: calc(var(--card-h) + 40px);
-  width: 0px;                /* JS sets exact width */
-  margin: 0;                 /* no auto-centering */
+  width: 0px;           
+  margin: 0;            
   pointer-events: auto;
-  transition: left .28s cubic-bezier(.2,.8,.2,1); /* smooth resize/rotate */
+  transition: left .28s cubic-bezier(.2,.8,.2,1); 
 }
+
+*/
 
 /* each card sits in an absolute wrapper we animate */
 /* each card sits in an absolute wrapper we animate */
