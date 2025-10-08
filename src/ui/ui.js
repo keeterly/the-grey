@@ -44,13 +44,45 @@ function renderFlow(container, state) {
   });
 }
 
-// NEW hand renderer (drop-in replacement)
+
+// Helper: compute a safe spread/rotation so the fan fits the viewport
+function applyHandLayout(container, n) {
+  // n = number of cards
+  const cs = getComputedStyle(container);
+  const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
+
+  // available width inside ribbon (minus a little breathing room)
+  const avail = container.clientWidth - 16; // px
+  let spread;
+
+  if (n <= 1) {
+    spread = 0;
+  } else {
+    // Max spread that keeps leftmost/rightmost visible:
+    // center offset = (n-1)/2 * spread ; add half card width
+    const maxSpread = (avail - cardW) / (n - 1); // px
+    // Our preferred spacing:
+    const pref = 120; // desktop-ish default
+    // Clamp between 70 and maxSpread
+    spread = Math.max(70, Math.min(pref, maxSpread));
+  }
+
+  // Rotation scales with spread (feels nice on mobile)
+  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
+
+  container.style.setProperty('--n', String(Math.max(n, 1)));
+  container.style.setProperty('--spread', `${spread}px`);
+  container.style.setProperty('--rot', `${rot}deg`);
+}
+
+
+
 function renderHand(container, state) {
   if (!container) return;
   container.innerHTML = '';
 
   const hand = Array.isArray(state?.hand) ? state.hand : [];
-  container.style.setProperty('--n', String(Math.max(hand.length, 1)));
+  applyHandLayout(container, hand.length);
 
   if (hand.length === 0) {
     const phantom = cardEl({ title: '—', classes: 'is-phantom' });
@@ -71,6 +103,14 @@ function renderHand(container, state) {
     container.appendChild(node);
   });
 }
+
+// Recompute layout on rotate/resize
+window.addEventListener('resize', () => {
+  const ribbon = document.getElementById('ribbon');
+  if (!ribbon) return;
+  const n = parseInt(getComputedStyle(ribbon).getPropertyValue('--n')) || 1;
+  applyHandLayout(ribbon, n);
+});
 
 // PUBLIC
 export function renderGame(state) {
