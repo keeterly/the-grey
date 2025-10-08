@@ -26,6 +26,19 @@ function slotIndexFromPoint(x,y){
   return -1;
 }
 
+/* ---------- HUD Hearts ---------- */
+function renderHearts(selector, hp, max = 5) {
+  const el = $(selector);
+  if (!el) return;
+  const val = Math.max(0, Math.min(max, Number(hp) || 0));
+  let html = '';
+  for (let i = 0; i < max; i++) {
+    html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
+  }
+  el.innerHTML = html;
+}
+
+
 /* ---------- Card template ---------- */
 function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
   const c = el('div', `card ${classes}`.trim());
