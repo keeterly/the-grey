@@ -1,9 +1,10 @@
 // /src/ui/ui.js
 function $(q, r = document) { return r.querySelector(q); }
+function $all(q, r = document) { return Array.from(r.querySelectorAll(q)); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
-function cardEl({ title = 'Card', subtype = '', right = '' } = {}) {
-  const c = el('div', 'card');
+function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
+  const c = el('div', `card ${classes}`.trim());
   c.innerHTML = `
     <div class="cHead">
       <div class="cName">${title}</div>
@@ -43,6 +44,32 @@ function renderFlow(container, state) {
   });
 }
 
+// NEW: render the player's hand into the ribbon
+function renderHand(container, state) {
+  if (!container) return;
+  container.innerHTML = '';
+  const hand = Array.isArray(state?.hand) ? state.hand : [];
+
+  if (hand.length === 0) {
+    // keep ribbon height consistent
+    const phantom = cardEl({ title: '—', subtype: '', classes: 'is-phantom' });
+    phantom.style.visibility = 'hidden';
+    container.appendChild(phantom);
+    return;
+  }
+
+  hand.forEach((c) => {
+    const isInstant = (c.type || c.subtype) === 'Instant';
+    container.appendChild(
+      cardEl({
+        title: c.name || c.title || 'Card',
+        subtype: c.type || c.subtype || 'Spell',
+        classes: isInstant ? 'is-instant' : '',
+      })
+    );
+  });
+}
+
 // PUBLIC
 export function renderGame(state) {
   // HUD (optional)
@@ -54,16 +81,22 @@ export function renderGame(state) {
   renderSlots($('#aiBoard'), state?.ai?.slots, 'Empty');
   renderFlow($('#aetherflow'), state);
   renderSlots($('#yourBoard'), state?.slots, 'Empty');
+  renderHand($('#ribbon'), state);
 }
 
 export function init(game) {
-  // expose so engine can call directly if it wants
+  // Expose renderer so other modules can call it
   window.renderGame = renderGame;
 
-  // first paint
+  // Wire buttons if present
+  $('#btnDraw')?.addEventListener('click', () => game.dispatch({ type: 'DRAW', amount: 1 }));
+  $('#btnEnd')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
+  $('#btnReset')?.addEventListener('click', () => game.reset());
+
+  // First paint
   renderGame(game.state);
 
-  // re-render whenever the engine broadcasts
+  // Re-render on engine broadcasts
   document.addEventListener('game:state', (ev) => {
     renderGame(ev.detail?.state ?? game.state);
   });
