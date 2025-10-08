@@ -1,11 +1,12 @@
 /* ============================================================
-   THE GREY — components.css (v2.2)
+   THE GREY — components.css (v2.3)
    - Responsive, math-driven hand (centered, any count)
-   - Smooth hover/tap; instant pulse
+   - Auto respects mobile safe areas
    ============================================================ */
 
 /* -------- Base -------- */
 * { box-sizing: border-box; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; }
 body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden; font-family: "Inter", system-ui, sans-serif; }
 
 /* -------- Cards -------- */
@@ -41,21 +42,28 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
    ============================================================ */
 .ribbon-wrap{
   position:fixed; left:0; bottom:0; width:100%;
-  height:300px; display:flex; justify-content:center; align-items:flex-end;
+  height:300px;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  display:flex; justify-content:center; align-items:flex-end;
   pointer-events:none; z-index:100;
+  /* background: rgba(255,0,0,.0);  debug */
 }
 
 .ribbon{
   /* Hand parameters via CSS variables (overridable) */
-  --n: 1;                 /* number of cards (set by JS) */
-  --spread: 140px;        /* horizontal spacing per step */
-  --rot: 10deg;           /* rotation per step */
-  --lift: 40px;           /* base vertical lift */
+  --n: 1;                 /* number of cards (set by JS)        */
+  --spread: 120px;        /* horizontal spacing per step (JS)    */
+  --rot: 10deg;           /* rotation per step (JS)              */
   --card-w: 180px;
   --card-h: 250px;
 
-  position:relative; width: min(100%, 1000px); height:100%;
-  pointer-events:auto; perspective: 1200px; transform-style: preserve-3d;
+  position:relative;
+  width: 100%;
+  height:100%;
+  pointer-events:auto;
+  perspective: 1200px; transform-style: preserve-3d;
 }
 
 .ribbon .card{
@@ -74,13 +82,12 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   animation: drawIn .25s ease-out;
 }
 
-/* Hover/active raise (desktop) */
+/* Hover raise (desktop) */
 @media (hover:hover){
   .ribbon .card:hover{
     transform:
       translateX(calc( (var(--i) - (var(--n) - 1)/2 ) * var(--spread) ))
-      translateY(calc(-80px))
-      rotate(0deg) scale(1.12);
+      translateY(-80px) rotate(0deg) scale(1.12);
     z-index:999;
     filter: brightness(1.08);
   }
@@ -98,29 +105,16 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 /* -------- Mobile tuning -------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height: 260px; }
-  .ribbon{
-    --spread: 110px;
-    --rot: 12deg;
-    --card-w: 160px;
-    --card-h: 220px;
-  }
-
-  /* touch raise (no hover) */
+  .ribbon{ --card-w: 160px; --card-h: 220px; }
   .ribbon .card:active{
     transform:
       translateX(calc( (var(--i) - (var(--n) - 1)/2 ) * var(--spread) ))
-      translateY(-70px)
-      rotate(0deg) scale(1.18);
+      translateY(-70px) rotate(0deg) scale(1.18);
     z-index:999;
   }
 }
 
-/* -------- Super-narrow screens -------- */
+/* Super narrow */
 @media (max-width: 420px){
-  .ribbon{
-    --spread: 92px;
-    --rot: 13deg;
-    --card-w: 148px;
-    --card-h: 205px;
-  }
+  .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
