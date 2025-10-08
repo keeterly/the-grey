@@ -131,22 +131,6 @@ body {
 
 /* ---------------- Ribbon (Hand) ---------------- */
 
-/* ---------------- Ribbon (Hand) ---------------- */
-
-/* Outer wrapper fills the bottom and lets the inner ribbon center itself */
-.ribbon-wrap{
-  position: fixed;
- /* left: 0; right: 0; bottom: 0; */
-  height: calc(var(--card-h) + 84px);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  pointer-events: none;     /* only cards accept input */
-  z-index: 50;
-  padding: 0;               /* IMPORTANT: no horizontal padding */
-  /* transform: none;           kill legacy translateX(-50%) centering */
-}
-
 /* The ribbon is just a positioning container for the fan strip */
 .ribbon{
   position: relative;
