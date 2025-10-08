@@ -46,6 +46,25 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   display:flex; gap:16px; flex-wrap:nowrap; overflow:visible; align-items:flex-start;
 }
 
+/* --- Empty slot styling --- */
+.emptySlot {
+  width: var(--card-w, 180px);
+  height: var(--card-h, 250px);
+  border-radius: 12px;
+  border: 2px dashed rgba(0,0,0,0.1);
+  background: transparent;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.boardSlot.drop-target .emptySlot {
+  border-color: rgba(160,130,90,0.4);
+}
+
+.boardSlot.drop-accept .emptySlot {
+  border-color: #c59a5b;
+  background: rgba(255,235,200,0.15);
+}
+
 /* ---------- Instant pulse ---------- */
 @keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
 
