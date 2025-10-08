@@ -109,6 +109,69 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
 .ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
+
+/* ---------- Right-side dock ---------- */
+.dock{
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, calc(env(safe-area-inset-bottom) + 12px));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 120; /* above ribbon */
+  pointer-events: none;       /* allow hand to receive drags */
+}
+.dock .chip{
+  pointer-events: auto;
+  display:flex; align-items:center; gap:8px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0; border-radius: 12px;
+  background: #fff8; backdrop-filter: blur(6px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  color: #3a3128;
+  font: 600 13px/1.1 system-ui, sans-serif;
+  transition: transform .12s ease, filter .12s ease, background .2s ease;
+}
+.dock .chip:hover{ transform: translateY(-1px); filter: brightness(1.03); }
+.dock .chip:active{ transform: translateY(0); filter: brightness(.98); }
+
+.dock .chip svg{
+  width: 18px; height: 18px; fill: currentColor;
+}
+
+.dock .chip .label{ opacity:.8; }
+.dock .chip .count{
+  margin-left:auto;
+  min-width: 1.6em; text-align:center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  background: #f1e9db;
+  font-weight: 700;
+}
+
+/* gem variant */
+.dock .chip.gem{
+  background: linear-gradient(#fff, #f8f3ea);
+}
+.dock .chip.gem svg{ color: #e3aa2a; }
+
+/* End Turn CTA */
+.dock .chip.cta{
+  background: #ffe0a6;
+  font-weight: 800;
+}
+.dock .chip.cta:hover{ background:#ffd48a; }
+.dock .chip.cta:active{ background:#ffc96a; }
+
+/* Mobile: tuck closer & slightly larger touch targets */
+@media (max-width: 768px){
+  .dock{ gap: 8px; }
+  .dock .chip{ min-height: 44px; }
+}
+
+
+
 /* ---------- Mobile sizing ---------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height:260px; }
