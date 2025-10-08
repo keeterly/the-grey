@@ -79,8 +79,8 @@ body { margin:0; padding:0; background:#f3efe8; color:#3a3128; overflow-x:hidden
   z-index:100;
 
   --wy: 0px; --wrot: 0deg;
-  transform: translateY(var(--wy)) rotate(var(--wrot));
-  transition:
+   transform: translateX(calc(var(--wrot) * 0.4px)) translateY(var(--wy)) rotate(var(--wrot));
+   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
