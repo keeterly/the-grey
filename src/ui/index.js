@@ -7,8 +7,8 @@
 //
 // If you need to debug: open DevTools and use window.getState() / window.dispatch({type:'...'}).
 
-import { reduce } from './rules.js';
-import { initialState } from './state.js';
+import { reduce } from '../engine/rules.js';
+import { initialState } from '../engine/state.js';
 
 // --- App state ---
 let currentState = initialState;
