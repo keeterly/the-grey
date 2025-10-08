@@ -57,28 +57,22 @@ function layoutHand(ribbonEl){
   // anchor = same centered column your boards use
   const anchor = document.querySelector('main.grid') || document.body;
 
-  // --- measure ribbon and its padding ---
-  const wrap = ribbonEl.closest('.ribbon-wrap') || ribbonEl.parentElement || ribbonEl;
-  const wrapRect = wrap.getBoundingClientRect();
-  const cs = getComputedStyle(wrap);
-  const padL = parseFloat(cs.paddingLeft)  || 0;
-  const padR = parseFloat(cs.paddingRight) || 0;
-
-  // use the *inner content-box* left edge as reference
-  const ribbonLeftInside = wrapRect.left + padL;
+  // --- measure the actual container the fan is positioned in ---
+  const ribbonRect = ribbonEl.getBoundingClientRect();     // <-- we anchor to THIS
+  const anchorRect = anchor.getBoundingClientRect();
 
   // card and spread math
   const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
   const n = fan.children.length;
   const preferred = 120;
-  const anchorRect = anchor.getBoundingClientRect();
   const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
   const spread = Math.min(preferred, maxSpread);
   const stripW = (n - 1) * spread + cardW;
 
-  // center to the anchor’s center, compensating for wrap padding
+  // center the fan so that its center equals the anchor center, IN RIBBON COORDS
+  // (ribbonRect.left + fanLeft + stripW/2) === (anchorRect.left + anchorRect.width/2)
   const fanLeft = Math.round(
-    (anchorRect.left + anchorRect.width / 2) - (ribbonLeftInside + stripW / 2)
+    (anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2)
   );
   fan.style.left = `${fanLeft}px`;
 
@@ -99,6 +93,7 @@ function layoutHand(ribbonEl){
     });
   });
 }
+
 
 
 /* ---------- Hand renderer ---------- */
