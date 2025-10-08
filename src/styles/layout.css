@@ -172,13 +172,15 @@ body {
 }
 
 
-/* The ribbon itself just arranges cards */
+/* The ribbon itself just arranges cards 
 .ribbon {
   display: flex;
   justify-content: center;
   gap: 0;
-  height: 188px;                /* target height for card visuals */
+  height: 188px;                
 }
+*/
+
 
 /* overall vertical tightening */
 .wrap {
