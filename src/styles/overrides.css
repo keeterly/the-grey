@@ -80,10 +80,7 @@ body.noselect, body.noselect * { -webkit-user-select: none !important; user-sele
   min-height: 280px; /* match card height */
 }
 
-/* Extra space so lowered hand doesn’t hide UI */
-.ribbon-wrap{
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 36px);
-}
+
 
 /* Press-and-hold zoom preview (like Arena) */
 .card.handCard.focusZoom{
