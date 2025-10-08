@@ -84,6 +84,31 @@ export function createGame(opts = {}) {
     // Start player turn (opening draws typically happen in the reducer)
     dispatch({ type: 'START_TURN', first: true });
 
+
+
+    // TEMP: populate some fake cards to confirm rendering
+    S.slots = [
+      { name: 'Frost Sigil', type: 'Glyph' },
+      { name: 'Static Surge', type: 'Instant' },
+      { name: 'Echo Pulse', type: 'Spell' }
+    ];
+    
+    S.ai.slots = [
+      { name: 'Cinderlash', type: 'Glyph' },
+      { name: 'Stormveil', type: 'Instant' },
+      { name: 'Nullbind', type: 'Spell' }
+    ];
+    
+    S.flowRow = [
+      { name: 'Drift', type: 'Instant' },
+      { name: 'Surge', type: 'Instant' },
+      { name: 'Fracture', type: 'Instant' },
+      { name: 'Pulse', type: 'Instant' },
+      { name: 'Quell', type: 'Instant' }
+    ];
+
+
+    
     return S;
   }
 
