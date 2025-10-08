@@ -143,37 +143,55 @@ function renderHand(ribbonEl, state) {
   layoutHand(ribbonEl);
 }
 
-/* ------------------ Public renderer ------------------ */
+/* ---------- Public renderer ---------- */
 export function renderGame(state) {
-  const setTxt = (id, v) => { const n = $(id); if (n) n.textContent = String(v); };
+  const setTxt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
+
+  // HUD (existing)
   setTxt('#hud-you-hp', state?.hp ?? 0);
   setTxt('#hud-you-ae', state?.ae ?? 0);
   setTxt('#hud-ai-hp', state?.ai?.hp ?? 0);
   setTxt('#hud-ai-ae', state?.ai?.ae ?? 0);
 
+  // Boards
   renderSlots($('#aiBoard'), state?.ai?.slots, 'Empty');
   renderFlow($('#aetherflow'), state);
   renderSlots($('#yourBoard'), state?.slots, 'Empty');
+
+  // Hand
   renderHand($('#ribbon'), state);
+
+  // --- Dock counts ---
+  const deckCount    = Array.isArray(state?.deck) ? state.deck.length : 0;
+  const discardCount = Array.isArray(state?.disc) ? state.disc.length : 0;   // your repo uses "disc"
+  const aether       = state?.ae ?? 0;
+
+  setTxt('#count-deck', deckCount);
+  setTxt('#count-discard', discardCount);
+  setTxt('#count-ae', aether);
 }
 
-/* ------------------ Init ------------------ */
+/* ---------- Init ---------- */
 export function init(game) {
   window.renderGame = renderGame;
 
-  // Optional buttons
+  // Optional legacy buttons (still work if present)
   $('#btnDraw')?.addEventListener('click', () => game.dispatch({ type: 'DRAW', amount: 1 }));
-  $('#btnEnd')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
+  $('#btnEnd') ?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
   $('#btnReset')?.addEventListener('click', () => game.reset());
+
+  // New dock button
+  $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
 
   renderGame(game.state);
 
   // Engine → re-render
   document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
-  // Keep centering on resize/rotate
+  // Keep the fan centered
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
   window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('orientationchange', onResize, { passive: true });
 }
+
