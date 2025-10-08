@@ -50,55 +50,56 @@ function spreadAndTilt(stripWidth, cardW, n) {
   return { spread, rot, stripW: handPixelWidth };
 }
 
-function layoutHand(ribbonEl) {
+function layoutHand(ribbonEl){
   const fan = ribbonEl.querySelector('.fan');
   if (!fan) return;
-  const wraps = Array.from(fan.children);
-  if (!wraps.length) return;
 
-  // Measure the OUTER wrap (accounts for safe-area + iOS quirks)
+  // anchor = same centered column your boards use
+  const anchor = document.querySelector('main.grid') || document.body;
+
+  // --- measure ribbon and its padding ---
   const wrap = ribbonEl.closest('.ribbon-wrap') || ribbonEl.parentElement || ribbonEl;
   const wrapRect = wrap.getBoundingClientRect();
-  const wrapCS = getComputedStyle(wrap);
-  const padX = parseFloat(wrapCS.paddingLeft) + parseFloat(wrapCS.paddingRight);
-  const containerWidth = wrapRect.width - padX;
+  const cs = getComputedStyle(wrap);
+  const padL = parseFloat(cs.paddingLeft)  || 0;
+  const padR = parseFloat(cs.paddingRight) || 0;
 
-  // Card width from CSS vars on the ribbon
-  const cs = getComputedStyle(ribbonEl);
-  const cardW = parseFloat(cs.getPropertyValue('--card-w')) || 180;
+  // use the *inner content-box* left edge as reference
+  const ribbonLeftInside = wrapRect.left + padL;
 
-  const n = wraps.length;
+  // card and spread math
+  const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
+  const n = fan.children.length;
   const preferred = 120;
-  const maxSpread = Math.max(58, (containerWidth - cardW) / Math.max(1, n - 1));
+  const anchorRect = anchor.getBoundingClientRect();
+  const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
   const spread = Math.min(preferred, maxSpread);
-  const rot = Math.max(6, Math.min(16, (spread / 120) * 12));
-
-  // Set strip width and explicit centered left (absolute positioning)
   const stripW = (n - 1) * spread + cardW;
-  fan.style.width = `${stripW}px`;
-  const stripLeft = Math.max(0, Math.round((containerWidth - stripW) / 2));
-  fan.style.left = `${stripLeft}px`;
 
+  // center to the anchor’s center, compensating for wrap padding
+  const fanLeft = Math.round(
+    (anchorRect.left + anchorRect.width / 2) - (ribbonLeftInside + stripW / 2)
+  );
+  fan.style.left = `${fanLeft}px`;
+
+  // animate the cards
   const centerIdx = (n - 1) / 2;
-
-  // Prime for clean transitions
-  wraps.forEach(w => { w.style.opacity = '0'; });
-
+  fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
   requestAnimationFrame(() => {
-    wraps.forEach((wrap, idx) => {
-      const x    = Math.round(idx * spread);                 // left inside strip
-      const tilt = (idx - centerIdx) * rot;
+    fan.querySelectorAll('.cardWrap').forEach((wrap, idx) => {
+      const x    = Math.round(idx * spread);
+      const tilt = (idx - centerIdx) * 10;
       const arcY = -2 * Math.abs(idx - centerIdx);
-
       wrap.style.left = `${x}px`;
       wrap.style.setProperty('--wrot', `${tilt}deg`);
       wrap.style.setProperty('--wy', `${arcY}px`);
       wrap.style.zIndex = String(100 + idx);
-      wrap.style.transitionDelay = `${idx * 24}ms`;          // subtle cascade
+      wrap.style.transitionDelay = `${idx * 24}ms`;
       wrap.style.opacity = '1';
     });
   });
 }
+
 
 /* ---------- Hand renderer ---------- */
 function renderHand(ribbonEl, state) {
