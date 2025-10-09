@@ -1,6 +1,7 @@
-/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v11 (2025-10-09) */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v11'; })();
+/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v12 (2025-10-09) */
+(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v12'; })();
 
+// Inject bottom-right pills (Temp 🜂 and Channeled ◇)
 (function ensureBottomCounters(){
   const right = document.querySelector('.hud-min .right');
   if (!right) return;
@@ -23,9 +24,12 @@
   }
 })();
 
+// Mechanics + HUD sync
 (async function wireAcceptance(){
   try {
     const Engine = await import('./assets/js/engine.acceptance.safe.js');
+
+    // Update market costs if available
     const costs = Engine.getMarketCosts();
     document.querySelectorAll('[data-market-slot]').forEach((el,i)=>{
       const c = el.querySelector('.cost'); if (c) c.textContent = costs[i] ?? costs[costs.length-1] ?? '';
@@ -56,6 +60,7 @@
       else console.warn('[safe acceptance] game not detected.');
     })();
 
+    // Sync bottom counters
     (function tick(){
       const g = window.game, i = g ? (g.active ?? g.activePlayer ?? 0) : 0;
       const p = g && g.players ? g.players[i] : null;
@@ -68,15 +73,19 @@
       requestAnimationFrame(tick);
     })();
 
+    // Robust centering fallback: detect rows with 3+ .slot children
     (function centerFallback(){
-      const rows = document.querySelectorAll('.board .slots, .slot-row, .slots, [data-player-slots], [data-ai-slots]');
-      rows.forEach(row=>{
-        const st = getComputedStyle(row);
-        if (st.display !== 'flex' || st.justifyContent !== 'center') {
-          row.style.display = 'flex';
-          row.style.justifyContent = 'center';
-          row.style.alignItems = 'center';
-          row.style.gap = row.style.gap || '0.75rem';
+      const candidates = Array.from(document.querySelectorAll('.board *')).filter(n => n.children && n.children.length >= 3);
+      candidates.forEach(n => {
+        const hasSlots = Array.from(n.children).some(c => /slot/i.test(c.className || ''));
+        if (hasSlots) {
+          const st = getComputedStyle(n);
+          if (st.display !== 'flex' || st.justifyContent !== 'center') {
+            n.style.display = 'flex';
+            n.style.justifyContent = 'center';
+            n.style.alignItems = 'center';
+            n.style.gap = n.style.gap || '0.75rem';
+          }
         }
       });
     })();

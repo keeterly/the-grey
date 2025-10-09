@@ -1,70 +1,86 @@
 
+/* ---- Version badge ---- */
 #tgVersion, .tgVersion {
   position: fixed; top: .5rem; left: .5rem; z-index: 9999;
   background: rgba(16,16,16,.5); color:#ddd; border:1px solid rgba(255,255,255,.15);
   padding:.25rem .45rem; border-radius:.4rem;
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
+
+/* ---- Bottom HUD ---- */
 .hud-min { font-size: 16px; }
-.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: .6rem; }
-.hud-min .icon { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
-.hud-min .btn { cursor: pointer; }
+.hud-min .left, .hud-min .right { display:flex; align-items:center; gap:.6rem; }
+.hud-min .icon { font-size:22px; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
+.hud-min .btn { cursor:pointer; }
 .hud-min .btn:active { transform: translateY(1px); }
 .hud-pill {
-  display: inline-flex; align-items: center; gap: .5rem;
-  padding: 6px 12px; border-radius: 999px;
-  background: rgba(245,245,245,.9); color: #1f1f1f;
-  border: 1px solid rgba(0,0,0,.12);
-  box-shadow: 0 1px 4px rgba(0,0,0,.14);
-  font-size: 14px;
-  font-family: "Noto Sans Symbols 2","Segoe UI Symbol", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:6px 12px; border-radius:999px;
+  background:rgba(245,245,245,.9); color:#1f1f1f;
+  border:1px solid rgba(0,0,0,.12); box-shadow:0 1px 4px rgba(0,0,0,.14);
+  font-size:14px;
+  font-family:"Noto Sans Symbols 2","Segoe UI Symbol",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;
 }
-.hud-pill .sym { font-size: 14px; opacity: .7; transform: translateY(-.5px); }
-.hud-pill .val { font-size: 1.35em; font-weight: 650; min-width: 1.5em; text-align: center; letter-spacing: .02em; }
-#aetherWell { margin: 0 .25rem; }
+.hud-pill .sym { font-size:14px; opacity:.7; transform: translateY(-.5px); }
+.hud-pill .val { font-size:1.35em; font-weight:650; min-width:1.5em; text-align:center; letter-spacing:.02em; }
+#aetherWell { margin:0 .25rem; }
+
+/* ---- Center rows (AI/Player/Aetherflow) ---- */
 .board .slots,
 .slot-row,
 .slots,
 [data-player-slots],
-[data-ai-slots] {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.75rem;
+[data-ai-slots],
+.board [class*="slot-row"],
+.board [class*="Slots"] {
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  gap:.75rem;
 }
+
+/* ---- Card sizing ---- */
 :root {
-  --hand-overlap: -32px;
-  --hand-gap: .2rem;
+  --hand-overlap: -28px; /* half the previous overlap */
+  --hand-gap: .25rem;
 }
+
+/* Reset to avoid accidental overrides */
 .card { transform: none; box-shadow: none; }
+.card:active { opacity: .95; } /* helps drag visibility */
+
+/* Slotted cards (AI/Player/Aetherflow) at 75% */
 .aetherflow .card,
 #marketSlots .card,
 .board .card-slot .card,
 [data-player-slots] .card,
 [data-ai-slots] .card {
-  transform: scale(0.75) !important;
+  transform: rotate(var(--rot, 0deg)) scale(0.75) !important;
   transform-origin: center top;
   box-shadow: none !important;
   z-index: 1;
 }
+
+/* Hand cards at 120% with arc preserved + hover lift */
 .hand .card,
 [data-hand] .card {
-  transform: scale(1) !important;
+  transform: rotate(var(--rot, 0deg)) scale(1.2) !important;
   transform-origin: center bottom;
-  will-change: transform, box-shadow, translate;
+  will-change: transform, box-shadow, translate, margin;
   box-shadow: 0 8px 18px rgba(0,0,0,.18);
   z-index: 2;
   transition: transform .12s ease, box-shadow .12s ease, translate .12s ease, margin .12s ease;
   margin-left: var(--hand-overlap);
+  cursor: grab;
 }
 .hand .card:first-child,
 [data-hand] .card:first-child { margin-left: 0; }
+
 .hand .card:hover,
 [data-hand] .card:hover {
-  transform: scale(1.03) translateY(-3px) !important;
+  transform: rotate(var(--rot, 0deg)) scale(1.24) translateY(-3px) !important;
   box-shadow: 0 12px 26px rgba(0,0,0,.27);
 }
-.hand, [data-hand] {
-  gap: var(--hand-gap);
-  padding-top: .25rem;
-}
+
+/* Hand row spacing */
+.hand, [data-hand] { gap: var(--hand-gap); padding-top: .25rem; }
