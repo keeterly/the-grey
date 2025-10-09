@@ -66,7 +66,7 @@ body {
   min-height: var(--card-h, 250px);
 }
 
-/* --- Empty slot visual (no placeholder card) --- */
+/* --- Empty slot visual --- */
 .emptySlot {
   width: var(--card-w, 180px);
   height: var(--card-h, 250px);
@@ -76,12 +76,8 @@ body {
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 
-/* When dragging over the board but not a specific slot */
-.boardSlot.drop-target .emptySlot {
-  border-color: rgba(160,130,90,0.35);
-}
-
-/* When a specific slot is the active drop target */
+/* Drag affordances over board */
+.boardSlot.drop-target .emptySlot { border-color: rgba(160,130,90,0.35); }
 .boardSlot.drop-accept .emptySlot {
   border-color: #c59a5b;
   background: rgba(255,235,200,0.15);
@@ -98,12 +94,7 @@ body {
   flex: 0 0 auto;
   position: relative;
 }
-
-/* Cards placed into slots fill the footprint */
-.boardSlot > .card {
-  width: 100%;
-  height: 100%;
-}
+.boardSlot > .card { width: 100%; height: 100%; }
 
 /* ---------- Instant pulse ---------- */
 @keyframes uiPulse { 
@@ -116,7 +107,6 @@ body {
    HAND / RIBBON
    ============================================================ */
 
-/* fixed footer container; centers its inner strip */
 .ribbon-wrap {
   position: fixed;
   left: 0;
@@ -133,7 +123,6 @@ body {
   z-index: 100;
 }
 
-/* flexible shell — the inner "strip" will be centered inside this */
 .ribbon {
   --card-w: 180px;
   --card-h: 250px;
@@ -143,7 +132,6 @@ body {
   pointer-events: auto;
 }
 
-/* Centered strip that we will position explicitly from JS */
 .fan {
   position: relative;
   height: calc(var(--card-h) + 40px);
@@ -154,7 +142,6 @@ body {
   transition: left .28s cubic-bezier(.2,.8,.2,1);
 }
 
-/* each card sits in an absolute wrapper we animate */
 .cardWrap {
   position: absolute;
   bottom: 40px;
@@ -184,7 +171,7 @@ body {
   .cardWrap:hover { z-index: 999; }
 }
 
-/* click-to-preview (50% bigger, centered over bottom edge) */
+/* click-to-preview (50% bigger) */
 .cardWrap.is-preview .card {
   transform: translateY(-100px) scale(1.5) rotate(0deg) !important;
   filter: brightness(1.05);
@@ -204,12 +191,11 @@ body {
   }
   .cardWrap:active { z-index: 999; }
 }
-
 @media (max-width: 420px) {
   .ribbon { --card-w: 148px; --card-h: 205px; }
 }
 
-/* ---------- Drag affordances ---------- */
+/* ---------- Pointer-drag visuals ---------- */
 .dragging .card {
   cursor: grabbing !important;
   box-shadow: 0 12px 18px rgba(0,0,0,.25);
@@ -218,7 +204,19 @@ body {
   transition: none;
 }
 
-/* Touch drag badge text */
+/* The ghost that follows the pointer */
+.dragGhost {
+  position: fixed;
+  top: 0; left: 0;
+  transform: translate(-9999px,-9999px);
+  pointer-events: none;
+  z-index: 9999;
+  border-radius: 14px;
+  box-shadow: 0 12px 20px rgba(0,0,0,.28);
+  background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
+}
+
+/* Touch drag badge (optional, kept from previous versions) */
 .dragBadge {
   position: fixed;
   top: 0; left: 0;
@@ -240,7 +238,7 @@ body {
   transform: translateY(-50%);
   display: grid;
   gap: 10px;
-  z-index: 200; /* above ribbon */
+  z-index: 200;
   pointer-events: auto;
 }
 .dock--left  { left: 10px; }
