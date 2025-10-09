@@ -1,6 +1,5 @@
-// /src/ui/ui.js — Centered hand, empty board slots, pointer-based drag, click-preview
+// /src/ui/ui.js — Centered hand, empty slots, pointer-drag (stable), click-preview
 
-/* ------------------ tiny DOM helpers ------------------ */
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
@@ -34,15 +33,14 @@ function renderHearts(selector, hp, max = 5) {
   if (!node) return;
   const val = Math.max(0, Math.min(max, Number(hp) || 0));
   let html = '';
-  for (let i = 0; i < max; i++) {
-    html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
-  }
+  for (let i = 0; i < max; i++) html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
   node.innerHTML = html;
 }
 
 /* ------------------ Card template ------------------ */
 function cardEl({ title='Card', subtype='', right='', classes='' } = {}) {
   const c = el('div', `card ${classes}`.trim());
+  c.setAttribute('draggable', 'false'); // kill native drag
   c.innerHTML = `
     <div class="cHead">
       <div class="cName">${title}</div>
@@ -58,7 +56,6 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}) {
 const AI_SLOT_COUNT = 3;
 const PLAYER_SLOT_COUNT = 3;
 
-// Only render a "real" card in a slot if it was actually played (engine sets played/placed flag)
 function renderSlots(container, slots = [], slotCount = 3) {
   if (!container) return;
   container.innerHTML = '';
@@ -85,14 +82,12 @@ function renderSlots(container, slots = [], slotCount = 3) {
 function renderFlow(container, state) {
   if (!container) return;
   container.innerHTML = '';
-
   const row = Array.isArray(state?.flowRow) ? state.flowRow.slice(0, 5) : [];
   while (row.length < 5) row.push(null);
 
   row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
     wrap.dataset.slotIndex = String(i);
-
     if (cell) {
       wrap.appendChild(cardEl({
         title: cell.name || 'Aether',
@@ -147,9 +142,9 @@ function layoutHand(ribbonEl) {
 function enableClickPreview(wrap) {
   wrap.addEventListener('click', (ev) => {
     if (wrap.classList.contains('dragging')) return;
-    const isOpen = wrap.classList.toggle('is-preview');
+    const open = wrap.classList.toggle('is-preview');
     document.querySelectorAll('.cardWrap.is-preview').forEach(n => { if (n !== wrap) n.classList.remove('is-preview'); });
-    if (!isOpen) wrap.classList.remove('is-preview');
+    if (!open) wrap.classList.remove('is-preview');
     ev.stopPropagation();
   });
   document.addEventListener('click', (ev) => {
@@ -157,10 +152,14 @@ function enableClickPreview(wrap) {
   });
 }
 
-/* ------------------ Pointer-based drag (desktop + mobile) ------------------ */
+/* ------------------ Pointer-based drag (stable & smooth) ------------------ */
 function enablePointerDrag(wrap, handIndex) {
   const cardNode = wrap.querySelector('.card');
   if (!cardNode) return;
+
+  // make sure native drag never starts
+  wrap.setAttribute('draggable', 'false');
+  cardNode.setAttribute('draggable', 'false');
 
   let dragging = false;
   let ghost = null;
@@ -180,18 +179,25 @@ function enablePointerDrag(wrap, handIndex) {
     ghost.style.transform = `translate(${Math.round(x - ghost._w/2)}px, ${Math.round(y - ghost._h/2)}px)`;
     const idx = slotIndexFromPoint(x, y);
     markSlots(idx >= 0 ? 'accept' : 'target');
+
+    // stop page scrolling on touch while dragging
+    if (e.pointerType === 'touch') e.preventDefault();
   }
 
   function onPointerUp(e) {
     if (!dragging) return;
     dragging = false;
-    wrap.classList.remove('dragging');
+
     document.removeEventListener('pointermove', onPointerMove, true);
     document.removeEventListener('pointerup', onPointerUp, true);
 
+    wrap.classList.remove('dragging');
+    wrap.style.visibility = ''; // show original again
+    markSlots('');
+
     const x = e.clientX, y = e.clientY;
     const tgt = slotIndexFromPoint(x, y);
-    markSlots('');
+
     if (ghost) { ghost.remove(); ghost = null; }
 
     if (tgt >= 0) {
@@ -200,8 +206,8 @@ function enablePointerDrag(wrap, handIndex) {
   }
 
   cardNode.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;       // left click / single touch
-    e.preventDefault();
+    if (e.button !== 0) return;
+    e.preventDefault(); // avoid native drag/select
     cardNode.setPointerCapture?.(e.pointerId);
 
     const rect = cardNode.getBoundingClientRect();
@@ -210,10 +216,10 @@ function enablePointerDrag(wrap, handIndex) {
 
     wrap.classList.remove('is-preview');
     wrap.classList.add('dragging');
+    wrap.style.visibility = 'hidden';     // hide original while dragging
     dragging = true;
     markSlots('target');
 
-    // Initial position
     ghost.style.transform = `translate(${Math.round(e.clientX - rect.width/2)}px, ${Math.round(e.clientY - rect.height/2)}px)`;
 
     document.addEventListener('pointermove', onPointerMove, true);
@@ -260,21 +266,17 @@ function renderHand(ribbonEl, state) {
 export function renderGame(state) {
   const setTxt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
 
-  // Hearts
   renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
   renderHearts('#hud-ai-hearts',  state?.ai?.hp ?? 0, 5);
 
-  // Dock counters (if dock exists)
   setTxt('#count-deck',    Array.isArray(state?.deck) ? state.deck.length : 0);
   setTxt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
   setTxt('#count-ae',      state?.ae ?? 0);
 
-  // Boards
   renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
   renderFlow ($('#aetherflow'), state);
   renderSlots($('#yourBoard'), state?.slots ?? [], PLAYER_SLOT_COUNT);
 
-  // Hand
   renderHand($('#ribbon'), state);
 }
 
