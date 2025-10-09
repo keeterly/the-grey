@@ -12,6 +12,7 @@ export async function animateCardsToDiscard() {
     await new Promise(res=> setTimeout(res, 70)); i++;
   }
   await new Promise(res=> setTimeout(res, 320));
+  // leave cleanup to render() which nukes DOM after END_TURN
 }
 export async function animateNewDraws(newIds) {
   const deck = document.getElementById('deckIcon'); if (!deck) return;
@@ -20,7 +21,6 @@ export async function animateNewDraws(newIds) {
     if (!el) continue;
     const r = el.getBoundingClientRect();
     const d = deck.getBoundingClientRect();
-    // start at deck
     el.style.position = 'fixed'; el.style.left = (d.left + d.width/2 - r.width/2)+'px'; el.style.top = (d.top + d.height/2 - r.height/2)+'px';
     el.style.opacity = '0'; el.style.transition = 'transform .35s ease, opacity .35s ease, left 0s, top 0s';
     requestAnimationFrame(()=>{
@@ -30,9 +30,5 @@ export async function animateNewDraws(newIds) {
     await new Promise(res=> setTimeout(res, 60));
   }
   await new Promise(res=> setTimeout(res, 340));
-  // clear fixed positioning so layout resumes
-  for (const id of newIds) {
-    const el = document.querySelector(`[data-card-id="${id}"][data-zone="hand"]`);
-    if (el){ el.style.position=''; el.style.left=''; el.style.top=''; el.style.transition=''; el.style.transform=''; el.style.opacity=''; }
-  }
+  // Do not clear styles here; layoutHand() will reset them.
 }

@@ -5,9 +5,27 @@ import { animateCardsToDiscard, animateNewDraws } from './animate.js';
 
 let state = newGame();
 const root = document.getElementById('app');
-let lastHandIds = new Set();
 
-function fanTransform(i, n){ const mid=(n-1)/2, o=i-mid; const rot=o*(10/Math.max(1,n)); const x=o*44; const lift=-Math.abs(o)*1; return `translate(calc(-50% + ${x}px), ${lift}px) rotate(${rot}deg)`; }
+function fanTransform(i, n){
+  const mid=(n-1)/2, o=i-mid;
+  const rot = o * (10 / Math.max(1,n));
+  const x = o * 60;          // WIDER SPREAD (barely overlapping)
+  const lift = -Math.abs(o) * 1;
+  return `translate(calc(-50% + ${x}px), ${lift}px) rotate(${rot}deg)`;
+}
+
+function layoutHand(){
+  const cards = [...document.querySelectorAll('[data-board="YOU"] .hand .card')];
+  const n = cards.length;
+  cards.forEach((el,i)=>{
+    const base = fanTransform(i,n);
+    el.setAttribute('data-base', base);
+    // Only reset transforms if not being animated as fixed
+    if (el.style.position !== 'fixed') {
+      el.style.transform = base;
+    }
+  });
+}
 
 function typeBadge(c){ const label=c.type.charAt(0)+c.type.slice(1).toLowerCase(); return `<div class="badge ${label}">${label}</div>`; }
 
@@ -32,34 +50,37 @@ function renderHearts(id, hp){ const el=document.getElementById(id); if(!el) ret
 function renderTrance(){ const row=document.getElementById('tranceRow'); const hp=state.you.health; row.innerHTML=state.trance.map(t=>`<div class="trance ${hp<=t.at?'active':''}" title="Activates at ${t.at} HP">${t.label}</div>`).join(''); }
 
 async function render(andAnimateDrawIds=null){
-  // Header
   renderHearts('youHearts', state.you.health); renderHearts('aiHearts', state.ai.health); renderTrance();
-  // Boards
   root.innerHTML = `${sideHtml(state.ai,'AI')}${sideHtml(state.you,'YOU')}`;
   document.getElementById('deckIcon')?.setAttribute('data-count', state.you.draw.length);
   document.getElementById('discardIcon')?.setAttribute('data-count', state.you.discard.length);
   document.getElementById('aetherWell').textContent = `⚡ ${state.you.aether}`;
-
   wireHandDrag(root, dispatch);
-  document.getElementById('btnEnd').onclick = async ()=>{
-    await animateCardsToDiscard(); // animate actual cards first
-    dispatch({type:A.END_TURN}); dispatch({type:A.AI_TURN});
-  };
+
+  // wire buttons
+  document.getElementById('btnEnd').onclick = async ()=>{ await animateCardsToDiscard(); dispatch({type:A.END_TURN}); dispatch({type:A.AI_TURN}); };
   root.querySelectorAll('.gain-chip').forEach(el=> el.onclick = ()=> dispatch({type:A.DISCARD_FOR_AETHER, cardId: el.getAttribute('data-card')}) );
   root.querySelectorAll('.advance-btn').forEach(el=> el.onclick = ()=>{ if(el.hasAttribute('disabled')) return; dispatch({type:A.ADVANCE_PIP, slotIndex:Number(el.getAttribute('data-slot-index'))}); });
 
-  if (andAnimateDrawIds && andAnimateDrawIds.length) await animateNewDraws(andAnimateDrawIds);
-  // track hand ids for future
-  lastHandIds = new Set([...document.querySelectorAll('[data-board="YOU"] .hand .card')].map(el=>el.dataset.cardId));
+  // layout the hand now (for correct base transforms)
+  layoutHand();
+
+  // if there are new draw cards, animate them from Deck, then restore layout styles
+  if (andAnimateDrawIds && andAnimateDrawIds.length){
+    await animateNewDraws(andAnimateDrawIds);
+    // clear any fixed styles created during animation and re-layout
+    document.querySelectorAll('[data-board="YOU"] .hand .card').forEach(el=>{
+      el.style.position=''; el.style.left=''; el.style.top=''; el.style.transition=''; el.style.transform='';
+    });
+    layoutHand();
+  }
 }
 
 function dispatch(action){
   const beforeHand = new Set(state.you.hand.map(c=>c.id));
   state = reducer(state, action);
   const afterHand = new Set(state.you.hand.map(c=>c.id));
-  // new draw ids = after - before
   const newIds = [...afterHand].filter(id=>!beforeHand.has(id));
-  // Render and animate new draws if any
   render(newIds);
 }
 
