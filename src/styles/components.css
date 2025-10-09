@@ -1,28 +1,185 @@
-/* … keep everything you have … */
+/* ============================================================
+   THE GREY — components.css (Fan Strip + DnD + Preview)
+   ============================================================ */
 
-/* Prevent native image/element dragging (Safari esp.) */
-.card, .card * {
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  padding: 0;
+  background: #f3efe8;
+  color: #3a3128;
+  overflow-x: hidden;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+/* ---------- Minimal hearts (HUD) ---------- */
+.pill-hp { display:flex; align-items:center; gap:10px; }
+.pill-hp .label { font-weight:600; opacity:.85; }
+.pill-hp .hearts { display:flex; gap:6px; align-items:center; }
+.pill-hp .heart {
+  font-size:16px; line-height:1;
+  color:#d35; text-shadow:0 1px 0 rgba(0,0,0,.05);
+  transform: translateY(1px);
+}
+.pill-hp .heart.is-empty { opacity:.25; }
+
+/* ---------- Cards ---------- */
+.card {
+  background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
+  border-radius: 14px;
+  box-shadow: 0 3px 6px rgba(0,0,0,.1);
+  width: 180px; height: 250px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  overflow:hidden;
+  transition: filter .22s ease, transform .22s ease;
+  /* stop Safari/Chrome native image dragging */
   -webkit-user-drag: none;
   user-drag: none;
 }
+.card * { -webkit-user-drag: none; user-drag: none; }
 
-/* During drag: freeze transforms & transitions and disable hover effects */
-.cardWrap.dragging { pointer-events: none; }
-.cardWrap.dragging .card {
+.cHead{ padding:10px 12px 4px; }
+.cName{ font-size:14px; font-weight:600; }
+.cType{ font-size:11px; opacity:.6; }
+.cBody{ flex:1; padding:0 12px; font-size:13px; }
+.cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
+
+/* ---------- Zones (boards / flow rows) ---------- */
+#aiBoard, #aetherflow, #yourBoard{
+  --card-w: 180px;
+  --card-h: 250px;
+  display:flex; gap:16px; flex-wrap:nowrap;
+  overflow:visible; align-items:flex-start; justify-content:center;
+  min-height: var(--card-h);
+}
+
+/* Each logical slot keeps the card footprint and centers its child */
+.boardSlot{
+  width: var(--card-w); height: var(--card-h);
+  flex: 0 0 auto; position: relative;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* Cards rendered into a slot should fill that footprint */
+.boardSlot > .card{ width:100%; height:100%; }
+
+/* --- Empty slot visual (dashed box) --- */
+.emptySlot{
+  width: var(--card-w); height: var(--card-h);
+  border-radius:12px;
+  border:2px dashed rgba(0,0,0,0.12);
+  background: transparent;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.boardSlot.drop-target .emptySlot{ border-color: rgba(160,130,90,0.35); }
+.boardSlot.drop-accept .emptySlot{
+  border-color:#c59a5b;
+  background: rgba(255,235,200,0.15);
+  box-shadow: 0 0 0 3px rgba(197,154,91,0.12) inset;
+}
+
+/* ---------- Instant pulse (for Instant cards in hand) ---------- */
+@keyframes uiPulse{ 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
+
+/* ============================================================
+   HAND / RIBBON (footer fan)
+   ============================================================ */
+.ribbon-wrap{
+  position:fixed; left:0; bottom:0; width:100%;
+  height:300px;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
+  display:flex; justify-content:center; align-items:flex-end;
+  pointer-events:none; z-index:100;
+}
+.ribbon{
+  --card-w: 180px;
+  --card-h: 250px;
+  position:relative; width:100%; height:100%;
+  pointer-events:auto;
+}
+.fan{
+  position:relative;
+  height: calc(var(--card-h) + 40px);
+  width:0;               /* JS sets width */
+  margin:0; left:0;      /* JS sets left */
+  pointer-events:auto;
+  transition: left .28s cubic-bezier(.2,.8,.2,1);
+}
+.cardWrap{
+  position:absolute; bottom:40px; left:0; /* JS sets left */
+  width: var(--card-w); height: var(--card-h);
+  transform-origin: bottom center;
+  z-index:100;
+
+  --wy: 0px; --wrot: 0deg;
+  transform: translateY(var(--wy)) rotate(var(--wrot));
+  transition:
+    left .28s cubic-bezier(.2,.8,.2,1),
+    transform .28s cubic-bezier(.2,.8,.2,1),
+    opacity .22s ease;
+  opacity:0;
+}
+
+/* Hover raise (desktop) */
+@media (hover:hover){
+  .cardWrap:hover .card{
+    transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
+    filter: brightness(1.08);
+    transition: transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
+  }
+  .cardWrap:hover{ z-index:999; }
+}
+
+.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
+.ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
+
+/* ---------- Click-to-preview (50% bigger) ---------- */
+.cardWrap.is-preview{ z-index: 1000; }
+.cardWrap.is-preview .card{
+  transform: translateY(-100px) rotate(0deg) scale(1.5) !important;
+  filter: brightness(1.05);
+  box-shadow: 0 20px 36px rgba(0,0,0,.22);
+}
+
+/* ---------- Dragging (pointer-based) ---------- */
+/* Freeze effects and hide transitions while dragging */
+.cardWrap.dragging{ pointer-events: none; }
+.cardWrap.dragging .card{
   transform: scale(1.02) translate3d(0,0,0) rotate(0deg) !important;
   filter: none !important;
   transition: none !important;
 }
 
-/* The ghost that follows the pointer (already included previously; keep it) */
-.dragGhost {
-  position: fixed;
-  top: 0; left: 0;
+/* Custom floating ghost that follows the pointer */
+.dragGhost{
+  position: fixed; top:0; left:0;
   transform: translate(-9999px,-9999px);
-  pointer-events: none;
-  z-index: 9999;
-  border-radius: 14px;
+  pointer-events: none; z-index: 9999;
+  border-radius:14px;
   box-shadow: 0 12px 20px rgba(0,0,0,.28);
   background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
   will-change: transform;
+  width: 180px; height: 250px; /* JS overwrites with real size */
+}
+
+/* ---------- Mobile tuning ---------- */
+@media (max-width: 768px){
+  .ribbon-wrap{ height:260px; }
+  .ribbon{ --card-w: 160px; --card-h: 220px; }
+  .cardWrap:active .card{
+    transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
+  }
+  .cardWrap:active{ z-index:999; }
+}
+@media (max-width: 420px){
+  .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
