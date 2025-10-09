@@ -1,44 +1,43 @@
-// /src/ui/ui.js — centered hand, empty slots, smooth pointer drag
+// /src/ui/ui.js — Pointer-drag fan + empty-slot rows (stable)
 
-/* ---------- tiny DOM helpers ---------- */
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
 let _gameRef = null;
 
 /* ---------- Board helpers ---------- */
-function getBoardSlotsEl() { return $('#yourBoard'); }
-function getBoardSlotNodes() {
-  const root = getBoardSlotsEl();
-  return root ? Array.from(root.querySelectorAll('.boardSlot')) : [];
+function boardRoot() { return document.querySelector('#yourBoard'); }
+function boardSlots() {
+  const root = boardRoot(); if (!root) return [];
+  return Array.from(root.querySelectorAll('.boardSlot'));
 }
-function markSlots(mode) {
-  getBoardSlotNodes().forEach(n => {
+function markSlots(mode){
+  boardSlots().forEach(n => {
     n.classList.remove('drop-target','drop-accept');
     if (mode === 'target') n.classList.add('drop-target');
     if (mode === 'accept') n.classList.add('drop-accept');
   });
 }
-function slotIndexFromPoint(x, y) {
-  const nodes = getBoardSlotNodes();
-  for (let i = 0; i < nodes.length; i++) {
+function slotIndexFromPoint(x, y){
+  const nodes = boardSlots();
+  for (let i=0;i<nodes.length;i++){
     const r = nodes[i].getBoundingClientRect();
-    if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) return i;
+    if (x>=r.left && x<=r.right && y>=r.top && y<=r.bottom) return i;
   }
   return -1;
 }
 
-/* ---------- HUD hearts ---------- */
-function renderHearts(selector, hp, max = 5) {
-  const host = $(selector);
-  if (!host) return;
-  const v = Math.max(0, Math.min(max, Number(hp) || 0));
-  host.innerHTML = Array.from({ length: max }, (_, i) =>
-    `<span class="heart${i < v ? '' : ' is-empty'}">❤</span>`).join('');
+/* ---------- Hearts ---------- */
+function renderHearts(selector, hp, max = 5){
+  const node = $(selector); if (!node) return;
+  const val = Math.max(0, Math.min(max, Number(hp) || 0));
+  let html = '';
+  for (let i=0;i<max;i++) html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
+  node.innerHTML = html;
 }
 
 /* ---------- Card template ---------- */
-function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
+function cardEl({ title='Card', subtype='', right='', classes='' } = {}){
   const c = el('div', `card ${classes}`.trim());
   c.innerHTML = `
     <div class="cHead">
@@ -51,19 +50,24 @@ function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {})
   return c;
 }
 
-/* ---------- Render rows ---------- */
+/* ---------- Row renderers (empty unless real cards) ---------- */
 const AI_SLOT_COUNT = 3;
 const PLAYER_SLOT_COUNT = 3;
 
-function renderSlots(container, slots = [], slotCount = 3) {
+function renderSlots(container, slots = [], slotCount = 3){
   if (!container) return;
   container.innerHTML = '';
-  for (let i = 0; i < slotCount; i++) {
+
+  for (let i=0;i<slotCount;i++){
     const wrap = el('div', 'boardSlot');
     wrap.dataset.slotIndex = String(i);
     const s = slots[i];
+
     if (s) {
-      wrap.appendChild(cardEl({ title: s.name || s.title || 'Card', subtype: s.type || s.subtype || 'Spell' }));
+      wrap.appendChild(cardEl({
+        title: s.name || s.title || 'Card',
+        subtype: s.type || s.subtype || 'Spell'
+      }));
     } else {
       wrap.appendChild(el('div', 'emptySlot'));
     }
@@ -71,53 +75,53 @@ function renderSlots(container, slots = [], slotCount = 3) {
   }
 }
 
-function renderFlow(container, state) {
+function renderFlow(container, state){
   if (!container) return;
   container.innerHTML = '';
-  const row = Array.isArray(state?.flowRow) ? state.flowRow.slice(0, 5) : [];
+
+  const row = Array.isArray(state?.flowRow) ? state.flowRow.slice(0,5) : [];
   while (row.length < 5) row.push(null);
+
   row.forEach((cell, i) => {
-    const wrap = el('div', 'boardSlot');
+    const wrap = el('div','boardSlot');
     wrap.dataset.slotIndex = String(i);
     if (cell) {
       wrap.appendChild(cardEl({
         title: cell.name || 'Aether',
         subtype: cell.type || cell.subtype || 'Instant',
-        right: String(i + 1),
+        right: String(i+1),
       }));
     } else {
-      wrap.appendChild(el('div', 'emptySlot'));
+      wrap.appendChild(el('div','emptySlot'));
     }
     container.appendChild(wrap);
   });
 }
 
-/* ---------- Hand layout ---------- */
-function layoutHand(ribbonEl) {
-  const fan = ribbonEl.querySelector('.fan');
-  if (!fan) return;
+/* ---------- Hand layout (center fan) ---------- */
+function layoutHand(ribbonEl){
+  const fan = ribbonEl.querySelector('.fan'); if (!fan) return;
 
-  const anchor = $('.wrap') || document.body;                      // center to main column
+  const anchor = document.querySelector('main.grid') || document.body;
   const anchorRect = anchor.getBoundingClientRect();
   const ribbonRect = ribbonEl.getBoundingClientRect();
 
-  const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 180;
+  const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
   const n = Math.max(1, fan.children.length);
-
   const preferred = 120;
-  const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
+  const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n-1));
   const spread = Math.min(preferred, maxSpread);
-  const stripW = (n - 1) * spread + cardW;
+  const stripW = (n-1) * spread + cardW;
 
-  const fanLeft = Math.round((anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2));
+  const fanLeft = Math.round((anchorRect.left + anchorRect.width/2) - (ribbonRect.left + stripW/2));
   fan.style.left = `${fanLeft}px`;
   fan.style.width = `${stripW}px`;
 
-  const centerIdx = (n - 1) / 2;
+  const centerIdx = (n-1)/2;
   fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
   requestAnimationFrame(() => {
     fan.querySelectorAll('.cardWrap').forEach((wrap, idx) => {
-      const x = Math.round(idx * spread);
+      const x    = Math.round(idx * spread);
       const tilt = (idx - centerIdx) * 10;
       const arcY = -2 * Math.abs(idx - centerIdx);
       wrap.style.left = `${x}px`;
@@ -130,130 +134,135 @@ function layoutHand(ribbonEl) {
   });
 }
 
-/* ---------- Pointer drag (smooth rAF) ---------- */
-function enablePointerDrag(wrap, handIndex) {
-  const cardNode = wrap.querySelector('.card');
-  if (!cardNode) return;
-  cardNode.draggable = false;
+/* ---------- Pointer-based DnD (no HTML5 ghost) ---------- */
+function enablePointerDnD(wrap, handIndex){
+  const card = wrap.querySelector('.card');
+  if (!card) return;
 
-  let dragging = false, ghost = null, lastX = 0, lastY = 0, rafId = 0;
+  let dragging = false;
+  let clone = null;
+  let offsetX = 0, offsetY = 0;
 
-  const updateGhost = () => {
-    if (!dragging || !ghost) return;
-    ghost.style.transform = `translate(${lastX}px, ${lastY}px)`;
-    rafId = requestAnimationFrame(updateGhost);
+  const onMove = (x, y) => {
+    if (!clone) return;
+    clone.style.transform = `translate3d(${x - offsetX}px, ${y - offsetY}px, 0)`;
+    const i = slotIndexFromPoint(x, y);
+    markSlots(i >= 0 ? 'accept' : 'target');
   };
 
-  const move = (e) => {
+  const onUp = (x, y) => {
     if (!dragging) return;
-    lastX = e.clientX - ghost.offsetWidth / 2;
-    lastY = e.clientY - ghost.offsetHeight / 2;
-    const idx = slotIndexFromPoint(e.clientX, e.clientY);
-    markSlots(idx >= 0 ? 'accept' : 'target');
-  };
-
-  const up = (e) => {
-    if (!dragging) return;
-    cancelAnimationFrame(rafId);
     dragging = false;
-    wrap.classList.remove('dragging');
+    document.body.classList.remove('is-dragging');
+    wrap.classList.remove('drag-src');
+
+    const i = slotIndexFromPoint(x, y);
     markSlots('');
-    ghost.remove();
-    const idx = slotIndexFromPoint(e.clientX, e.clientY);
-    if (idx >= 0) _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex, slot: idx });
+    if (clone) clone.remove();
+    clone = null;
+
+    if (i >= 0) {
+      _gameRef?.dispatch?.({ type:'PLAY_FROM_HAND', handIndex, slot:i });
+    }
+    // allow hover effects again next frame
+    requestAnimationFrame(() => {});
   };
 
-  wrap.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0) return;
-    const rect = cardNode.getBoundingClientRect();
-    ghost = cardNode.cloneNode(true);     // keep text visible
-    ghost.className = 'card dragGhost';   // ensure ghost styling
-    ghost.style.width = `${rect.width}px`;
-    ghost.style.height = `${rect.height}px`;
-    document.body.appendChild(ghost);
+  wrap.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0) return; // left only
+    ev.preventDefault();
 
-    wrap.classList.add('dragging');
     dragging = true;
+    document.body.classList.add('is-dragging');
+    wrap.classList.add('drag-src');
     markSlots('target');
 
-    move(e);
-    rafId = requestAnimationFrame(updateGhost);
-  });
+    // Build a visual clone that follows the pointer
+    clone = el('div','dragClone');
+    const n = card.cloneNode(true);
+    clone.appendChild(n);
+    document.body.appendChild(clone);
 
-  window.addEventListener('pointermove', move, { passive: true });
-  window.addEventListener('pointerup', up, { passive: true });
+    const r = card.getBoundingClientRect();
+    offsetX = ev.clientX - r.left;
+    offsetY = ev.clientY - r.top;
+    onMove(ev.clientX, ev.clientY);
+
+    const move = (e) => onMove(e.clientX, e.clientY);
+    const up   = (e) => {
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup',   up,   true);
+      onUp(e.clientX, e.clientY);
+    };
+
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup',   up,   true);
+  }, { passive:false });
 }
 
-/* ---------- Render hand ---------- */
-function renderHand(ribbonEl, state) {
+/* ---------- Hand render ---------- */
+function renderHand(ribbonEl, state){
   if (!ribbonEl) return;
   ribbonEl.innerHTML = '';
-  const fan = el('div', 'fan');
-  ribbonEl.appendChild(fan);
+  const fan = el('div','fan'); ribbonEl.appendChild(fan);
 
   const hand = Array.isArray(state?.hand) ? state.hand : [];
-  if (hand.length === 0) {
-    const w = el('div', 'cardWrap');
-    w.appendChild(cardEl({ title: '—', classes: 'is-phantom' }));
+  if (hand.length === 0){
+    const w = el('div','cardWrap');
+    w.appendChild(cardEl({ title:'—', classes:'is-phantom' }));
     fan.appendChild(w);
     layoutHand(ribbonEl);
     return;
   }
 
   hand.forEach((c, i) => {
-    const w = el('div', 'cardWrap');
+    const w = el('div','cardWrap');
     const isInstant = (c.type || c.subtype) === 'Instant';
     const node = cardEl({
       title: c.name || c.title || 'Card',
       subtype: c.type || c.subtype || 'Spell',
-      classes: isInstant ? 'is-instant' : '',
+      classes: isInstant ? 'is-instant' : ''
     });
     w.appendChild(node);
     fan.appendChild(w);
-    enablePointerDrag(w, i);
+    enablePointerDnD(w, i);
   });
 
   layoutHand(ribbonEl);
 }
 
 /* ---------- Public render ---------- */
-export function renderGame(state) {
-  // HUD
+export function renderGame(state){
+  const txt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
+
   renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
-  renderHearts('#hud-ai-hearts', state?.ai?.hp ?? 0, 5);
+  renderHearts('#hud-ai-hearts',  state?.ai?.hp ?? 0, 5);
 
-  // Dock counters (if present)
-  const setTxt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
-  setTxt('#count-deck', Array.isArray(state?.deck) ? state.deck.length : 0);
-  setTxt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
-  setTxt('#count-ae', state?.ae ?? 0);
+  // Dock counts (if present)
+  txt('#count-deck',    Array.isArray(state?.deck) ? state.deck.length : 0);
+  txt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
+  txt('#count-ae',      state?.ae ?? 0);
 
-  // Boards / Flow
-  renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], 3);
-  renderFlow($('#aetherflow'), state);
-  renderSlots($('#yourBoard'), state?.slots ?? [], 3);
+  renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
+  renderFlow ($('#aetherflow'), state);
+  renderSlots($('#yourBoard'), state?.slots   ?? [], PLAYER_SLOT_COUNT);
 
-  // Hand
   renderHand($('#ribbon'), state);
 }
 
 /* ---------- Init ---------- */
-export function init(game) {
+export function init(game){
   _gameRef = game;
   window.renderGame = renderGame;
 
-  // End Turn (if the dock button exists)
-  $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
+  // End turn icon (if mounted)
+  $('#dock-end')?.addEventListener('click', () => game.dispatch({ type:'END_TURN' }));
 
-  // First paint
   renderGame(game.state);
-
-  // Engine -> re-render
   document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
-  // Keep center on resize/rotate
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
-  window.addEventListener('resize', onResize, { passive: true });
-  window.addEventListener('orientationchange', onResize, { passive: true });
+  window.addEventListener('resize', onResize, { passive:true });
+  window.addEventListener('orientationchange', onResize, { passive:true });
 }
