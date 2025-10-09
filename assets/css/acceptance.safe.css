@@ -1,7 +1,8 @@
-/* acceptance.safe.css — mobile optimizations + existing fixes
-   - Centers boards
-   - Keeps hand fanned
-   - Adds 'mobile-compact' mode that shrinks AI/slots/AF (but NOT hand cards)
+
+/* acceptance.safe.css — mobile optimizations (tighter) + existing fixes
+   - Centers boards; keeps hand fanned
+   - 'mobile-compact' mode shrinks AI/slots/AF (NOT hand)
+   - Ultra-small refinements; reduced paddings to avoid horizontal scroll
 */
 .slots{display:flex;gap:10px;justify-content:center;}
 .board .row:not(.head){justify-content:center;}
@@ -12,29 +13,42 @@
   .board,.aetherflow{max-width:100%;}
 }
 
-/* Mobile compact mode (toggled by JS when in portrait on small screens) */
+/* Compact mode */
+html.mobile-compact .container{ padding:6px 6px 72px; }
+html.mobile-compact .board{ padding:8px; margin:8px auto; }
 html.mobile-compact .board .row.head .hearts { transform: scale(0.9); transform-origin: left center; }
 
 html.mobile-compact .slots{ gap:8px; }
 html.mobile-compact .slot,
 html.mobile-compact .glyph-slot{
-  width:120px; height:176px;
+  width:116px; height:170px;
 }
-/* Keep hand cards full size */
+
+/* Keep hand cards full size in compact mode */
 html.mobile-compact .hand .card{
   width:140px; height:200px;
 }
 
+/* Aetherflow tightened */
 html.mobile-compact .aetherflow{ padding:6px; gap:8px; }
+html.mobile-compact .af-title{ display:none; } /* Hide label in compact */
 html.mobile-compact .af-cards{ gap:8px; }
 html.mobile-compact .af-card{
-  width:136px; height:182px;
+  width:132px; height:176px;
 }
 
+/* HUD minor tighten */
 html.mobile-compact .hud-min .icon{ width:26px; height:26px; }
 html.mobile-compact .hud-min .icon.diamond{ width:30px; height:30px; }
 
-/* Rotate overlay styles (injected DOM) */
+/* Ultra-small phones (<= 420px short edge): slightly smaller slots & AF cards */
+@media (max-width: 420px), (max-height: 420px){
+  html.mobile-compact .slot,
+  html.mobile-compact .glyph-slot{ width:108px; height:162px; }
+  html.mobile-compact .af-card{ width:124px; height:170px; }
+}
+
+/* Rotate overlay styles */
 .tg-rotate-overlay{
   position:fixed; inset:0; background:rgba(0,0,0,.72);
   color:#fff; display:none; align-items:center; justify-content:center;
