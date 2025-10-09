@@ -1,26 +1,41 @@
-// /bridge.js  — root entry point for engine + UI
-// -------------------------------------------------
-import * as Engine from "./src/engine/index.js";
-import * as UI from "./src/ui/ui.js";       // single UI module
-import "./src/ui/drag.js";                  // drag helpers, no duplicate exports
+// src/engine/bridge.js
+// Bridge the engine to the UI with correct, relative imports.
 
+/*
+Folder layout this expects:
+  /src/
+    engine/
+      index.js
+      bridge.js   <-- this file
+    ui/
+      ui.js
+*/
+
+import './index.js';             // initializes the engine and exposes window.dispatch/getState
+import * as UI from '../ui/ui.js';  // UI entry (no leading /src!)
+
+/**
+ * Wire the running engine to the UI.
+ * Assumes index.js exposes window.dispatch and window.getState (as your current engine does).
+ */
 export function exposeToWindow() {
-  // Reuse existing game if window.game already initialized
-  const g =
-    window.game && typeof window.game.dispatch === "function"
-      ? window.game
-      : Engine.createGame();
+  const start = () => {
+    if (typeof UI.init === 'function') {
+      // Construct the "game" object the UI expects.
+      const game = {
+        get state() { return window.getState?.(); },
+        dispatch: (...args) => window.dispatch?.(...args),
+      };
+      UI.init(game);
+    }
+  };
 
-  // expose globally for console debugging
-  window.GameEngine = Engine;
-  window.game = g;
-
-  // Initialize UI (safe check)
-  if (UI && typeof UI.init === "function") {
-    UI.init(g);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
   } else {
-    console.warn("[BRIDGE] UI.init not found — skipping UI binding.");
+    start();
   }
-
-  console.log("[BRIDGE] Game + UI + Drag initialized and exposed to window.");
 }
+
+// Auto-run for normal page loads
+exposeToWindow();
