@@ -1,28 +1,21 @@
-/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v10 (2025-10-09) */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v10'; })();
+/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v11 (2025-10-09) */
+(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v11'; })();
 
-// Inject bottom-right pills (Temp 🜂 and Channeled ◇) with clean spacing
 (function ensureBottomCounters(){
   const right = document.querySelector('.hud-min .right');
   if (!right) return;
-
-  const endBtn = document.getElementById('btnEnd');
+  const endBtn = document.getElementById('btnEnd') || right.lastElementChild;
 
   function makePill(id, sym){
     const el = document.createElement('span');
     el.id = id; el.className = 'hud-pill';
-    el.innerHTML = `<span class="sym">{sym}</span><span class="val">0</span>`;
+    el.innerHTML = `<span class="sym">${sym}</span><span class="val">0</span>`;
     return el;
   }
 
-  if (!document.getElementById('tgTempPill')) {
-    right.insertBefore(makePill('tgTempPill', '🜂'), endBtn);
-  }
-  if (!document.getElementById('tgChanPill')) {
-    right.insertBefore(makePill('tgChanPill', '◇'), endBtn);
-  }
+  if (!document.getElementById('tgTempPill')) right.insertBefore(makePill('tgTempPill','🜂'), endBtn);
+  if (!document.getElementById('tgChanPill')) right.insertBefore(makePill('tgChanPill','◇'), endBtn);
 
-  // Version badge (top-left)
   if (!document.getElementById('tgVersion')) {
     const v = document.createElement('div'); v.id='tgVersion'; v.className='tgVersion';
     v.textContent = 'The Grey — ' + (window.__THE_GREY_BUILD||'dev');
@@ -30,12 +23,9 @@
   }
 })();
 
-// Mechanics (safe engine) + HUD sync
 (async function wireAcceptance(){
   try {
     const Engine = await import('./assets/js/engine.acceptance.safe.js');
-
-    // Update market costs where present (no-ops if different markup)
     const costs = Engine.getMarketCosts();
     document.querySelectorAll('[data-market-slot]').forEach((el,i)=>{
       const c = el.querySelector('.cost'); if (c) c.textContent = costs[i] ?? costs[costs.length-1] ?? '';
@@ -66,7 +56,6 @@
       else console.warn('[safe acceptance] game not detected.');
     })();
 
-    // Bottom HUD sync: temp (🜂) and channeled (◇) aether
     (function tick(){
       const g = window.game, i = g ? (g.active ?? g.activePlayer ?? 0) : 0;
       const p = g && g.players ? g.players[i] : null;
@@ -79,7 +68,6 @@
       requestAnimationFrame(tick);
     })();
 
-    // Fallback board centering if needed
     (function centerFallback(){
       const rows = document.querySelectorAll('.board .slots, .slot-row, .slots, [data-player-slots], [data-ai-slots]');
       rows.forEach(row=>{

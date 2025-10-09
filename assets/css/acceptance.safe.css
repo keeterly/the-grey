@@ -1,35 +1,27 @@
 
-/* ----- Version badge (top-left) ----- */
-.tgVersion {
+#tgVersion, .tgVersion {
   position: fixed; top: .5rem; left: .5rem; z-index: 9999;
   background: rgba(16,16,16,.5); color:#ddd; border:1px solid rgba(255,255,255,.15);
   padding:.25rem .45rem; border-radius:.4rem;
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
-
-/* ----- Bottom HUD (NieR-minimal) ----- */
 .hud-min { font-size: 16px; }
-.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: .55rem; }
+.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: .6rem; }
 .hud-min .icon { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .hud-min .btn { cursor: pointer; }
 .hud-min .btn:active { transform: translateY(1px); }
-
-/* Counter pills (Temp 🜂 and Channeled ◇) — larger, legible numbers */
 .hud-pill {
-  display: inline-flex; align-items: center; gap: .45rem;
-  padding: 5px 12px; border-radius: 999px;
-  background: rgba(245,245,245,.88); color: #1f1f1f;
+  display: inline-flex; align-items: center; gap: .5rem;
+  padding: 6px 12px; border-radius: 999px;
+  background: rgba(245,245,245,.9); color: #1f1f1f;
   border: 1px solid rgba(0,0,0,.12);
-  box-shadow: 0 1px 4px rgba(0,0,0,.15);
-  font-size: 14px;  /* base */
+  box-shadow: 0 1px 4px rgba(0,0,0,.14);
+  font-size: 14px;
+  font-family: "Noto Sans Symbols 2","Segoe UI Symbol", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", sans-serif;
 }
-.hud-pill .sym { font-size: 13px; opacity: .7; transform: translateY(-.5px); }
-.hud-pill .val { font-size: 1.3em; font-weight: 600; min-width: 1.4em; text-align: center; letter-spacing: .02em; }
-
-/* Keep aetherWell visually balanced with pills */
+.hud-pill .sym { font-size: 14px; opacity: .7; transform: translateY(-.5px); }
+.hud-pill .val { font-size: 1.35em; font-weight: 650; min-width: 1.5em; text-align: center; letter-spacing: .02em; }
 #aetherWell { margin: 0 .25rem; }
-
-/* ----- Board centering (AI + Player + Aetherflow) ----- */
 .board .slots,
 .slot-row,
 .slots,
@@ -40,31 +32,39 @@
   align-items: center;
   gap: 0.75rem;
 }
-
-/* ----- Card scaling: ONLY in hand (+25%) with soft raise ----- */
-.hand .card,
-[data-hand] .card {
-  transform: scale(1.25);
-  transform-origin: center bottom;
-  will-change: transform, box-shadow, translate;
-  box-shadow: 0 8px 18px rgba(0,0,0,.20);
-  z-index: 2;
-  transition: transform .12s ease, box-shadow .12s ease, translate .12s ease;
+:root {
+  --hand-overlap: -32px;
+  --hand-gap: .2rem;
 }
-.hand .card:hover,
-[data-hand] .card:hover {
-  transform: scale(1.28) translateY(-2px);
-  box-shadow: 0 12px 26px rgba(0,0,0,.28);
-}
-
-/* Ensure slotted cards stay base size */
+.card { transform: none; box-shadow: none; }
+.aetherflow .card,
+#marketSlots .card,
 .board .card-slot .card,
 [data-player-slots] .card,
 [data-ai-slots] .card {
-  transform: none !important;
+  transform: scale(0.75) !important;
+  transform-origin: center top;
   box-shadow: none !important;
   z-index: 1;
 }
-
-/* Hand spacing tuned for larger cards */
-.hand, [data-hand] { gap: .95rem; }
+.hand .card,
+[data-hand] .card {
+  transform: scale(1) !important;
+  transform-origin: center bottom;
+  will-change: transform, box-shadow, translate;
+  box-shadow: 0 8px 18px rgba(0,0,0,.18);
+  z-index: 2;
+  transition: transform .12s ease, box-shadow .12s ease, translate .12s ease, margin .12s ease;
+  margin-left: var(--hand-overlap);
+}
+.hand .card:first-child,
+[data-hand] .card:first-child { margin-left: 0; }
+.hand .card:hover,
+[data-hand] .card:hover {
+  transform: scale(1.03) translateY(-3px) !important;
+  box-shadow: 0 12px 26px rgba(0,0,0,.27);
+}
+.hand, [data-hand] {
+  gap: var(--hand-gap);
+  padding-top: .25rem;
+}
