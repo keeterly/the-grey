@@ -9,7 +9,7 @@ const root = document.getElementById('app');
 function fanTransform(i, n){
   const mid=(n-1)/2, o=i-mid;
   const rot = o * (10 / Math.max(1,n));
-  const x = o * 60;          // WIDER SPREAD (barely overlapping)
+  const x = o * 60; // barely overlapping
   const lift = -Math.abs(o) * 1;
   return `translate(calc(-50% + ${x}px), ${lift}px) rotate(${rot}deg)`;
 }
@@ -20,10 +20,7 @@ function layoutHand(){
   cards.forEach((el,i)=>{
     const base = fanTransform(i,n);
     el.setAttribute('data-base', base);
-    // Only reset transforms if not being animated as fixed
-    if (el.style.position !== 'fixed') {
-      el.style.transform = base;
-    }
+    if (el.style.position !== 'fixed') el.style.transform = base;
   });
 }
 
@@ -44,43 +41,52 @@ function slotsRow(side){ return `<div class="row"><div class="slots">
   <div class="glyph-slot" data-drop="glyph">${side.glyphSlot?cardHtml(side.glyphSlot,'slot'):'<div class="slot-ghost">Glyph Slot</div>'}</div>
 </div><div class="spacer"></div><div class="aether">Aether: ${side.aether}</div></div>`; }
 
-function sideHtml(side, who){ const n=side.hand.length; const hand= who==='YOU'?`<div class="hand">${side.hand.map((c,i)=>cardHtml(c,'hand',i,n)).join('')}</div>`:''; return `<section class="board" data-board="${who}">${slotsRow(side)}${hand}</section>`; }
+function aetherflowHtml(){
+  return `<div class="aetherflow">
+    <div class="af-title">Aetherflow</div>
+    <div class="af-cards">
+      ${state.aetherflow.map(c=>`<div class="af-card"><div class="badge ${c.type.charAt(0)+c.type.slice(1).toLowerCase()}">${c.type.charAt(0)+c.type.slice(1).toLowerCase()}</div><div class="title">${c.name}</div></div>`).join('')}
+    </div>
+  </div>`;
+}
 
-function renderHearts(id, hp){ const el=document.getElementById(id); if(!el) return; const max=10; el.innerHTML=Array.from({length:max},(_,i)=>`<div class="heart ${i<hp?'':'off'}"></div>`).join(''); }
+function sideHtml(side, who){
+  const n=side.hand.length;
+  const hand= who==='YOU'?`<div class="hand">${side.hand.map((c,i)=>cardHtml(c,'hand',i,n)).join('')}</div>`:'';
+  return `<section class="board" data-board="${who}">${slotsRow(side)}${hand}</section>`;
+}
+
+function renderHearts(id, hp){
+  const el=document.getElementById(id); if(!el) return;
+  const max=5; el.innerHTML=Array.from({length:max},(_,i)=>`<div class="heart ${i<hp?'':'off'}"></div>`).join('');
+}
 function renderTrance(){ const row=document.getElementById('tranceRow'); const hp=state.you.health; row.innerHTML=state.trance.map(t=>`<div class="trance ${hp<=t.at?'active':''}" title="Activates at ${t.at} HP">${t.label}</div>`).join(''); }
 
 async function render(andAnimateDrawIds=null){
   renderHearts('youHearts', state.you.health); renderHearts('aiHearts', state.ai.health); renderTrance();
-  root.innerHTML = `${sideHtml(state.ai,'AI')}${sideHtml(state.you,'YOU')}`;
+  root.innerHTML = `${sideHtml(state.ai,'AI')}${aetherflowHtml()}${sideHtml(state.you,'YOU')}`;
   document.getElementById('deckIcon')?.setAttribute('data-count', state.you.draw.length);
   document.getElementById('discardIcon')?.setAttribute('data-count', state.you.discard.length);
   document.getElementById('aetherWell').textContent = `⚡ ${state.you.aether}`;
   wireHandDrag(root, dispatch);
 
-  // wire buttons
   document.getElementById('btnEnd').onclick = async ()=>{ await animateCardsToDiscard(); dispatch({type:A.END_TURN}); dispatch({type:A.AI_TURN}); };
   root.querySelectorAll('.gain-chip').forEach(el=> el.onclick = ()=> dispatch({type:A.DISCARD_FOR_AETHER, cardId: el.getAttribute('data-card')}) );
   root.querySelectorAll('.advance-btn').forEach(el=> el.onclick = ()=>{ if(el.hasAttribute('disabled')) return; dispatch({type:A.ADVANCE_PIP, slotIndex:Number(el.getAttribute('data-slot-index'))}); });
 
-  // layout the hand now (for correct base transforms)
   layoutHand();
 
-  // if there are new draw cards, animate them from Deck, then restore layout styles
   if (andAnimateDrawIds && andAnimateDrawIds.length){
     await animateNewDraws(andAnimateDrawIds);
-    // clear any fixed styles created during animation and re-layout
-    document.querySelectorAll('[data-board="YOU"] .hand .card').forEach(el=>{
-      el.style.position=''; el.style.left=''; el.style.top=''; el.style.transition=''; el.style.transform='';
-    });
     layoutHand();
   }
 }
 
 function dispatch(action){
-  const beforeHand = new Set(state.you.hand.map(c=>c.id));
+  const before = new Set(state.you.hand.map(c=>c.id));
   state = reducer(state, action);
-  const afterHand = new Set(state.you.hand.map(c=>c.id));
-  const newIds = [...afterHand].filter(id=>!beforeHand.has(id));
+  const after = new Set(state.you.hand.map(c=>c.id));
+  const newIds = [...after].filter(id=>!before.has(id));
   render(newIds);
 }
 

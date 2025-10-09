@@ -13,5 +13,7 @@ export const BASE_DECK = [
   makeCard('G2','Glyph of Thorns','GLYPH'),
 ];
 const shuffle=a=>{const b=a.slice(); for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]];} return b;};
-export const newSide=(d=BASE_DECK)=>({draw:shuffle(d),hand:[],discard:[],slots:[null,null,null],glyphSlot:null,aether:0,health:10});
-export const newGame=()=>({you:newSide(),ai:newSide(),trance:[{label:'Calm',at:7},{label:'Focus',at:5},{label:'Trance',at:3},{label:'Zenith',at:1}],turn:'YOU',animations:[]});
+const pickN=(arr,n)=>{const a=shuffle(arr).slice(0,n); return a.map((c,i)=>({...c, id:`AF${i}-${c.id}`}));};
+
+export const newSide=(d=BASE_DECK)=>({draw:shuffle(d),hand:[],discard:[],slots:[null,null,null],glyphSlot:null,aether:0,health:5});
+export const newGame=()=>({you:newSide(),ai:newSide(),aetherflow: pickN(BASE_DECK.filter(c=>c.type!=='GLYPH'),5), trance:[{label:'Calm',at:4},{label:'Focus',at:3},{label:'Trance',at:2},{label:'Zenith',at:1}],turn:'YOU',animations:[]});
