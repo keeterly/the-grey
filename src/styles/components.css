@@ -171,6 +171,12 @@ body {
   width: 180px; height: 250px; /* JS overwrites with real size */
 }
 
+.dragGhost > .card {
+  transform: none !important;
+  filter: none !important;
+  transition: none !important;
+}
+
 /* ---------- Mobile tuning ---------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height:260px; }
