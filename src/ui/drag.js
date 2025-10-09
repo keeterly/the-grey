@@ -5,13 +5,8 @@ const LONGPRESS_MS = 180;
 let pressTimer = null;
 let dragging = null;
 
-function baseTransform(el){
-  return el.getAttribute('data-base') || '';
-}
-function applyTransform(el, dx=0, dy=0, scale=1){
-  const base = baseTransform(el);
-  el.style.transform = `scale(${scale}) ${base} translate(${dx}px, ${dy}px)`;
-}
+function baseTransform(el){ return el.getAttribute('data-base') || ''; }
+function applyTransform(el, dx=0, dy=0, scale=1){ const base = baseTransform(el); el.style.transform = `scale(${scale}) ${base} translate(${dx}px, ${dy}px)`; }
 
 function toggleHighlights(root, type, on, cardEl){
   const yourBoard = root.querySelector('[data-board="YOU"]');
@@ -21,6 +16,14 @@ function toggleHighlights(root, type, on, cardEl){
   slots.forEach(s=> s.classList.toggle('highlight', on && type===CARD_TYPES.SPELL));
   if (glyph) glyph.classList.toggle('highlight', on && type===CARD_TYPES.GLYPH);
   if (well)  well.classList.toggle('highlight', on && Number(cardEl?.querySelector('.gain-chip')?.dataset.gain || 0) > 0);
+}
+
+function showHint(msg){
+  const el = document.getElementById('hint');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(()=> el.classList.remove('show'), 900);
 }
 
 export function wireHandDrag(root, dispatch) {
@@ -54,29 +57,34 @@ export function wireHandDrag(root, dispatch) {
         cardEl.setPointerCapture(ev.pointerId);
         cardEl.classList.add('is-dragging');
       }
-      if (dragging) {
-        applyTransform(cardEl, dx, dy, 1.04);
-      }
+      if (dragging) { applyTransform(cardEl, dx, dy, 1.04); }
     };
 
     const onUp = (ev)=>{
       clearTimeout(pressTimer);
+      const dropTarget = document.elementFromPoint(ev.clientX, ev.clientY);
+      const yourBoard = root.querySelector('[data-board="YOU"]');
+      const slotEl = dropTarget?.closest('[data-drop="slot"]');
+      const toGlyph = dropTarget?.closest('[data-drop="glyph"]');
+      const well = document.getElementById('aetherWell');
+      const onWell = well && (dropTarget===well || well.contains(dropTarget));
+
       if (dragging) {
-        const dropTarget = document.elementFromPoint(ev.clientX, ev.clientY);
-        const yourBoard = root.querySelector('[data-board="YOU"]');
-        const slotEl = dropTarget?.closest('[data-drop="slot"]');
         const onYourBoard = slotEl && yourBoard.contains(slotEl);
-        const toGlyph = dropTarget?.closest('[data-drop="glyph"]');
         const onYourGlyph = toGlyph && yourBoard.contains(toGlyph);
-        const well = document.getElementById('aetherWell');
-        const onWell = well && (dropTarget===well || well.contains(dropTarget));
         if (onYourGlyph) dispatch({type:A.PLAY_TO_GLYPH, cardId});
         else if (onYourBoard) dispatch({type:A.PLAY_TO_SLOT, cardId, slotIndex:Number(slotEl.dataset.slotIndex||0)});
         else if (onWell) dispatch({type:A.DISCARD_FOR_AETHER, cardId});
+        else {
+          cardEl.classList.add('shake');
+          showHint(cardEl.dataset.type==='SPELL' ? 'Spells go in your Spell Slots.' :
+                   cardEl.dataset.type==='GLYPH' ? 'Glyphs go in your Glyph Slot.' :
+                   'Drag gold-chip cards to the ⚡ Aetherwell.');
+          setTimeout(()=>cardEl.classList.remove('shake'), 260);
+        }
         cleanup(cardEl);
         dragging = null;
       } else {
-        // tap toggles preview
         if (cardEl.classList.contains('is-preview')) { cardEl.classList.remove('is-preview'); applyTransform(cardEl,0,0,1); }
         else { cardEl.classList.add('is-preview'); applyTransform(cardEl,0,0,1.06); }
       }

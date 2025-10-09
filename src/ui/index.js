@@ -23,7 +23,9 @@ function cardHtml(c, zone, i=0, n=1, slotIndex=null){
   const base = zone==='hand' ? fanTransform(i,n) : '';
   const style = zone==='hand' ? `style="transform:${base}" data-base="${base}"` : '';
   const gain = (zone==='hand' && c.aetherGain>0) ? `<div class="gain-chip" data-gain="${c.aetherGain}" data-card="${c.id}">+${c.aetherGain} ⚡</div>` : '';
-  const advanceBtn = (zone==='slot' && c.type===CARD_TYPES.SPELL) ? `<div class="advance-btn" data-adv-card="${c.id}" data-slot-index="${slotIndex}">Advance</div>` : '';
+  const canAdvance = zone==='slot' && c.type===CARD_TYPES.SPELL;
+  const advDisabled = canAdvance && (state.you.aether < c.aetherCost);
+  const advanceBtn = canAdvance ? `<button class="advance-btn" ${advDisabled?'disabled':''} title="${advDisabled?`Need ${c.aetherCost} ⚡`:`Spend ${c.aetherCost} ⚡`}" data-adv-card="${c.id}" data-slot-index="${slotIndex}">Advance</button>` : '';
   return `<div class="card" data-card-id="${c.id}" data-zone="${zone}" data-type="${c.type}" ${style}>
     ${typeBadge(c)}<div class="title">${c.name}</div>${pipBar}${gain}${advanceBtn}</div>`;
 }
@@ -41,15 +43,44 @@ function sideHtml(side, who){
   return `<section class="board" data-board="${who}">${slotsRow(side)}${handHtml}</section>`;
 }
 
+function renderHearts(id, hp){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const max = 10;
+  el.innerHTML = Array.from({length:max}, (_,i)=>`<div class="heart ${i<hp?'':'off'}"></div>`).join('');
+}
+
+function renderTrance(){
+  const row = document.getElementById('tranceRow');
+  const hp = state.you.health;
+  row.innerHTML = '<div class="label">Trance</div>'+state.trance.map(t=>{
+    const active = hp <= t.at ? 'active' : '';
+    return `<div class="trance ${active}" title="Activates at ${t.at} HP">${t.label}</div>`;
+  }).join('');
+}
+
 function render(){
+  // Header (hearts + trance)
+  renderHearts('youHearts', state.you.health);
+  renderHearts('aiHearts', state.ai.health);
+  renderTrance();
+
+  // Boards
   root.innerHTML = `${sideHtml(state.ai,'AI')}${sideHtml(state.you,'YOU')}`;
   document.getElementById('deckIcon')?.setAttribute('data-count', state.you.draw.length);
   document.getElementById('discardIcon')?.setAttribute('data-count', state.you.discard.length);
   document.getElementById('aetherWell').textContent = `⚡ ${state.you.aether}`;
+
   wireHandDrag(root, dispatch);
   document.getElementById('btnEnd').onclick = ()=>{ dispatch({type:A.END_TURN}); dispatch({type:A.AI_TURN}); };
   root.querySelectorAll('.gain-chip').forEach(el=> el.onclick = ()=> dispatch({type:A.DISCARD_FOR_AETHER, cardId: el.getAttribute('data-card')}) );
-  root.querySelectorAll('.advance-btn').forEach(el=> el.onclick = ()=> dispatch({type:A.ADVANCE_PIP, slotIndex: Number(el.getAttribute('data-slot-index'))}) );
+  root.querySelectorAll('.advance-btn').forEach(el=>{
+    el.onclick = ()=>{
+      if (el.hasAttribute('disabled')) return;
+      const idx = Number(el.getAttribute('data-slot-index'));
+      dispatch({type:A.ADVANCE_PIP, slotIndex: idx});
+    };
+  });
 }
 
 render(); dispatch({type:A.START});
