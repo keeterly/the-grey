@@ -1,6 +1,6 @@
 // /src/index.js — clean boot; no seeding anywhere
 
-import { GameEngine } from './bridge.js';
+import { GameEngine } from './src/engine/bridge.js';
 import { init as initUI } from './ui/ui.js';
 import './drag.js';
 import './weavers.js';
