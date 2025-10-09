@@ -5,8 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>The Grey — v2.3.9</title>
 <link rel="stylesheet" href="./src/styles/cards.css">
-
-<!-- Additive, scoped CSS for HUD + version badge (won't affect your layout) -->
 <link rel="stylesheet" href="./assets/css/acceptance.safe.css" data-tg-safe="true">
 </head>
 <body>
@@ -21,6 +19,7 @@
     <div class="icon btn" id="discardIcon" title="Discard">⌫</div>
   </div>
   <div class="right">
+    <!-- Counters will be injected here (Aether, Temp 🜂, Channeled ◇) -->
     <div class="icon diamond btn" id="aetherWell" title="Drop here to gain Aether">⚡</div>
     <div class="icon btn" id="btnEnd" title="End Turn">⏵</div>
   </div>
@@ -40,14 +39,12 @@
   </div>
 </div>
 
-<!-- Version + engine wiring (kept additive and isolated) -->
 <script>
-  window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v7";
+  window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v8";
 </script>
 
 <script type="module" src="./src/ui/index.js"></script>
 
-<!-- Safe additive acceptance wiring; does not change your DOM layout -->
 <script src="./assets/js/boot.js"></script>
 <script src="./assets/js/boot-debug.js"></script>
 
