@@ -1,59 +1,73 @@
 
-/* assets/js/boot-debug.js — mobile compact + rotate overlay + toggle; version v2.3.9-acceptanceP1-safe-v14 */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v14'; })();
+/* assets/js/boot-debug.js — mobile mini 50% + visible toggle; version v2.3.9-acceptanceP1-safe-v15 */
+(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v15'; })();
 
-// --- Mobile Controller with Persistent Compact Toggle ---
 (function mobileController(){
   const docEl = document.documentElement;
-  const LS_KEY = 'tgCompactPref'; // 'auto' | 'on' | 'off'
+  const LS_KEY = 'tgCompactPref'; // 'auto' | 'mini' | 'off'
   function getPref(){ try{ return localStorage.getItem(LS_KEY) || 'auto'; }catch(_){ return 'auto'; } }
   function setPref(v){ try{ localStorage.setItem(LS_KEY, v); }catch(_){} }
 
-  // Create rotate overlay
+  // Rotate overlay
   let overlay = document.getElementById('tgRotateOverlay');
   if (!overlay){
     overlay = document.createElement('div');
     overlay.id = 'tgRotateOverlay';
     overlay.className = 'tg-rotate-overlay';
-    overlay.innerHTML = '<div class="tg-rotate-card"><div class="tg-rotate-title">Rotate for best view</div><div class="tg-rotate-sub">Landscape shows more of the board. You can still play in portrait— we\'ll compact the layout automatically.</div></div>';
+    overlay.innerHTML = '<div class="tg-rotate-card"><div class="tg-rotate-title">Rotate for best view</div><div class="tg-rotate-sub">Landscape shows more of the board. Portrait uses a mini 50% layout.</div></div>';
     document.body.appendChild(overlay);
   }
 
-  // Add a tiny "Compact" toggle in HUD (cycles Auto → On → Off)
+  // Ensure toggle exists and is visible
   function ensureCompactToggle(){
     const left = document.querySelector('.hud-min .left');
     if (!left) return;
-    if (document.getElementById('tgCompactToggle')) return;
-    const btn = document.createElement('div');
-    btn.id = 'tgCompactToggle';
-    btn.className = 'icon btn';
-    btn.title = 'Compact layout: Auto / On / Off';
-    btn.textContent = '⇆'; // simple icon
-    left.appendChild(btn);
-
-    function labelFromPref(p){ return p==='on' ? 'On' : p==='off' ? 'Off' : 'Auto'; }
-    function cycle(){ const p=getPref(); const next = p==='auto' ? 'on' : p==='on' ? 'off' : 'auto'; setPref(next); apply(); }
-    btn.addEventListener('click', cycle);
-    btn.addEventListener('mouseenter', ()=>{ btn.setAttribute('data-count', labelFromPref(getPref())); });
-    btn.addEventListener('mouseleave', ()=>{ btn.removeAttribute('data-count'); });
+    let btn = document.getElementById('tgCompactToggle');
+    if (!btn){
+      btn = document.createElement('div');
+      btn.id = 'tgCompactToggle';
+      btn.className = 'icon btn';
+      btn.title = 'Layout: Auto / Mini / Off';
+      btn.textContent = '⇆';
+      left.prepend(btn);
+    }
+    function label(p){ return p==='mini' ? 'Mini' : p==='off' ? 'Off' : 'Auto'; }
+    function cycle(){
+      const p = getPref();
+      const next = p==='auto' ? 'mini' : p==='mini' ? 'off' : 'auto';
+      setPref(next);
+      apply();
+      btn.setAttribute('data-count', label(next));
+    }
+    btn.onclick = cycle;
+    btn.setAttribute('data-count', label(getPref()));
   }
 
-  function smallSide(){ return Math.min(window.innerWidth, window.innerHeight); }
-  function isSmall(){ return smallSide() <= 900; }
+  function isSmall(){ return Math.min(window.innerWidth, window.innerHeight) <= 900; }
   function isPortrait(){ return window.matchMedia('(orientation: portrait)').matches; }
 
   function apply(){
     const pref = getPref();
     const small = isSmall();
     const portrait = isPortrait();
-    const autoCompact = small && portrait;
-    const compact = pref==='on' ? true : pref==='off' ? false : autoCompact;
-    // Apply UI
-    overlay.classList.toggle('show', compact && portrait); // prompt only in portrait
-    docEl.classList.toggle('mobile-compact', compact);
-    // Reflect state on toggle
+
+    // Determine "mini" mode
+    const autoMini = small && portrait; // auto: mini in portrait small
+    const mini = pref==='mini' ? true : pref==='off' ? false : autoMini;
+
+    // Overlay only when portrait small
+    overlay.classList.toggle('show', small && portrait);
+
+    // Apply classes
+    docEl.classList.toggle('mobile-mini', mini);
+    docEl.classList.toggle('mobile-compact', false); // ensure old mode is off
+
+    // Update button badge if present
     const btn = document.getElementById('tgCompactToggle');
-    if (btn) btn.setAttribute('data-count', (pref==='on'?'On':pref==='off'?'Off':'Auto'));
+    if (btn){
+      const label = (pref==='mini'?'Mini':pref==='off'?'Off':'Auto');
+      btn.setAttribute('data-count', label);
+    }
   }
 
   ['resize','orientationchange'].forEach(evt => window.addEventListener(evt, apply, {passive:true}));
@@ -61,7 +75,7 @@
   apply();
 })();
 
-// --- HUD counters + version badge (unchanged) ---
+// --- Existing HUD counters + version badge ---
 (function ensureBottomCounters(){
   const right = document.querySelector('.hud-min .right');
   if (!right) return;
@@ -77,30 +91,41 @@
   if (!document.getElementById('tgVersion')) { const v = document.createElement('div'); v.id='tgVersion'; v.className='tgVersion'; v.textContent = 'The Grey — ' + (window.__THE_GREY_BUILD||'dev'); document.body.appendChild(v); }
 })();
 
-// --- Mechanics + HUD sync ---
+// --- Mechanics + HUD sync (unchanged) ---
 (async function wireAcceptance(){
   try {
     const Engine = await import('./engine.acceptance.js');
     function attach(game){
       if (typeof game.dispatch === 'function') {
         const original = game.dispatch.bind(game);
-        game.dispatch = (action)=>{ const r = original(action); const t=(action&&action.type)||'';
-          if (t==='START_TURN' || t==='START_PHASE' || t==='START') { Engine.startPhase(game); if (typeof Engine.checkTrance === 'function') Engine.checkTrance(game, ()=>{}); }
-          return r; };
+        game.dispatch = (action)=>{
+          const r = original(action);
+          const t = (action && action.type) || '';
+          if (t==='START_TURN' || t==='START_PHASE' || t==='START') {
+            Engine.startPhase(game);
+            if (typeof Engine.checkTrance === 'function') Engine.checkTrance(game, ()=>{});
+          }
+          return r;
+        };
       }
       Engine.startPhase(game);
       if (typeof Engine.checkTrance === 'function') Engine.checkTrance(game, ()=>{});
     }
     const MAX=10000, START=Date.now();
-    (function wait(){ if(window.game && window.game.players && window.game.players.length) attach(window.game);
-      else if(Date.now()-START < MAX) setTimeout(wait, 60);
-      else console.warn('[safe acceptance] game not detected.'); })();
+    (function wait(){
+      if (window.game && window.game.players && window.game.players.length) attach(window.game);
+      else if (Date.now()-START < MAX) setTimeout(wait, 60);
+      else console.warn('[safe acceptance] game not detected.');
+    })();
     (function tick(){
       const g = window.game, i = g ? (g.active ?? g.activePlayer ?? 0) : 0;
       const p = g && g.players ? g.players[i] : null;
       const tempEl = document.querySelector('#tgTempPill .val');
       const chanEl = document.querySelector('#tgChanPill .val');
-      if (p && tempEl && chanEl) { tempEl.textContent = String(p.aether ?? 0); chanEl.textContent = String((p.channeledAether ?? p.channeled) ?? 0); }
+      if (p && tempEl && chanEl) {
+        tempEl.textContent = String(p.aether ?? 0);
+        chanEl.textContent = String((p.channeledAether ?? p.channeled) ?? 0);
+      }
       requestAnimationFrame(tick);
     })();
   } catch (e) {
