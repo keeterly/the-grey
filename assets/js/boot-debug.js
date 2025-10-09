@@ -1,12 +1,11 @@
-/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v9 (2025-10-09) */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v9'; })();
+/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v10 (2025-10-09) */
+(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v10'; })();
 
 // Inject bottom-right pills (Temp 🜂 and Channeled ◇) with clean spacing
 (function ensureBottomCounters(){
   const right = document.querySelector('.hud-min .right');
   if (!right) return;
 
-  // Insert pills before the End Turn button
   const endBtn = document.getElementById('btnEnd');
 
   function makePill(id, sym){
@@ -36,7 +35,7 @@
   try {
     const Engine = await import('./assets/js/engine.acceptance.safe.js');
 
-    // Update market costs where present
+    // Update market costs where present (no-ops if different markup)
     const costs = Engine.getMarketCosts();
     document.querySelectorAll('[data-market-slot]').forEach((el,i)=>{
       const c = el.querySelector('.cost'); if (c) c.textContent = costs[i] ?? costs[costs.length-1] ?? '';
@@ -80,7 +79,7 @@
       requestAnimationFrame(tick);
     })();
 
-    // Light centering fallback (only add inline style if not already centered)
+    // Fallback board centering if needed
     (function centerFallback(){
       const rows = document.querySelectorAll('.board .slots, .slot-row, .slots, [data-player-slots], [data-ai-slots]');
       rows.forEach(row=>{

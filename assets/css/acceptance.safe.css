@@ -1,5 +1,5 @@
 
-/* ----- Version badge (top-left) remains ----- */
+/* ----- Version badge (top-left) ----- */
 .tgVersion {
   position: fixed; top: .5rem; left: .5rem; z-index: 9999;
   background: rgba(16,16,16,.5); color:#ddd; border:1px solid rgba(255,255,255,.15);
@@ -9,27 +9,27 @@
 
 /* ----- Bottom HUD (NieR-minimal) ----- */
 .hud-min { font-size: 16px; }
-.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: .5rem; }
+.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: .55rem; }
 .hud-min .icon { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
 .hud-min .btn { cursor: pointer; }
 .hud-min .btn:active { transform: translateY(1px); }
 
-/* Counter pills (Temp 🜂 and Channeled ◇) */
+/* Counter pills (Temp 🜂 and Channeled ◇) — larger, legible numbers */
 .hud-pill {
-  display: inline-flex; align-items: center; gap: .4rem;
-  padding: 4px 10px; border-radius: 999px;
-  background: rgba(255,255,255,.78); color: #222;
+  display: inline-flex; align-items: center; gap: .45rem;
+  padding: 5px 12px; border-radius: 999px;
+  background: rgba(245,245,245,.88); color: #1f1f1f;
   border: 1px solid rgba(0,0,0,.12);
   box-shadow: 0 1px 4px rgba(0,0,0,.15);
-  font-size: 14px;
+  font-size: 14px;  /* base */
 }
-.hud-pill .sym { font-size: 12px; opacity: .85; }
-.hud-pill .val { font-weight: 700; min-width: 1.3em; text-align: center; }
+.hud-pill .sym { font-size: 13px; opacity: .7; transform: translateY(-.5px); }
+.hud-pill .val { font-size: 1.3em; font-weight: 600; min-width: 1.4em; text-align: center; letter-spacing: .02em; }
 
-/* Keep aetherWell icon visually balanced with pills */
-#aetherWell { margin-left: .25rem; margin-right: .25rem; }
+/* Keep aetherWell visually balanced with pills */
+#aetherWell { margin: 0 .25rem; }
 
-/* ----- Board centering (AI + Player) ----- */
+/* ----- Board centering (AI + Player + Aetherflow) ----- */
 .board .slots,
 .slot-row,
 .slots,
@@ -41,14 +41,30 @@
   gap: 0.75rem;
 }
 
-/* ----- Card scaling: ONLY in hand (+25%) ----- */
+/* ----- Card scaling: ONLY in hand (+25%) with soft raise ----- */
 .hand .card,
 [data-hand] .card {
   transform: scale(1.25);
   transform-origin: center bottom;
-  will-change: transform;
+  will-change: transform, box-shadow, translate;
+  box-shadow: 0 8px 18px rgba(0,0,0,.20);
+  z-index: 2;
+  transition: transform .12s ease, box-shadow .12s ease, translate .12s ease;
 }
-/* Give the hand a touch more spacing to accommodate scale */
-.hand, [data-hand] {
-  gap: 0.9rem;
+.hand .card:hover,
+[data-hand] .card:hover {
+  transform: scale(1.28) translateY(-2px);
+  box-shadow: 0 12px 26px rgba(0,0,0,.28);
 }
+
+/* Ensure slotted cards stay base size */
+.board .card-slot .card,
+[data-player-slots] .card,
+[data-ai-slots] .card {
+  transform: none !important;
+  box-shadow: none !important;
+  z-index: 1;
+}
+
+/* Hand spacing tuned for larger cards */
+.hand, [data-hand] { gap: .95rem; }
