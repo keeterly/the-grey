@@ -1,122 +1,167 @@
 /* ============================================================
-   THE GREY — components.css (FAN STRIP EDITION — STABLE)
-   - Centered fan strip for the hand
-   - Smooth arc + hover raise
-   - Desktop + Mobile
+   THE GREY — components.css (Fan strip + Pointer Drag)
    ============================================================ */
 
 /* ---------- Base ---------- */
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{height:100%}
-body{
-  margin:0;padding:0;background:#f3efe8;color:#3a3128;overflow-x:hidden;
-  font-family:Inter,system-ui,ui-sans-serif,Segoe UI,Roboto,Helvetica,Arial
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-:root{--card-w:180px;--card-h:250px}
+html, body { height: 100%; }
+body {
+  margin: 0;
+  padding: 0;
+  background: #f3efe8;
+  color: #3a3128;
+  overflow-x: hidden;
+  font-family: "Inter", system-ui, sans-serif;
+}
 
-/* ---------- Minimal hearts (HUD) ---------- */
-.pill-hp{display:flex;align-items:center;gap:8px}
-.pill-hp .hearts{display:flex;gap:6px}
-.pill-hp .heart{font-size:16px;line-height:1;color:#d35;text-shadow:0 1px 0 rgba(0,0,0,.05)}
-.pill-hp .heart.is-empty{opacity:.25}
+/* ---------- Minimal hearts in HUD ---------- */
+.pill-hp { display:flex; align-items:center; gap:10px; }
+.pill-hp .label { font-weight:600; opacity:.85; }
+.pill-hp .hearts { display:flex; gap:6px; align-items:center; }
+.pill-hp .heart { font-size:16px; line-height:1; color:#d35; text-shadow:0 1px 0 rgba(0,0,0,.05) }
+.pill-hp .heart.is-empty { opacity:.25; }
 
-/* ---------- Cards ---------- */
+/* ---------- Card ---------- */
 .card{
-  width:var(--card-w);height:var(--card-h);
-  background:linear-gradient(to bottom,#fefcf8 0%,#f4efe6 100%);
-  border-radius:14px;box-shadow:0 3px 6px rgba(0,0,0,.1);
-  display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;
-  transition:filter .22s ease, transform .22s ease
+  background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
+  border-radius: 14px;
+  box-shadow: 0 3px 6px rgba(0,0,0,.1);
+  width: 180px;
+  height: 250px;
+  display:flex; flex-direction:column; justify-content:space-between;
+  overflow:hidden;
+  transition: filter .22s ease, transform .22s ease;
+  will-change: transform;
 }
-.cHead{padding:10px 12px 4px}
-.cName{font-size:14px;font-weight:600}
-.cType{font-size:11px;opacity:.6}
-.cBody{flex:1;padding:0 12px;font-size:13px}
-.cStats{font-size:11px;opacity:.6;text-align:right;padding:4px 10px 8px 0}
+.cHead{ padding:10px 12px 4px; }
+.cName{ font-size:14px; font-weight:600; }
+.cType{ font-size:11px; opacity:.6; }
+.cBody{ flex:1; padding:0 12px; font-size:13px; }
+.cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
-/* ---------- Board/Flow rows ---------- */
-#aiBoard,#aetherflow,#yourBoard{
-  display:flex;gap:16px;flex-wrap:nowrap;align-items:flex-start;justify-content:center;
-  min-height:var(--card-h)
+/* ---------- Zones (rows) ---------- */
+#aiBoard, #aetherflow, #yourBoard{
+  --card-w: 180px; --card-h: 250px;
+  min-height: var(--card-h);
+  display:flex; gap:16px; flex-wrap:nowrap; justify-content:center; align-items:flex-start;
+  overflow:visible;
 }
+
+/* Board slots & empty visual */
 .boardSlot{
-  width:var(--card-w);height:var(--card-h);
-  display:flex;align-items:center;justify-content:center;flex:0 0 auto;position:relative
+  width: var(--card-w);
+  height: var(--card-h);
+  flex: 0 0 auto;
+  display:flex; align-items:center; justify-content:center;
+  position: relative;
 }
-/* when a real card is in the slot, make it fill footprint */
-.boardSlot>.card{width:100%;height:100%}
+.boardSlot > .card{ width:100%; height:100%; }
 
-/* Empty slot (dashed) */
 .emptySlot{
-  width:var(--card-w);height:var(--card-h);border-radius:12px;
-  border:2px dashed rgba(0,0,0,.15);background:transparent;
-  transition:border-color .15s ease, background .15s ease, box-shadow .15s ease
+  width: 100%; height: 100%;
+  border-radius: 12px;
+  border: 2px dashed rgba(0,0,0,0.12);
+  background: transparent;
+  transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
-.boardSlot.drop-target .emptySlot{border-color:rgba(160,130,90,.35)}
-.boardSlot.drop-accept .emptySlot{border-color:#c59a5b;background:rgba(255,235,200,.15);box-shadow:0 0 0 3px rgba(197,154,91,.12) inset}
+.boardSlot.drop-target .emptySlot{ border-color: rgba(160,130,90,0.35); }
+.boardSlot.drop-accept .emptySlot{
+  border-color: #c59a5b;
+  background: rgba(255,235,200,0.15);
+  box-shadow: 0 0 0 3px rgba(197,154,91,0.12) inset;
+}
 
-/* ---------- Hand / Ribbon ---------- */
+/* ---------- Instant pulse ---------- */
+@keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
+
+/* ============================================================
+   Hand ribbon (fan)
+   ============================================================ */
 .ribbon-wrap{
-  position:fixed;left:0;bottom:0;width:100%;height:300px;
-  padding-left:max(12px,env(safe-area-inset-left));
-  padding-right:max(12px,env(safe-area-inset-right));
-  padding-bottom:max(8px,env(safe-area-inset-bottom));
-  display:flex;justify-content:center;align-items:flex-end;pointer-events:none;z-index:100
+  position:fixed; left:0; bottom:0; width:100%; height:300px;
+  padding-left:max(12px, env(safe-area-inset-left));
+  padding-right:max(12px, env(safe-area-inset-right));
+  padding-bottom:max(8px, env(safe-area-inset-bottom));
+  display:flex; justify-content:center; align-items:flex-end;
+  pointer-events:none; z-index:100;
 }
-.ribbon{position:relative;width:100%;height:100%;pointer-events:auto}
-.fan{position:relative;height:calc(var(--card-h) + 40px);width:0;margin:0;left:0;transition:left .28s cubic-bezier(.2,.8,.2,1)}
+.ribbon{
+  --card-w: 180px; --card-h: 250px;
+  position:relative; width:100%; height:100%; pointer-events:auto;
+}
+.fan{
+  position:relative;
+  height: calc(var(--card-h) + 40px);
+  width: 0px;  /* set by JS */
+  left: 0;     /* set by JS */
+  margin:0;
+  pointer-events:auto;
+  transition: left .28s cubic-bezier(.2,.8,.2,1);
+}
 .cardWrap{
-  position:absolute;bottom:40px;left:0;width:var(--card-w);height:var(--card-h);
-  transform-origin:bottom center;z-index:100;opacity:0;
-  --wy:0px;--wrot:0deg;
-  transform:translateY(var(--wy)) rotate(var(--wrot));
-  transition:left .28s cubic-bezier(.2,.8,.2,1),transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s ease
+  position:absolute; bottom:40px; left:0; /* left set by JS */
+  width: var(--card-w); height: var(--card-h);
+  transform-origin: bottom center;
+  z-index:100;
+  --wy: 0px; --wrot: 0deg;
+  transform: translateY(var(--wy)) rotate(var(--wrot));
+  transition:
+    left .28s cubic-bezier(.2,.8,.2,1),
+    transform .28s cubic-bezier(.2,.8,.2,1),
+    opacity .22s ease;
+  opacity: 0;
 }
 
-/* Hover raise (desktop) */
-@media(hover:hover){
+/* Hover preview (desktop) */
+@media (hover:hover){
   .cardWrap:hover .card{
-    transform:translateY(-80px) rotate(0deg) scale(1.12)!important;filter:brightness(1.08);
-    transition:transform .18s cubic-bezier(.2,.9,.2,1.2),filter .18s ease
+    transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
+    filter: brightness(1.08);
+    transition: transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
   }
-  .cardWrap:hover{z-index:999}
+  .cardWrap:hover{ z-index:999; }
 }
 
-/* Instant pulse */
-@keyframes uiPulse{0%{filter:brightness(1)}50%{filter:brightness(1.12)}100%{filter:brightness(1)}}
-.ribbon .card.is-instant{animation:uiPulse 1.8s ease-in-out infinite}
-.ribbon .card.is-phantom{opacity:0;pointer-events:none}
+.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
+.ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
-/* Drag ghost (cloned card follows pointer) */
-.dragGhost{
-  position:fixed;left:0;top:0;transform:translate(-9999px,-9999px);
-  z-index:1000;pointer-events:none;border-radius:14px;box-shadow:0 6px 18px rgba(0,0,0,.25)
+/* ---------- Mobile sizing ---------- */
+@media (max-width: 768px){
+  .ribbon-wrap{ height:260px; }
+  .ribbon{ --card-w: 160px; --card-h: 220px; }
+  .cardWrap:active .card{ transform: translateY(-68px) rotate(0deg) scale(1.16) !important; }
+  .cardWrap:active{ z-index:999; }
+}
+@media (max-width: 420px){
+  .ribbon{ --card-w: 148px; --card-h: 205px; }
 }
 
-/* ---------- Mobile tuning ---------- */
-@media(max-width:768px){
-  :root{--card-w:160px;--card-h:220px}
-  .ribbon-wrap{height:260px}
-  .cardWrap:active .card{transform:translateY(-68px) rotate(0deg) scale(1.16)!important}
-  .cardWrap:active{z-index:999}
+/* ============================================================
+   Pointer-drag clone (smooth follower)
+   ============================================================ */
+.dragClone{
+  position: fixed;
+  left: 0; top: 0;
+  width: var(--card-w, 180px);
+  height: var(--card-h, 250px);
+  pointer-events: none;
+  z-index: 10000;
+  transform: translate3d(0,0,0);
+  will-change: transform;
 }
-@media(max-width:420px){:root{--card-w:148px;--card-h:205px}}
+.dragClone > .card{
+  width:100%; height:100%;
+  transform: scale(1.06);
+  box-shadow: 0 12px 24px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
+}
 
-/* ---------- Dock icons ---------- */
-.dock{
-  position:fixed;display:flex;flex-direction:column;gap:10px;z-index:120;pointer-events:auto
-}
-.dock--left{left:10px;top:50%;transform:translateY(-50%)}
-.dock--right{right:10px;top:50%;transform:translateY(-50%)}
+/* Hide the source card while dragging */
+.cardWrap.drag-src .card { visibility: hidden; }
 
-.chip.icon{
-  position:relative;width:36px;height:36px;border-radius:10px;background:#fff;
-  box-shadow:0 2px 8px rgba(0,0,0,.12);display:grid;place-items:center;border:1px solid rgba(0,0,0,.06)
-}
-.chip.icon svg{width:22px;height:22px;fill:#6b5642}
-.badge{
-  position:absolute;right:-8px;top:-8px;min-width:18px;height:18px;padding:0 4px;
-  border-radius:10px;background:#9a784f;color:#fff;font-size:11px;display:grid;place-items:center
-}
-.gem svg{fill:#e5a00b}
-.cta svg{fill:#6b5642}
+/* Kill hover/preview during drag */
+body.is-dragging .cardWrap:hover .card { transform: none !important; filter: none !important; }
