@@ -1,45 +1,90 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>The Grey — v2.3.9</title>
-<link rel="stylesheet" href="./src/styles/cards.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>The Grey — v2.1-acceptanceP1-ui-v5-index</title>
+  <!-- Base styles from existing site remain; this page adds acceptance.css -->
+  <link rel="stylesheet" href="./assets/css/acceptance.css" data-acceptance="true"/>
+  <style>
+    /* Minimal base to match current look without overriding your main theme */
+    body { margin:0; font-family: ui-sans-serif, -apple-system, Segoe UI, Roboto, Noto Sans, sans-serif; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 12px 16px 64px; }
+    .panel { background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 12px; }
+    h2 { margin: 8px 0; font-size: 15px; opacity:.85; }
+    .slot { width: 180px; height: 252px; border: 2px dashed rgba(255,255,255,.18); border-radius: 12px; display: grid; place-items: center; color: rgba(255,255,255,.55); background: rgba(230,230,230,.03); }
+    .slot.glyph { background: rgba(255,255,255,.06); }
+    .market-slot { width: 180px; height: 252px; border-radius: 12px; background: #fff; color:#111; position: relative; box-shadow: 0 8px 24px rgba(0,0,0,.2); overflow: hidden; }
+    .market-slot .cost { position:absolute; bottom:10px; right:12px; font-weight:700; font-size:14px; display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border-radius:999px; background: rgba(255,200,80,.18); color:#6b4a00; border:1px solid rgba(255,200,80,.35);}
+    .market-slot .cost::before { content: "⚡"; font-size: 16px; }
+    .hand .card { width: 180px; height: 252px; border-radius: 12px; background: #fff; box-shadow: 0 8px 22px rgba(0,0,0,.25); transform: rotate(var(--rot,0deg)); }
+    #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px); background: rgba(20,20,20,.85); color: #f5f5f5; padding: 10px 14px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); opacity: 0; transition: opacity .2s ease, transform .2s ease; z-index: 10000; }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
 </head>
 <body>
-<div class="container">
-  <div id="app"></div>
-</div>
-
-<!-- Minimal bottom HUD (no background block) -->
-<div class="hud-min">
-  <div class="left">
-    <div class="icon btn" id="deckIcon" title="Deck">⟲</div>
-    <div class="icon btn" id="discardIcon" title="Discard">⌫</div>
-  </div>
-  <div class="right">
-    <div class="icon diamond btn" id="aetherWell" title="Drop here to gain Aether">⚡</div>
-    <div class="icon btn" id="btnEnd" title="End Turn">⏵</div>
-  </div>
-</div>
-
-<!-- Spotlight overlay for AF purchases -->
-<div id="overlay" class="overlay"></div>
-
-<!-- Generic modal for deck/discard + trance info -->
-<div id="modal" class="modal">
-  <div class="modal-card">
-    <div class="modal-head">
-      <div class="modal-title" id="modalTitle">Title</div>
-      <button class="btn-close" id="modalClose">Close</button>
+  <div class="wrap">
+    <div class="panel">
+      <h2>Spellweaver (AI)</h2>
+      <div class="slots slot-row ai" data-ai-slots>
+        <div class="slot">Spell Slot</div>
+        <div class="slot">Spell Slot</div>
+        <div class="slot">Spell Slot</div>
+        <div class="slot glyph">Glyph Slot</div>
+      </div>
     </div>
-    <div class="modal-body" id="modalBody"></div>
+
+    <div class="panel" style="margin-top:12px;">
+      <h2>Aetherflow</h2>
+      <div class="slots" id="marketSlots">
+        <div class="market-slot" data-market-slot="0"><span class="cost"></span></div>
+        <div class="market-slot" data-market-slot="1"><span class="cost"></span></div>
+        <div class="market-slot" data-market-slot="2"><span class="cost"></span></div>
+        <div class="market-slot" data-market-slot="3"><span class="cost"></span></div>
+        <div class="market-slot" data-market-slot="4"><span class="cost"></span></div>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-top:12px;">
+      <h2>Spellweaver (You)</h2>
+      <div class="slots slot-row player" data-player-slots>
+        <div class="slot">Spell Slot</div>
+        <div class="slot">Spell Slot</div>
+        <div class="slot">Spell Slot</div>
+        <div class="slot glyph">Glyph Slot</div>
+      </div>
+      <div class="hand" data-hand style="display:flex; gap:.75rem; justify-content:center; margin-top: 16px;">
+        <div class="card" style="--rot:-8deg"></div>
+        <div class="card" style="--rot:-4deg"></div>
+        <div class="card"></div>
+        <div class="card" style="--rot:4deg"></div>
+        <div class="card" style="--rot:8deg"></div>
+      </div>
+    </div>
   </div>
-</div>
 
-<script type="module" src="./src/ui/index.js"></script>
+  <div id="toast"></div>
 
-<script>
-// Rotate hint removed to simplify; landscape is still best.
-</script>
-</body></html>
+  <!-- Version + basic stub (the real game object will replace this) -->
+  <script>
+    window.__THE_GREY_BUILD = "v2.1-acceptanceP1-ui-v5-index";
+    window.game = window.game || {
+      active: 0,
+      players: [{
+        aether: 0,
+        channeledAether: 2,
+        hand: [], deck: [], discard: [],
+        hp: 8,
+        tranceStages: { stage1: 4, stage2: 2 },
+        tranceStage: 0,
+        aetherFlow: [{cost:4},{cost:3},{cost:2}]
+      }],
+      dispatch: (action)=>({ok:true, action})
+    };
+  </script>
+
+  <!-- Acceptance wiring -->
+  <script src="./assets/js/boot.js"></script>
+  <script src="./assets/js/boot-debug.js"></script>
+</body>
+</html>
