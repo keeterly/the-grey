@@ -1,14 +1,13 @@
+// ✅ Final version for /src/state.js
 import { STARTER, FLOW_POOL } from './cards.js';
 import { shuffle, uid } from './rng.js';
 
-const PLAYER_SLOTS = 3;
-const AI_SLOTS = 3;
-const FLOW_SLOTS = 5;
-
-const withIds = (arr) => arr.map(x => ({ ...x, id: uid() }));
-
-export function makeStarterDeck() { return shuffle(withIds(STARTER)); }
-export function makeFlowDeck()    { return shuffle(withIds(FLOW_POOL)); }
+export function makeStarterDeck() {
+  return shuffle(STARTER.map(x => ({ ...x, id: uid() })));
+}
+export function makeFlowDeck() {
+  return shuffle(FLOW_POOL.map(x => ({ ...x, id: uid() })));
+}
 
 export function initialState({ playerWeaver, aiWeaver }) {
   return {
@@ -17,32 +16,28 @@ export function initialState({ playerWeaver, aiWeaver }) {
     deck: makeStarterDeck(),
     hand: [],
     disc: [],
-    slots: Array(PLAYER_SLOTS).fill(null),   // empty player slots
+    slots: [null, null, null],      // ✅ player board empty
     glyphs: [],
-
     ai: {
       hp: 5,
       ae: 0,
       deck: makeStarterDeck(),
       hand: [],
       disc: [],
-      slots: Array(AI_SLOTS).fill(null),     // empty AI slots
+      slots: [null, null, null],    // ✅ AI board empty
       glyphs: [],
     },
-
     flowDeck: makeFlowDeck(),
-    flowRow: Array(FLOW_SLOTS).fill(null),   // empty aetherflow
+    flowRow: [null, null, null, null, null],
     turn: 1,
-
     trance: {
       you: { cur: 0, cap: 6, weaver: playerWeaver },
-      ai:  { cur: 0, cap: 6, weaver: aiWeaver },
+      ai: { cur: 0, cap: 6, weaver: aiWeaver }
     },
-
     freeAdvYou: 0,
     freeAdvAi: 0,
     youFrozen: 0,
     aiFrozen: 0,
-    _log: [],
+    _log: []
   };
 }
