@@ -1,54 +1,42 @@
 
-/* acceptance.safe.css — mobile optimizations (tighter) + existing fixes
-   - Centers boards; keeps hand fanned
-   - 'mobile-compact' mode shrinks AI/slots/AF (NOT hand)
-   - Ultra-small refinements; reduced paddings to avoid horizontal scroll
-*/
+/* acceptance.safe.css — mobile mini 50% + visible toggle + prior fixes */
 .slots{display:flex;gap:10px;justify-content:center;}
 .board .row:not(.head){justify-content:center;}
 .board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
 
-@media (max-width: 900px){
-  .container{padding:6px 8px 72px;}
-  .board,.aetherflow{max-width:100%;}
+/* Make the toggle clearly visible in HUD */
+#tgCompactToggle.icon.btn{
+  min-width: 36px; min-height: 28px; line-height: 26px;
+  font-weight: 600;
 }
 
-/* Compact mode */
+/* Compact (prior) — keep available */
 html.mobile-compact .container{ padding:6px 6px 72px; }
 html.mobile-compact .board{ padding:8px; margin:8px auto; }
 html.mobile-compact .board .row.head .hearts { transform: scale(0.9); transform-origin: left center; }
-
 html.mobile-compact .slots{ gap:8px; }
-html.mobile-compact .slot,
-html.mobile-compact .glyph-slot{
-  width:116px; height:170px;
-}
-
-/* Keep hand cards full size in compact mode */
-html.mobile-compact .hand .card{
-  width:140px; height:200px;
-}
-
-/* Aetherflow tightened */
 html.mobile-compact .aetherflow{ padding:6px; gap:8px; }
-html.mobile-compact .af-title{ display:none; } /* Hide label in compact */
+html.mobile-compact .af-title{ display:none; }
 html.mobile-compact .af-cards{ gap:8px; }
-html.mobile-compact .af-card{
-  width:132px; height:176px;
+
+/* NEW: Mobile Mini — 50% scale for AI/AF/Player board areas (NOT hand) */
+html.mobile-mini .aetherflow,
+html.mobile-mini [data-board="AI"] .slots,
+html.mobile-mini [data-board="YOU"] .slots{
+  transform: scale(0.5);
+  transform-origin: top center;
 }
 
-/* HUD minor tighten */
-html.mobile-compact .hud-min .icon{ width:26px; height:26px; }
-html.mobile-compact .hud-min .icon.diamond{ width:30px; height:30px; }
+/* Reduce gaps so scaled areas sit tighter */
+html.mobile-mini .slots{ gap: 6px; }
+html.mobile-mini .aetherflow{ margin: 4px auto; }
 
-/* Ultra-small phones (<= 420px short edge): slightly smaller slots & AF cards */
-@media (max-width: 420px), (max-height: 420px){
-  html.mobile-compact .slot,
-  html.mobile-compact .glyph-slot{ width:108px; height:162px; }
-  html.mobile-compact .af-card{ width:124px; height:170px; }
+/* Keep the hand full-size */
+html.mobile-mini [data-board="YOU"] .hand .card{
+  width: 140px; height: 200px;  /* explicit to guard against cascade */
 }
 
-/* Rotate overlay styles */
+/* Overlay for rotate prompt (from earlier packs) */
 .tg-rotate-overlay{
   position:fixed; inset:0; background:rgba(0,0,0,.72);
   color:#fff; display:none; align-items:center; justify-content:center;
