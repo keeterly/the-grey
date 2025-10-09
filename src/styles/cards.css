@@ -1,27 +1,45 @@
 :root { --base-bg:#f8f5ef; --panel-bg:#ffffff; --panel-edge:#e6e0d4; --gold:#d4b14c; --text-dark:#3a2e1f; --text-soft:#6b5f50; --shadow: rgba(0,0,0,.08); }
 body { background: linear-gradient(180deg, var(--base-bg) 0%, #f3eee6 100%); color: var(--text-dark); }
 a { color: var(--gold); }
+
+/* ===== HUD ===== */
 .hud { display:flex; align-items:center; gap:10px; padding:10px 14px; background:#ffffffd9; border:1px solid var(--panel-edge); border-radius:12px; box-shadow:0 8px 24px var(--shadow); margin-bottom:12px; }
 .hud button { background:var(--panel-bg); border:1px solid var(--panel-edge); border-radius:10px; padding:6px 14px; color:var(--text-dark); font-weight:500; transition:background .2s ease, transform .12s ease; }
 .hud button:hover { background:#f7f3ea; transform: translateY(-1px); }
 .icon { width:28px; height:28px; border-radius:10px; background:var(--panel-bg); border:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 1px 4px var(--shadow); color:var(--text-soft); position:relative; }
 .icon.badge::after{ content: attr(data-count); position:absolute; transform: translate(10px,-10px); font-size:10px; background: var(--gold); color:#fff; border-radius:999px; padding:1px 5px; }
 .spacer{flex:1;} .aetherGem{ width:34px; height:28px; border-radius:14px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; box-shadow: inset 0 0 10px rgba(255,255,255,.5), 0 0 6px var(--gold); }
+
+/* ===== Boards ===== */
 .board { background:#ffffffc2; border-radius:18px; padding:14px; margin:12px auto; max-width:1080px; box-shadow:0 8px 24px var(--shadow); }
 .row { display:flex; align-items:center; gap:12px; }
 .slot, .glyph-slot { width:150px; height:210px; border-radius:14px; border:1px dashed #c8bfa9; background:#fdfcf9; color:#b4a58a; display:flex; align-items:center; justify-content:center; box-shadow: inset 0 0 8px rgba(0,0,0,.04); }
 .slot-glow { box-shadow:0 0 16px rgba(212,177,76,.4) inset; } .slot-ghost { font-size:12px; }
+
+/* ===== Card styling ===== */
 .card { width:140px; height:200px; border-radius:16px; background:var(--panel-bg); border:1px solid var(--panel-edge); box-shadow:0 6px 16px var(--shadow); position:relative; transition: transform .16s ease, box-shadow .2s ease; user-select:none; touch-action:none; }
 .card:hover { transform: translateY(-4px); box-shadow:0 10px 24px var(--shadow); }
 .card .title { position:absolute; top:8px; left:8px; right:8px; text-align:center; font-size:13px; font-weight:500; color:var(--text-dark); }
+
+/* ===== Hand fan layout ===== */
 .hand { position:relative; height:220px; margin-top:24px; }
 .hand .card { position:absolute; left:50%; transform-origin:50% 90%; pointer-events:auto; }
+
+/* Long-press preview */
 .card.is-preview { z-index:20; transform: scale(1.12) translate(-50%, -30px) !important; box-shadow:0 12px 32px var(--shadow); }
+
+/* Dragging */
 .card.is-dragging { cursor: grabbing; z-index:25; transform: scale(1.06); }
+
+/* Pips */
 .pips { position:absolute; bottom:10px; left:0; right:0; display:flex; justify-content:center; gap:6px; }
 .pip { width:10px; height:10px; border-radius:50%; border:1px solid var(--gold); background: transparent; }
 .pip.full { background: var(--gold); }
 .pip-tick { animation: pipTick .18s ease; } @keyframes pipTick { 50%{ transform: scale(1.2);} }
+
+/* Instant pulse */
 .card.is-held-instant { animation: instantPulse 1.2s ease-in-out infinite; box-shadow:0 0 20px rgba(212,177,76,.25); }
 @keyframes instantPulse { 50% { box-shadow:0 0 30px rgba(212,177,76,.4);} }
+
+/* Text */
 p, .tips { color: var(--text-soft); font-size: 13px; }
