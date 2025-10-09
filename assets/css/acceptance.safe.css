@@ -1,29 +1,4 @@
-/* acceptance.safe.css — overrides for centering boards and restoring fanned hand
-   Drop-in replacement. Safe to upload over existing file.
-   Changes:
-   - Center AI and Player slot rows
-   - Center non-header rows inside each board
-   - Ensure hand cards keep absolute positioning + transform-origin for fan
-*/
-
-/* Center slot rows */
-.slots{
-  display:flex;
-  gap:10px;
-  justify-content:center;
-}
-
-/* Center non-header rows within each board */
-.board .row:not(.head){
-  justify-content:center;
-}
-
-/* Keep fanned hand stable: absolute cards with correct transform-origin.
-   (JS already sets the transform per card via layoutHand(); we just
-   make sure nothing overrides its position or transform-origin.) */
-.board .hand .card{
-  position:absolute;
-  left:50%;
-  transform-origin:50% 90%;
-  pointer-events:auto;
-}
+/* acceptance.safe.css — overrides for centering boards and restoring fanned hand */
+.slots{display:flex;gap:10px;justify-content:center;}
+.board .row:not(.head){justify-content:center;}
+.board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
