@@ -1,42 +1,53 @@
 
-/* acceptance.safe.css — mobile mini 50% + visible toggle + prior fixes */
+/* acceptance.safe.css — micro: snap zoom + AF zoom override (keeps prior mobile-mini/compact rules) */
+
+/* Ensure previous centering + hand fan remain */
 .slots{display:flex;gap:10px;justify-content:center;}
 .board .row:not(.head){justify-content:center;}
 .board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
 
-/* Make the toggle clearly visible in HUD */
-#tgCompactToggle.icon.btn{
-  min-width: 36px; min-height: 28px; line-height: 26px;
-  font-weight: 600;
+/* --- Snap Zoom on Drop --- */
+@keyframes tgSnap {
+  0%   { transform: scale(0.9); box-shadow: 0 0 0 rgba(0,0,0,0); }
+  60%  { transform: scale(1.08); box-shadow: 0 10px 22px rgba(0,0,0,.18); }
+  100% { transform: scale(1.0); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
 }
+.card.drop-zoom { animation: tgSnap 180ms ease-out; }
 
-/* Compact (prior) — keep available */
-html.mobile-compact .container{ padding:6px 6px 72px; }
-html.mobile-compact .board{ padding:8px; margin:8px auto; }
-html.mobile-compact .board .row.head .hearts { transform: scale(0.9); transform-origin: left center; }
-html.mobile-compact .slots{ gap:8px; }
-html.mobile-compact .aetherflow{ padding:6px; gap:8px; }
-html.mobile-compact .af-title{ display:none; }
-html.mobile-compact .af-cards{ gap:8px; }
-
-/* NEW: Mobile Mini — 50% scale for AI/AF/Player board areas (NOT hand) */
+/* --- Mobile MINI (50%) base (from previous pack, kept) --- */
 html.mobile-mini .aetherflow,
 html.mobile-mini [data-board="AI"] .slots,
 html.mobile-mini [data-board="YOU"] .slots{
   transform: scale(0.5);
   transform-origin: top center;
 }
+html.mobile-mini .slots{ gap:6px; }
+html.mobile-mini .aetherflow{ margin:4px auto; }
 
-/* Reduce gaps so scaled areas sit tighter */
-html.mobile-mini .slots{ gap: 6px; }
-html.mobile-mini .aetherflow{ margin: 4px auto; }
-
-/* Keep the hand full-size */
-html.mobile-mini [data-board="YOU"] .hand .card{
-  width: 140px; height: 200px;  /* explicit to guard against cascade */
+/* --- AF Zoom override: when user taps +AF, zoom AF larger while keeping others mini --- */
+html.mobile-mini.af-zoom .aetherflow{
+  transform: scale(0.9) !important;
+  position: relative;
+  z-index: 999;
+  transition: transform 120ms ease;
+}
+html.mobile-mini.af-zoom .aetherflow::after{
+  content:'';
+  position:absolute; inset:-6px;
+  border-radius:12px;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 12px 28px rgba(0,0,0,.35);
+  pointer-events:none;
 }
 
-/* Overlay for rotate prompt (from earlier packs) */
+/* --- Visible HUD buttons --- */
+#tgCompactToggle.icon.btn{
+  min-width:36px; min-height:28px; line-height:26px; font-weight:600;
+}
+#tgAFZoom.icon.btn{
+  min-width:42px; min-height:28px; line-height:26px; font-weight:700;
+}
+
+/* Rotate overlay (kept) */
 .tg-rotate-overlay{
   position:fixed; inset:0; background:rgba(0,0,0,.72);
   color:#fff; display:none; align-items:center; justify-content:center;
