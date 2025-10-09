@@ -1,36 +1,26 @@
-The Grey — Cleanup Upload Pack (v2.1)
-=====================================
 
-This pack removes the temporary nested-path shim and bumps the version badge.
+The Grey — Mobile Optimizations PLUS (v2.1)
+===========================================
 
-Included
---------
-- assets/js/boot-debug.js
-    - Imports './engine.acceptance.js' directly (no shim)
-    - Sets window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v13' for visual confirmation
+Adds:
+- Rotate overlay on phones in portrait
+- Compact mode that shrinks AI/slots/Aetherflow but keeps hand cards full size
+- Compact Toggle in HUD (left): cycles Auto → On → Off and remembers your choice
+- Tighter paddings & ultra-small (≤420px) tweaks to avoid side scroll
+
+Files (upload to branch v2.1):
 - assets/css/acceptance.safe.css
-    - Centers boards and keeps the fanned hand stable
+- assets/js/boot-debug.js
 
-Install (GitHub Web UI) — v2.1 branch
--------------------------------------
-1) Switch to branch: v2.1
-2) Add file -> Upload files
-3) Drag both files keeping the exact paths:
-   - assets/js/boot-debug.js
-   - assets/css/acceptance.safe.css
-4) Commit
-5) Hard refresh your site (Cmd/Ctrl+Shift+R). You should see:
-   - Version badge: "The Grey — v2.3.9-acceptanceP1-safe-v13"
-   - No JS import errors
-   - Centered boards and a fanned hand
+Install:
+1) In GitHub → switch to v2.1 branch
+2) Add file → Upload files and drop in both files above (keep exact paths)
+3) Commit, then hard refresh (Cmd/Ctrl+Shift+R)
 
-Cleanup (optional)
-------------------
-If you previously uploaded a nested shim at:
-  assets/js/assets/js/engine.acceptance.safe.js
-you can now delete it from v2.1 — it is no longer used.
+Verify:
+- Version badge shows: "The Grey — v2.3.9-acceptanceP1-safe-v14"
+- In portrait (phone), overlay prompts to rotate; compact layout active
+- Use the new ⇆ button in HUD (left) to set Auto / On / Off
 
-If your GitHub Pages is NOT serving from v2.1
----------------------------------------------
-Upload these files to the branch your Pages site uses
-(Settings -> Pages -> Source), or switch the Pages source to v2.1.
+If your Pages site serves a different branch:
+- Repeat the upload on that branch or change Settings → Pages → Source to v2.1.
