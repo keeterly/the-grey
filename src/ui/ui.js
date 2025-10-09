@@ -1,22 +1,12 @@
-// /src/ui/ui.js — clean pointer drag, preview, empty slots
+// /src/ui/ui.js — centered hand, empty slots, smooth pointer drag
+
+/* ---------- tiny DOM helpers ---------- */
 function $(q, r = document) { return r.querySelector(q); }
 function el(tag, cls) { const n = document.createElement(tag); if (cls) n.className = cls; return n; }
 
 let _gameRef = null;
-const AI_SLOT_COUNT = 3;
-const PLAYER_SLOT_COUNT = 3;
-const FLOW_COUNT = 5;
 
-/* ---------- HUD Hearts ---------- */
-function renderHearts(selector, hp, max = 5) {
-  const node = $(selector);
-  if (!node) return;
-  const v = Math.max(0, Math.min(max, Number(hp) || 0));
-  node.innerHTML = Array.from({ length: max }, (_, i) =>
-    `<span class="heart${i < v ? "" : " is-empty"}">❤</span>`).join("");
-}
-
-/* ---------- Slot Helpers ---------- */
+/* ---------- Board helpers ---------- */
 function getBoardSlotsEl() { return $('#yourBoard'); }
 function getBoardSlotNodes() {
   const root = getBoardSlotsEl();
@@ -38,10 +28,18 @@ function slotIndexFromPoint(x, y) {
   return -1;
 }
 
-/* ---------- Card Template ---------- */
-function cardEl({ title='Card', subtype='', right='', classes='' } = {}) {
+/* ---------- HUD hearts ---------- */
+function renderHearts(selector, hp, max = 5) {
+  const host = $(selector);
+  if (!host) return;
+  const v = Math.max(0, Math.min(max, Number(hp) || 0));
+  host.innerHTML = Array.from({ length: max }, (_, i) =>
+    `<span class="heart${i < v ? '' : ' is-empty'}">❤</span>`).join('');
+}
+
+/* ---------- Card template ---------- */
+function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
   const c = el('div', `card ${classes}`.trim());
-  c.draggable = false;
   c.innerHTML = `
     <div class="cHead">
       <div class="cName">${title}</div>
@@ -53,7 +51,10 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}) {
   return c;
 }
 
-/* ---------- Render Slots ---------- */
+/* ---------- Render rows ---------- */
+const AI_SLOT_COUNT = 3;
+const PLAYER_SLOT_COUNT = 3;
+
 function renderSlots(container, slots = [], slotCount = 3) {
   if (!container) return;
   container.innerHTML = '';
@@ -62,10 +63,7 @@ function renderSlots(container, slots = [], slotCount = 3) {
     wrap.dataset.slotIndex = String(i);
     const s = slots[i];
     if (s) {
-      wrap.appendChild(cardEl({
-        title: s.name || s.title || 'Card',
-        subtype: s.type || s.subtype || 'Spell'
-      }));
+      wrap.appendChild(cardEl({ title: s.name || s.title || 'Card', subtype: s.type || s.subtype || 'Spell' }));
     } else {
       wrap.appendChild(el('div', 'emptySlot'));
     }
@@ -73,12 +71,11 @@ function renderSlots(container, slots = [], slotCount = 3) {
   }
 }
 
-/* ---------- Render Aetherflow ---------- */
 function renderFlow(container, state) {
   if (!container) return;
   container.innerHTML = '';
-  const row = Array.isArray(state?.flowRow) ? state.flowRow.slice(0, FLOW_COUNT) : [];
-  while (row.length < FLOW_COUNT) row.push(null);
+  const row = Array.isArray(state?.flowRow) ? state.flowRow.slice(0, 5) : [];
+  while (row.length < 5) row.push(null);
   row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
     wrap.dataset.slotIndex = String(i);
@@ -88,27 +85,34 @@ function renderFlow(container, state) {
         subtype: cell.type || cell.subtype || 'Instant',
         right: String(i + 1),
       }));
-    } else wrap.appendChild(el('div', 'emptySlot'));
+    } else {
+      wrap.appendChild(el('div', 'emptySlot'));
+    }
     container.appendChild(wrap);
   });
 }
 
-/* ---------- Layout Hand ---------- */
+/* ---------- Hand layout ---------- */
 function layoutHand(ribbonEl) {
   const fan = ribbonEl.querySelector('.fan');
   if (!fan) return;
-  const anchor = document.querySelector('main.grid') || document.body;
+
+  const anchor = $('.wrap') || document.body;                      // center to main column
   const anchorRect = anchor.getBoundingClientRect();
   const ribbonRect = ribbonEl.getBoundingClientRect();
-  const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
+
+  const cardW = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--card-w')) || 180;
   const n = Math.max(1, fan.children.length);
+
   const preferred = 120;
   const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
   const spread = Math.min(preferred, maxSpread);
   const stripW = (n - 1) * spread + cardW;
+
   const fanLeft = Math.round((anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2));
   fan.style.left = `${fanLeft}px`;
   fan.style.width = `${stripW}px`;
+
   const centerIdx = (n - 1) / 2;
   fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
   requestAnimationFrame(() => {
@@ -126,24 +130,7 @@ function layoutHand(ribbonEl) {
   });
 }
 
-/* ---------- Click Preview ---------- */
-function enableClickPreview(wrap) {
-  let dragged = false;
-  wrap.addEventListener('pointerdown', () => { dragged = false; }, { passive: true });
-  wrap.addEventListener('preview:drag', () => { dragged = true; });
-  wrap.addEventListener('click', ev => {
-    if (dragged) return;
-    const was = wrap.classList.contains('is-preview');
-    document.querySelectorAll('.cardWrap.is-preview').forEach(w => w.classList.remove('is-preview'));
-    if (!was) wrap.classList.add('is-preview');
-    ev.stopPropagation();
-  });
-  document.addEventListener('click', e => {
-    if (!wrap.contains(e.target)) wrap.classList.remove('is-preview');
-  });
-}
-
-/* ---------- Pointer Drag ---------- */
+/* ---------- Pointer drag (smooth rAF) ---------- */
 function enablePointerDrag(wrap, handIndex) {
   const cardNode = wrap.querySelector('.card');
   if (!cardNode) return;
@@ -157,32 +144,30 @@ function enablePointerDrag(wrap, handIndex) {
     rafId = requestAnimationFrame(updateGhost);
   };
 
-  const move = e => {
+  const move = (e) => {
     if (!dragging) return;
     lastX = e.clientX - ghost.offsetWidth / 2;
     lastY = e.clientY - ghost.offsetHeight / 2;
-    // slot highlight check
     const idx = slotIndexFromPoint(e.clientX, e.clientY);
     markSlots(idx >= 0 ? 'accept' : 'target');
   };
 
-  const up = e => {
+  const up = (e) => {
     if (!dragging) return;
     cancelAnimationFrame(rafId);
     dragging = false;
     wrap.classList.remove('dragging');
-    wrap.dispatchEvent(new CustomEvent('preview:drag'));
     markSlots('');
     ghost.remove();
     const idx = slotIndexFromPoint(e.clientX, e.clientY);
     if (idx >= 0) _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex, slot: idx });
   };
 
-  wrap.addEventListener('pointerdown', e => {
+  wrap.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
     const rect = cardNode.getBoundingClientRect();
-    ghost = cardNode.cloneNode(true);
-    ghost.classList.add('dragGhost');
+    ghost = cardNode.cloneNode(true);     // keep text visible
+    ghost.className = 'card dragGhost';   // ensure ghost styling
     ghost.style.width = `${rect.width}px`;
     ghost.style.height = `${rect.height}px`;
     document.body.appendChild(ghost);
@@ -199,13 +184,13 @@ function enablePointerDrag(wrap, handIndex) {
   window.addEventListener('pointerup', up, { passive: true });
 }
 
-
-/* ---------- Render Hand ---------- */
+/* ---------- Render hand ---------- */
 function renderHand(ribbonEl, state) {
   if (!ribbonEl) return;
   ribbonEl.innerHTML = '';
   const fan = el('div', 'fan');
   ribbonEl.appendChild(fan);
+
   const hand = Array.isArray(state?.hand) ? state.hand : [];
   if (hand.length === 0) {
     const w = el('div', 'cardWrap');
@@ -214,33 +199,41 @@ function renderHand(ribbonEl, state) {
     layoutHand(ribbonEl);
     return;
   }
+
   hand.forEach((c, i) => {
     const w = el('div', 'cardWrap');
     const isInstant = (c.type || c.subtype) === 'Instant';
     const node = cardEl({
       title: c.name || c.title || 'Card',
       subtype: c.type || c.subtype || 'Spell',
-      classes: isInstant ? 'is-instant' : ''
+      classes: isInstant ? 'is-instant' : '',
     });
     w.appendChild(node);
     fan.appendChild(w);
     enablePointerDrag(w, i);
-    enableClickPreview(w);
   });
+
   layoutHand(ribbonEl);
 }
 
-/* ---------- Main Render ---------- */
+/* ---------- Public render ---------- */
 export function renderGame(state) {
+  // HUD
   renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
   renderHearts('#hud-ai-hearts', state?.ai?.hp ?? 0, 5);
+
+  // Dock counters (if present)
   const setTxt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
-  setTxt('#count-deck', state?.deck?.length ?? 0);
-  setTxt('#count-discard', state?.disc?.length ?? 0);
+  setTxt('#count-deck', Array.isArray(state?.deck) ? state.deck.length : 0);
+  setTxt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
   setTxt('#count-ae', state?.ae ?? 0);
-  renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
+
+  // Boards / Flow
+  renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], 3);
   renderFlow($('#aetherflow'), state);
-  renderSlots($('#yourBoard'), state?.slots ?? [], PLAYER_SLOT_COUNT);
+  renderSlots($('#yourBoard'), state?.slots ?? [], 3);
+
+  // Hand
   renderHand($('#ribbon'), state);
 }
 
@@ -248,9 +241,17 @@ export function renderGame(state) {
 export function init(game) {
   _gameRef = game;
   window.renderGame = renderGame;
+
+  // End Turn (if the dock button exists)
   $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
+
+  // First paint
   renderGame(game.state);
-  document.addEventListener('game:state', ev => renderGame(ev.detail?.state ?? game.state));
+
+  // Engine -> re-render
+  document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
+
+  // Keep center on resize/rotate
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
   window.addEventListener('resize', onResize, { passive: true });
