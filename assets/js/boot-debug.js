@@ -1,9 +1,7 @@
-/* assets/js/boot-debug.js — Repo build v2.3.9-acceptanceP1-ui-v4 (2025-10-09)
-   This file wires HUD overlay + acceptance engine.
-*/
-(function(){window.__THE_GREY_BUILD='v2.3.9-acceptanceP1-ui-v4';})();
+/* assets/js/boot-debug.js — build v2.1-acceptanceP1-ui-v5 (2025-10-09) */
+(function(){window.__THE_GREY_BUILD='v2.1-acceptanceP1-ui-v5';})();
 
-// Inject CSS from assets/css/acceptance.css if not already loaded
+// Ensure CSS
 (function ensureAcceptanceCSS(){
   if (document.querySelector('link[data-acceptance]')) return;
   const link = document.createElement('link');
@@ -11,7 +9,7 @@
   document.head.appendChild(link);
 })();
 
-// HUD overlay
+// HUD overlay + version badge
 (function ensureHUD(){
   if (!document.getElementById('hudOverlay')) {
     const hud = document.createElement('div'); hud.id='hudOverlay'; hud.className='hud-overlay';
@@ -26,77 +24,64 @@
   }
 })();
 
-// Minimal UI hooks
+// UI hooks
 const UIHooks = (()=>{
   const heartEl = ()=> document.getElementById('heartIcon');
-  const toastEl = ()=> document.getElementById('toast');
-  function toast(msg){
-    const el = toastEl(); if (!el) return;
-    el.textContent = msg; el.classList.add('show'); setTimeout(()=> el.classList.remove('show'), 1200);
-  }
   function pulseHeart(stage){
     const el = heartEl(); if (!el) return;
     const cls = stage===1 ? 'pulse-blue' : 'pulse-red';
     el.classList.add(cls); setTimeout(()=> el.classList.remove(cls), 2000);
   }
-  return { toast, pulseHeart };
+  return { pulseHeart };
 })();
 
-// Load engine module (ESM dynamic import to avoid bundler changes)
-(async function wireAcceptance(){
+// Wire acceptance engine via ESM
+(async function wire(){
   try {
-    const mod = await import('./assets/js/engine.acceptance.js');
-    const Acceptance = mod;
+    const Engine = await import('./assets/js/engine.acceptance.js');
+    const MAX_WAIT_MS = 10000; const start = Date.now();
 
-    // Render market slot costs if markup exists
-    const costs = Acceptance.getMarketCosts();
-    document.querySelectorAll('[data-market-slot]').forEach((el, i)=>{
-      const c = el.querySelector('.cost'); if (c) c.textContent = costs[i] ?? costs[costs.length-1] ?? '';
-      el.addEventListener('click', ()=>{ try {
-        const res = Acceptance.buyFromMarket(window.game, i);
-        if (!res.ok) return; UIHooks.toast((res.card?.name||'Card')+' → Discard');
-      } catch(e){} });
-    });
-
-    // Patch dispatch for Start Phase + Trance
     function hook(game){
-      if (typeof game.dispatch === 'function') {
+      if (typeof game.dispatch === 'function'){
         const original = game.dispatch.bind(game);
         game.dispatch = (action)=>{
           const result = original(action);
           const type = (action && action.type) || '';
           if (type==='START_TURN' || type==='START_PHASE' || type==='START') {
-            Acceptance.startPhase(game);
-            Acceptance.checkTrance(game, (stage)=> UIHooks.pulseHeart(stage));
+            Engine.startPhase(game);
+            Engine.checkTrance(game, (s)=> UIHooks.pulseHeart(s));
           }
           return result;
         };
       }
-      Acceptance.startPhase(game);
-      Acceptance.checkTrance(game, (stage)=> UIHooks.pulseHeart(stage));
+      Engine.startPhase(game);
+      Engine.checkTrance(game, (s)=> UIHooks.pulseHeart(s));
     }
 
-    const MAX_WAIT_MS = 10000; const start = Date.now();
-    (function waitGame(){
+    (function wait(){
       if (window.game && window.game.players && window.game.players.length) hook(window.game);
-      else if (Date.now()-start < MAX_WAIT_MS) setTimeout(waitGame, 60);
+      else if (Date.now()-start < MAX_WAIT_MS) setTimeout(wait, 60);
       else console.warn('[Acceptance] game not detected.');
     })();
 
-    // Continuous HUD sync
+    // Market costs + clicks
+    const costs = Engine.getMarketCosts();
+    document.querySelectorAll('[data-market-slot]').forEach((el,i)=>{
+      const c = el.querySelector('.cost'); if (c) c.textContent = costs[i] ?? costs[costs.length-1] ?? '';
+      el.addEventListener('click', ()=>{ try { Engine.buyFromMarket(window.game, i); } catch(e){} });
+    });
+
+    // HUD value sync
     (function loop(){
       const g = window.game, i = g ? (g.active ?? g.activePlayer ?? 0) : 0;
       const p = g && g.players ? g.players[i] : null;
-      const tempEl = document.querySelector('#aetherTempIcon .val');
-      const chanEl = document.querySelector('#aetherChIcon .val');
-      if (p && tempEl && chanEl){
-        tempEl.textContent = String(p.aether ?? 0);
-        chanEl.textContent = String((p.channeledAether ?? p.channeled) ?? 0);
-      }
+      const t = document.querySelector('#aetherTempIcon .val');
+      const ch = document.querySelector('#aetherChIcon .val');
+      if (p && t && ch) { t.textContent = String(p.aether ?? 0); ch.textContent = String((p.channeledAether ?? p.channeled) ?? 0); }
       requestAnimationFrame(loop);
     })();
 
   } catch (e) {
-    console.error('Failed to wire acceptance engine', e);
+    console.error('engine.acceptance import failed', e);
   }
 })();
