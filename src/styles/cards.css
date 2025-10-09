@@ -4,7 +4,10 @@ a { color: var(--gold); }
 
 .icon { width:28px; height:28px; border-radius:10px; background:var(--panel-bg); border:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 1px 4px var(--shadow); color:var(--text-soft); position:relative; }
 .icon.badge::after{ content: attr(data-count); position:absolute; transform: translate(10px,-10px); font-size:10px; background: var(--gold); color:#fff; border-radius:999px; padding:1px 5px; }
-.aetherGem{ width:34px; height:28px; border-radius:14px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; box-shadow: inset 0 0 10px rgba(255,255,255,.5), 0 0 6px var(--gold); }
+
+.aetherWell{ min-width:84px; height:32px; border-radius:16px; padding:0 12px; display:flex; align-items:center; justify-content:center; gap:8px;
+  background:#fff7e3; border:1px solid #e6cc96; color:#6b4f14; font-weight:600; box-shadow: inset 0 0 10px rgba(255,255,255,.5), 0 0 6px rgba(212,177,76,.3); }
+.aetherWell.highlight{ box-shadow: 0 0 0 2px rgba(212,177,76,.35) inset, 0 0 14px rgba(212,177,76,.3); }
 
 .board { background:#ffffffc2; border-radius:18px; padding:14px; margin:12px auto; max-width:1080px; box-shadow:0 8px 24px var(--shadow); }
 .row { display:flex; align-items:center; gap:12px; }
@@ -41,10 +44,8 @@ a { color: var(--gold); }
 .card.is-held-instant { animation: instantPulse 1.2s ease-in-out infinite; box-shadow:0 0 20px rgba(212,177,76,.25); }
 @keyframes instantPulse { 50% { box-shadow:0 0 30px rgba(212,177,76,.4);} }
 
-/* Draw animation */
 .anim-draw { animation: drawIn .28s ease-out; transform-origin: 50% 90%; }
 @keyframes drawIn { from{ opacity:0; transform: translate(-50%, 120px) scale(.9);} to{ opacity:1; transform: translate(-50%, 0) scale(1);} }
-/* Discard animation (board flash) */
 .discard-flash { animation: discardFlash .28s ease; }
 @keyframes discardFlash { from{background:#fff3;} to{background:#fff0;} }
 

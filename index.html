@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — Prototype (Choose Advance v2)</title>
+  <title>The Grey — Prototype (Aetherwell)</title>
   <link rel="stylesheet" href="./src/styles/cards.css">
   <style>
     html, body { height:100%; margin:0; background:linear-gradient(180deg,#f8f5ef 0%, #f3eee6 100%); color:#3a2e1f;
@@ -23,11 +23,11 @@
   <div class="container">
     <div class="titlebar">
       <h1>The Grey — Prototype</h1>
-      <div class="subtitle">Light Aetherflow • 3 Spell Slots • Per-card Advance</div>
+      <div class="subtitle">Aetherwell • 3 Spell Slots • Per-card Advance</div>
     </div>
     <div id="app"></div>
     <div class="tips">
-      <p><strong>Tips:</strong> Drag Spells to any Spell Slot; Glyphs to the dark Glyph Slot. Long‑press previews. Click <em>Advance</em> on a slotted spell to spend Aether and add a pip. Click a gold chip on a hand card to discard it for Aether.</p>
+      <p><strong>Tips:</strong> Drag <em>Spells</em> to Spell Slots (yours only). Drag <em>Glyphs</em> to the darker Glyph slot. Drag any hand card with a gold value to the <em>Aetherwell</em> to gain that much Aether for this turn. Click <em>Advance</em> on a slotted Spell to spend Aether and add a pip. End Turn discards your entire hand, then the AI plays; you draw a fresh hand at the start of your turn.</p>
     </div>
   </div>
 
@@ -38,7 +38,7 @@
         <div class="icon badge" id="discardIcon" title="Discard">⌫</div>
       </div>
       <div class="right">
-        <div class="aetherGem" id="aetherGem">0</div>
+        <div class="aetherWell" id="aetherWell" data-drop="aether" title="Drop here to gain Aether">⚡ 0</div>
         <button class="endTurn" id="btnEnd">End Turn</button>
       </div>
     </div>

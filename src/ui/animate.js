@@ -2,7 +2,6 @@ export const runAnimations = async (root, anims=[])=>{
   for (const a of anims) {
     switch (a.type) {
       case 'DRAW': {
-        // mark newly drawn cards to animate on next render (handled in CSS)
         const el = root.querySelector(`[data-card-id="${a.cardId}"][data-zone="hand"]`);
         if (el) el.classList.add('anim-draw');
         break;

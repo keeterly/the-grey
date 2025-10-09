@@ -7,7 +7,7 @@ export const A = {
   END_TURN:'END_TURN', AI_TURN:'AI_TURN'
 };
 
-const drawN=(side,n=1, anims=[], who)=>{
+const drawN=(side,n=1,anims=[],who)=>{
   for(let i=0;i<n;i++){
     if(!side.draw.length){ side.draw = side.discard.splice(0).reverse(); }
     const c = side.draw.pop();
@@ -24,7 +24,7 @@ const castIfComplete=(side,card,who,anims)=>{ anims.push({type:'RESOLVE', who, c
 export function reducer(state, action){
   const s = structuredClone(state); const you=s.you, ai=s.ai;
   switch(action.type){
-    case A.START: { drawN(you,5,s.animations,'YOU'); drawN(ai,5,s.animations,'AI'); return s; }
+    case A.START: { you.aether=0; ai.aether=0; drawN(you,5,s.animations,'YOU'); drawN(ai,5,s.animations,'AI'); return s; }
     case A.DRAW: { drawN(you,1,s.animations,'YOU'); return s; }
     case A.DISCARD_FOR_AETHER: {
       const {cardId, who='YOU'} = action; const tgt=who==='YOU'?you:ai;
@@ -35,38 +35,52 @@ export function reducer(state, action){
       return s;
     }
     case A.PLAY_TO_SLOT: {
-      const {cardId, who='YOU', slotIndex=0} = action; const tgt=who==='YOU'?you:ai;
-      const idx=tgt.hand.findIndex(c=>c.id===cardId); if(idx<0) return s;
-      const card=tgt.hand.splice(idx,1)[0];
-      if(card.type===CARD_TYPES.INSTANT){ s.animations.push({type:'PLAY', who, cardId:card.id}); castIfComplete(tgt,card,who,s.animations); tgt.discard.push(card); return s; }
-      const prev=tgt.slots[slotIndex]; if(prev) tgt.discard.push(prev);
+      const {cardId, who='YOU', slotIndex=0 } = action;
+      if (who!=='YOU') return s; // prevent placing in opponent slots
+      const tgt = you;
+      const idx = tgt.hand.findIndex(c=>c.id===cardId); if(idx<0) return s;
+      const card = tgt.hand.splice(idx,1)[0];
+      if (card.type!==CARD_TYPES.SPELL){ // only spells allowed
+        tgt.hand.push(card); return s;
+      }
+      const prev = tgt.slots[slotIndex]; if(prev) tgt.discard.push(prev);
       card.pips=0; tgt.slots[slotIndex]=card; s.animations.push({type:'PLAY', who, cardId:card.id}); return s;
     }
     case A.PLAY_TO_GLYPH: {
-      const {cardId, who='YOU'} = action; const tgt=who==='YOU'?you:ai;
+      const {cardId, who='YOU'} = action;
+      if (who!=='YOU') return s; // prevent placing on opponent
+      const tgt=you;
       const idx=tgt.hand.findIndex(c=>c.id===cardId); if(idx<0) return s;
-      const card=tgt.hand.splice(idx,1)[0]; if(card.type!=='GLYPH'){ tgt.hand.push(card); return s; }
-      if(tgt.glyphSlot) tgt.discard.push(tgt.glyphSlot); tgt.glyphSlot=card; s.animations.push({type:'PLAY_GLYPH', who, cardId:card.id}); return s;
+      const card=tgt.hand.splice(idx,1)[0];
+      if (card.type!==CARD_TYPES.GLYPH){ tgt.hand.push(card); return s; }
+      if (tgt.glyphSlot) tgt.discard.push(tgt.glyphSlot); tgt.glyphSlot=card; s.animations.push({type:'PLAY_GLYPH', who, cardId:card.id}); return s;
     }
     case A.ADVANCE_PIP: {
-      const {who='YOU', slotIndex} = action; const tgt=who==='YOU'?you:ai;
-      const card=tgt.slots[slotIndex]; if(!card||card.type!=='SPELL') return s;
-      if(tgt.aether < card.aetherCost) return s;
-      tgt.aether -= card.aetherCost; card.pips=Math.min(card.pips+1, card.pipsMax);
-      s.animations.push({type:'ADVANCE', who, cardId:card.id});
-      if(card.pips===card.pipsMax){ castIfComplete(tgt,card,who,s.animations); tgt.discard.push(card); tgt.slots[slotIndex]=null; }
+      const { slotIndex } = action; const card=you.slots[slotIndex]; if(!card||card.type!==CARD_TYPES.SPELL) return s;
+      if (you.aether < card.aetherCost) return s;
+      you.aether -= card.aetherCost; card.pips=Math.min(card.pips+1, card.pipsMax);
+      s.animations.push({type:'ADVANCE', who:'YOU', cardId:card.id});
+      if (card.pips===card.pipsMax){ castIfComplete(you,card,'YOU',s.animations); you.discard.push(card); you.slots[slotIndex]=null; }
       return s;
     }
     case A.END_TURN: { discardHand(you,s.animations,'YOU'); s.turn='AI'; return s; }
     case A.AI_TURN: {
-      const t=ai;
-      if(!t.glyphSlot){ const gi=t.hand.findIndex(c=>c.type==='GLYPH'); if(gi>=0){ const g=t.hand.splice(gi,1)[0]; if(t.glyphSlot) t.discard.push(t.glyphSlot); t.glyphSlot=g; s.animations.push({type:'PLAY_GLYPH', who:'AI', cardId:g.id}); } }
-      const empty=t.slots.findIndex(x=>!x); const si=t.hand.findIndex(c=>c.type==='SPELL'); if(empty>=0&&si>=0){ const sp=t.hand.splice(si,1)[0]; sp.pips=0; t.slots[empty]=sp; s.animations.push({type:'PLAY', who:'AI', cardId:sp.id}); }
-      const ii=t.hand.findIndex(c=>c.type==='INSTANT'); if(ii>=0){ const inst=t.hand.splice(ii,1)[0]; t.aether += inst.aetherGain||0; t.discard.push(inst); s.animations.push({type:'PLAY', who:'AI', cardId:inst.id}); }
-      for(let k=0;k<5;k++){ const idx=t.slots.findIndex(c=>c && c.type==='SPELL' && c.pips<c.pipsMax && t.aether>=c.aetherCost); if(idx===-1) break;
-        const card=t.slots[idx]; t.aether -= card.aetherCost; card.pips++; s.animations.push({type:'ADVANCE', who:'AI', cardId:card.id});
-        if(card.pips===card.pipsMax){ castIfComplete(t,card,'AI',s.animations); t.discard.push(card); t.slots[idx]=null; } }
-      discardHand(t,s.animations,'AI'); s.turn='YOU'; drawN(you,5,s.animations,'YOU'); return s;
+      // AI logic: own side only
+      // play glyph if empty
+      if (!ai.glyphSlot){ const gi=ai.hand.findIndex(c=>c.type===CARD_TYPES.GLYPH); if(gi>=0){ const g=ai.hand.splice(gi,1)[0]; if(ai.glyphSlot) ai.discard.push(ai.glyphSlot); ai.glyphSlot=g; s.animations.push({type:'PLAY_GLYPH', who:'AI', cardId:g.id}); } }
+      // play spell into first empty slot
+      const empty=ai.slots.findIndex(x=>!x); const si=ai.hand.findIndex(c=>c.type===CARD_TYPES.SPELL);
+      if (empty>=0 && si>=0){ const sp=ai.hand.splice(si,1)[0]; sp.pips=0; ai.slots[empty]=sp; s.animations.push({type:'PLAY', who:'AI', cardId:sp.id}); }
+      // discard any instant for aether
+      for(;;){ const ii=ai.hand.findIndex(c=>c.type===CARD_TYPES.INSTANT); if(ii<0) break; const inst=ai.hand.splice(ii,1)[0]; ai.aether += inst.aetherGain||0; ai.discard.push(inst); s.animations.push({type:'PLAY', who:'AI', cardId:inst.id}); }
+      // try to advance multiple times
+      for (let k=0;k<8;k++){ const idx=ai.slots.findIndex(c=>c && c.type===CARD_TYPES.SPELL && c.pips < c.pipsMax && ai.aether >= c.aetherCost); if(idx===-1) break;
+        const card=ai.slots[idx]; ai.aether -= card.aetherCost; card.pips++; s.animations.push({type:'ADVANCE', who:'AI', cardId:card.id});
+        if(card.pips===card.pipsMax){ castIfComplete(ai,card,'AI',s.animations); ai.discard.push(card); ai.slots[idx]=null; } }
+      discardHand(ai,s.animations,'AI'); // AI discards hand at end of its turn
+      // Player turn starts: reset player aether and draw new hand
+      s.turn='YOU'; you.aether=0; drawN(you,5,s.animations,'YOU');
+      return s;
     }
     default: return s;
   }

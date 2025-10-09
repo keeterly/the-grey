@@ -42,16 +42,21 @@ function sideHtml(side, who){
 
 function render(){
   root.innerHTML = `${sideHtml(state.ai,'AI')}${sideHtml(state.you,'YOU')}`;
+
   // Footer HUD numbers
-  document.getElementById('deckIcon').setAttribute('data-count', state.you.draw.length);
-  document.getElementById('discardIcon').setAttribute('data-count', state.you.discard.length);
-  document.getElementById('aetherGem').textContent = state.you.aether;
+  const deckIcon = document.getElementById('deckIcon');
+  const discardIcon = document.getElementById('discardIcon');
+  const aetherWell = document.getElementById('aetherWell');
+  if (deckIcon) deckIcon.setAttribute('data-count', state.you.draw.length);
+  if (discardIcon) discardIcon.setAttribute('data-count', state.you.discard.length);
+  if (aetherWell) aetherWell.textContent = `⚡ ${state.you.aether}`;
 
   // Wire UI
   wireHandDrag(root, dispatch);
-  document.getElementById('btnEnd').onclick = ()=>{ dispatch({type:A.END_TURN}); dispatch({type:A.AI_TURN}); };
+  const endBtn = document.getElementById('btnEnd');
+  if (endBtn) endBtn.onclick = ()=>{ dispatch({type:A.END_TURN}); dispatch({type:A.AI_TURN}); };
 
-  // Per-card actions
+  // Per-card actions (click alternatives)
   root.querySelectorAll('.gain-chip').forEach(el=> el.onclick = ()=> dispatch({type:A.DISCARD_FOR_AETHER, cardId: el.getAttribute('data-card')}) );
   root.querySelectorAll('.advance-btn').forEach(el=> el.onclick = ()=> dispatch({type:A.ADVANCE_PIP, slotIndex: Number(el.getAttribute('data-slot-index'))}) );
 }
