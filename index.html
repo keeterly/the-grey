@@ -3,36 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — Prototype (Light Aetherflow)</title>
+  <title>The Grey — Prototype (Light Aetherflow, 3 Slots)</title>
   <link rel="stylesheet" href="./src/styles/cards.css">
   <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: linear-gradient(180deg, #f8f5ef 0%, #f3eee6 100%);
-      color: #3a2e1f;
-      font-family: Inter, Quicksand, "Segoe UI", system-ui, sans-serif;
-    }
+    html, body { height:100%; margin:0; background:linear-gradient(180deg,#f8f5ef 0%, #f3eee6 100%); color:#3a2e1f;
+      font-family: Inter, Quicksand, "Segoe UI", system-ui, sans-serif; }
     .container{max-width:1100px; margin:0 auto; padding:16px;}
     .titlebar{display:flex; align-items:center; gap:12px; padding:12px 0; margin-bottom:8px;}
-    .titlebar h1{font-size:18px; letter-spacing:.02em; margin:0;}
-    .subtitle{opacity:.6}
+    .titlebar h1{font-size:18px; letter-spacing:.02em; margin:0;} .subtitle{opacity:.6}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="titlebar">
       <h1>The Grey — Prototype</h1>
-      <div class="subtitle">Light Aetherflow theme</div>
+      <div class="subtitle">Light Aetherflow theme • 3 Spell Slots</div>
     </div>
-
     <div id="app"></div>
-
     <div class="tips">
-      <p><strong>Tips:</strong> Long‑press a hand card to preview; drag onto <em>Spell Slot</em> or <em>Glyph Slot</em>. Use <em>Advance</em> to spend Aether on pips. <em>End Turn</em> discards your hand and lets the AI play/animate.</p>
+      <p><strong>Tips:</strong> Drag to any of the three <em>Spell Slots</em> or the <em>Glyph Slot</em>. Long‑press previews. <em>Advance</em> spends Aether on the leftmost playable Spell.</p>
     </div>
   </div>
-
   <script type="module" src="./src/ui/index.js"></script>
 </body>
 </html>
