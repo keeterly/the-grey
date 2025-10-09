@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>The Grey — v2.3.9</title>
 <link rel="stylesheet" href="./src/styles/cards.css">
+
+<!-- Additive, scoped CSS for HUD + version badge (won't affect your layout) -->
+<link rel="stylesheet" href="./assets/css/acceptance.safe.css" data-tg-safe="true">
 </head>
 <body>
 <div class="container">
@@ -37,7 +40,16 @@
   </div>
 </div>
 
+<!-- Version + engine wiring (kept additive and isolated) -->
+<script>
+  window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v7";
+</script>
+
 <script type="module" src="./src/ui/index.js"></script>
+
+<!-- Safe additive acceptance wiring; does not change your DOM layout -->
+<script src="./assets/js/boot.js"></script>
+<script src="./assets/js/boot-debug.js"></script>
 
 <script>
 // Rotate hint removed to simplify; landscape is still best.

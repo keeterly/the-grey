@@ -1,6 +1,4 @@
 // assets/js/engine.acceptance.safe.js
-// Safe, additive acceptance mechanics (no DOM/layout changes).
-
 export const MARKET_COSTS = [4,3,2,2,2];
 
 function ensurePlayerShape(p){
@@ -33,7 +31,6 @@ function drawOne(player){
   if (player.deck.length > 0) player.hand.push(player.deck.pop());
 }
 
-// Start Phase: 🜂=0, ◇ preserved, Aether Flow drift, draw-to-5
 export function startPhase(game){
   const idx = game.active ?? game.activePlayer ?? 0;
   const player = ensurePlayerShape(game.players[idx]);
@@ -49,7 +46,6 @@ export function startPhase(game){
   Object.assign(game.players[idx], player);
 }
 
-// Market helpers
 export function getMarketCosts(){ return MARKET_COSTS.slice(); }
 export function canAfford(player, cost){
   const p = ensurePlayerShape(player);
@@ -79,7 +75,6 @@ export function buyFromMarket(game, slotIndex){
   return { ok:true, card };
 }
 
-// Trance thresholds
 export function checkTrance(game, onStageEnter){
   const idx = game.active ?? game.activePlayer ?? 0;
   const player = ensurePlayerShape(game.players[idx]);
