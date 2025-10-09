@@ -1,0 +1,45 @@
+:root {
+  --hand-gap: .5rem;
+}
+/* HUD overlay */
+.hud-overlay {
+  position: fixed; top: .6rem; right: .6rem; z-index: 9999;
+  display:flex; gap:.5rem; align-items:center;
+  background: rgba(20,20,20,.35); backdrop-filter: blur(2px);
+  padding:.35rem .55rem; border-radius:.5rem; border:1px solid rgba(255,255,255,.12);
+  box-shadow:0 2px 8px rgba(0,0,0,.25);
+}
+.hud-icon{display:inline-flex;align-items:center;gap:.35em;font-size:3em;line-height:1;color:#e6e6e6;}
+.hud-icon .val{font-size:.45em;opacity:.9;min-width:1.2em;text-align:center;}
+#heartIcon{filter:drop-shadow(0 0 4px rgba(255,80,80,.4));}
+.icon-aether-temp{filter:drop-shadow(0 0 4px rgba(255,200,80,.25));}
+.icon-aether-channeled{filter:drop-shadow(0 0 4px rgba(160,220,255,.25));}
+/* pulses */
+.pulse-blue { animation: pulseBlue 1.25s ease-in-out 2; }
+.pulse-red  { animation: pulseRed  1.25s ease-in-out 2; }
+@keyframes pulseBlue {
+  0%,100%{transform:scale(1);filter:drop-shadow(0 0 6px rgba(0,255,255,.6));}
+  50%{transform:scale(1.18);filter:drop-shadow(0 0 14px rgba(0,255,255,.9));}
+}
+@keyframes pulseRed {
+  0%,100%{transform:scale(1);filter:drop-shadow(0 0 6px rgba(220,20,60,.6));}
+  50%{transform:scale(1.18);filter:drop-shadow(0 0 14px rgba(220,20,60,.9));}
+}
+/* Center slot rows */
+.board .slots, .slot-row, .slots, [data-slot-row], [data-player-slots], [data-ai-slots] {
+  display:flex; justify-content:center; align-items:center; gap: .75rem;
+}
+/* Card scale +25% */
+.card, .Card, .card-entity, .card-in-hand, .card-slot .card, [data-card] {
+  transform: scale(1.25);
+  transform-origin: center bottom;
+  will-change: transform;
+}
+.hand, .hand-row, [data-hand] { gap: calc(var(--hand-gap) * 1.25); }
+
+/* Version badge */
+#versionBadge {
+  position: fixed; left: .6rem; bottom: .6rem; z-index: 9999;
+  background: rgba(20,20,20,.55); color:#eaeaea; border:1px solid rgba(255,255,255,.15);
+  padding:.25rem .5rem; border-radius:.4rem; font-size:12px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
