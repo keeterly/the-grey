@@ -7,12 +7,14 @@
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* ---- Bottom HUD ---- */
+/* ---- Bottom HUD (NieR minimal) ---- */
 .hud-min { font-size: 16px; }
 .hud-min .left, .hud-min .right { display:flex; align-items:center; gap:.6rem; }
 .hud-min .icon { font-size:22px; line-height:1; display:inline-flex; align-items:center; justify-content:center; }
 .hud-min .btn { cursor:pointer; }
 .hud-min .btn:active { transform: translateY(1px); }
+
+/* Pill buttons (deck / discard / end) styled like counters */
 .hud-pill {
   display:inline-flex; align-items:center; gap:.5rem;
   padding:6px 12px; border-radius:999px;
@@ -21,9 +23,16 @@
   font-size:14px;
   font-family:"Noto Sans Symbols 2","Segoe UI Symbol",system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans",sans-serif;
 }
-.hud-pill .sym { font-size:14px; opacity:.7; transform: translateY(-.5px); }
-.hud-pill .val { font-size:1.35em; font-weight:650; min-width:1.5em; text-align:center; letter-spacing:.02em; }
-#aetherWell { margin:0 .25rem; }
+.hud-pill .sym { font-size:14px; opacity:.75; transform: translateY(-.5px); }
+.hud-pill .val { font-size:1.3em; font-weight:650; min-width:1.4em; text-align:center; letter-spacing:.02em; }
+
+/* Button-pill variant */
+.btn-pill { user-select:none; }
+.btn-pill:active { transform: translateY(1px); }
+
+/* hide lightning bolt visual but keep drop target area */
+#_aetherWellProxy { position: fixed; right: 170px; bottom: 10px; width: 36px; height: 28px; opacity: 0.02; z-index: 10; }
+#aetherWell { display: none !important; } /* hide original icon visually */
 
 /* ---- Center rows (AI/Player/Aetherflow) ---- */
 .board .slots,
@@ -41,15 +50,13 @@
 
 /* ---- Card sizing ---- */
 :root {
-  --hand-overlap: -28px; /* half the previous overlap */
-  --hand-gap: .25rem;
+  --hand-overlap: -24px; /* reduced overlap */
+  --hand-gap: .3rem;
 }
-
-/* Reset to avoid accidental overrides */
 .card { transform: none; box-shadow: none; }
-.card:active { opacity: .95; } /* helps drag visibility */
+.card:active { opacity: .97; }
 
-/* Slotted cards (AI/Player/Aetherflow) at 75% */
+/* Slotted cards 75% */
 .aetherflow .card,
 #marketSlots .card,
 .board .card-slot .card,
@@ -61,13 +68,13 @@
   z-index: 1;
 }
 
-/* Hand cards at 120% with arc preserved + hover lift */
+/* Hand cards 125% + hover lift */
 .hand .card,
 [data-hand] .card {
-  transform: rotate(var(--rot, 0deg)) scale(1.2) !important;
+  transform: rotate(var(--rot, 0deg)) scale(1.25) !important;
   transform-origin: center bottom;
   will-change: transform, box-shadow, translate, margin;
-  box-shadow: 0 8px 18px rgba(0,0,0,.18);
+  box-shadow: 0 10px 22px rgba(0,0,0,.2);
   z-index: 2;
   transition: transform .12s ease, box-shadow .12s ease, translate .12s ease, margin .12s ease;
   margin-left: var(--hand-overlap);
@@ -75,12 +82,11 @@
 }
 .hand .card:first-child,
 [data-hand] .card:first-child { margin-left: 0; }
-
 .hand .card:hover,
 [data-hand] .card:hover {
-  transform: rotate(var(--rot, 0deg)) scale(1.24) translateY(-3px) !important;
-  box-shadow: 0 12px 26px rgba(0,0,0,.27);
+  transform: rotate(var(--rot, 0deg)) scale(1.3) translateY(-3px) !important;
+  box-shadow: 0 14px 28px rgba(0,0,0,.28);
 }
 
 /* Hand row spacing */
-.hand, [data-hand] { gap: var(--hand-gap); padding-top: .25rem; }
+.hand, [data-hand] { gap: var(--hand-gap); padding-top: .3rem; }

@@ -1,22 +1,68 @@
-/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v12 (2025-10-09) */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v12'; })();
+/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v13 (2025-10-09) */
+(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v13'; })();
 
-// Inject bottom-right pills (Temp 🜂 and Channeled ◇)
-(function ensureBottomCounters(){
-  const right = document.querySelector('.hud-min .right');
-  if (!right) return;
+// Build pill-style controls and counters in bottom HUD
+(function ensureBottomHUD(){
+  const hud = document.querySelector('.hud-min');
+  if (!hud) return;
+  const left = hud.querySelector('.left'); const right = hud.querySelector('.right');
   const endBtn = document.getElementById('btnEnd') || right.lastElementChild;
 
-  function makePill(id, sym){
-    const el = document.createElement('span');
-    el.id = id; el.className = 'hud-pill';
-    el.innerHTML = `<span class="sym">${sym}</span><span class="val">0</span>`;
-    return el;
+  // Convert deck & discard to pill buttons on the left
+  function toPill(btn, id, sym) {
+    if (!btn) return null;
+    const pill = document.createElement('span');
+    pill.className = 'hud-pill btn-pill'; pill.id = id;
+    pill.innerHTML = `<span class="sym">${sym}</span>`;
+    btn.replaceWith(pill);
+    return pill;
+  }
+  const deckPill = toPill(document.getElementById('deckIcon'), 'deckPill', '⟲');
+  const discardPill = toPill(document.getElementById('discardIcon'), 'discardPill', '⌫');
+
+  // Create End Turn pill on the right
+  if (!document.getElementById('endPill')) {
+    const endPill = document.createElement('span');
+    endPill.id = 'endPill'; endPill.className = 'hud-pill btn-pill';
+    endPill.innerHTML = '<span class="sym">⏵</span>';
+    if (endBtn) endBtn.replaceWith(endPill); else right.appendChild(endPill);
   }
 
-  if (!document.getElementById('tgTempPill')) right.insertBefore(makePill('tgTempPill','🜂'), endBtn);
-  if (!document.getElementById('tgChanPill')) right.insertBefore(makePill('tgChanPill','◇'), endBtn);
+  // Replace counters with pill style (if not already present)
+  function makeCounter(id, sym) {
+    const el = document.createElement('span'); el.id = id; el.className = 'hud-pill';
+    el.innerHTML = `<span class="sym">${sym}</span><span class="val">0</span>`; return el;
+  }
+  if (!document.getElementById('tgTempPill')) right.insertBefore(makeCounter('tgTempPill','🜂'), right.firstChild);
+  if (!document.getElementById('tgChanPill')) right.insertBefore(makeCounter('tgChanPill','◇'), right.firstChild);
 
+  // Invisible drop proxy to keep aetherWell DnD working, but convert gain to permanent ◇
+  if (!document.getElementById('_aetherWellProxy')) {
+    const proxy = document.createElement('div'); proxy.id = '_aetherWellProxy'; document.body.appendChild(proxy);
+    proxy.addEventListener('dragover', e => { e.preventDefault(); });
+    proxy.addEventListener('drop', e => {
+      try {
+        const g = window.game; if (!g || !g.players) return;
+        const i = g.active ?? g.activePlayer ?? 0; const p = g.players[i];
+        // Try to read amount from dataTransfer; fallback to +1
+        let delta = 1;
+        const dt = e.dataTransfer;
+        if (dt) {
+          const raw = dt.getData('text/plain') || dt.getData('application/aether') || '';
+          const m = raw.match(/[+-]?\d+/); if (m) delta = parseInt(m[0],10);
+        }
+        p.channeledAether = (p.channeledAether ?? p.channeled ?? 0) + (isNaN(delta)?1:delta);
+        // If base handler already added to temp, try to net it out
+        if ((p.aether ?? 0) >= delta) p.aether -= delta;
+      } catch(_e) { }
+    });
+  }
+
+  // Hide the original lightning bolt but keep its element for any legacy handlers
+  const aetherWell = document.getElementById('aetherWell');
+  if (aetherWell) aetherWell.setAttribute('aria-hidden','true');
+
+  // Version badge
   if (!document.getElementById('tgVersion')) {
     const v = document.createElement('div'); v.id='tgVersion'; v.className='tgVersion';
     v.textContent = 'The Grey — ' + (window.__THE_GREY_BUILD||'dev');
@@ -60,7 +106,7 @@
       else console.warn('[safe acceptance] game not detected.');
     })();
 
-    // Sync bottom counters
+    // Sync bottom counters (🜂 temp, ◇ channeled)
     (function tick(){
       const g = window.game, i = g ? (g.active ?? g.activePlayer ?? 0) : 0;
       const p = g && g.players ? g.players[i] : null;
@@ -73,20 +119,13 @@
       requestAnimationFrame(tick);
     })();
 
-    // Robust centering fallback: detect rows with 3+ .slot children
+    // Stronger centering fallback
     (function centerFallback(){
-      const candidates = Array.from(document.querySelectorAll('.board *')).filter(n => n.children && n.children.length >= 3);
-      candidates.forEach(n => {
-        const hasSlots = Array.from(n.children).some(c => /slot/i.test(c.className || ''));
-        if (hasSlots) {
-          const st = getComputedStyle(n);
-          if (st.display !== 'flex' || st.justifyContent !== 'center') {
-            n.style.display = 'flex';
-            n.style.justifyContent = 'center';
-            n.style.alignItems = 'center';
-            n.style.gap = n.style.gap || '0.75rem';
-          }
-        }
+      const rows = document.querySelectorAll('.board .slots, .slot-row, .slots, [data-player-slots], [data-ai-slots]');
+      rows.forEach(row=>{
+        row.style.display = 'flex';
+        row.style.justifyContent = 'center';
+        row.style.alignItems = 'center';
       });
     })();
 

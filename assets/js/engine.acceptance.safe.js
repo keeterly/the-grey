@@ -32,7 +32,6 @@ function drawOne(player){
   if (player.deck.length > 0) player.hand.push(player.deck.pop());
 }
 
-// Start Phase: reset temp aether, drift Aetherflow, draw to 5
 export function startPhase(game){
   const idx = game.active ?? game.activePlayer ?? 0;
   const player = ensurePlayerShape(game.players[idx]);
