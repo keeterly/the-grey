@@ -1,32 +1,41 @@
 // src/engine/bridge.js
-// Bridge the engine to the UI with correct, relative imports.
+// Clean bridge that loads the engine, then the UI (and drag helpers) with correct relative paths.
 
-/*
-Folder layout this expects:
-  /src/
-    engine/
-      index.js
-      bridge.js   <-- this file
-    ui/
-      ui.js
-*/
-
-import './index.js';             // initializes the engine and exposes window.dispatch/getState
-import * as UI from '../ui/ui.js';  // UI entry (no leading /src!)
+import './index.js';                 // engine entry (same folder as this file)
+import * as UI from '../ui/ui.js';   // UI entry (one folder up, then /ui/)
+import '../ui/drag.js';              // optional: side-effect import if drag.js attaches listeners
 
 /**
- * Wire the running engine to the UI.
- * Assumes index.js exposes window.dispatch and window.getState (as your current engine does).
+ * Build the minimal "game" object the UI expects:
+ *  - state getter
+ *  - dispatch function
+ */
+function makeGame() {
+  return {
+    get state() { return window.getState?.(); },
+    dispatch: (...args) => window.dispatch?.(...args),
+  };
+}
+
+/**
+ * Expose/boot the UI once the DOM is ready.
+ * Works whether UI exports `init` named, or a default init function.
  */
 export function exposeToWindow() {
   const start = () => {
-    if (typeof UI.init === 'function') {
-      // Construct the "game" object the UI expects.
-      const game = {
-        get state() { return window.getState?.(); },
-        dispatch: (...args) => window.dispatch?.(...args),
-      };
-      UI.init(game);
+    const game = makeGame();
+
+    const init =
+      typeof UI.init === 'function'
+        ? UI.init
+        : typeof UI.default === 'function'
+          ? UI.default
+          : null;
+
+    if (init) {
+      init(game);
+    } else {
+      console.warn('[BRIDGE] No UI.init() (or default export) found in /src/ui/ui.js');
     }
   };
 
@@ -37,5 +46,5 @@ export function exposeToWindow() {
   }
 }
 
-// Auto-run for normal page loads
+// Auto-run on page load
 exposeToWindow();
