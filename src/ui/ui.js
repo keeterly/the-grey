@@ -148,43 +148,57 @@ function enablePointerDrag(wrap, handIndex) {
   const cardNode = wrap.querySelector('.card');
   if (!cardNode) return;
   cardNode.draggable = false;
-  let dragging = false, ghost = null, id = null, offsetX = 0, offsetY = 0;
+
+  let dragging = false, ghost = null, lastX = 0, lastY = 0, rafId = 0;
+
+  const updateGhost = () => {
+    if (!dragging || !ghost) return;
+    ghost.style.transform = `translate(${lastX}px, ${lastY}px)`;
+    rafId = requestAnimationFrame(updateGhost);
+  };
+
   const move = e => {
     if (!dragging) return;
-    const x = e.clientX - offsetX, y = e.clientY - offsetY;
-    ghost.style.transform = `translate(${x}px,${y}px)`;
+    lastX = e.clientX - ghost.offsetWidth / 2;
+    lastY = e.clientY - ghost.offsetHeight / 2;
+    // slot highlight check
     const idx = slotIndexFromPoint(e.clientX, e.clientY);
     markSlots(idx >= 0 ? 'accept' : 'target');
   };
+
   const up = e => {
     if (!dragging) return;
+    cancelAnimationFrame(rafId);
     dragging = false;
     wrap.classList.remove('dragging');
     wrap.dispatchEvent(new CustomEvent('preview:drag'));
     markSlots('');
-    if (ghost) ghost.remove();
+    ghost.remove();
     const idx = slotIndexFromPoint(e.clientX, e.clientY);
     if (idx >= 0) _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex, slot: idx });
   };
+
   wrap.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;
-    id = e.pointerId;
     const rect = cardNode.getBoundingClientRect();
-    ghost = cardNode.cloneNode(true); // clone all children (fix missing info)
+    ghost = cardNode.cloneNode(true);
     ghost.classList.add('dragGhost');
     ghost.style.width = `${rect.width}px`;
     ghost.style.height = `${rect.height}px`;
     document.body.appendChild(ghost);
-    offsetX = rect.width / 2;
-    offsetY = rect.height / 2;
+
     wrap.classList.add('dragging');
     dragging = true;
     markSlots('target');
+
     move(e);
+    rafId = requestAnimationFrame(updateGhost);
   });
+
   window.addEventListener('pointermove', move, { passive: true });
   window.addEventListener('pointerup', up, { passive: true });
 }
+
 
 /* ---------- Render Hand ---------- */
 function renderHand(ribbonEl, state) {
