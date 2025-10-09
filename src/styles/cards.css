@@ -1,8 +1,6 @@
 :root { --base-bg:#f8f5ef; --panel-bg:#ffffff; --panel-edge:#e6e0d4; --gold:#d4b14c; --text-dark:#3a2e1f; --text-soft:#6b5f50; --shadow: rgba(0,0,0,.08); }
 body { background: linear-gradient(180deg, var(--base-bg) 0%, #f3eee6 100%); color: var(--text-dark); }
-a { color: var(--gold); }
-
-.icon { width:28px; height:28px; border-radius:10px; background:var(--panel-bg); border:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 1px 4px var(--shadow); color:var(--text-soft); position:relative; }
+.icon { width:28px; height:28px; border-radius:10px; background:var(--panel-bg); border:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 1px 4px var(--shadow); color:#6b5f50; position:relative; }
 .icon.badge::after{ content: attr(data-count); position:absolute; transform: translate(10px,-10px); font-size:10px; background: var(--gold); color:#fff; border-radius:999px; padding:1px 5px; }
 
 .aetherWell{ min-width:84px; height:32px; border-radius:16px; padding:0 12px; display:flex; align-items:center; justify-content:center; gap:8px;
@@ -17,8 +15,9 @@ a { color: var(--gold); }
 .slot.highlight, .glyph-slot.highlight { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212,177,76,.35) inset, 0 0 14px rgba(212,177,76,.25); }
 .slot-ghost { font-size:12px; }
 
-.card { width:140px; height:200px; border-radius:16px; background:var(--panel-bg); border:1px solid var(--panel-edge); box-shadow:0 6px 16px var(--shadow); position:relative; transition: transform .12s ease, box-shadow .12s ease; user-select:none; touch-action:none; }
+.card { width:140px; height:200px; border-radius:16px; background:var(--panel-bg); border:1px solid var(--panel-edge); box-shadow:0 6px 16px var(--shadow); position:relative; transition: transform .08s ease, box-shadow .12s ease; user-select:none; touch-action:none; }
 .card .title { position:absolute; top:26px; left:8px; right:8px; text-align:center; font-size:13px; font-weight:500; color:var(--text-dark); }
+.card.is-dragging { cursor: grabbing; z-index:25; }
 
 .badge { position:absolute; top:6px; left:6px; font-size:11px; padding:2px 6px; border-radius:10px; border:1px solid rgba(0,0,0,.05); box-shadow:0 1px 3px var(--shadow); }
 .badge.Instant { background:#f2efff; color:#5542ad; border-color:#cbc4ff; }
@@ -31,19 +30,11 @@ a { color: var(--gold); }
 .hand { position:relative; height:220px; margin-top:24px; }
 .hand .card { position:absolute; left:50%; transform-origin:50% 90%; pointer-events:auto; }
 
-.card.is-preview { z-index:20; transform: scale(1.1) var(--base, translate(-50%,0)) rotate(var(--rot, 0deg)) translate(var(--dx,0px), var(--dy,0px)); box-shadow:0 12px 32px var(--shadow); }
-.card.is-dragging { cursor: grabbing; z-index:25; }
-
 .pips { position:absolute; bottom:34px; left:0; right:0; display:flex; justify-content:center; gap:6px; }
 .pip { width:10px; height:10px; border-radius:50%; border:1px solid var(--gold); background: transparent; }
 .pip.full { background: var(--gold); }
 .pip-tick { animation: pipTick .18s ease; } @keyframes pipTick { 50%{ transform: scale(1.2);} }
 
-.anim-draw { animation: drawIn .28s ease-out; transform-origin: 50% 90%; }
-@keyframes drawIn { from{ opacity:0; transform: translate(-50%, 120px) scale(.9);} to{ opacity:1; transform: translate(-50%, 0) scale(1);} }
+.anim-draw { position:fixed; width:140px; height:200px; border-radius:16px; background:#fff; border:1px solid #e6e0d4; box-shadow:0 6px 16px rgba(0,0,0,.1); pointer-events:none; transition: transform .35s ease, opacity .35s ease; opacity:0; }
 
-/* fly ghosts */
-.fly { position:fixed; width:140px; height:200px; border-radius:16px; background:#fff; border:1px solid #e6e0d4; box-shadow:0 6px 16px rgba(0,0,0,.1); pointer-events:none; }
-.fly.fade { transition: transform .35s ease, opacity .35s ease; opacity:0; }
-
-p, .tips { color: var(--text-soft); font-size: 13px; }
+.fly { position:fixed; width:140px; height:200px; border-radius:16px; background:#fff; border:1px solid #e6e0d4; box-shadow:0 6px 16px rgba(0,0,0,.1); pointer-events:none; transition: transform .35s ease, opacity .35s ease; }

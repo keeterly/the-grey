@@ -1,28 +1,33 @@
 import { A } from '../engine/rules.js';
 import { CARD_TYPES } from '../engine/state.js';
 
-const LONGPRESS_MS = 200;
+const LONGPRESS_MS = 180;
 let pressTimer = null;
 let dragging = null;
+
+function baseTransform(el){
+  return el.getAttribute('data-base') || '';
+}
+function applyTransform(el, dx=0, dy=0, scale=1){
+  const base = baseTransform(el);
+  el.style.transform = `scale(${scale}) ${base} translate(${dx}px, ${dy}px)`;
+}
 
 function toggleHighlights(root, type, on, cardEl){
   const yourBoard = root.querySelector('[data-board="YOU"]');
   const slots = [...yourBoard.querySelectorAll('[data-drop="slot"]')];
   const glyph = yourBoard.querySelector('[data-drop="glyph"]');
   const well  = document.getElementById('aetherWell');
-
   slots.forEach(s=> s.classList.toggle('highlight', on && type===CARD_TYPES.SPELL));
   if (glyph) glyph.classList.toggle('highlight', on && type===CARD_TYPES.GLYPH);
-  if (well)  well.classList.toggle('highlight', on && Number(cardEl?.dataset.gain || 0) > 0);
+  if (well)  well.classList.toggle('highlight', on && Number(cardEl?.querySelector('.gain-chip')?.dataset.gain || 0) > 0);
 }
 
 export function wireHandDrag(root, dispatch) {
   const cleanup = (cardEl)=>{
     toggleHighlights(root, cardEl.dataset.type, false, cardEl);
-    cardEl.classList.remove('is-dragging','is-held-instant');
-    // restore base transform exactly
-    cardEl.style.setProperty('--dx','0px');
-    cardEl.style.setProperty('--dy','0px');
+    cardEl.classList.remove('is-dragging','is-held-instant','is-preview');
+    applyTransform(cardEl, 0, 0, 1);
   };
 
   root.addEventListener('pointerdown', e=>{
@@ -34,6 +39,7 @@ export function wireHandDrag(root, dispatch) {
 
     pressTimer = setTimeout(()=>{
       cardEl.classList.add('is-preview');
+      applyTransform(cardEl, 0, 0, 1.06);
       if (isInstant) cardEl.classList.add('is-held-instant');
     }, LONGPRESS_MS);
 
@@ -43,16 +49,13 @@ export function wireHandDrag(root, dispatch) {
       if (!dragging && (Math.abs(dx)>5 || Math.abs(dy)>5)) {
         clearTimeout(pressTimer);
         cardEl.classList.remove('is-preview');
-        if (isInstant) cardEl.classList.add('is-held-instant');
         dragging = { cardEl, cardId };
         toggleHighlights(root, cardEl.dataset.type, true, cardEl);
         cardEl.setPointerCapture(ev.pointerId);
         cardEl.classList.add('is-dragging');
       }
       if (dragging) {
-        // No dampening: directly set css vars appended to base transform
-        cardEl.style.setProperty('--dx', dx+'px');
-        cardEl.style.setProperty('--dy', dy+'px');
+        applyTransform(cardEl, dx, dy, 1.04);
       }
     };
 
@@ -67,15 +70,15 @@ export function wireHandDrag(root, dispatch) {
         const onYourGlyph = toGlyph && yourBoard.contains(toGlyph);
         const well = document.getElementById('aetherWell');
         const onWell = well && (dropTarget===well || well.contains(dropTarget));
-
         if (onYourGlyph) dispatch({type:A.PLAY_TO_GLYPH, cardId});
         else if (onYourBoard) dispatch({type:A.PLAY_TO_SLOT, cardId, slotIndex:Number(slotEl.dataset.slotIndex||0)});
         else if (onWell) dispatch({type:A.DISCARD_FOR_AETHER, cardId});
-
         cleanup(cardEl);
         dragging = null;
       } else {
-        cardEl.classList.toggle('is-preview');
+        // tap toggles preview
+        if (cardEl.classList.contains('is-preview')) { cardEl.classList.remove('is-preview'); applyTransform(cardEl,0,0,1); }
+        else { cardEl.classList.add('is-preview'); applyTransform(cardEl,0,0,1.06); }
       }
       root.removeEventListener('pointermove', onMove);
       root.removeEventListener('pointerup', onUp);
