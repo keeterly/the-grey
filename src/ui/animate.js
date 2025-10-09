@@ -1,35 +1,5 @@
 function nextFrame(){ return new Promise(r=>requestAnimationFrame(()=>r())); }
-export async function animateCardsToDiscard(){
-  const discard=document.getElementById('discardIcon'); if(!discard) return;
-  const d=discard.getBoundingClientRect();
-  const els=[...document.querySelectorAll('[data-board="YOU"] .hand .card')];
-  let i=0;
-  for(const el of els){
-    const r=el.getBoundingClientRect();
-    el.style.position='fixed'; el.style.left=r.left+'px'; el.style.top=r.top+'px';
-    el.style.transition='transform .32s ease, opacity .32s ease'; el.style.willChange='transform,opacity';
-    const tx=d.left + d.width/2 - r.left - r.width/2;
-    const ty=d.top  + d.height/2 - r.top  - r.height/2;
-    await nextFrame(); el.style.transform=`translate(${tx}px,${ty}px) scale(.6) rotate(${i%2?8:-8}deg)`; el.style.opacity='0'; i++; await new Promise(res=>setTimeout(res,60));
-  }
-  await new Promise(res=>setTimeout(res,320));
-}
-export async function animateNewDraws(newIds){
-  const deck=document.getElementById('deckIcon'); if(!deck) return;
-  for(const id of newIds){
-    const el=document.querySelector(`[data-card-id="${id}"][data-zone="hand"]`); if(!el) continue;
-    const r=el.getBoundingClientRect(); const d=deck.getBoundingClientRect();
-    const base=el.getAttribute('data-base')||'';
-    el.style.position='fixed'; el.style.left=(d.left + d.width/2 - r.width/2)+'px'; el.style.top=(d.top + d.height/2 - r.height/2)+'px';
-    el.style.opacity='0'; el.style.transition='transform .35s ease, opacity .35s ease, left 0s, top 0s'; el.style.willChange='transform,opacity,left,top';
-    await nextFrame();
-    el.style.left=r.left+'px'; el.style.top=r.top+'px'; el.style.opacity='1'; el.style.transform='translate(0,0)';
-    await new Promise(res=>setTimeout(res,360));
-    // Snap to base transform without visible jostle
-    el.style.transition='none';
-    el.style.position=''; el.style.left=''; el.style.top=''; el.style.willChange='';
-    el.style.transform = base; // keep base transform (avoids collapse/jostle)
-    await nextFrame();
-    el.style.transition='';
-  }
-}
+export async function animateCardsToDiscard(){ const discard=document.getElementById('discardIcon'); if(!discard) return; const d=discard.getBoundingClientRect(); const els=[...document.querySelectorAll('[data-board="YOU"] .hand .card')]; let i=0; for(const el of els){ const r=el.getBoundingClientRect(); el.style.position='fixed'; el.style.left=r.left+'px'; el.style.top=r.top+'px'; el.style.transition='transform .32s ease, opacity .32s ease'; el.style.willChange='transform,opacity'; const tx=d.left + d.width/2 - r.left - r.width/2; const ty=d.top  + d.height/2 - r.top  - r.height/2; await nextFrame(); el.style.transform=`translate(${tx}px,${ty}px) scale(.6) rotate(${i%2?8:-8}deg)`; el.style.opacity='0'; i++; await new Promise(res=>setTimeout(res,60)); } await new Promise(res=>setTimeout(res,320)); }
+export async function animateNewDraws(newIds){ const deck=document.getElementById('deckIcon'); if(!deck) return; for(const id of newIds){ const el=document.querySelector(`[data-card-id="${id}"][data-zone="hand"]`); if(!el) continue; const r=el.getBoundingClientRect(); const d=deck.getBoundingClientRect(); const base=el.getAttribute('data-base')||''; el.style.position='fixed'; el.style.left=(d.left + d.width/2 - r.width/2)+'px'; el.style.top=(d.top + d.height/2 - r.height/2)+'px'; el.style.opacity='0'; el.style.transition='transform .35s ease, opacity .35s ease, left 0s, top 0s'; el.style.willChange='transform,opacity,left,top'; await nextFrame(); el.style.left=r.left+'px'; el.style.top=r.top+'px'; el.style.opacity='1'; el.style.transform='translate(0,0)'; await new Promise(res=>setTimeout(res,360)); el.style.transition='none'; el.style.position=''; el.style.left=''; el.style.top=''; el.style.willChange=''; el.style.transform=base; el.classList.add('arrival'); await nextFrame(); el.style.transition=''; setTimeout(()=>el.classList.remove('arrival'), 260); } }
+export async function animateAfBuyToDiscard(afEl){ const discard=document.getElementById('discardIcon'); if(!afEl||!discard) return; const r=afEl.getBoundingClientRect(); const d=discard.getBoundingClientRect(); afEl.style.position='fixed'; afEl.style.left=r.left+'px'; afEl.style.top=r.top+'px'; afEl.style.transition='transform .28s ease, opacity .28s ease'; await nextFrame(); const tx=d.left + d.width/2 - r.left - r.width/2; const ty=d.top  + d.height/2 - r.top  - r.height/2; afEl.style.transform=`translate(${tx}px,${ty}px) scale(.7)`; afEl.style.opacity='0'; await new Promise(res=>setTimeout(res,300)); }
+export async function spotlightThenDiscard(afEl){ const overlay=document.getElementById('overlay'); overlay.classList.add('show'); const clone=afEl.cloneNode(true); clone.classList.add('spotCard'); overlay.innerHTML=''; overlay.appendChild(clone); await nextFrame(); clone.style.transform='scale(1.15)'; await new Promise(res=>setTimeout(res,220)); const discard=document.getElementById('discardIcon'); const rc=clone.getBoundingClientRect(); const rd=discard.getBoundingClientRect(); clone.style.transition='transform .28s ease, opacity .28s ease'; const tx=rd.left + rd.width/2 - rc.left - rc.width/2; const ty=rd.top + rd.height/2 - rc.top  - rc.height/2; clone.style.transform=`translate(${tx}px,${ty}px) scale(.75)`; clone.style.opacity='0'; await new Promise(res=>setTimeout(res,300)); overlay.classList.remove('show'); overlay.innerHTML=''; }
