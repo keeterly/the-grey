@@ -1,23 +1,28 @@
-/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v8 (2025-10-09) */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v8'; })();
+/* assets/js/boot-debug.js — SAFE BUILD v2.3.9-acceptanceP1-safe-v9 (2025-10-09) */
+(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v9'; })();
 
-// Create counter pills inside bottom-right HUD, next to aetherWell
+// Inject bottom-right pills (Temp 🜂 and Channeled ◇) with clean spacing
 (function ensureBottomCounters(){
   const right = document.querySelector('.hud-min .right');
   if (!right) return;
-  // Avoid duplicates
+
+  // Insert pills before the End Turn button
+  const endBtn = document.getElementById('btnEnd');
+
+  function makePill(id, sym){
+    const el = document.createElement('span');
+    el.id = id; el.className = 'hud-pill';
+    el.innerHTML = `<span class="sym">{sym}</span><span class="val">0</span>`;
+    return el;
+  }
+
   if (!document.getElementById('tgTempPill')) {
-    const temp = document.createElement('span');
-    temp.id = 'tgTempPill'; temp.className = 'hud-pill temp';
-    temp.innerHTML = '<span class="val">0</span>';
-    right.insertBefore(temp, document.getElementById('btnEnd'));
+    right.insertBefore(makePill('tgTempPill', '🜂'), endBtn);
   }
   if (!document.getElementById('tgChanPill')) {
-    const chan = document.createElement('span');
-    chan.id = 'tgChanPill'; chan.className = 'hud-pill chan';
-    chan.innerHTML = '<span class="val">0</span>';
-    right.insertBefore(chan, document.getElementById('btnEnd'));
+    right.insertBefore(makePill('tgChanPill', '◇'), endBtn);
   }
+
   // Version badge (top-left)
   if (!document.getElementById('tgVersion')) {
     const v = document.createElement('div'); v.id='tgVersion'; v.className='tgVersion';
@@ -73,6 +78,20 @@
         chanEl.textContent = String((p.channeledAether ?? p.channeled) ?? 0);
       }
       requestAnimationFrame(tick);
+    })();
+
+    // Light centering fallback (only add inline style if not already centered)
+    (function centerFallback(){
+      const rows = document.querySelectorAll('.board .slots, .slot-row, .slots, [data-player-slots], [data-ai-slots]');
+      rows.forEach(row=>{
+        const st = getComputedStyle(row);
+        if (st.display !== 'flex' || st.justifyContent !== 'center') {
+          row.style.display = 'flex';
+          row.style.justifyContent = 'center';
+          row.style.alignItems = 'center';
+          row.style.gap = row.style.gap || '0.75rem';
+        }
+      });
     })();
 
   } catch(e) {

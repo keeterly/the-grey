@@ -1,7 +1,5 @@
 
-/* --- Do not style global elements except the specific classes below --- */
-
-/* Move version tracker to TOP LEFT */
+/* ----- Version badge (top-left) remains ----- */
 .tgVersion {
   position: fixed; top: .5rem; left: .5rem; z-index: 9999;
   background: rgba(16,16,16,.5); color:#ddd; border:1px solid rgba(255,255,255,.15);
@@ -9,25 +7,48 @@
   font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 }
 
-/* Bottom HUD: 3x icon size and pill counters */
-.hud-min .icon { font-size: 3em; line-height: 1; }
-.hud-min .right { display: flex; align-items: center; gap: .5rem; }
+/* ----- Bottom HUD (NieR-minimal) ----- */
+.hud-min { font-size: 16px; }
+.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: .5rem; }
+.hud-min .icon { font-size: 22px; line-height: 1; display: inline-flex; align-items: center; justify-content: center; }
+.hud-min .btn { cursor: pointer; }
+.hud-min .btn:active { transform: translateY(1px); }
+
+/* Counter pills (Temp 🜂 and Channeled ◇) */
 .hud-pill {
-  display: inline-flex; align-items: center; gap: .35em;
-  font-size: .65em; /* scales with .icon 3em => visible but compact */
-  padding: .25em .6em; border-radius: 999px;
-  background: rgba(255,255,255,.85); color: #333;
-  box-shadow: 0 2px 6px rgba(0,0,0,.15); border: 1px solid rgba(0,0,0,.08);
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(255,255,255,.78); color: #222;
+  border: 1px solid rgba(0,0,0,.12);
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  font-size: 14px;
 }
-.hud-pill .val { font-weight: 700; min-width: 1.2em; text-align: center; }
-.hud-pill.temp::before { content: "🜂"; }
-.hud-pill.chan::before { content: "◇"; }
+.hud-pill .sym { font-size: 12px; opacity: .85; }
+.hud-pill .val { font-weight: 700; min-width: 1.3em; text-align: center; }
 
-/* Center the AI/Player boards */
-.board .slots, .slots, [data-player-slots], [data-ai-slots] {
-  display: flex; justify-content: center; align-items: center; gap: 0.75rem;
+/* Keep aetherWell icon visually balanced with pills */
+#aetherWell { margin-left: .25rem; margin-right: .25rem; }
+
+/* ----- Board centering (AI + Player) ----- */
+.board .slots,
+.slot-row,
+.slots,
+[data-player-slots],
+[data-ai-slots] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-/* Cards +25% (visual) */
-.card { transform: scale(1.25); transform-origin: center bottom; will-change: transform; }
-.hand { gap: calc(0.75rem * 1.25); }
+/* ----- Card scaling: ONLY in hand (+25%) ----- */
+.hand .card,
+[data-hand] .card {
+  transform: scale(1.25);
+  transform-origin: center bottom;
+  will-change: transform;
+}
+/* Give the hand a touch more spacing to accommodate scale */
+.hand, [data-hand] {
+  gap: 0.9rem;
+}
