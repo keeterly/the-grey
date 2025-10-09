@@ -1,4 +1,4 @@
-// /src/ui/ui.js — Centered hand, empty board slots, working drag & dock counters
+// /src/ui/ui.js — Centered hand, empty board slots, pointer-based drag, click-preview
 
 /* ------------------ tiny DOM helpers ------------------ */
 function $(q, r = document) { return r.querySelector(q); }
@@ -58,7 +58,7 @@ function cardEl({ title='Card', subtype='', right='', classes='' } = {}) {
 const AI_SLOT_COUNT = 3;
 const PLAYER_SLOT_COUNT = 3;
 
-// Render fixed number of slots. Only render a card in a slot if it was actually played.
+// Only render a "real" card in a slot if it was actually played (engine sets played/placed flag)
 function renderSlots(container, slots = [], slotCount = 3) {
   if (!container) return;
   container.innerHTML = '';
@@ -68,7 +68,7 @@ function renderSlots(container, slots = [], slotCount = 3) {
     wrap.dataset.slotIndex = String(i);
 
     const s = slots[i];
-    const hasCard = !!(s && (s.played === true || s.placed === true)); // engine should set this when card moves hand -> board
+    const hasCard = !!(s && (s.played === true || s.placed === true));
 
     if (hasCard) {
       wrap.appendChild(cardEl({
@@ -111,7 +111,6 @@ function layoutHand(ribbonEl) {
   const fan = ribbonEl.querySelector('.fan');
   if (!fan) return;
 
-  // Anchor to the main centered column (or viewport as fallback)
   const anchor = document.querySelector('main.grid') || document.body;
   const anchorRect = anchor.getBoundingClientRect();
   const ribbonRect = ribbonEl.getBoundingClientRect();
@@ -123,12 +122,10 @@ function layoutHand(ribbonEl) {
   const spread = Math.min(preferred, maxSpread);
   const stripW = (n - 1) * spread + cardW;
 
-  // Center the fan inside the ribbon
   const fanLeft = Math.round((anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2));
   fan.style.left = `${fanLeft}px`;
   fan.style.width = `${stripW}px`;
 
-  // Arc + tilt + stagger
   const centerIdx = (n - 1) / 2;
   fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
   requestAnimationFrame(() => {
@@ -149,10 +146,7 @@ function layoutHand(ribbonEl) {
 /* ------------------ Click-to-preview (50% enlarge) ------------------ */
 function enableClickPreview(wrap) {
   wrap.addEventListener('click', (ev) => {
-    // ignore if drag just started
     if (wrap.classList.contains('dragging')) return;
-
-    // toggle this one, close others
     const isOpen = wrap.classList.toggle('is-preview');
     document.querySelectorAll('.cardWrap.is-preview').forEach(n => { if (n !== wrap) n.classList.remove('is-preview'); });
     if (!isOpen) wrap.classList.remove('is-preview');
@@ -163,98 +157,68 @@ function enableClickPreview(wrap) {
   });
 }
 
-/* ------------------ Drag & Drop: desktop ------------------ */
-function enableMouseDnDOnCard(wrap, handIndex) {
+/* ------------------ Pointer-based drag (desktop + mobile) ------------------ */
+function enablePointerDrag(wrap, handIndex) {
   const cardNode = wrap.querySelector('.card');
   if (!cardNode) return;
 
-  cardNode.setAttribute('draggable', 'true');
-
-  cardNode.addEventListener('dragstart', (e) => {
-    wrap.classList.add('dragging');
-    e.dataTransfer.setData('text/plain', String(handIndex));
-    e.dataTransfer.effectAllowed = 'move';
-    // keep image centered under cursor
-    const r = cardNode.getBoundingClientRect();
-    e.dataTransfer.setDragImage(cardNode, r.width / 2, r.height / 2);
-    markSlots('target');
-  });
-
-  cardNode.addEventListener('dragend', () => {
-    wrap.classList.remove('dragging');
-    markSlots('');
-  });
-
-  // Allow drop over the board container (add once)
-  const board = getBoardSlotsEl();
-  if (board && !board._dragListenersAdded) {
-    board.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      const i = slotIndexFromPoint(e.clientX, e.clientY);
-      markSlots(i >= 0 ? 'accept' : 'target');
-    });
-    board.addEventListener('drop', (e) => {
-      e.preventDefault();
-      const src = Number(e.dataTransfer.getData('text/plain'));
-      const tgt = slotIndexFromPoint(e.clientX, e.clientY);
-      markSlots('');
-      if (tgt >= 0 && Number.isFinite(src)) {
-        _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex: src, slot: tgt });
-      }
-    });
-    board._dragListenersAdded = true;
-  }
-}
-
-/* ------------------ Drag & Drop: touch ------------------ */
-function enableTouchDnDOnCard(wrap, handIndex) {
   let dragging = false;
-  const badge = document.querySelector('.dragBadge') || document.body.appendChild(el('div', 'dragBadge'));
+  let ghost = null;
 
-  const onMove = (x, y) => {
-    badge.style.transform = `translate(${x + 12}px, ${y + 12}px)`;
+  function createGhost(rect) {
+    const g = cardNode.cloneNode(true);
+    g.classList.add('dragGhost');
+    g.style.width  = rect.width + 'px';
+    g.style.height = rect.height + 'px';
+    document.body.appendChild(g);
+    return g;
+  }
+
+  function onPointerMove(e) {
+    if (!dragging || !ghost) return;
+    const x = e.clientX, y = e.clientY;
+    ghost.style.transform = `translate(${Math.round(x - ghost._w/2)}px, ${Math.round(y - ghost._h/2)}px)`;
     const idx = slotIndexFromPoint(x, y);
     markSlots(idx >= 0 ? 'accept' : 'target');
-  };
+  }
 
-  const onUp = (x, y) => {
+  function onPointerUp(e) {
     if (!dragging) return;
     dragging = false;
     wrap.classList.remove('dragging');
-    badge.style.transform = 'translate(-9999px,-9999px)';
+    document.removeEventListener('pointermove', onPointerMove, true);
+    document.removeEventListener('pointerup', onPointerUp, true);
+
+    const x = e.clientX, y = e.clientY;
     const tgt = slotIndexFromPoint(x, y);
     markSlots('');
+    if (ghost) { ghost.remove(); ghost = null; }
+
     if (tgt >= 0) {
       _gameRef?.dispatch?.({ type: 'PLAY_FROM_HAND', handIndex, slot: tgt });
     }
-  };
+  }
 
-  wrap.addEventListener('touchstart', (ev) => {
-    if (ev.touches.length !== 1) return;
-    dragging = true;
+  cardNode.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;       // left click / single touch
+    e.preventDefault();
+    cardNode.setPointerCapture?.(e.pointerId);
+
+    const rect = cardNode.getBoundingClientRect();
+    ghost = createGhost(rect);
+    ghost._w = rect.width; ghost._h = rect.height;
+
+    wrap.classList.remove('is-preview');
     wrap.classList.add('dragging');
-    badge.textContent = 'Drag to slot';
-    const t = ev.touches[0];
-    onMove(t.clientX, t.clientY);
-  }, { passive: true });
+    dragging = true;
+    markSlots('target');
 
-  wrap.addEventListener('touchmove', (ev) => {
-    if (!dragging) return;
-    const t = ev.touches[0];
-    onMove(t.clientX, t.clientY);
-  }, { passive: true });
+    // Initial position
+    ghost.style.transform = `translate(${Math.round(e.clientX - rect.width/2)}px, ${Math.round(e.clientY - rect.height/2)}px)`;
 
-  wrap.addEventListener('touchend', (ev) => {
-    const t = ev.changedTouches[0];
-    onUp(t.clientX, t.clientY);
-  }, { passive: true });
-
-  wrap.addEventListener('touchcancel', () => {
-    dragging = false;
-    wrap.classList.remove('dragging');
-    badge.style.transform = 'translate(-9999px,-9999px)';
-    markSlots('');
-  }, { passive: true });
+    document.addEventListener('pointermove', onPointerMove, true);
+    document.addEventListener('pointerup', onPointerUp, true);
+  });
 }
 
 /* ------------------ Render hand ------------------ */
@@ -285,8 +249,7 @@ function renderHand(ribbonEl, state) {
     w.appendChild(node);
     fan.appendChild(w);
 
-    enableMouseDnDOnCard(w, i);
-    enableTouchDnDOnCard(w, i);
+    enablePointerDrag(w, i);
     enableClickPreview(w);
   });
 
@@ -306,7 +269,7 @@ export function renderGame(state) {
   setTxt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
   setTxt('#count-ae',      state?.ae ?? 0);
 
-  // Boards (start empty unless slot has played/placed flag)
+  // Boards
   renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
   renderFlow ($('#aetherflow'), state);
   renderSlots($('#yourBoard'), state?.slots ?? [], PLAYER_SLOT_COUNT);
@@ -320,13 +283,11 @@ export function init(game) {
   _gameRef = game;
   window.renderGame = renderGame;
 
-  // End Turn from dock (if button exists)
   $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
 
   renderGame(game.state);
   document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
-  // Keep hand centered on resize/rotate
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
   window.addEventListener('resize', onResize, { passive: true });
