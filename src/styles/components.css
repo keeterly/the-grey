@@ -165,3 +165,50 @@ body {
 
 /* Kill hover/preview during drag */
 body.is-dragging .cardWrap:hover .card { transform: none !important; filter: none !important; }
+
+/* ============================================================
+   DOCKS (Deck / Discard left, Aether / End Turn right)
+   ============================================================ */
+.dock{
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 120;                /* above ribbon (100) */
+  pointer-events: auto;
+}
+.dock--left  { left: 12px; }
+.dock--right { right: 12px; }
+
+.chip.icon{
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.12);
+  display: grid; place-items: center;
+  position: relative;
+}
+.chip.icon svg{
+  width: 22px; height: 22px;
+  fill: currentColor; color: #6b5e4a; opacity: .9;
+}
+
+.chip.icon .badge{
+  position: absolute;
+  right: -8px; top: -8px;
+  width: 20px; height: 20px;
+  border-radius: 10px;
+  background: #6b5e4a;
+  color: #fff;
+  font: 600 11px/20px system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
+}
+
+.chip.icon.gem svg { color: #d8a73f; }          /* aether gem */
+.chip.icon.cta { background: #fff7e5; }         /* end-turn button */
+.chip.icon.cta svg { color: #b77b00; }
+.chip.icon:active { transform: scale(.98); }
+
