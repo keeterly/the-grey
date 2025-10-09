@@ -2,42 +2,44 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>The Grey — v2.3.6</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Grey — v2.3.9</title>
 <link rel="stylesheet" href="./src/styles/cards.css">
-<style>
-.container{max-width:1120px;margin:0 auto;padding:12px 16px 96px;}
-.titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0 6px;}
-.sideHud{display:flex;align-items:center;gap:10px;}
-.hearts{display:flex;gap:4px;align-items:center;}
-.heart{width:18px;height:18px;background:#ef6262;clip-path:path('M12 21s-6.716-4.977-9.75-8.01C-1.784 6.748 2.32 1.5 7.2 4.2 8.58 2.9 10.2 2 12 2s3.42.9 4.8 2.2c4.88-2.7 8.984 2.548 4.95 8.79C18.716 16.023 12 21 12 21Z');border:1px solid rgba(0,0,0,.06);box-shadow:0 1px 2px rgba(0,0,0,.06) inset;}
-.heart.off{background:#eee3d3;}
-.tranceRow{display:flex;gap:8px;margin-top:4px;opacity:.6}
-.trance{font-size:12px;padding:2px 8px;border-radius:999px;border:1px dashed #d7ccb7;background:#faf6ef;}
-.trance.active{opacity:1;border-style:solid;border-color:#d4b14c;background:#fff7e3;}
-.title{font-weight:700;font-size:14px;letter-spacing:.02em;}
-.footerHUD{position:fixed;bottom:12px;left:0;right:0;display:flex;justify-content:center;pointer-events:none;}
-.footerHUD .bar{pointer-events:auto;width:1080px;display:flex;justify-content:space-between;align-items:center;background:#ffffffd9;border:1px solid #e6e0d4;border-radius:12px;padding:8px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);}
-.left,.right{display:flex;gap:8px;align-items:center;}
-.endTurn{background:#fff4e0;border:1px solid #e6cc96;color:#6b4f14;border-radius:10px;padding:6px 12px;cursor:pointer;}
-</style>
 </head>
 <body>
 <div class="container">
-  <div class="titlebar">
-    <div class="sideHud" id="hudYou"><div class="title">You</div><div class="hearts" id="youHearts"></div></div>
-    <div class="title">The Grey — Prototype</div>
-    <div class="sideHud" id="hudAI"><div class="hearts" id="aiHearts"></div><div class="title">AI</div></div>
-  </div>
-  <div class="tranceRow" id="tranceRow"></div>
   <div id="app"></div>
 </div>
-<div class="footerHUD">
-  <div class="bar">
-    <div class="left"><div class="icon badge" id="deckIcon" title="Deck">⟲</div><div class="icon badge" id="discardIcon" title="Discard">⌫</div></div>
-    <div class="right"><div class="aetherWell" id="aetherWell" data-drop="aether" title="Drop here to gain Aether">⚡ 0</div><button class="endTurn" id="btnEnd">End Turn</button></div>
+
+<!-- Minimal bottom HUD (no background block) -->
+<div class="hud-min">
+  <div class="left">
+    <div class="icon btn" id="deckIcon" title="Deck">⟲</div>
+    <div class="icon btn" id="discardIcon" title="Discard">⌫</div>
+  </div>
+  <div class="right">
+    <div class="icon diamond btn" id="aetherWell" title="Drop here to gain Aether">⚡</div>
+    <div class="icon btn" id="btnEnd" title="End Turn">⏵</div>
   </div>
 </div>
+
+<!-- Spotlight overlay for AF purchases -->
 <div id="overlay" class="overlay"></div>
+
+<!-- Generic modal for deck/discard + trance info -->
+<div id="modal" class="modal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title" id="modalTitle">Title</div>
+      <button class="btn-close" id="modalClose">Close</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
 <script type="module" src="./src/ui/index.js"></script>
+
+<script>
+// Rotate hint removed to simplify; landscape is still best.
+</script>
 </body></html>
