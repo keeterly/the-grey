@@ -36,27 +36,25 @@ export function reducer(state, action){
     }
     case A.PLAY_TO_SLOT: {
       const {cardId, who='YOU', slotIndex=0 } = action;
-      if (who!=='YOU') return s; // prevent placing in opponent slots
+      if (who!=='YOU') return s; // only your board
       const tgt = you;
       const idx = tgt.hand.findIndex(c=>c.id===cardId); if(idx<0) return s;
       const card = tgt.hand.splice(idx,1)[0];
-      if (card.type!==CARD_TYPES.SPELL){ // only spells allowed
-        tgt.hand.push(card); return s;
-      }
+      if (card.type!=='SPELL'){ tgt.hand.push(card); return s; }
       const prev = tgt.slots[slotIndex]; if(prev) tgt.discard.push(prev);
       card.pips=0; tgt.slots[slotIndex]=card; s.animations.push({type:'PLAY', who, cardId:card.id}); return s;
     }
     case A.PLAY_TO_GLYPH: {
       const {cardId, who='YOU'} = action;
-      if (who!=='YOU') return s; // prevent placing on opponent
+      if (who!=='YOU') return s;
       const tgt=you;
       const idx=tgt.hand.findIndex(c=>c.id===cardId); if(idx<0) return s;
       const card=tgt.hand.splice(idx,1)[0];
-      if (card.type!==CARD_TYPES.GLYPH){ tgt.hand.push(card); return s; }
+      if (card.type!=='GLYPH'){ tgt.hand.push(card); return s; }
       if (tgt.glyphSlot) tgt.discard.push(tgt.glyphSlot); tgt.glyphSlot=card; s.animations.push({type:'PLAY_GLYPH', who, cardId:card.id}); return s;
     }
     case A.ADVANCE_PIP: {
-      const { slotIndex } = action; const card=you.slots[slotIndex]; if(!card||card.type!==CARD_TYPES.SPELL) return s;
+      const { slotIndex } = action; const card=you.slots[slotIndex]; if(!card||card.type!=='SPELL') return s;
       if (you.aether < card.aetherCost) return s;
       you.aether -= card.aetherCost; card.pips=Math.min(card.pips+1, card.pipsMax);
       s.animations.push({type:'ADVANCE', who:'YOU', cardId:card.id});
@@ -65,22 +63,15 @@ export function reducer(state, action){
     }
     case A.END_TURN: { discardHand(you,s.animations,'YOU'); s.turn='AI'; return s; }
     case A.AI_TURN: {
-      // AI logic: own side only
-      // play glyph if empty
       if (!ai.glyphSlot){ const gi=ai.hand.findIndex(c=>c.type===CARD_TYPES.GLYPH); if(gi>=0){ const g=ai.hand.splice(gi,1)[0]; if(ai.glyphSlot) ai.discard.push(ai.glyphSlot); ai.glyphSlot=g; s.animations.push({type:'PLAY_GLYPH', who:'AI', cardId:g.id}); } }
-      // play spell into first empty slot
       const empty=ai.slots.findIndex(x=>!x); const si=ai.hand.findIndex(c=>c.type===CARD_TYPES.SPELL);
       if (empty>=0 && si>=0){ const sp=ai.hand.splice(si,1)[0]; sp.pips=0; ai.slots[empty]=sp; s.animations.push({type:'PLAY', who:'AI', cardId:sp.id}); }
-      // discard any instant for aether
+      // discard all instants for aether
       for(;;){ const ii=ai.hand.findIndex(c=>c.type===CARD_TYPES.INSTANT); if(ii<0) break; const inst=ai.hand.splice(ii,1)[0]; ai.aether += inst.aetherGain||0; ai.discard.push(inst); s.animations.push({type:'PLAY', who:'AI', cardId:inst.id}); }
-      // try to advance multiple times
       for (let k=0;k<8;k++){ const idx=ai.slots.findIndex(c=>c && c.type===CARD_TYPES.SPELL && c.pips < c.pipsMax && ai.aether >= c.aetherCost); if(idx===-1) break;
         const card=ai.slots[idx]; ai.aether -= card.aetherCost; card.pips++; s.animations.push({type:'ADVANCE', who:'AI', cardId:card.id});
         if(card.pips===card.pipsMax){ castIfComplete(ai,card,'AI',s.animations); ai.discard.push(card); ai.slots[idx]=null; } }
-      discardHand(ai,s.animations,'AI'); // AI discards hand at end of its turn
-      // Player turn starts: reset player aether and draw new hand
-      s.turn='YOU'; you.aether=0; drawN(you,5,s.animations,'YOU');
-      return s;
+      discardHand(ai,s.animations,'AI'); s.turn='YOU'; you.aether=0; drawN(you,5,s.animations,'YOU'); return s;
     }
     default: return s;
   }

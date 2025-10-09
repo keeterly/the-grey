@@ -1,7 +1,7 @@
 import { A } from '../engine/rules.js';
 import { CARD_TYPES } from '../engine/state.js';
 
-const LONGPRESS_MS = 220;
+const LONGPRESS_MS = 200;
 let pressTimer = null;
 let dragging = null;
 
@@ -13,14 +13,16 @@ function toggleHighlights(root, type, on, cardEl){
 
   slots.forEach(s=> s.classList.toggle('highlight', on && type===CARD_TYPES.SPELL));
   if (glyph) glyph.classList.toggle('highlight', on && type===CARD_TYPES.GLYPH);
-  if (well)  well.classList.toggle('highlight', on && Number(cardEl?.dataset.gain || cardEl?.getAttribute('data-gain') || 0) > 0);
+  if (well)  well.classList.toggle('highlight', on && Number(cardEl?.dataset.gain || 0) > 0);
 }
 
 export function wireHandDrag(root, dispatch) {
   const cleanup = (cardEl)=>{
     toggleHighlights(root, cardEl.dataset.type, false, cardEl);
     cardEl.classList.remove('is-dragging','is-held-instant');
-    cardEl.style.transform='';
+    // restore base transform exactly
+    cardEl.style.setProperty('--dx','0px');
+    cardEl.style.setProperty('--dy','0px');
   };
 
   root.addEventListener('pointerdown', e=>{
@@ -28,12 +30,9 @@ export function wireHandDrag(root, dispatch) {
     if (!cardEl) return;
     const cardId = cardEl.dataset.cardId;
     const isInstant = cardEl.dataset.type === 'INSTANT';
-    const gainAttr = cardEl.querySelector('.gain-chip')?.dataset.gain;
-    if (gainAttr) cardEl.dataset.gain = gainAttr;
-
     const startX = e.clientX, startY = e.clientY;
+
     pressTimer = setTimeout(()=>{
-      if (dragging) return;
       cardEl.classList.add('is-preview');
       if (isInstant) cardEl.classList.add('is-held-instant');
     }, LONGPRESS_MS);
@@ -50,7 +49,11 @@ export function wireHandDrag(root, dispatch) {
         cardEl.setPointerCapture(ev.pointerId);
         cardEl.classList.add('is-dragging');
       }
-      if (dragging) { cardEl.style.transform = `translate(${dx}px, ${dy}px)`; }
+      if (dragging) {
+        // No dampening: directly set css vars appended to base transform
+        cardEl.style.setProperty('--dx', dx+'px');
+        cardEl.style.setProperty('--dy', dy+'px');
+      }
     };
 
     const onUp = (ev)=>{
@@ -68,6 +71,7 @@ export function wireHandDrag(root, dispatch) {
         if (onYourGlyph) dispatch({type:A.PLAY_TO_GLYPH, cardId});
         else if (onYourBoard) dispatch({type:A.PLAY_TO_SLOT, cardId, slotIndex:Number(slotEl.dataset.slotIndex||0)});
         else if (onWell) dispatch({type:A.DISCARD_FOR_AETHER, cardId});
+
         cleanup(cardEl);
         dragging = null;
       } else {
@@ -92,6 +96,7 @@ export function wireHandDrag(root, dispatch) {
 
     window.addEventListener('pointerup', onUp, {once:true});
     window.addEventListener('pointercancel', onCancel, {once:true});
+    window.addEventListener('mouseleave', onCancel, {once:true});
     window.addEventListener('blur', onCancel, {once:true});
   }, {passive:true});
 }

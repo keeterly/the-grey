@@ -27,7 +27,7 @@ export const newSide = (seedDeck=BASE_DECK) => ({
   discard: [],
   slots: [null, null, null],
   glyphSlot: null,
-  aether: 0, // resets each turn
+  aether: 0,
 });
 
 export const newGame = () => ({ you:newSide(), ai:newSide(), turn:'YOU', animations:[] });
