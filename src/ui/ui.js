@@ -1,4 +1,4 @@
-// /src/ui/ui.js — Empty slots, centered hand, fixed drag, 50% preview
+// /src/ui/ui.js — Centered hand, empty board slots, working drag & dock counters
 
 /* ------------------ tiny DOM helpers ------------------ */
 function $(q, r = document) { return r.querySelector(q); }
@@ -12,9 +12,9 @@ function getBoardSlotNodes() {
   const root = getBoardSlotsEl();
   return root ? Array.from(root.querySelectorAll('.boardSlot')) : [];
 }
-function markSlots(mode) {
+function markSlots(mode) { // '', 'target', 'accept'
   getBoardSlotNodes().forEach(n => {
-    n.classList.remove('drop-target', 'drop-accept');
+    n.classList.remove('drop-target','drop-accept');
     if (mode === 'target') n.classList.add('drop-target');
     if (mode === 'accept') n.classList.add('drop-accept');
   });
@@ -34,12 +34,14 @@ function renderHearts(selector, hp, max = 5) {
   if (!node) return;
   const val = Math.max(0, Math.min(max, Number(hp) || 0));
   let html = '';
-  for (let i = 0; i < max; i++) html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
+  for (let i = 0; i < max; i++) {
+    html += `<span class="heart${i < val ? '' : ' is-empty'}">❤</span>`;
+  }
   node.innerHTML = html;
 }
 
-/* ------------------ Card / slot elements ------------------ */
-function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {}) {
+/* ------------------ Card template ------------------ */
+function cardEl({ title='Card', subtype='', right='', classes='' } = {}) {
   const c = el('div', `card ${classes}`.trim());
   c.innerHTML = `
     <div class="cHead">
@@ -51,15 +53,12 @@ function cardEl({ title = 'Card', subtype = '', right = '', classes = '' } = {})
   `;
   return c;
 }
-function emptySlotEl() {
-  return el('div', 'emptySlot');
-}
 
-/* how many visible slots per row */
+/* ------------------ Boards / Flow ------------------ */
 const AI_SLOT_COUNT = 3;
 const PLAYER_SLOT_COUNT = 3;
 
-/* ------------------ Boards / Flow ------------------ */
+// Render fixed number of slots. Only render a card in a slot if it was actually played.
 function renderSlots(container, slots = [], slotCount = 3) {
   if (!container) return;
   container.innerHTML = '';
@@ -69,15 +68,15 @@ function renderSlots(container, slots = [], slotCount = 3) {
     wrap.dataset.slotIndex = String(i);
 
     const s = slots[i];
-    if (s && (s.name || s.title)) {
-      wrap.appendChild(
-        cardEl({
-          title: s.name || s.title || 'Card',
-          subtype: s.type || s.subtype || 'Spell',
-        })
-      );
+    const hasCard = !!(s && (s.played === true || s.placed === true)); // engine should set this when card moves hand -> board
+
+    if (hasCard) {
+      wrap.appendChild(cardEl({
+        title: s.name || s.title || 'Card',
+        subtype: s.type || s.subtype || 'Spell'
+      }));
     } else {
-      wrap.appendChild(emptySlotEl());
+      wrap.appendChild(el('div', 'emptySlot'));
     }
     container.appendChild(wrap);
   }
@@ -92,50 +91,49 @@ function renderFlow(container, state) {
 
   row.forEach((cell, i) => {
     const wrap = el('div', 'boardSlot');
-    wrap.dataset.flowIndex = String(i);
+    wrap.dataset.slotIndex = String(i);
 
-    if (cell && (cell.name || cell.title)) {
-      wrap.appendChild(
-        cardEl({
-          title: cell.name || 'Aether',
-          subtype: cell.type || cell.subtype || 'Instant',
-          right: String(i + 1),
-        })
-      );
+    if (cell) {
+      wrap.appendChild(cardEl({
+        title: cell.name || 'Aether',
+        subtype: cell.type || cell.subtype || 'Instant',
+        right: String(i + 1),
+      }));
     } else {
-      wrap.appendChild(emptySlotEl());
+      wrap.appendChild(el('div', 'emptySlot'));
     }
     container.appendChild(wrap);
   });
 }
 
-/* ------------------ Hand layout (centered + arc) ------------------ */
+/* ------------------ Hand layout (centering + arc) ------------------ */
 function layoutHand(ribbonEl) {
   const fan = ribbonEl.querySelector('.fan');
   if (!fan) return;
 
+  // Anchor to the main centered column (or viewport as fallback)
   const anchor = document.querySelector('main.grid') || document.body;
   const anchorRect = anchor.getBoundingClientRect();
   const ribbonRect = ribbonEl.getBoundingClientRect();
 
   const cardW = parseFloat(getComputedStyle(ribbonEl).getPropertyValue('--card-w')) || 180;
   const n = Math.max(1, fan.children.length);
-
   const preferred = 120;
   const maxSpread = Math.max(58, (anchorRect.width - cardW) / Math.max(1, n - 1));
   const spread = Math.min(preferred, maxSpread);
-
   const stripW = (n - 1) * spread + cardW;
-  const fanLeft = Math.round((anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2));
 
-  fan.style.left  = `${fanLeft}px`;
+  // Center the fan inside the ribbon
+  const fanLeft = Math.round((anchorRect.left + anchorRect.width / 2) - (ribbonRect.left + stripW / 2));
+  fan.style.left = `${fanLeft}px`;
   fan.style.width = `${stripW}px`;
 
+  // Arc + tilt + stagger
   const centerIdx = (n - 1) / 2;
   fan.querySelectorAll('.cardWrap').forEach(w => (w.style.opacity = '0'));
   requestAnimationFrame(() => {
     fan.querySelectorAll('.cardWrap').forEach((wrap, idx) => {
-      const x = Math.round(idx * spread);
+      const x    = Math.round(idx * spread);
       const tilt = (idx - centerIdx) * 10;
       const arcY = -2 * Math.abs(idx - centerIdx);
       wrap.style.left = `${x}px`;
@@ -148,68 +146,46 @@ function layoutHand(ribbonEl) {
   });
 }
 
-/* ------------------ Click-to-preview (50% bigger) ------------------ */
-// We control preview via inline transform so we don't depend on CSS changes.
-function openPreview(wrap) {
-  closeAllPreviews();
-  wrap.classList.add('is-preview');
-  const card = wrap.querySelector('.card');
-  if (card) {
-    card.style.transform = 'translateY(-80px) rotate(0deg) scale(1.5)';
-    card.style.filter = 'brightness(1.08)';
-  }
-  wrap.style.zIndex = '999';
-}
-function closePreview(wrap) {
-  wrap.classList.remove('is-preview');
-  const card = wrap.querySelector('.card');
-  if (card) {
-    card.style.transform = '';
-    card.style.filter = '';
-  }
-  wrap.style.zIndex = '';
-}
-function closeAllPreviews() {
-  document.querySelectorAll('.cardWrap.is-preview').forEach(closePreview);
-}
+/* ------------------ Click-to-preview (50% enlarge) ------------------ */
 function enableClickPreview(wrap) {
-  wrap.addEventListener('click', (e) => {
-    // ignore if we are dragging
+  wrap.addEventListener('click', (ev) => {
+    // ignore if drag just started
     if (wrap.classList.contains('dragging')) return;
-    e.stopPropagation();
-    if (wrap.classList.contains('is-preview')) closePreview(wrap);
-    else openPreview(wrap);
+
+    // toggle this one, close others
+    const isOpen = wrap.classList.toggle('is-preview');
+    document.querySelectorAll('.cardWrap.is-preview').forEach(n => { if (n !== wrap) n.classList.remove('is-preview'); });
+    if (!isOpen) wrap.classList.remove('is-preview');
+    ev.stopPropagation();
+  });
+  document.addEventListener('click', (ev) => {
+    if (!wrap.contains(ev.target)) wrap.classList.remove('is-preview');
   });
 }
-document.addEventListener('click', closeAllPreviews);
 
-/* ------------------ Drag & Drop ------------------ */
-// Desktop
+/* ------------------ Drag & Drop: desktop ------------------ */
 function enableMouseDnDOnCard(wrap, handIndex) {
-  wrap.draggable = true;
+  const cardNode = wrap.querySelector('.card');
+  if (!cardNode) return;
 
-  wrap.addEventListener('dragstart', (e) => {
+  cardNode.setAttribute('draggable', 'true');
+
+  cardNode.addEventListener('dragstart', (e) => {
     wrap.classList.add('dragging');
-    closePreview(wrap);
-
-    // Make the drag image originate from the cursor position
-    const card = wrap.querySelector('.card') || wrap;
-    const r = card.getBoundingClientRect();
-    const offX = Math.max(0, Math.min(r.width,  e.clientX - r.left));
-    const offY = Math.max(0, Math.min(r.height, e.clientY - r.top));
-    e.dataTransfer.setDragImage(card, offX, offY);
-
     e.dataTransfer.setData('text/plain', String(handIndex));
     e.dataTransfer.effectAllowed = 'move';
-
+    // keep image centered under cursor
+    const r = cardNode.getBoundingClientRect();
+    e.dataTransfer.setDragImage(cardNode, r.width / 2, r.height / 2);
     markSlots('target');
   });
 
-  wrap.addEventListener('dragend', () => {
+  cardNode.addEventListener('dragend', () => {
     wrap.classList.remove('dragging');
     markSlots('');
   });
 
+  // Allow drop over the board container (add once)
   const board = getBoardSlotsEl();
   if (board && !board._dragListenersAdded) {
     board.addEventListener('dragover', (e) => {
@@ -230,7 +206,7 @@ function enableMouseDnDOnCard(wrap, handIndex) {
   }
 }
 
-// Touch
+/* ------------------ Drag & Drop: touch ------------------ */
 function enableTouchDnDOnCard(wrap, handIndex) {
   let dragging = false;
   const badge = document.querySelector('.dragBadge') || document.body.appendChild(el('div', 'dragBadge'));
@@ -240,6 +216,7 @@ function enableTouchDnDOnCard(wrap, handIndex) {
     const idx = slotIndexFromPoint(x, y);
     markSlots(idx >= 0 ? 'accept' : 'target');
   };
+
   const onUp = (x, y) => {
     if (!dragging) return;
     dragging = false;
@@ -255,7 +232,6 @@ function enableTouchDnDOnCard(wrap, handIndex) {
   wrap.addEventListener('touchstart', (ev) => {
     if (ev.touches.length !== 1) return;
     dragging = true;
-    closePreview(wrap);
     wrap.classList.add('dragging');
     badge.textContent = 'Drag to slot';
     const t = ev.touches[0];
@@ -281,7 +257,7 @@ function enableTouchDnDOnCard(wrap, handIndex) {
   }, { passive: true });
 }
 
-/* ------------------ Render the hand ------------------ */
+/* ------------------ Render hand ------------------ */
 function renderHand(ribbonEl, state) {
   if (!ribbonEl) return;
   ribbonEl.innerHTML = '';
@@ -289,6 +265,7 @@ function renderHand(ribbonEl, state) {
   ribbonEl.appendChild(fan);
 
   const hand = Array.isArray(state?.hand) ? state.hand : [];
+
   if (hand.length === 0) {
     const w = el('div', 'cardWrap');
     w.appendChild(cardEl({ title: '—', classes: 'is-phantom' }));
@@ -303,7 +280,7 @@ function renderHand(ribbonEl, state) {
     const node = cardEl({
       title: c.name || c.title || 'Card',
       subtype: c.type || c.subtype || 'Spell',
-      classes: isInstant ? 'is-instant' : '',
+      classes: isInstant ? 'is-instant' : ''
     });
     w.appendChild(node);
     fan.appendChild(w);
@@ -320,21 +297,21 @@ function renderHand(ribbonEl, state) {
 export function renderGame(state) {
   const setTxt = (sel, v) => { const n = $(sel); if (n) n.textContent = String(v); };
 
-  // hearts
+  // Hearts
   renderHearts('#hud-you-hearts', state?.hp ?? 0, 5);
   renderHearts('#hud-ai-hearts',  state?.ai?.hp ?? 0, 5);
 
-  // counters (if present in UI)
+  // Dock counters (if dock exists)
   setTxt('#count-deck',    Array.isArray(state?.deck) ? state.deck.length : 0);
   setTxt('#count-discard', Array.isArray(state?.disc) ? state.disc.length : 0);
   setTxt('#count-ae',      state?.ae ?? 0);
 
-  // boards & flow (empty slots if null)
+  // Boards (start empty unless slot has played/placed flag)
   renderSlots($('#aiBoard'),   state?.ai?.slots ?? [], AI_SLOT_COUNT);
-  renderFlow($('#aetherflow'), state);
-  renderSlots($('#yourBoard'), state?.slots ?? [],  PLAYER_SLOT_COUNT);
+  renderFlow ($('#aetherflow'), state);
+  renderSlots($('#yourBoard'), state?.slots ?? [], PLAYER_SLOT_COUNT);
 
-  // hand
+  // Hand
   renderHand($('#ribbon'), state);
 }
 
@@ -343,12 +320,13 @@ export function init(game) {
   _gameRef = game;
   window.renderGame = renderGame;
 
-  // End turn (if dock button exists)
+  // End Turn from dock (if button exists)
   $('#dock-end')?.addEventListener('click', () => game.dispatch({ type: 'END_TURN' }));
 
   renderGame(game.state);
   document.addEventListener('game:state', (ev) => renderGame(ev.detail?.state ?? game.state));
 
+  // Keep hand centered on resize/rotate
   const ribbon = $('#ribbon');
   const onResize = () => ribbon && layoutHand(ribbon);
   window.addEventListener('resize', onResize, { passive: true });
