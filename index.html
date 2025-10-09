@@ -3,14 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — Prototype (Choose Advance)</title>
+  <title>The Grey — Prototype (Choose Advance v2)</title>
   <link rel="stylesheet" href="./src/styles/cards.css">
   <style>
     html, body { height:100%; margin:0; background:linear-gradient(180deg,#f8f5ef 0%, #f3eee6 100%); color:#3a2e1f;
       font-family: Inter, Quicksand, 'Segoe UI', system-ui, sans-serif; }
-    .container{max-width:1100px; margin:0 auto; padding:16px;}
+    .container{max-width:1100px; margin:0 auto; padding:16px; padding-bottom:96px;}
     .titlebar{display:flex; align-items:center; gap:12px; padding:12px 0; margin-bottom:8px;}
     .titlebar h1{font-size:18px; letter-spacing:.02em; margin:0;} .subtitle{opacity:.6}
+    .footerHUD{position:fixed; bottom:12px; left:0; right:0; display:flex; justify-content:center; pointer-events:none;}
+    .footerHUD .bar{pointer-events:auto; width:1060px; display:flex; justify-content:space-between; align-items:center;
+      background:#ffffffd9; border:1px solid #e6e0d4; border-radius:12px; padding:8px 12px; box-shadow:0 8px 24px rgba(0,0,0,.08);}
+    .left, .right {display:flex; gap:8px; align-items:center;}
+    .endTurn{ background:#fff4e0; border:1px solid #e6cc96; color:#6b4f14; border-radius:10px; padding:6px 12px; cursor:pointer; }
+    .endTurn:hover{ transform: translateY(-1px); }
   </style>
 </head>
 <body>
@@ -21,9 +27,23 @@
     </div>
     <div id="app"></div>
     <div class="tips">
-      <p><strong>Tips:</strong> Drag Spells to any Spell Slot; Glyphs to the dark Glyph Slot. Long‑press previews. Click <em>Advance</em> on a slotted spell to spend Aether and add a pip. Discard hand cards with a gold chip to gain Aether.</p>
+      <p><strong>Tips:</strong> Drag Spells to any Spell Slot; Glyphs to the dark Glyph Slot. Long‑press previews. Click <em>Advance</em> on a slotted spell to spend Aether and add a pip. Click a gold chip on a hand card to discard it for Aether.</p>
     </div>
   </div>
+
+  <div class="footerHUD">
+    <div class="bar">
+      <div class="left">
+        <div class="icon badge" id="deckIcon" title="Deck">⟲</div>
+        <div class="icon badge" id="discardIcon" title="Discard">⌫</div>
+      </div>
+      <div class="right">
+        <div class="aetherGem" id="aetherGem">0</div>
+        <button class="endTurn" id="btnEnd">End Turn</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./src/ui/index.js"></script>
 </body>
 </html>

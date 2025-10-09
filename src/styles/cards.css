@@ -2,25 +2,20 @@
 body { background: linear-gradient(180deg, var(--base-bg) 0%, #f3eee6 100%); color: var(--text-dark); }
 a { color: var(--gold); }
 
-.hud { display:flex; align-items:center; gap:10px; padding:10px 14px; background:#ffffffd9; border:1px solid var(--panel-edge); border-radius:12px; box-shadow:0 8px 24px var(--shadow); margin-bottom:12px; }
 .icon { width:28px; height:28px; border-radius:10px; background:var(--panel-bg); border:1px solid var(--panel-edge); display:flex; align-items:center; justify-content:center; font-size:13px; box-shadow:0 1px 4px var(--shadow); color:var(--text-soft); position:relative; }
 .icon.badge::after{ content: attr(data-count); position:absolute; transform: translate(10px,-10px); font-size:10px; background: var(--gold); color:#fff; border-radius:999px; padding:1px 5px; }
-.spacer{flex:1;}
-.aetherGem{ width:34px; height:28px; border-radius:14px; background:var(--gold); color:#fff;
-  display:flex; align-items:center; justify-content:center; font-weight:600; box-shadow: inset 0 0 10px rgba(255,255,255,.5), 0 0 6px var(--gold); }
+.aetherGem{ width:34px; height:28px; border-radius:14px; background:var(--gold); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:600; box-shadow: inset 0 0 10px rgba(255,255,255,.5), 0 0 6px var(--gold); }
 
 .board { background:#ffffffc2; border-radius:18px; padding:14px; margin:12px auto; max-width:1080px; box-shadow:0 8px 24px var(--shadow); }
 .row { display:flex; align-items:center; gap:12px; }
 .slots { display:flex; gap:12px; }
-.slot, .glyph-slot { width:150px; height:210px; border-radius:14px; border:1px dashed #c8bfa9; background:#fdfcf9; color:#b4a58a;
-  display:flex; align-items:center; justify-content:center; box-shadow: inset 0 0 8px rgba(0,0,0,.04); transition: box-shadow .15s ease, border-color .15s ease; }
-.slot.highlight { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212,177,76,.35) inset, 0 0 14px rgba(212,177,76,.25); }
-.glyph-slot { background:#f3ece0; } /* slightly darker glyph slot */
-.slot-glow { box-shadow:0 0 16px rgba(212,177,76,.4) inset; }
+.slot, .glyph-slot { width:150px; height:210px; border-radius:14px; border:1px dashed #c8bfa9; background:#fdfcf9; color:#b4a58a; display:flex; align-items:center; justify-content:center; box-shadow: inset 0 0 8px rgba(0,0,0,.04); transition: box-shadow .15s ease, border-color .15s ease, background .15s ease; }
+.glyph-slot { background:#efe7d8; } /* darker */
+.slot.highlight, .glyph-slot.highlight { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(212,177,76,.35) inset, 0 0 14px rgba(212,177,76,.25); }
+
 .slot-ghost { font-size:12px; }
 
-.card { width:140px; height:200px; border-radius:16px; background:var(--panel-bg); border:1px solid var(--panel-edge);
-  box-shadow:0 6px 16px var(--shadow); position:relative; transition: transform .16s ease, box-shadow .2s ease; user-select:none; touch-action:none; }
+.card { width:140px; height:200px; border-radius:16px; background:var(--panel-bg); border:1px solid var(--panel-edge); box-shadow:0 6px 16px var(--shadow); position:relative; transition: transform .16s ease, box-shadow .2s ease; user-select:none; touch-action:none; }
 .card:hover { transform: translateY(-4px); box-shadow:0 10px 24px var(--shadow); }
 .card .title { position:absolute; top:26px; left:8px; right:8px; text-align:center; font-size:13px; font-weight:500; color:var(--text-dark); }
 
@@ -29,10 +24,8 @@ a { color: var(--gold); }
 .badge.Spell   { background:#ecfff6; color:#1b6c49; border-color:#bfead2; }
 .badge.Glyph   { background:#fff0ea; color:#a34f35; border-color:#ffd4c5; }
 
-.gain-chip { position:absolute; bottom:8px; left:8px; font-size:11px; padding:2px 6px; border-radius:12px;
-  background: #fff7e3; border:1px solid #e8d29e; color:#7a5b12; cursor:pointer; }
-.advance-btn { position:absolute; bottom:8px; right:8px; font-size:11px; padding:2px 8px; border-radius:12px;
-  background:#ecfff6; border:1px solid #bfead2; color:#145b3e; cursor:pointer; }
+.gain-chip { position:absolute; bottom:8px; left:8px; font-size:11px; padding:2px 6px; border-radius:12px; background:#fff7e3; border:1px solid #e8d29e; color:#7a5b12; cursor:pointer; }
+.advance-btn { position:absolute; bottom:8px; right:8px; font-size:11px; padding:2px 8px; border-radius:12px; background:#ecfff6; border:1px solid #bfead2; color:#145b3e; cursor:pointer; }
 
 .hand { position:relative; height:220px; margin-top:24px; }
 .hand .card { position:absolute; left:50%; transform-origin:50% 90%; pointer-events:auto; }
@@ -47,5 +40,12 @@ a { color: var(--gold); }
 
 .card.is-held-instant { animation: instantPulse 1.2s ease-in-out infinite; box-shadow:0 0 20px rgba(212,177,76,.25); }
 @keyframes instantPulse { 50% { box-shadow:0 0 30px rgba(212,177,76,.4);} }
+
+/* Draw animation */
+.anim-draw { animation: drawIn .28s ease-out; transform-origin: 50% 90%; }
+@keyframes drawIn { from{ opacity:0; transform: translate(-50%, 120px) scale(.9);} to{ opacity:1; transform: translate(-50%, 0) scale(1);} }
+/* Discard animation (board flash) */
+.discard-flash { animation: discardFlash .28s ease; }
+@keyframes discardFlash { from{background:#fff3;} to{background:#fff0;} }
 
 p, .tips { color: var(--text-soft); font-size: 13px; }

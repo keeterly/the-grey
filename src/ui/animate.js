@@ -1,6 +1,19 @@
 export const runAnimations = async (root, anims=[])=>{
   for (const a of anims) {
     switch (a.type) {
+      case 'DRAW': {
+        // mark newly drawn cards to animate on next render (handled in CSS)
+        const el = root.querySelector(`[data-card-id="${a.cardId}"][data-zone="hand"]`);
+        if (el) el.classList.add('anim-draw');
+        break;
+      }
+      case 'DISCARD_HAND': {
+        const board = root.querySelector(`[data-board="${a.who}"]`);
+        board?.classList.add('discard-flash');
+        await wait(280);
+        board?.classList.remove('discard-flash');
+        break;
+      }
       case 'PLAY': {
         const el = root.querySelector(`[data-card-id="${a.cardId}"]`);
         if (el) { el.classList.add('pulse-gold'); await wait(220); el.classList.remove('pulse-gold'); }
@@ -8,7 +21,7 @@ export const runAnimations = async (root, anims=[])=>{
       }
       case 'PLAY_GLYPH': {
         const slot = root.querySelector('[data-drop="glyph"]');
-        slot?.classList.add('slot-glow'); await wait(200); slot?.classList.remove('slot-glow');
+        slot?.classList.add('highlight'); await wait(200); slot?.classList.remove('highlight');
         break;
       }
       case 'ADVANCE': {
