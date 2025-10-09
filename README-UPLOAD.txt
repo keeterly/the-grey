@@ -1,27 +1,36 @@
-The Grey — Corrected Upload Pack
-================================
+The Grey — Cleanup Upload Pack (v2.1)
+=====================================
 
-Upload these files to the SAME BRANCH that your GitHub Pages is serving from
-(usually `main` by default), not just `v2.1`:
+This pack removes the temporary nested-path shim and bumps the version badge.
 
-- assets/css/acceptance.safe.css
+Included
+--------
 - assets/js/boot-debug.js
-- assets/js/engine.acceptance.safe.js
+    - Imports './engine.acceptance.js' directly (no shim)
+    - Sets window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v13' for visual confirmation
+- assets/css/acceptance.safe.css
+    - Centers boards and keeps the fanned hand stable
 
-Why:
-- Centers boards & restores fanned hand (CSS)
-- Fixes the 404 and import error by changing boot-debug.js to import a local
-  module path: './engine.acceptance.safe.js' and provides that file.
+Install (GitHub Web UI) — v2.1 branch
+-------------------------------------
+1) Switch to branch: v2.1
+2) Add file -> Upload files
+3) Drag both files keeping the exact paths:
+   - assets/js/boot-debug.js
+   - assets/css/acceptance.safe.css
+4) Commit
+5) Hard refresh your site (Cmd/Ctrl+Shift+R). You should see:
+   - Version badge: "The Grey — v2.3.9-acceptanceP1-safe-v13"
+   - No JS import errors
+   - Centered boards and a fanned hand
 
-Steps (GitHub Web UI)
----------------------
-1) Check your Pages source: Repo -> Settings -> Pages -> Source.
-2) Switch to that branch in the GitHub UI (often `main`).
-3) Click "Add file" -> "Upload files".
-4) Drag the three files from this zip, preserving their exact paths.
-5) Commit. Then hard-refresh your site.
+Cleanup (optional)
+------------------
+If you previously uploaded a nested shim at:
+  assets/js/assets/js/engine.acceptance.safe.js
+you can now delete it from v2.1 — it is no longer used.
 
-Optional quick test:
-- Temporarily remove the <script src="./assets/js/boot-debug.js"></script> tag
-  in index.html to confirm the page loads without errors; then add it back after
-  uploading the corrected JS files.
+If your GitHub Pages is NOT serving from v2.1
+---------------------------------------------
+Upload these files to the branch your Pages site uses
+(Settings -> Pages -> Source), or switch the Pages source to v2.1.
