@@ -1,18 +1,22 @@
 export const CARD_TYPES = { INSTANT:'INSTANT', SPELL:'SPELL', GLYPH:'GLYPH' };
 
-export const makeCard = (id, name, type, {pips=0, aetherCost=0}={}) => ({
-  id, name, type, pipsMax: pips, pips: 0, aetherCost,
+export const makeCard = (id, name, type, {pips=0, aetherCost=0, aetherGain=0}={}) => ({
+  id, name, type, pipsMax: pips, pips: 0, aetherCost, aetherGain,
 });
 
 export const BASE_DECK = [
-  makeCard('I1','Flash Sigil', CARD_TYPES.INSTANT),
-  makeCard('I2','Quick Ward',   CARD_TYPES.INSTANT),
-  makeCard('I3','Rune Burst',   CARD_TYPES.INSTANT),
-  makeCard('I4','Aether Jolt',  CARD_TYPES.INSTANT),
-  makeCard('S1','Ember Weave',  CARD_TYPES.SPELL, {pips:3, aetherCost:1}),
-  makeCard('S2','Frost Chain',  CARD_TYPES.SPELL, {pips:2, aetherCost:2}),
-  makeCard('S3','Void Lattice', CARD_TYPES.SPELL, {pips:4, aetherCost:1}),
-  makeCard('S4','Storm Script', CARD_TYPES.SPELL, {pips:3, aetherCost:2}),
+  // Instants give aether when discarded
+  makeCard('I1','Aether Pebble', CARD_TYPES.INSTANT, {aetherGain:1}),
+  makeCard('I2','Aether Shard',  CARD_TYPES.INSTANT, {aetherGain:2}),
+  makeCard('I3','Aether Core',   CARD_TYPES.INSTANT, {aetherGain:3}),
+  makeCard('I4','Aether Jolt',   CARD_TYPES.INSTANT, {aetherGain:1}),
+
+  // Spells require aether to advance pips
+  makeCard('S1','Ember Weave',   CARD_TYPES.SPELL, {pips:3, aetherCost:1}),
+  makeCard('S2','Frost Chain',   CARD_TYPES.SPELL, {pips:2, aetherCost:2}),
+  makeCard('S3','Void Lattice',  CARD_TYPES.SPELL, {pips:4, aetherCost:1}),
+  makeCard('S4','Storm Script',  CARD_TYPES.SPELL, {pips:3, aetherCost:2}),
+
   makeCard('G1','Glyph of Echo',   CARD_TYPES.GLYPH),
   makeCard('G2','Glyph of Thorns', CARD_TYPES.GLYPH),
 ];
@@ -23,7 +27,7 @@ export const newSide = (seedDeck=BASE_DECK) => ({
   draw: shuffle(seedDeck),
   hand: [],
   discard: [],
-  slots: [null, null, null], // 3 spell slots
+  slots: [null, null, null],
   glyphSlot: null,
   aether: 0,
 });
