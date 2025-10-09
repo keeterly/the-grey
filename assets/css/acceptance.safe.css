@@ -1,4 +1,50 @@
-/* acceptance.safe.css — center boards + restore fanned hand */
+/* acceptance.safe.css — mobile optimizations + existing fixes
+   - Centers boards
+   - Keeps hand fanned
+   - Adds 'mobile-compact' mode that shrinks AI/slots/AF (but NOT hand cards)
+*/
 .slots{display:flex;gap:10px;justify-content:center;}
 .board .row:not(.head){justify-content:center;}
 .board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
+
+@media (max-width: 900px){
+  .container{padding:6px 8px 72px;}
+  .board,.aetherflow{max-width:100%;}
+}
+
+/* Mobile compact mode (toggled by JS when in portrait on small screens) */
+html.mobile-compact .board .row.head .hearts { transform: scale(0.9); transform-origin: left center; }
+
+html.mobile-compact .slots{ gap:8px; }
+html.mobile-compact .slot,
+html.mobile-compact .glyph-slot{
+  width:120px; height:176px;
+}
+/* Keep hand cards full size */
+html.mobile-compact .hand .card{
+  width:140px; height:200px;
+}
+
+html.mobile-compact .aetherflow{ padding:6px; gap:8px; }
+html.mobile-compact .af-cards{ gap:8px; }
+html.mobile-compact .af-card{
+  width:136px; height:182px;
+}
+
+html.mobile-compact .hud-min .icon{ width:26px; height:26px; }
+html.mobile-compact .hud-min .icon.diamond{ width:30px; height:30px; }
+
+/* Rotate overlay styles (injected DOM) */
+.tg-rotate-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.72);
+  color:#fff; display:none; align-items:center; justify-content:center;
+  z-index:1000; text-align:center; padding:24px;
+}
+.tg-rotate-overlay.show{ display:flex; animation: tgFade .18s ease; }
+.tg-rotate-card{
+  background:#121212; border:1px solid rgba(255,255,255,.12);
+  border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45);
+}
+.tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
+.tg-rotate-sub{ font-size:13px; opacity:.85; }
+@keyframes tgFade{ from{opacity:0} to{opacity:1} }
