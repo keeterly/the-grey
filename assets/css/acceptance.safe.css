@@ -1,4 +1,4 @@
-/* assets/css/acceptance.safe.css — center boards + restore fanned hand */
+/* acceptance.safe.css — center boards + restore fanned hand */
 .slots{display:flex;gap:10px;justify-content:center;}
 .board .row:not(.head){justify-content:center;}
 .board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
