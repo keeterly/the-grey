@@ -15,22 +15,19 @@
 </head>
 
 <body>
-
-  
   <!-- HUD -->
-<div class="hudRow" id="hud">
-  <div class="pill pill-hp" id="pillYou" aria-label="Your HP">
-    <div class="label">HP</div>
-    <div class="hearts" id="hud-you-hearts"></div>
+  <div class="hudRow" id="hud">
+    <div class="pill pill-hp" id="pillYou" aria-label="Your HP">
+      <div class="label">HP</div>
+      <div class="hearts" id="hud-you-hearts"></div>
+    </div>
+
+    <div class="pill pill-hp" id="pillAi" aria-label="AI HP">
+      <div class="label">AI HP</div>
+      <div class="hearts" id="hud-ai-hearts"></div>
+    </div>
   </div>
 
-  <div class="pill pill-hp" id="pillAi" aria-label="AI HP">
-    <div class="label">AI HP</div>
-    <div class="hearts" id="hud-ai-hearts"></div>
-  </div>
-</div>
-
-  
   <!-- Toast -->
   <div id="topLog" class="topLog" aria-live="polite"></div>
 
@@ -111,12 +108,11 @@
     })();
   </script>
 
-  <!-- Bridge bootstrap -->
-  <script type="module">
-    import { exposeToWindow } from "./bridge.js";
-    exposeToWindow();
-  </script>
+  <!-- Core modules -->
+  <!-- Load the engine bridge which imports UI and wires everything up -->
+  <script type="module" src="./src/engine/bridge.js"></script>
 
+  <!-- Optional debug helpers (kept as-is) -->
   <script defer src="./assets/js/boot-debug.js"></script>
 </body>
 </html>
