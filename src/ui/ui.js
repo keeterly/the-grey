@@ -142,9 +142,15 @@ function enablePointerDnD(wrap, handIndex){
   let dragging = false;
   let clone = null;
   let offsetX = 0, offsetY = 0;
+  let firstMove = true;
 
   const onMove = (x, y) => {
     if (!clone) return;
+    // don’t move until pointer actually moves (prevents bottom-center flash)
+    if (firstMove) {
+      clone.style.visibility = 'visible';
+      firstMove = false;
+    }
     clone.style.transform = `translate3d(${x - offsetX}px, ${y - offsetY}px, 0)`;
     const i = slotIndexFromPoint(x, y);
     markSlots(i >= 0 ? 'accept' : 'target');
@@ -155,38 +161,32 @@ function enablePointerDnD(wrap, handIndex){
     dragging = false;
     document.body.classList.remove('is-dragging');
     wrap.classList.remove('drag-src');
-
-    const i = slotIndexFromPoint(x, y);
     markSlots('');
     if (clone) clone.remove();
     clone = null;
-
-    if (i >= 0) {
-      _gameRef?.dispatch?.({ type:'PLAY_FROM_HAND', handIndex, slot:i });
-    }
-    // allow hover effects again next frame
-    requestAnimationFrame(() => {});
+    const i = slotIndexFromPoint(x, y);
+    if (i >= 0) _gameRef?.dispatch?.({ type:'PLAY_FROM_HAND', handIndex, slot:i });
   };
 
   wrap.addEventListener('pointerdown', (ev) => {
-    if (ev.button !== 0) return; // left only
+    if (ev.button !== 0) return;
     ev.preventDefault();
-
     dragging = true;
     document.body.classList.add('is-dragging');
     wrap.classList.add('drag-src');
     markSlots('target');
 
-    // Build a visual clone that follows the pointer
+    // create hidden clone off-screen first
     clone = el('div','dragClone');
     const n = card.cloneNode(true);
     clone.appendChild(n);
+    clone.style.visibility = 'hidden';
     document.body.appendChild(clone);
 
     const r = card.getBoundingClientRect();
     offsetX = ev.clientX - r.left;
     offsetY = ev.clientY - r.top;
-    onMove(ev.clientX, ev.clientY);
+    firstMove = true;
 
     const move = (e) => onMove(e.clientX, e.clientY);
     const up   = (e) => {
@@ -194,11 +194,11 @@ function enablePointerDnD(wrap, handIndex){
       window.removeEventListener('pointerup',   up,   true);
       onUp(e.clientX, e.clientY);
     };
-
     window.addEventListener('pointermove', move, true);
     window.addEventListener('pointerup',   up,   true);
   }, { passive:false });
 }
+
 
 /* ---------- Hand render ---------- */
 function renderHand(ribbonEl, state){
