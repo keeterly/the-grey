@@ -1,13 +1,16 @@
 /* ============================================================
-   THE GREY — components.css (Fan strip + Pointer Drag)
+   THE GREY — components.css (2025 UI final)
+   - Centered hand fan, arc + hover/preview
+   - Empty dotted board slots + drop feedback
+   - Dock chips (deck, discard, aether, end turn)
    ============================================================ */
 
 /* ---------- Base ---------- */
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
   -webkit-user-select: none;
   user-select: none;
-  -webkit-tap-highlight-color: transparent;
 }
 html, body { height: 100%; }
 body {
@@ -19,20 +22,22 @@ body {
   font-family: "Inter", system-ui, sans-serif;
 }
 
-/* ---------- Minimal hearts in HUD ---------- */
-.pill-hp { display:flex; align-items:center; gap:10px; }
-.pill-hp .label { font-weight:600; opacity:.85; }
-.pill-hp .hearts { display:flex; gap:6px; align-items:center; }
-.pill-hp .heart { font-size:16px; line-height:1; color:#d35; text-shadow:0 1px 0 rgba(0,0,0,.05) }
-.pill-hp .heart.is-empty { opacity:.25; }
+/* ---------- Hearts (HUD) ---------- */
+.heart {
+  font-size: 16px;
+  line-height: 1;
+  color: #d35;
+  text-shadow: 0 1px 0 rgba(0,0,0,.05);
+  transform: translateY(1px);
+}
+.heart.is-empty { opacity: .28; }
 
-/* ---------- Card ---------- */
+/* ---------- Cards ---------- */
 .card{
   background: linear-gradient(to bottom, #fefcf8 0%, #f4efe6 100%);
   border-radius: 14px;
   box-shadow: 0 3px 6px rgba(0,0,0,.1);
-  width: 180px;
-  height: 250px;
+  width: 180px; height: 250px;
   display:flex; flex-direction:column; justify-content:space-between;
   overflow:hidden;
   transition: filter .22s ease, transform .22s ease;
@@ -44,80 +49,98 @@ body {
 .cBody{ flex:1; padding:0 12px; font-size:13px; }
 .cStats{ font-size:11px; opacity:.6; text-align:right; padding:4px 10px 8px 0; }
 
-/* ---------- Zones (rows) ---------- */
+/* ---------- Zones / Rows ---------- */
 #aiBoard, #aetherflow, #yourBoard{
   --card-w: 180px; --card-h: 250px;
+  display:flex; gap:16px; flex-wrap:nowrap; overflow:visible;
+  align-items:flex-start; justify-content:center;
   min-height: var(--card-h);
-  display:flex; gap:16px; flex-wrap:nowrap; justify-content:center; align-items:flex-start;
-  overflow:visible;
+  padding: 8px 0;
 }
 
-/* Board slots & empty visual */
+/* Each "slot" footprint */
 .boardSlot{
-  width: var(--card-w);
-  height: var(--card-h);
-  flex: 0 0 auto;
+  width: var(--card-w); height: var(--card-h);
   display:flex; align-items:center; justify-content:center;
-  position: relative;
+  position:relative; flex:0 0 auto;
 }
-.boardSlot > .card{ width:100%; height:100%; }
 
+/* Empty slot (dotted outline) */
 .emptySlot{
   width: 100%; height: 100%;
   border-radius: 12px;
-  border: 2px dashed rgba(0,0,0,0.12);
+  border: 2px dashed rgba(0,0,0,.16);
   background: transparent;
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
-.boardSlot.drop-target .emptySlot{ border-color: rgba(160,130,90,0.35); }
+
+/* Drag feedback */
+.boardSlot.drop-target .emptySlot{ border-color: rgba(160,130,90,.35); }
 .boardSlot.drop-accept .emptySlot{
   border-color: #c59a5b;
-  background: rgba(255,235,200,0.15);
-  box-shadow: 0 0 0 3px rgba(197,154,91,0.12) inset;
+  background: rgba(255,235,200,.15);
+  box-shadow: 0 0 0 3px rgba(197,154,91,.12) inset;
 }
 
-/* ---------- Instant pulse ---------- */
-@keyframes uiPulse { 0%{filter:brightness(1)} 50%{filter:brightness(1.12)} 100%{filter:brightness(1)} }
+/* If a real card sits in a slot, make it fill exactly the slot */
+.boardSlot > .card{ width:100%; height:100%; }
+
+/* ---------- Instant pulse (optional) ---------- */
+@keyframes uiPulse {
+  0% { filter:brightness(1) } 50% { filter:brightness(1.12) } 100% { filter:brightness(1) }
+}
+.card.is-instant { animation: uiPulse 1.8s ease-in-out infinite; }
 
 /* ============================================================
-   Hand ribbon (fan)
+   HAND / RIBBON
    ============================================================ */
+
+/* fixed footer container; centers its inner strip */
 .ribbon-wrap{
-  position:fixed; left:0; bottom:0; width:100%; height:300px;
-  padding-left:max(12px, env(safe-area-inset-left));
-  padding-right:max(12px, env(safe-area-inset-right));
-  padding-bottom:max(8px, env(safe-area-inset-bottom));
+  position:fixed; left:0; bottom:0; width:100%;
+  height:300px;
+  padding-left: max(12px, env(safe-area-inset-left));
+  padding-right: max(12px, env(safe-area-inset-right));
+  padding-bottom: max(8px, env(safe-area-inset-bottom));
   display:flex; justify-content:center; align-items:flex-end;
   pointer-events:none; z-index:100;
 }
+
+/* flexible shell — the inner "strip" will be centered inside this */
 .ribbon{
   --card-w: 180px; --card-h: 250px;
-  position:relative; width:100%; height:100%; pointer-events:auto;
-}
-.fan{
-  position:relative;
-  height: calc(var(--card-h) + 40px);
-  width: 0px;  /* set by JS */
-  left: 0;     /* set by JS */
-  margin:0;
+  position:relative; width:100%; height:100%;
   pointer-events:auto;
+}
+
+/* Centered strip that JS positions with pixel 'left' and width */
+.fan{
+  position: relative;
+  height: calc(var(--card-h) + 40px);
+  width: 0px;              /* JS sets exact width */
+  left: 0;                 /* JS sets exact left  */
+  pointer-events: auto;
   transition: left .28s cubic-bezier(.2,.8,.2,1);
 }
+
+/* each card sits in an absolute wrapper we animate */
 .cardWrap{
-  position:absolute; bottom:40px; left:0; /* left set by JS */
+  position:absolute; bottom:40px; left:0;   /* JS sets left:px */
   width: var(--card-w); height: var(--card-h);
   transform-origin: bottom center;
   z-index:100;
+
+  /* small arc + tilt (Y+rot only) */
   --wy: 0px; --wrot: 0deg;
   transform: translateY(var(--wy)) rotate(var(--wrot));
   transition:
     left .28s cubic-bezier(.2,.8,.2,1),
     transform .28s cubic-bezier(.2,.8,.2,1),
     opacity .22s ease;
-  opacity: 0;
+  opacity: 0; /* fades to 1 after layout */
 }
 
-/* Hover preview (desktop) */
+/* Hover raise (desktop) */
 @media (hover:hover){
   .cardWrap:hover .card{
     transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
@@ -127,14 +150,23 @@ body {
   .cardWrap:hover{ z-index:999; }
 }
 
-.ribbon .card.is-instant{ animation: uiPulse 1.8s ease-in-out infinite; }
+/* Click-to-preview (50% bigger) */
+.cardWrap.is-preview{ z-index: 1000 !important; }
+.cardWrap.is-preview .card{
+  transform: translateY(-90px) rotate(0deg) scale(1.5) !important;
+  filter: brightness(1.05);
+}
+
+/* Hide phantom placeholder in empty hand */
 .ribbon .card.is-phantom{ opacity:0; pointer-events:none; }
 
-/* ---------- Mobile sizing ---------- */
+/* ---------- Mobile tuning ---------- */
 @media (max-width: 768px){
   .ribbon-wrap{ height:260px; }
   .ribbon{ --card-w: 160px; --card-h: 220px; }
-  .cardWrap:active .card{ transform: translateY(-68px) rotate(0deg) scale(1.16) !important; }
+  .cardWrap:active .card{
+    transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
+  }
   .cardWrap:active{ z-index:999; }
 }
 @media (max-width: 420px){
@@ -142,73 +174,42 @@ body {
 }
 
 /* ============================================================
-   Pointer-drag clone (smooth follower)
+   DOCK CHIPS (Deck / Discard / Aether / End turn)
    ============================================================ */
-.dragClone{
-  position: fixed;
-  left: 0; top: 0;
-  width: var(--card-w, 180px);
-  height: var(--card-h, 250px);
-  pointer-events: none;
-  z-index: 10000;
-  transform: translate3d(0,0,0);
-  will-change: transform;
-}
-.dragClone > .card{
-  width:100%; height:100%;
-  transform: scale(1.06);
-  box-shadow: 0 12px 24px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.12);
-}
 
-/* Hide the source card while dragging */
-.cardWrap.drag-src .card { visibility: hidden; }
-
-/* Kill hover/preview during drag */
-body.is-dragging .cardWrap:hover .card { transform: none !important; filter: none !important; }
-
-/* ============================================================
-   DOCKS (Deck / Discard left, Aether / End Turn right)
-   ============================================================ */
 .dock{
   position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 120px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  z-index: 120;                /* above ribbon (100) */
-  pointer-events: auto;
+  gap: 8px;
+  z-index: 120;
 }
-.dock--left  { left: 12px; }
-.dock--right { right: 12px; }
+.dock--left { left: 8px; }
+.dock--right{ right: 8px; }
 
 .chip.icon{
+  position: relative;
   width: 36px; height: 36px;
   border-radius: 10px;
   background: #fff;
-  box-shadow: 0 2px 6px rgba(0,0,0,.12);
-  display: grid; place-items: center;
-  position: relative;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  display:flex; align-items:center; justify-content:center;
+  color:#7b644e;
+  border: 1px solid rgba(0,0,0,.06);
 }
-.chip.icon svg{
-  width: 22px; height: 22px;
-  fill: currentColor; color: #6b5e4a; opacity: .9;
-}
-
-.chip.icon .badge{
-  position: absolute;
-  right: -8px; top: -8px;
+.chip.icon svg {
   width: 20px; height: 20px;
-  border-radius: 10px;
-  background: #6b5e4a;
-  color: #fff;
-  font: 600 11px/20px system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  text-align: center;
-  box-shadow: 0 1px 4px rgba(0,0,0,.18);
+  fill: currentColor;
 }
+.chip.icon.cta { color:#fff; background:#7b5c2b; }
+.chip.icon.gem { color:#c79b3f; }
 
-.chip.icon.gem svg { color: #d8a73f; }          /* aether gem */
-.chip.icon.cta { background: #fff7e5; }         /* end-turn button */
-.chip.icon.cta svg { color: #b77b00; }
-.chip.icon:active { transform: scale(.98); }
-
+.badge{
+  position:absolute; right:-6px; bottom:-6px;
+  min-width: 18px; height: 18px; padding:0 4px;
+  border-radius: 9px;
+  background:#6f5a44; color:#fff;
+  font-size:11px; line-height:18px; text-align:center;
+  box-shadow: 0 1px 4px rgba(0,0,0,.25);
+}
