@@ -1,6 +1,149 @@
 import { CARD_TYPES } from './state.js';
-export const A={START:'START',DRAW:'DRAW',PLAY_TO_SLOT:'PLAY_TO_SLOT',PLAY_TO_GLYPH:'PLAY_TO_GLYPH',ADVANCE_PIP:'ADVANCE_PIP',END_TURN:'END_TURN',AI_TURN:'AI_TURN'};
-const drawN=(side,n=1)=>{for(let i=0;i<n;i++){if(!side.draw.length){side.draw=side.discard.splice(0).reverse();}const c=side.draw.pop();if(c)side.hand.push(c);}};
-const discardHand=side=>{side.discard.push(...side.hand);side.hand=[];};
-const castIfComplete=(side,card,who,animations)=>{animations.push({type:'RESOLVE',who,cardId:card.id});};
-export function reducer(state,action){const s=structuredClone(state);const you=s.you,ai=s.ai;switch(action.type){case A.START:drawN(you,5);drawN(ai,5);return s;case A.DRAW:drawN(you,1);return s;case A.PLAY_TO_SLOT:{const{cardId,who='YOU'}=action;const tgt=who==='YOU'?you:ai;const idx=tgt.hand.findIndex(c=>c.id===cardId);if(idx<0)return s;const card=tgt.hand.splice(idx,1)[0];if(card.type===CARD_TYPES.INSTANT){s.animations.push({type:'PLAY',who,cardId:card.id});castIfComplete(tgt,card,who,s.animations);tgt.discard.push(card);return s;}if(tgt.slot)tgt.discard.push(tgt.slot);card.pips=0;tgt.slot=card;s.animations.push({type:'PLAY',who,cardId:card.id});return s;}case A.PLAY_TO_GLYPH:{const{cardId,who='YOU'}=action;const tgt=who==='YOU'?you:ai;const idx=tgt.hand.findIndex(c=>c.id===cardId);if(idx<0)return s;const card=tgt.hand.splice(idx,1)[0];if(card.type!==CARD_TYPES.GLYPH){tgt.hand.push(card);return s;}if(tgt.glyphSlot)tgt.discard.push(tgt.glyphSlot);tgt.glyphSlot=card;s.animations.push({type:'PLAY_GLYPH',who,cardId:card.id});return s;}case A.ADVANCE_PIP:{const{who='YOU'}=action;const tgt=who==='YOU'?you:ai;const card=tgt.slot;if(!card||card.type!==CARD_TYPES.SPELL)return s;if(tgt.aether<card.aetherCost)return s;tgt.aether-=card.aetherCost;card.pips=Math.min(card.pips+1,card.pipsMax);s.animations.push({type:'ADVANCE',who,cardId:card.id});if(card.pips===card.pipsMax){castIfComplete(tgt,card,who,s.animations);tgt.discard.push(card);tgt.slot=null;}return s;}case A.END_TURN:discardHand(you);you.aether+=1;s.turn='AI';return s;case A.AI_TURN:{const playFromHand=(pred,toGlyph=false)=>{const idx=ai.hand.findIndex(pred);if(idx>=0){const card=ai.hand.splice(idx,1)[0];if(toGlyph){if(ai.glyphSlot)ai.discard.push(ai.glyphSlot);ai.glyphSlot=card;s.animations.push({type:'PLAY_GLYPH',who:'AI',cardId:card.id});}else if(card.type===CARD_TYPES.INSTANT){s.animations.push({type:'PLAY',who:'AI',cardId:card.id});castIfComplete(ai,card,'AI',s.animations);ai.discard.push(card);}else{if(ai.slot)ai.discard.push(ai.slot);card.pips=0;ai.slot=card;s.animations.push({type:'PLAY',who:'AI',cardId:card.id});}return true;}return false;};if(!ai.glyphSlot)playFromHand(c=>c.type===CARD_TYPES.GLYPH,true);if(!ai.slot)playFromHand(c=>c.type===CARD_TYPES.SPELL);playFromHand(c=>c.type===CARD_TYPES.INSTANT);ai.aether+=1;for(let i=0;i<3;i++){const card=ai.slot;if(!card||card.type!==CARD_TYPES.SPELL)break;if(ai.aether<card.aetherCost)break;ai.aether-=card.aetherCost;card.pips=Math.min(card.pips+1,card.pipsMax);s.animations.push({type:'ADVANCE',who:'AI',cardId:card.id});if(card.pips===card.pipsMax){castIfComplete(ai,card,'AI',s.animations);ai.discard.push(card);ai.slot=null;break;}}discardHand(ai);s.turn='YOU';if(!you.hand.length)drawN(you,5);return s;}default:return s;}}
+
+export const A = {
+  START: 'START',
+  DRAW: 'DRAW',
+  PLAY_TO_SLOT: 'PLAY_TO_SLOT',
+  PLAY_TO_GLYPH: 'PLAY_TO_GLYPH',
+  ADVANCE_PIP: 'ADVANCE_PIP',
+  END_TURN: 'END_TURN',
+  AI_TURN: 'AI_TURN',
+};
+
+const drawN = (side, n=1) => {
+  for (let i=0;i<n;i++){
+    if (!side.draw.length) { side.draw = side.discard.splice(0).reverse(); }
+    const c = side.draw.pop();
+    if (c) side.hand.push(c);
+  }
+};
+
+const discardHand = (side) => {
+  side.discard.push(...side.hand);
+  side.hand = [];
+};
+
+const castIfComplete = (side, card, who, animations) => {
+  // TODO: Hook real effects here (damage, buffs, etc.)
+  animations.push({ type:'RESOLVE', who, cardId: card.id });
+};
+
+export function reducer(state, action) {
+  const s = structuredClone(state);
+  const you = s.you, ai = s.ai;
+
+  switch (action.type) {
+    case A.START: {
+      drawN(you, 5); drawN(ai, 5);
+      return s;
+    }
+    case A.DRAW: {
+      drawN(you, 1);
+      return s;
+    }
+    case A.PLAY_TO_SLOT: {
+      const { cardId, who='YOU' } = action;
+      const tgt = who === 'YOU' ? you : ai;
+      const idx = tgt.hand.findIndex(c=>c.id===cardId);
+      if (idx<0) return s;
+      const card = tgt.hand.splice(idx,1)[0];
+
+      if (card.type === CARD_TYPES.INSTANT) {
+        s.animations.push({type:'PLAY', who, cardId: card.id});
+        castIfComplete(tgt, card, who, s.animations);
+        tgt.discard.push(card);
+        return s;
+      }
+      if (tgt.slot) tgt.discard.push(tgt.slot);
+      card.pips = 0;
+      tgt.slot = card;
+      s.animations.push({type:'PLAY', who, cardId: card.id});
+      return s;
+    }
+    case A.PLAY_TO_GLYPH: {
+      const { cardId, who='YOU' } = action;
+      const tgt = who === 'YOU' ? you : ai;
+      const idx = tgt.hand.findIndex(c=>c.id===cardId);
+      if (idx<0) return s;
+      const card = tgt.hand.splice(idx,1)[0];
+      if (card.type !== CARD_TYPES.GLYPH) { tgt.hand.push(card); return s; }
+      if (tgt.glyphSlot) tgt.discard.push(tgt.glyphSlot);
+      tgt.glyphSlot = card;
+      s.animations.push({type:'PLAY_GLYPH', who, cardId: card.id});
+      return s;
+    }
+    case A.ADVANCE_PIP: {
+      const { who='YOU' } = action;
+      const tgt = who === 'YOU' ? you : ai;
+      const card = tgt.slot;
+      if (!card || card.type !== CARD_TYPES.SPELL) return s;
+      if (tgt.aether < card.aetherCost) return s;
+      tgt.aether -= card.aetherCost;
+      card.pips = Math.min(card.pips + 1, card.pipsMax);
+      s.animations.push({type:'ADVANCE', who, cardId: card.id});
+      if (card.pips === card.pipsMax) {
+        castIfComplete(tgt, card, who, s.animations);
+        tgt.discard.push(card);
+        tgt.slot = null;
+      }
+      return s;
+    }
+    case A.END_TURN: {
+      discardHand(you);
+      you.aether += 1; // player baseline aether growth
+      s.turn = 'AI';
+      return s;
+    }
+    case A.AI_TURN: {
+      const playFromHand = (pred, toGlyph=false)=>{
+        const idx = ai.hand.findIndex(pred);
+        if (idx>=0) {
+          const card = ai.hand.splice(idx,1)[0];
+          if (toGlyph) {
+            if (ai.glyphSlot) ai.discard.push(ai.glyphSlot);
+            ai.glyphSlot = card;
+            s.animations.push({type:'PLAY_GLYPH', who:'AI', cardId: card.id});
+          } else if (card.type === CARD_TYPES.INSTANT) {
+            s.animations.push({type:'PLAY', who:'AI', cardId: card.id});
+            castIfComplete(ai, card, 'AI', s.animations);
+            ai.discard.push(card);
+          } else { // SPELL
+            if (ai.slot) ai.discard.push(ai.slot);
+            card.pips = 0; ai.slot = card;
+            s.animations.push({type:'PLAY', who:'AI', cardId: card.id});
+          }
+          return true;
+        }
+        return false;
+      };
+
+      if (!ai.glyphSlot) playFromHand(c=>c.type===CARD_TYPES.GLYPH, true);
+      if (!ai.slot) playFromHand(c=>c.type===CARD_TYPES.SPELL);
+      playFromHand(c=>c.type===CARD_TYPES.INSTANT);
+
+      // AI aether accrues and it advances pips up to 3 times
+      ai.aether += 1;
+      for (let i=0;i<3;i++){
+        const card = ai.slot;
+        if (!card || card.type!==CARD_TYPES.SPELL) break;
+        if (ai.aether < card.aetherCost) break;
+        ai.aether -= card.aetherCost;
+        card.pips = Math.min(card.pips+1, card.pipsMax);
+        s.animations.push({type:'ADVANCE', who:'AI', cardId: card.id});
+        if (card.pips === card.pipsMax) {
+          castIfComplete(ai, card, 'AI', s.animations);
+          ai.discard.push(card);
+          ai.slot = null;
+          break;
+        }
+      }
+
+      // AI discard & return turn, then ensure player draws 5 if empty
+      discardHand(ai);
+      s.turn = 'YOU';
+      if (!you.hand.length) drawN(you, 5);
+      return s;
+    }
+    default: return s;
+  }
+}

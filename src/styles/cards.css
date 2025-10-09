@@ -1,1 +1,38 @@
-/* Basic styling omitted for brevity (already in canvas text) */
+/* Core board layout */
+.board { margin: 12px auto; max-width: 980px; padding: 8px; border-radius: 16px; }
+.board[data-board="AI"] { opacity: .92; }
+.row { display:flex; align-items:center; gap:12px; }
+.slot, .glyph-slot { width: 146px; height: 206px; border:1px dashed rgba(255,255,255,.25); border-radius: 12px; display:flex; align-items:center; justify-content:center; position:relative; }
+.slot-ghost { color: rgba(255,255,255,.35); font-size: 12px; }
+.slot-glow { box-shadow: 0 0 18px rgba(255,255,255,.35) inset; }
+
+/* HUD */
+.hud { position: sticky; top: 0; display:flex; gap:8px; padding:8px; background: rgba(0,0,0,.3); backdrop-filter: blur(6px); border-bottom: 1px solid rgba(255,255,255,.08); z-index: 20; }
+.aether { margin-left: auto; }
+
+/* Hand: lowered so it doesn’t block view */
+.hand { display:flex; gap:12px; padding: 16px 0 44px; transform: translateY(24px); }
+
+/* Card base */
+.card { width: 120px; height: 170px; border-radius: 12px; background: rgba(255,255,255,.06);
+        backdrop-filter: blur(2px); border: 1px solid rgba(255,255,255,.12);
+        position:relative; user-select:none; touch-action:none; transition: transform .12s ease; }
+.card .title { position:absolute; top:6px; left:8px; right:8px; font-size:12px; text-align:center; }
+
+/* Long-press preview */
+.card.is-preview { transform: translateY(-18px) scale(1.15); z-index: 5; }
+
+/* While dragging */
+.card.is-dragging { cursor: grabbing; z-index: 9; }
+
+/* Pip bar */
+.pips { position:absolute; bottom:8px; left:0; right:0; display:flex; justify-content:center; gap:6px; }
+.pip { width:10px; height:10px; border-radius:50%; border:1px solid rgba(255,255,255,.5); background: transparent; }
+.pip.full { background: rgba(255,255,255,.85); }
+.pip-tick { animation: pipTick .18s ease; }
+@keyframes pipTick { from{ transform: scale(1.0);} 50%{transform:scale(1.2);} to{transform:scale(1.0);} }
+
+/* Play/Resolve flair */
+.pulse-gold { box-shadow: 0 0 18px rgba(255,215,0,.45); }
+.resolve-flash { animation: resolve .26s ease; }
+@keyframes resolve { from { background: rgba(255,255,150,.08);} to { background: transparent;} }

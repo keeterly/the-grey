@@ -1,4 +1,4 @@
-# The Grey — v2.1 Clean Rebuild
+# The Grey — v2.0 Clean Rebuild
 
 This is a from‑scratch, minimal, **stable** rebuild that restores the broken core loops:
 
