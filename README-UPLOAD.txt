@@ -1,27 +1,27 @@
-The Grey — Unified Upload Pack
-==============================
+The Grey — Corrected Upload Pack
+================================
 
-This pack fixes two issues via simple uploads (no Codespaces needed):
+Upload these files to the SAME BRANCH that your GitHub Pages is serving from
+(usually `main` by default), not just `v2.1`:
 
-1) Center both boards + restore the fanned hand:
-   - File: assets/css/acceptance.safe.css  (drop-in replacement)
+- assets/css/acceptance.safe.css
+- assets/js/boot-debug.js
+- assets/js/engine.acceptance.safe.js
 
-2) Fix the 404 import error for "engine.acceptance.safe.js":
-   - File: assets/js/assets/js/engine.acceptance.safe.js
-     (A small compatibility shim that re-exports from the correct engine module.)
+Why:
+- Centers boards & restores fanned hand (CSS)
+- Fixes the 404 and import error by changing boot-debug.js to import a local
+  module path: './engine.acceptance.safe.js' and provides that file.
 
-Upload Steps (GitHub web UI)
-----------------------------
-1) Go to your repo, branch v2.1
-2) Click "Add file" -> "Upload files"
-3) Drag the two paths from this zip into the uploader:
-   - assets/css/acceptance.safe.css
-   - assets/js/assets/js/engine.acceptance.safe.js
-4) Commit (to a new branch + PR, or directly to v2.1)
-5) Hard refresh your site. The console 404 should be gone, boards centered, hand fanned.
+Steps (GitHub Web UI)
+---------------------
+1) Check your Pages source: Repo -> Settings -> Pages -> Source.
+2) Switch to that branch in the GitHub UI (often `main`).
+3) Click "Add file" -> "Upload files".
+4) Drag the three files from this zip, preserving their exact paths.
+5) Commit. Then hard-refresh your site.
 
-Notes
------
-- The JS shim is intentionally placed at a nested path to match the incorrect
-  dynamic import URL. It simply re-exports from ../../engine.acceptance.js.
-- If you later correct the import path in boot-debug.js, you can delete the shim.
+Optional quick test:
+- Temporarily remove the <script src="./assets/js/boot-debug.js"></script> tag
+  in index.html to confirm the page loads without errors; then add it back after
+  uploading the corrected JS files.
