@@ -1,22 +1,26 @@
 /* ============================================================
-   THE GREY — components.css (Fan Strip Edition — Stable + Preview)
+   THE GREY — components.css (FAN STRIP EDITION — STABLE)
+   - Centered fan strip for the hand
+   - Smooth arc + hover raise
+   - Empty slots (no placeholder cards)
+   - Desktop + Mobile
    ============================================================ */
 
 /* ---------- Base ---------- */
-* {
-  box-sizing: border-box;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
+* { 
+  box-sizing: border-box; 
+  -webkit-user-select: none; 
+  user-select: none; 
+  -webkit-tap-highlight-color: transparent; 
 }
 html, body { height: 100%; }
-body {
-  margin: 0;
-  padding: 0;
-  background: #f3efe8;
-  color: #3a3128;
-  overflow-x: hidden;
-  font-family: "Inter", system-ui, sans-serif;
+body { 
+  margin: 0; 
+  padding: 0; 
+  background: #f3efe8; 
+  color: #3a3128; 
+  overflow-x: hidden; 
+  font-family: "Inter", system-ui, sans-serif; 
 }
 
 /* --- Minimal hearts in HUD --- */
@@ -43,10 +47,7 @@ body {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  transition:
-    transform .18s cubic-bezier(.2,.9,.2,1.2),
-    filter .18s ease,
-    box-shadow .18s ease;
+  transition: filter .22s ease, transform .22s ease;
 }
 .cHead { padding: 10px 12px 4px; }
 .cName { font-size: 14px; font-weight: 600; }
@@ -54,7 +55,7 @@ body {
 .cBody { flex: 1; padding: 0 12px; font-size: 13px; }
 .cStats { font-size: 11px; opacity: .6; text-align: right; padding: 4px 10px 8px 0; }
 
-/* ---------- Boards / Flow ---------- */
+/* ---------- Zones (boards/flow rows) ---------- */
 #aiBoard, #aetherflow, #yourBoard {
   display: flex;
   gap: 16px;
@@ -65,7 +66,7 @@ body {
   min-height: var(--card-h, 250px);
 }
 
-/* --- Empty slot visual --- */
+/* --- Empty slot visual (no placeholder card) --- */
 .emptySlot {
   width: var(--card-w, 180px);
   height: var(--card-h, 250px);
@@ -75,16 +76,19 @@ body {
   transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
 }
 
+/* When dragging over the board but not a specific slot */
 .boardSlot.drop-target .emptySlot {
   border-color: rgba(160,130,90,0.35);
 }
 
+/* When a specific slot is the active drop target */
 .boardSlot.drop-accept .emptySlot {
   border-color: #c59a5b;
   background: rgba(255,235,200,0.15);
   box-shadow: 0 0 0 3px rgba(197,154,91,0.12) inset;
 }
 
+/* Each slot keeps card footprint and centers child */
 .boardSlot {
   width: var(--card-w, 180px);
   height: var(--card-h, 250px);
@@ -95,32 +99,24 @@ body {
   position: relative;
 }
 
+/* Cards placed into slots fill the footprint */
 .boardSlot > .card {
   width: 100%;
   height: 100%;
 }
 
-/* ---------- Dragging ---------- */
-.dragging .card {
-  cursor: grabbing !important;
-  box-shadow: 0 12px 18px rgba(0,0,0,.25);
-  transform: scale(1.05);
-  opacity: 0.92;
-  transition: none;
-}
-
 /* ---------- Instant pulse ---------- */
-@keyframes uiPulse {
-  0% { filter: brightness(1); }
-  50% { filter: brightness(1.12); }
-  100% { filter: brightness(1); }
+@keyframes uiPulse { 
+  0% { filter: brightness(1); } 
+  50% { filter: brightness(1.12); } 
+  100% { filter: brightness(1); } 
 }
-.card.is-instant { animation: uiPulse 1.8s ease-in-out infinite; }
 
 /* ============================================================
    HAND / RIBBON
    ============================================================ */
 
+/* fixed footer container; centers its inner strip */
 .ribbon-wrap {
   position: fixed;
   left: 0;
@@ -137,6 +133,7 @@ body {
   z-index: 100;
 }
 
+/* flexible shell — the inner "strip" will be centered inside this */
 .ribbon {
   --card-w: 180px;
   --card-h: 250px;
@@ -146,6 +143,7 @@ body {
   pointer-events: auto;
 }
 
+/* Centered strip that we will position explicitly from JS */
 .fan {
   position: relative;
   height: calc(var(--card-h) + 40px);
@@ -156,6 +154,7 @@ body {
   transition: left .28s cubic-bezier(.2,.8,.2,1);
 }
 
+/* each card sits in an absolute wrapper we animate */
 .cardWrap {
   position: absolute;
   bottom: 40px;
@@ -164,6 +163,7 @@ body {
   height: var(--card-h);
   transform-origin: bottom center;
   z-index: 100;
+
   --wy: 0px;
   --wrot: 0deg;
   transform: translateY(var(--wy)) rotate(var(--wrot));
@@ -174,23 +174,25 @@ body {
   opacity: 0;
 }
 
-/* ---------- Hover raise (desktop) ---------- */
+/* hover raise (desktop) */
 @media (hover:hover) {
   .cardWrap:hover .card {
-    transform: translateY(-80px) rotate(0deg) scale(1.12);
+    transform: translateY(-80px) rotate(0deg) scale(1.12) !important;
     filter: brightness(1.08);
+    transition: transform .18s cubic-bezier(.2,.9,.2,1.2), filter .18s ease;
   }
   .cardWrap:hover { z-index: 999; }
 }
 
-/* ---------- Click-to-preview (50% enlarge) ---------- */
+/* click-to-preview (50% bigger, centered over bottom edge) */
 .cardWrap.is-preview .card {
-  transform: translateY(-80px) rotate(0deg) scale(1.5) !important;
-  filter: brightness(1.08);
+  transform: translateY(-100px) scale(1.5) rotate(0deg) !important;
+  filter: brightness(1.05);
   z-index: 1000;
 }
 
-/* ---------- Phantom / instant visuals ---------- */
+/* instant visual */
+.ribbon .card.is-instant { animation: uiPulse 1.8s ease-in-out infinite; }
 .ribbon .card.is-phantom { opacity: 0; pointer-events: none; }
 
 /* ---------- Mobile tuning ---------- */
@@ -198,7 +200,7 @@ body {
   .ribbon-wrap { height: 260px; }
   .ribbon { --card-w: 160px; --card-h: 220px; }
   .cardWrap:active .card {
-    transform: translateY(-68px) rotate(0deg) scale(1.16);
+    transform: translateY(-68px) rotate(0deg) scale(1.16) !important;
   }
   .cardWrap:active { z-index: 999; }
 }
@@ -207,11 +209,19 @@ body {
   .ribbon { --card-w: 148px; --card-h: 205px; }
 }
 
-/* ---------- Drag badge (touch) ---------- */
+/* ---------- Drag affordances ---------- */
+.dragging .card {
+  cursor: grabbing !important;
+  box-shadow: 0 12px 18px rgba(0,0,0,.25);
+  transform: scale(1.05);
+  opacity: 0.95;
+  transition: none;
+}
+
+/* Touch drag badge text */
 .dragBadge {
   position: fixed;
-  top: 0;
-  left: 0;
+  top: 0; left: 0;
   transform: translate(-9999px,-9999px);
   background: #3a3128;
   color: #fff;
@@ -221,4 +231,46 @@ body {
   box-shadow: 0 3px 6px rgba(0,0,0,.25);
   pointer-events: none;
   z-index: 9999;
+}
+
+/* ---------- Dock icons (left/right) ---------- */
+.dock {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  gap: 10px;
+  z-index: 200; /* above ribbon */
+  pointer-events: auto;
+}
+.dock--left  { left: 10px; }
+.dock--right { right: 10px; }
+
+.chip.icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 3px 6px rgba(0,0,0,.12);
+  display: grid; place-items: center;
+  position: relative;
+  border: 1px solid rgba(0,0,0,.06);
+}
+.chip.icon svg {
+  width: 22px; height: 22px;
+  fill: currentColor;
+  color: #7b664f;
+}
+.chip.icon.cta { color: #7b664f; }
+.chip.icon.gem { color: #d4a43a; }
+
+.badge {
+  position: absolute;
+  right: -8px; bottom: -8px;
+  min-width: 18px; height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: #7b664f;
+  color: #fff; font-size: 12px;
+  display: grid; place-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,.2);
 }
