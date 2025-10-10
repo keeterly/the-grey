@@ -35,7 +35,7 @@ html.mobile-land, html.mobile-land body{
   contain:layout paint;
 }
 
-/* Boards (stay at logical 160px inside the 1280×720 space; scale handles actual px) */
+/* Boards (logical sizing; scale handles actual px) */
 #app .board{
   height:var(--board-h);
   display:flex; flex-direction:column; justify-content:center; align-items:center;
@@ -57,7 +57,7 @@ html.mobile-land, html.mobile-land body{
 /* TEMP: hide external Spellweaver chips entirely */
 .tg-board-info { display:none !important; }
 
-/* Slot sizes (logical) */
+/* Zones / slots (logical) */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
