@@ -1,26 +1,46 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fix2)
-   - Enforce mobile-land (landscape) class
-   - First-time sync on load (dual RAF + timer)
-   - Version tag moved to a separate fixed HUD root (cannot affect layout)
+/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fit)
+   - True uniform scaling so 1280×720 fits viewport; perfect centering
+   - Landscape lock for phones
+   - Version tag on isolated HUD root
    - Spellweaver chips remain hidden via CSS
 */
 
 (() => {
-  // ---- helpers -------------------------------------------------------------
   const on = (t, k, fn, o) => t && t.addEventListener && t.addEventListener(k, fn, o || false);
-  const qs  = (s, r=document) => r.querySelector(s);
+  const qs = (s, r=document) => r.querySelector(s);
   const once = (fn) => { let did=false; return (...a)=>{ if(did) return; did=true; try{ fn(...a); }catch(e){} }; };
   const noop = ()=>{};
 
-  // ---- orientation / mode --------------------------------------------------
+  const BASE_W = 1280;
+  const BASE_H = 720;
+
+  function computeScale(){
+    // Fit entire canvas in viewport (landscape). We don’t subtract HUD; it floats.
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Use the smaller ratio so nothing clips.
+    const sx = vw / BASE_W;
+    const sy = vh / BASE_H;
+    // Slight inset so borders don’t kiss edges on small devices
+    const scale = Math.min(sx, sy) * 0.995;
+    return Math.max(0.1, Math.min(scale, 2));
+  }
+
+  function applyScaleVars(){
+    const s = computeScale();
+    const root = document.documentElement.style;
+    root.setProperty('--tg-scale', String(s));
+    root.setProperty('--tg-scaled-w', (BASE_W * s) + 'px');
+    root.setProperty('--tg-scaled-h', (BASE_H * s) + 'px');
+  }
+
   function applyMobileLand(){
     const docEl = document.documentElement;
     const smallSide = Math.min(window.innerWidth, window.innerHeight);
-    const isMobile = smallSide <= 900;
-    docEl.classList.toggle('mobile-land', isMobile);
+    const isPhoneish = smallSide <= 900;
+    docEl.classList.toggle('mobile-land', isPhoneish);
   }
 
-  // ---- sync hook (resilient) ----------------------------------------------
   const callSync = () => {
     const f = (window.tgSyncAll || window.syncAll || window.TG_SYNC_ALL || window.__syncAll || noop);
     try { f(); } catch(_) {}
@@ -28,21 +48,15 @@
     try { document.dispatchEvent(new CustomEvent('tg:resync', {bubbles:true})); } catch(_) {}
   };
 
-  // ---- CSS micro-injection -------------------------------------------------
   const injectCSS = once(() => {
-    const css = `
-      /* prevent long-press selection */
-      .card, .hand, .aether-card, .slot, .tg-board-info, .tg-trance, .tg-hearts, .tg-name {
-        -webkit-user-select: none; -moz-user-select: none; user-select: none;
-      }
-    `;
     const tag = document.createElement('style');
     tag.id = 'tgBootMobileCSS';
-    tag.textContent = css;
+    tag.textContent = `
+      .card, .hand, .aether-card, .slot { -webkit-user-select:none; user-select:none; }
+    `;
     document.head.appendChild(tag);
   });
 
-  // ---- HUD root + Version badge (independent fixed layer) ------------------
   const ensureHudRootAndVersion = once(() => {
     let hud = qs('#tgHudRoot');
     if (!hud){
@@ -56,27 +70,29 @@
       tag.id = 'tgVersionTag';
       hud.appendChild(tag);
     }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fix2');
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fit');
   });
 
-  // ---- First-time sync on load --------------------------------------------
   const forceFirstSync = once(() => {
-    requestAnimationFrame(() => { requestAnimationFrame(() => callSync()); });
-    setTimeout(callSync, 500);
+    requestAnimationFrame(() => { requestAnimationFrame(() => { callSync(); }); });
+    setTimeout(callSync, 450);
   });
 
-  // ---- Observers & events --------------------------------------------------
+  function applyLayout(){
+    applyMobileLand();
+    applyScaleVars();
+  }
+
   const attachObservers = once(() => {
-    const apply = () => applyMobileLand();
+    const apply = () => { applyLayout(); };
     ['resize','orientationchange'].forEach(evt => on(window, evt, apply, {passive:true}));
     on(document, 'visibilitychange', apply);
     apply();
   });
 
-  // ---- Boot ---------------------------------------------------------------
   const boot = () => {
     injectCSS();
-    ensureHudRootAndVersion();  // version label lives outside #app now
+    ensureHudRootAndVersion();
     attachObservers();
     forceFirstSync();
   };
