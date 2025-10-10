@@ -1,11 +1,11 @@
-/* boot-debug.js — v2.3.3 proxy-HUD-hand + board-info w/ trance (MAIN) */
-(function(){ window.__THE_GREY_BUILD='v2.3.3-mobile-proxy-hand (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
+/* boot-debug.js — v2.3.4 proxy-HUD-hand robust sync (MAIN) */
+(function(){ window.__THE_GREY_BUILD='v2.3.4-mobile-proxy-hand-robust (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
 
 /* legacy class */
 (function(){ const run=()=>document.getElementById('app')?.classList.add('tg-canvas'); 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run(); })();
 
-/* layers / wrappers / info blocks */
+/* layers / wrappers / info blocks (minimal) */
 (function(){
   function mk(id){ const d=document.createElement('div'); d.id=id; return d; }
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -14,6 +14,7 @@
     }
     if(!document.getElementById('tgNoSelectOverlay')) document.body.appendChild(mk('tgNoSelectOverlay'));
     if(!document.getElementById('tgHandAnchor')){ const a=mk('tgHandAnchor'); document.getElementById('app')?.appendChild(a); }
+    // Info blocks created in prior version; keep if present.
     if(!document.getElementById('tgBoardInfoTop')){ const div=mk('tgBoardInfoTop'); div.className='tg-board-info'; div.innerHTML='<div class="line1"><span class="name"></span><span class="hearts"></span></div><div class="trance"></div>'; document.getElementById('app')?.appendChild(div); }
     if(!document.getElementById('tgBoardInfoBot')){ const div=mk('tgBoardInfoBot'); div.className='tg-board-info'; div.innerHTML='<div class="line1"><span class="name"></span><span class="hearts"></span></div><div class="trance"></div>'; document.getElementById('app')?.appendChild(div); }
   }, {once:true});
@@ -27,12 +28,10 @@
     const el=document.getElementById('app'); if(!el) return;
     const vw=innerWidth, vh=innerHeight;
     if(!isLandscape()){
-      document.getElementById('tgRotateOverlay')?.classList.add('show');
       el.style.width=DESIGN_W+'px'; el.style.height=DESIGN_H+'px';
       el.style.transform='translate(-50%, -50%) scale(0.9)';
       root.style.setProperty('--tg-scaled-width', Math.min(vw, DESIGN_W) + 'px');
     }else{
-      document.getElementById('tgRotateOverlay')?.classList.remove('show');
       const scale=Math.min(vw/DESIGN_W, vh/DESIGN_H);
       el.style.width=DESIGN_W+'px'; el.style.height=DESIGN_H+'px';
       el.style.transform=`translate(-50%, -50%) scale(${scale})`;
@@ -40,7 +39,7 @@
     }
     root.classList.add('mobile-land');
     updateHandAnchor();
-    placeBoardInfos();
+    placeBoardInfos?.();
   }
   addEventListener('resize', apply, {passive:true});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply, {once:true}); else apply();
@@ -53,17 +52,23 @@
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* ---------- PROXY HAND: mirror canvas hand into HUD layer -------------- */
+/* ---------- PROXY HAND (robust) ----------------------------------------- */
 (function(){
   const PROXY_ATTR='data-proxy-key';
-  let uid=1;
+  let uid=1, rafHandle=0, pollHandle=0;
 
   const hudHand   = ()=> document.querySelector('#tgHandLayerInner .hand') || createHudHand();
   const canvasHand= ()=> document.querySelector('#app .hand');
+
   function createHudHand(){
-    const h=document.createElement('div'); h.className='hand'; document.getElementById('tgHandLayerInner')?.appendChild(h); return h;
+    const h=document.createElement('div'); h.className='hand';
+    document.getElementById('tgHandLayerInner')?.appendChild(h);
+    return h;
   }
   function keyFor(el){
+    // Prefer a stable id from game if present
+    const stable = el.getAttribute('data-card-id') || el.getAttribute('data-id') || el.id;
+    if(stable){ el.setAttribute(PROXY_ATTR, stable); return stable; }
     if(el.getAttribute(PROXY_ATTR)) return el.getAttribute(PROXY_ATTR);
     const k=String(uid++); el.setAttribute(PROXY_ATTR, k); return k;
   }
@@ -77,24 +82,50 @@
   function syncAll(){
     const ch=canvasHand(); const hh=hudHand(); if(!ch || !hh) return;
     const seen=new Set();
+
+    // Source set: all .card under canvas hand (deep)
     ch.querySelectorAll('.card').forEach(src=>{
       const k=keyFor(src); seen.add(k);
-      if(!hh.querySelector(`.card[${PROXY_ATTR}="${k}"]`)){
-        hh.appendChild(cloneCard(src));
+      let dst = hh.querySelector(`.card[${PROXY_ATTR}="${k}"]`);
+      if(!dst){
+        dst = cloneCard(src);
+        hh.appendChild(dst);
+      }else{
+        // keep simple: mirror text content (labels/costs) and classes
+        dst.className = src.className;
+        dst.innerHTML = src.innerHTML;
       }
+      // Copy inline transform so the fan/tilt looks same
+      dst.style.transform = src.style.transform || '';
     });
-    // remove HUD cards that no longer exist in canvas
+
+    // Remove HUD cards that the engine removed
     hh.querySelectorAll(`.card[${PROXY_ATTR}]`).forEach(n=>{
       if(!seen.has(n.getAttribute(PROXY_ATTR))) n.remove();
     });
   }
-  function observe(){
-    const ch=canvasHand(); if(!ch) return;
-    syncAll();
-    const obs=new MutationObserver(()=> syncAll());
-    obs.observe(ch, {childList:true, subtree:false});
+  function scheduleSync(){ cancelAnimationFrame(rafHandle); rafHandle=requestAnimationFrame(syncAll); }
+
+  function startObservers(){
+    const app=document.getElementById('app'); if(!app) return;
+    // Observe the entire app tree; engine often rebuilds branches
+    const obs=new MutationObserver(scheduleSync);
+    obs.observe(app, {childList:true, subtree:true});
+    scheduleSync();
+
+    // Safety poll for late async loads (stops after first non-empty sync)
+    let tries=0;
+    function poll(){
+      tries++;
+      scheduleSync();
+      const hh=document.querySelector('#tgHandLayerInner .hand');
+      if(hh && hh.querySelector('.card')) { clearInterval(pollHandle); return; }
+      if(tries>40) { clearInterval(pollHandle); } // ~4s max
+    }
+    pollHandle=setInterval(poll, 100);
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', observe, {once:true}); else observe();
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', startObservers, {once:true}); else startObservers();
 })();
 
 /* ---------- Long-press 2× preview (HUD cards) + neighbor spread ---------- */
@@ -103,7 +134,6 @@
   let timer=null, startX=0, startY=0, target=null;
 
   const overlay=()=>document.getElementById('tgNoSelectOverlay');
-  const isHudCard=el=> !!el && !!el.closest('#tgHandLayer');
 
   function spreadNeighbors(on){
     const hand=document.querySelector('#tgHandLayer .hand'); if(!hand || !target) return;
@@ -127,14 +157,13 @@
     clearTimeout(timer); timer=null; overlay()?.classList.remove('show');
     if(!target) return; target.classList.remove('magnify-hand'); spreadNeighbors(false); target=null;
   }
-  function begin(el, x, y){ if(!isHudCard(el)) return; hide(); target=el; startX=x; startY=y; timer=setTimeout(show, LONG_MS); }
+  function begin(el, x, y){ hide(); target=el; startX=x; startY=y; timer=setTimeout(show, LONG_MS); }
   function moved(x,y){ if(!target) return; if(Math.abs(x-startX)>MOVE_TOL || Math.abs(y-startY)>MOVE_TOL) hide(); }
 
   addEventListener('touchstart', e=>{ const t=e.target.closest('#tgHandLayer .card'); if(!t) return; const p=e.changedTouches[0]; begin(t,p.clientX,p.clientY); }, {passive:true});
   addEventListener('touchmove',  e=>{ if(!target) return; const p=e.changedTouches[0]; moved(p.clientX,p.clientY); }, {passive:true});
   addEventListener('touchend', hide, {passive:true});
   addEventListener('touchcancel', hide, {passive:true});
-
   addEventListener('mousedown', e=>{ const t=e.target.closest('#tgHandLayer .card'); if(!t) return; begin(t,e.clientX,e.clientY); });
   addEventListener('mousemove', e=>moved(e.clientX,e.clientY));
   addEventListener('mouseup', hide); addEventListener('mouseleave', hide);
@@ -154,7 +183,7 @@ function updateHandAnchor(){
   const scale    = appRect.width / 1280;
 
   const cx = handRect.left + handRect.width/2;
-  const cy = handRect.bottom - handRect.height*0.25; // slightly above bottom
+  const cy = handRect.bottom - handRect.height*0.25;
 
   const x_app = (cx - appRect.left) / scale;
   const y_app = (cy - appRect.top ) / scale;
@@ -167,7 +196,7 @@ addEventListener('resize', updateHandAnchor, {passive:true});
 addEventListener('orientationchange', updateHandAnchor);
 document.addEventListener('DOMContentLoaded', updateHandAnchor, {once:true});
 
-/* ---------- External board info (name/hearts + trance below) ---------- */
+/* ---------- External board info (unchanged from 2.3.3) ---------- */
 function placeBoardInfos(){
   const app = document.getElementById('app'); if(!app) return;
   const boards = [...app.querySelectorAll('.board')];
@@ -178,7 +207,6 @@ function placeBoardInfos(){
   const appRect= app.getBoundingClientRect(); const scale= appRect.width / 1280;
   const toApp  = (x,y)=> ({x:(x-appRect.left)/scale, y:(y-appRect.top)/scale});
 
-  // Pull data from existing DOM (fallbacks provided)
   const getTrance = (board)=> {
     const tags = [...board.querySelectorAll('.traits .tag, .trances .tag')].map(n=>n.textContent.trim());
     if(tags.length) return tags.join(' • ');
