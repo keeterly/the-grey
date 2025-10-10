@@ -1,7 +1,8 @@
-/* boot-debug.js — v2.2.1-mobile-unified-align */
+/* boot-debug.js — v2.2.2-mobile-unified-align (MAIN) */
 
 (function () {
-  window.__THE_GREY_BUILD = 'v2.2.1-mobile-unified-align';
+  window.__THE_GREY_BUILD = 'v2.2.2-mobile-unified-align (main)';
+  window.__BUILD_SOURCE = 'boot-debug.js';
 })();
 
 /* --- Ensure portrait overlay exists --- */
@@ -22,24 +23,28 @@
 (function fitToScreen() {
   const DESIGN_W = 1280, DESIGN_H = 720;
   const root = document.documentElement;
+  const round2 = (n) => Math.round(n * 100) / 100;
 
   function isPortrait() { return window.innerHeight > window.innerWidth; }
-  const round2 = (n) => Math.round(n * 100) / 100;
 
   function apply() {
     const el = document.getElementById('app');
     if (!el) return;
 
     const vw = window.innerWidth, vh = window.innerHeight;
+
+    // Portrait: show overlay, keep small preview scale
     if (isPortrait()) {
       root.classList.add('mobile-land');
       document.getElementById('tgRotateOverlay')?.classList.add('show');
       el.style.width = DESIGN_W + 'px';
       el.style.height = DESIGN_H + 'px';
-      el.style.transform = 'translate(-50%, -50%) scale(0.9)'; // small peek in portrait
+      el.style.transform = 'translate(-50%, -50%) scale(0.9)';
+      root.style.setProperty('--tg-scaled-width', Math.min(vw, DESIGN_W) + 'px');
       return;
     }
 
+    // Landscape fit
     document.getElementById('tgRotateOverlay')?.classList.remove('show');
     root.classList.add('mobile-land');
 
@@ -47,6 +52,10 @@
     el.style.width = DESIGN_W + 'px';
     el.style.height = DESIGN_H + 'px';
     el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+
+    // Tell CSS what the scaled width is so HUD centers under the canvas
+    const scaledW = Math.round(DESIGN_W * scale);
+    root.style.setProperty('--tg-scaled-width', scaledW + 'px');
   }
 
   window.addEventListener('resize', apply, { passive: true });
@@ -121,8 +130,7 @@
     const obs = new MutationObserver(() => {
       el.querySelectorAll('.card').forEach(c => {
         c.classList.remove('drop-zoom');
-        // reflow
-        void c.offsetWidth;
+        void c.offsetWidth; // reflow
         c.classList.add('drop-zoom');
       });
     });
@@ -154,7 +162,12 @@
       const v = document.createElement('div');
       v.id = 'tgVersion';
       v.className = 'tgVersion';
-      v.textContent = 'The Grey — ' + (window.__THE_GREY_BUILD || 'dev');
+      v.textContent = 'The Grey — ' + (window.__THE_GREY_BUILD || 'dev') + ' [' + (window.__BUILD_SOURCE || '?') + ']';
+      v.style.position = 'fixed';
+      v.style.left = '8px';
+      v.style.bottom = '8px';
+      v.style.opacity = '0.6';
+      v.style.fontSize = '12px';
       document.body.appendChild(v);
     }
   }, { once: true });
