@@ -1,27 +1,33 @@
-/* acceptance.safe.css — v2.2.2 Mobile Unified (alignment tighten)
-   - Canvas centered & scaled
-   - HUD width matches scaled canvas (via CSS var from JS)
-   - Even zone/slot heights
-   - +AF pinned to Aetherflow row’s right
+/* acceptance.safe.css — v2.2.3 Mobile Unified (landscape tune)
+   What this does:
+   • True mobile-landscape layout
+   • Smaller slots & tighter gaps
+   • Board centered (no drift), no horizontal scroll
+   • Aetherflow + controls aligned
+   • Hand cleared above HUD
 */
 
-/* ----- Canvas / viewport ----- */
+/* ---- Root / viewport ---- */
+html, body { margin: 0; padding: 0; }
 html.mobile-land,
 html.mobile-land body {
   height: 100%;
+  width: 100%;
   overflow: hidden;
   background: #f7f5f0;
+  -webkit-text-size-adjust: 100%;
 }
 
-#app.tg-canvas {
+/* The fixed-size game surface; JS scales & centers it */
+#app.tg-canvas{
   position: absolute;
   left: 50%;
   top: 50%;
+  width: 1280px;           /* design size (unscaled) */
+  height: 720px;
   transform: translate(-50%, -50%) scale(1);
   transform-origin: 50% 50%;
   will-change: transform;
-  width: 1280px;           /* JS also sets these; here for safety */
-  height: 720px;
 }
 
 /* iOS viewport quirks */
@@ -31,101 +37,119 @@ html.mobile-land body {
   }
 }
 
-/* ----- Boards & zones ----- */
+/* ---- Title (hide on mobile-landscape) ---- */
+@media (orientation: landscape) {
+  .tg-title, .logo-title { display: none !important; }
+}
+
+/* ---- Boards / zones ---- */
 .tg-canvas .board,
-.tg-canvas .aetherflow {
-  margin: 6px auto;        /* centers internal rows */
-  padding: 8px 12px;
+.tg-canvas .aetherflow{
+  margin: 4px auto;
+  padding: 6px 10px;
   max-width: 1280px;
   border-radius: 10px;
 }
 
-.tg-canvas .slots {
+.tg-zone{
   display: flex;
-  justify-content: center;
-  align-items: stretch;     /* unified baseline for slots/cards */
-  gap: 12px;
+  align-items: stretch;
+  gap: 10px;
+  padding: 8px 10px;
 }
 
-/* Unified card/slot sizes (approx 7:10) */
+.tg-zone .tg-slot{
+  flex: 1 1 0;
+  min-height: 132px;                     /* tighter row */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tg-zone--aetherflow .tg-slot{ min-height: 84px; }
+
+/* ---- Slots & cards (smaller for mobile-land) ---- */
 .tg-canvas .slot,
 .tg-canvas .glyph-slot,
 .tg-canvas .af-card,
-.tg-canvas .slots .card {
-  width: 120px;
-  height: 171px;
+.tg-canvas .slots .card{
+  width: 104px;
+  height: 148px;
   border-radius: 10px;
 }
 
-/* Zone min-heights for clean alignment */
-.tg-zone { display: flex; align-items: stretch; gap: 12px; padding: 10px 12px; }
-.tg-zone .tg-slot { flex: 1 1 0; min-height: 148px; display:flex; align-items:center; justify-content:center; }
-.tg-zone--aetherflow .tg-slot { min-height: 96px; }
+/* The row of slots */
+.tg-canvas .slots{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
 
-/* ----- Aetherflow row structure ----- */
-.aetherflow { display: flex; align-items: center; gap: 12px; }
-.aetherflow .af-cards { flex: 1 1 auto; display: flex; align-items: center; gap: 10px; }
-.aetherflow .af-controls { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 8px; }
-#tgAFZoom { order: 99; } /* keep +AF to the far right */
+/* ---- Aetherflow row structure ---- */
+.aetherflow{ display: flex; align-items: center; gap: 10px; }
+.aetherflow .af-cards{ flex: 1 1 auto; display:flex; align-items:center; gap: 8px; min-height: 74px; }
+.aetherflow .af-controls{ flex: 0 0 auto; display:inline-flex; align-items:center; gap: 8px; }
+#tgAFZoom{ order: 99; }
 
-/* Optional AF zoom state */
-html.af-zoom .aetherflow {
+/* Optional AF zoom */
+html.af-zoom .aetherflow{
   transform: scale(1.08);
   transform-origin: center;
 }
 
-/* ----- Hand (fan) ----- */
-.tg-canvas .hand { position: relative; height: 220px; }
-.tg-canvas .hand .card {
+/* ---- Hand (fan) ---- */
+.tg-canvas .hand{
+  position: relative;
+  height: 200px;                           /* slightly shorter */
+}
+.tg-canvas .hand .card{
   position: absolute;
   left: 50%;
-  transform-origin: 50% 100%;  /* pivot at bottom-center */
+  transform-origin: 50% 100%;
   will-change: transform;
 }
 
-/* ----- HUD (bottom mini bar) ----- */
-/* width follows the scaled canvas via --tg-scaled-width (set by JS) */
+/* ---- HUD (bottom mini bar) ---- */
+/* width follows the scaled canvas via CSS var set by JS */
 .hud-min{
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(8px + env(safe-area-inset-bottom));
+  bottom: calc(10px + env(safe-area-inset-bottom));
   width: var(--tg-scaled-width, min(1280px, 100vw));
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 12px; gap: 12px;
+  pointer-events: none;                     /* prevent accidental taps through */
 }
-.hud-min .left, .hud-min .right { display: flex; align-items: center; gap: 12px; }
+.hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:12px; pointer-events:auto; }
 
-.hud-pill { display: inline-flex; align-items: center; gap: 6px; line-height: 1; vertical-align: middle; }
-.hud-pill .val { font-variant-numeric: tabular-nums; }
+.hud-pill{ display:inline-flex; align-items:center; gap:6px; line-height:1; vertical-align:middle; }
+.hud-pill .val{ font-variant-numeric: tabular-nums; }
 
-/* Buttons (⇆, +AF) */
-#tgCompactToggle.icon.btn { min-width: 36px; min-height: 28px; line-height: 26px; font-weight: 600; }
-#tgAFZoom.icon.btn       { min-width: 42px; min-height: 28px; line-height: 26px; font-weight: 700; }
+/* Buttons (⇆, +AF, ▶) sizing for mobile */
+#tgCompactToggle.icon.btn{ min-width:34px; min-height:26px; line-height:24px; font-weight:600; }
+#tgAFZoom.icon.btn{ min-width:40px; min-height:26px; line-height:24px; font-weight:700; }
+#btnEnd{ min-width:34px; min-height:26px; line-height:24px; }
 
-/* ----- Rotate overlay (portrait hint) ----- */
-.tg-rotate-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,.75);
-  color: #fff; display: none; align-items: center; justify-content: center;
-  z-index: 10000; text-align: center; padding: 24px;
+/* Rotate overlay */
+.tg-rotate-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.75);
+  color:#fff; display:none; align-items:center; justify-content:center;
+  z-index:10000; text-align:center; padding:24px;
 }
-.tg-rotate-overlay.show { display: flex; }
-.tg-rotate-card {
-  background: #121212; border: 1px solid rgba(255,255,255,.12);
-  border-radius: 16px; padding: 18px 20px; max-width: 360px;
-  box-shadow: 0 12px 36px rgba(0,0,0,.45);
+.tg-rotate-overlay.show{ display:flex; }
+.tg-rotate-card{
+  background:#121212; border:1px solid rgba(255,255,255,.12);
+  border-radius:16px; padding:18px 20px; max-width:360px;
+  box-shadow:0 12px 36px rgba(0,0,0,.45);
 }
-.tg-rotate-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
-.tg-rotate-sub   { font-size: 13px; opacity: .85; }
+.tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
+.tg-rotate-sub{ font-size:13px; opacity:.85; }
 
-/* Subtle snap when a card lands */
-@keyframes tgSnap { 0%{ transform: scale(0.94);} 60%{ transform: scale(1.06);} 100%{ transform: scale(1);} }
-.card.drop-zoom { animation: tgSnap 160ms ease-out; }
+/* Drop snap */
+@keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
+.card.drop-zoom{ animation: tgSnap 160ms ease-out; }
 
-/* Optional: hide scrollbars just in case */
-body::-webkit-scrollbar { display: none; }
-
-/* Title can crowd the left edge on small landscape; hide it there */
-@media (max-width: 900px) and (orientation: landscape) {
-  .tg-title, .logo-title { display: none !important; }
-}
+/* No scrollbars */
+body::-webkit-scrollbar{ display:none; }
