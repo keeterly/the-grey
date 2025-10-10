@@ -1,17 +1,24 @@
-/* boot-debug.js — v2.2.7-mobile-centered+magnify (MAIN)
-   • Enforce compact mobile layout & one boot file
-   • Equal board heights (CSS variables)
-   • Press-and-hold magnify for all cards (hand + board + AF)
+/* boot-debug.js — v2.2.8-mobile-2x-preview+even (MAIN)
+   • 2× press-and-hold preview (board/AF + MTGA-style for hand)
+   • Disable selection/callout while interacting
+   • Boards: equal height (CSS vars handle sizes)
 */
 (function () {
-  window.__THE_GREY_BUILD = 'v2.2.7-mobile-centered+magnify (main)';
+  window.__THE_GREY_BUILD = 'v2.2.8-mobile-2x-preview+even (main)';
   window.__BUILD_SOURCE = 'boot-debug.js';
 })();
 
-/* Ensure #app has the canvas class for any legacy rules */
+/* Ensure #app has the canvas class */
 (function ensureCanvasClass(){
   function run(){ document.getElementById('app')?.classList.add('tg-canvas'); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
+})();
+
+/* Add a tiny transparent overlay to kill selection/callout while holding */
+(function ensureNoSelectOverlay(){
+  const el = document.createElement('div');
+  el.id = 'tgNoSelectOverlay';
+  document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(el), {once:true});
 })();
 
 /* Portrait overlay once */
@@ -28,7 +35,7 @@
   document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(ov), {once:true});
 })();
 
-/* Scale 1280×720 to fit; expose scaled width for HUD */
+/* Fit 1280×720 and expose scaled width for HUD */
 (function fitToScreen(){
   const DESIGN_W = 1280, DESIGN_H = 720;
   const root = document.documentElement;
@@ -64,35 +71,45 @@
   apply();
 })();
 
-/* Enforce compact; remove any toggles/AF remnants */
+/* Enforce compact; remove legacy controls */
 (function enforceMobilePolicy(){
   function nuke(id){ const el = document.getElementById(id); if (el) el.remove(); }
   function run(){
     nuke('tgAFZoom'); nuke('tgCompactToggle');
     const root = document.documentElement;
     root.classList.remove('af-zoom');
-    root.classList.add('mobile-mini'); // if any styles key off this, keep them compact
+    root.classList.add('mobile-mini');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* Press-and-hold magnify (hand + board + aetherflow) */
+/* Press-and-hold preview (2×). Hand cards lift upward MTGA-style. */
 (function cardMagnify(){
   const LONG_MS = 260;          // press duration to trigger
-  const MOVE_TOL = 8;           // px movement before cancel (treat as drag)
-  let timer = null, startX=0, startY=0, target = null, magnified = null;
+  const MOVE_TOL = 8;           // px move cancels (treat as drag)
+  let timer = null, startX=0, startY=0, target = null, magnified = null, isHand = false;
 
-  const isCard = (el)=>{
-    return el && (el.classList?.contains('card') || el.classList?.contains('af-card'));
-  };
+  const overlay = ()=> document.getElementById('tgNoSelectOverlay');
+
+  const isCard = (el)=> el && (el.classList?.contains('card') || el.classList?.contains('af-card'));
+
+  function showOverlay(on){
+    const o = overlay(); if (!o) return;
+    o.classList.toggle('show', !!on);
+  }
 
   function beginPress(el, x, y){
     clearTimeout(timer);
     target = el; startX = x; startY = y;
+    isHand = !!el.closest('.hand');
     timer = setTimeout(()=> {
       if (!target) return;
       magnified = target;
-      magnified.classList.add('magnify');
+      // Remove any inline transform from fan tilt so text is straight while previewing
+      magnified.dataset._prevTransform = magnified.style.transform || '';
+      magnified.style.transform = '';  // let CSS class own the transform
+      magnified.classList.add(isHand ? 'magnify-hand' : 'magnify');
+      showOverlay(true);
     }, LONG_MS);
   }
 
@@ -106,13 +123,19 @@
   function cancel(){
     clearTimeout(timer); timer = null;
     target = null;
+    showOverlay(false);
     if (magnified){
-      magnified.classList.remove('magnify');
+      magnified.classList.remove('magnify', 'magnify-hand');
+      // Restore any previous transform (e.g., hand fan rotation)
+      if (magnified.dataset._prevTransform !== undefined){
+        magnified.style.transform = magnified.dataset._prevTransform;
+        delete magnified.dataset._prevTransform;
+      }
       magnified = null;
     }
   }
 
-  // Touch
+  /* Touch (non-passive so we can prevent accidental selection if needed) */
   document.addEventListener('touchstart', (e)=>{
     const t = e.target.closest('.card, .af-card');
     if (!isCard(t)) return;
@@ -129,7 +152,7 @@
   document.addEventListener('touchend', cancel, {passive:true});
   document.addEventListener('touchcancel', cancel, {passive:true});
 
-  // Mouse (desktop debugging)
+  /* Mouse (desktop debugging) */
   document.addEventListener('mousedown', (e)=>{
     const t = e.target.closest('.card, .af-card');
     if (!isCard(t)) return;
@@ -138,11 +161,9 @@
   document.addEventListener('mousemove', (e)=> move(e.clientX, e.clientY));
   document.addEventListener('mouseup', cancel);
   document.addEventListener('mouseleave', cancel);
-
-  // If the app dispatches a drag start in code, you can also listen for it and cancel here if needed.
 })();
 
-/* Snap + badge */
+/* Snap + badge (unchanged) */
 (function dropSnap(){
   function attach(el){
     const obs = new MutationObserver(()=>{ el.querySelectorAll('.card').forEach(c=>{ c.classList.remove('drop-zoom'); void c.offsetWidth; c.classList.add('drop-zoom'); }); });
