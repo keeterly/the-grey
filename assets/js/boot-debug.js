@@ -1,10 +1,11 @@
-/* boot-debug.js — v2.2.8-mobile-2x-preview+even (MAIN)
-   • 2× press-and-hold preview (board/AF + MTGA-style for hand)
-   • Disable selection/callout while interacting
-   • Boards: equal height (CSS vars handle sizes)
+/* boot-debug.js — v2.2.9-mobile-2x-preview+spread (MAIN)
+   • Detached 2× preview clone => smooth, no ghost, no layout shifts
+   • Hand neighbors spread while previewing
+   • Equal board heights driven by CSS
+   • Long-press still ~260ms; cancels on small drag
 */
 (function () {
-  window.__THE_GREY_BUILD = 'v2.2.8-mobile-2x-preview+even (main)';
+  window.__THE_GREY_BUILD = 'v2.2.9-mobile-2x-preview+spread (main)';
   window.__BUILD_SOURCE = 'boot-debug.js';
 })();
 
@@ -14,14 +15,16 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* Add a tiny transparent overlay to kill selection/callout while holding */
-(function ensureNoSelectOverlay(){
-  const el = document.createElement('div');
-  el.id = 'tgNoSelectOverlay';
-  document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(el), {once:true});
+/* Build preview/no-select layers once */
+(function ensureLayers(){
+  function mk(id){ const d=document.createElement('div'); d.id=id; return d; }
+  document.addEventListener('DOMContentLoaded', ()=>{
+    if (!document.getElementById('tgNoSelectOverlay')) document.body.appendChild(mk('tgNoSelectOverlay'));
+    if (!document.getElementById('tgPreviewLayer')) document.body.appendChild(mk('tgPreviewLayer'));
+  }, {once:true});
 })();
 
-/* Portrait overlay once */
+/* Portrait overlay (unchanged) */
 (function ensureRotateOverlay(){
   if (document.getElementById('tgRotateOverlay')) return;
   const ov = document.createElement('div');
@@ -83,84 +86,122 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* Press-and-hold preview (2×). Hand cards lift upward MTGA-style. */
-(function cardMagnify(){
-  const LONG_MS = 260;          // press duration to trigger
-  const MOVE_TOL = 8;           // px move cancels (treat as drag)
-  let timer = null, startX=0, startY=0, target = null, magnified = null, isHand = false;
+/* ------------ 2× LONG-PRESS PREVIEW WITH HAND SPREAD ------------ */
+(function cardPreview(){
+  const LONG_MS = 260;      // hold to preview
+  const MOVE_TOL = 8;       // treat as drag if moved more than this
+  let timer=null, startX=0, startY=0, src=null, isHand=false, preview=null;
 
-  const overlay = ()=> document.getElementById('tgNoSelectOverlay');
+  const prevLayer = ()=> document.getElementById('tgPreviewLayer');
+  const overlay   = ()=> document.getElementById('tgNoSelectOverlay');
 
-  const isCard = (el)=> el && (el.classList?.contains('card') || el.classList?.contains('af-card'));
+  const isCard = el => el && (el.classList?.contains('card') || el.classList?.contains('af-card'));
 
-  function showOverlay(on){
-    const o = overlay(); if (!o) return;
-    o.classList.toggle('show', !!on);
+  /* Build a visual clone without side-effects */
+  function makeClone(card){
+    const rect = card.getBoundingClientRect();
+    const clone = card.cloneNode(true);
+    clone.classList.add('preview-card');
+    if (isHand) clone.classList.add('is-hand');
+
+    // Reset any transforms (fan tilt) and position the clone at the same screen point
+    clone.style.width  = rect.width + 'px';
+    clone.style.height = rect.height + 'px';
+    clone.style.left   = rect.left + rect.width/2 + 'px';
+    clone.style.top    = rect.top  + rect.height/2 + 'px';
+
+    // Strip attributes that might trigger game logic
+    clone.removeAttribute('id');
+    clone.querySelectorAll('[id]').forEach(n=>n.removeAttribute('id'));
+
+    return clone;
   }
 
-  function beginPress(el, x, y){
-    clearTimeout(timer);
-    target = el; startX = x; startY = y;
-    isHand = !!el.closest('.hand');
-    timer = setTimeout(()=> {
-      if (!target) return;
-      magnified = target;
-      // Remove any inline transform from fan tilt so text is straight while previewing
-      magnified.dataset._prevTransform = magnified.style.transform || '';
-      magnified.style.transform = '';  // let CSS class own the transform
-      magnified.classList.add(isHand ? 'magnify-hand' : 'magnify');
-      showOverlay(true);
-    }, LONG_MS);
-  }
+  /* Hand neighbor spread: push siblings away a bit */
+  function spreadNeighbors(card, on){
+    const hand = card.closest('.hand');
+    if (!hand) return;
+    hand.classList.toggle('spread', on);
 
-  function move(x, y){
-    if (!target) return;
-    if (Math.abs(x - startX) > MOVE_TOL || Math.abs(y - startY) > MOVE_TOL){
-      cancel(); // treat as drag
+    if (!on){
+      // restore original transforms if we touched them
+      hand.querySelectorAll('.card').forEach(c=>{
+        if (c.dataset._spreadPrev){
+          c.style.transform = c.dataset._spreadPrev;
+          delete c.dataset._spreadPrev;
+        }
+        c.style.zIndex = '';
+      });
+      return;
     }
+
+    const cards = Array.from(hand.querySelectorAll('.card'));
+    const idx = cards.indexOf(card);
+    const baseOffset = 16;   // px
+    const baseZ = 100;       // bring previewed card up
+    cards.forEach((c,i)=>{
+      c.style.zIndex = i === idx ? baseZ+50 : baseZ + (10 - Math.abs(i-idx));
+      const prev = c.style.transform || '';
+      c.dataset._spreadPrev = prev;
+      if (i === idx) return; // leave center alone (preview clone handles visual)
+      const delta = (i-idx) * baseOffset;
+      c.style.transform = `${prev} translateX(${delta}px)`;
+    });
   }
 
-  function cancel(){
-    clearTimeout(timer); timer = null;
-    target = null;
-    showOverlay(false);
-    if (magnified){
-      magnified.classList.remove('magnify', 'magnify-hand');
-      // Restore any previous transform (e.g., hand fan rotation)
-      if (magnified.dataset._prevTransform !== undefined){
-        magnified.style.transform = magnified.dataset._prevTransform;
-        delete magnified.dataset._prevTransform;
-      }
-      magnified = null;
-    }
+  function show(card, x, y){
+    const layer = prevLayer(); if (!layer) return;
+    preview = makeClone(card);
+    layer.appendChild(preview);
+    layer.classList.add('show');
+    overlay()?.classList.add('show');
+    if (isHand) spreadNeighbors(card, true);
   }
 
-  /* Touch (non-passive so we can prevent accidental selection if needed) */
+  function hide(){
+    clearTimeout(timer); timer=null;
+    overlay()?.classList.remove('show');
+    const layer = prevLayer();
+    if (layer && preview){ layer.removeChild(preview); }
+    if (src && isHand) spreadNeighbors(src, false);
+    preview = null; src = null; isHand = false;
+  }
+
+  function begin(card, x, y){
+    hide(); // safety
+    src = card; isHand = !!card.closest('.hand');
+    startX = x; startY = y;
+    timer = setTimeout(()=> show(card, x, y), LONG_MS);
+  }
+
+  function moved(x, y){
+    if (!src) return;
+    if (Math.abs(x-startX) > MOVE_TOL || Math.abs(y-startY) > MOVE_TOL) hide();
+  }
+
+  // Touch
   document.addEventListener('touchstart', (e)=>{
-    const t = e.target.closest('.card, .af-card');
-    if (!isCard(t)) return;
-    const touch = e.changedTouches[0];
-    beginPress(t, touch.clientX, touch.clientY);
+    const t = e.target.closest('.card, .af-card'); if (!isCard(t)) return;
+    const p = e.changedTouches[0]; begin(t, p.clientX, p.clientY);
   }, {passive:true});
-
   document.addEventListener('touchmove', (e)=>{
-    if (!target) return;
-    const touch = e.changedTouches[0];
-    move(touch.clientX, touch.clientY);
+    if (!src) return; const p = e.changedTouches[0]; moved(p.clientX, p.clientY);
   }, {passive:true});
+  document.addEventListener('touchend', hide, {passive:true});
+  document.addEventListener('touchcancel', hide, {passive:true});
 
-  document.addEventListener('touchend', cancel, {passive:true});
-  document.addEventListener('touchcancel', cancel, {passive:true});
-
-  /* Mouse (desktop debugging) */
+  // Mouse (debugging)
   document.addEventListener('mousedown', (e)=>{
-    const t = e.target.closest('.card, .af-card');
-    if (!isCard(t)) return;
-    beginPress(t, e.clientX, e.clientY);
+    const t = e.target.closest('.card, .af-card'); if (!isCard(t)) return;
+    begin(t, e.clientX, e.clientY);
   });
-  document.addEventListener('mousemove', (e)=> move(e.clientX, e.clientY));
-  document.addEventListener('mouseup', cancel);
-  document.addEventListener('mouseleave', cancel);
+  document.addEventListener('mousemove', (e)=> moved(e.clientX, e.clientY));
+  document.addEventListener('mouseup', hide);
+  document.addEventListener('mouseleave', hide);
+
+  // Safety: close preview on visibility/page change to avoid “ghosts”
+  document.addEventListener('visibilitychange', ()=> { if (document.hidden) hide(); });
+  window.addEventListener('blur', hide);
 })();
 
 /* Snap + badge (unchanged) */
