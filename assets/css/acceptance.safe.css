@@ -1,9 +1,9 @@
-/* acceptance.safe.css — v2.3.0 Mobile Unified
-   • Hand rendered in a fixed HUD-like layer (not scaled with canvas)
-   • 2× press-and-hold preview keeps card formatting identical (pure transform)
-   • Remove any tap/active lift on hand cards
-   • Boards: AI / Aetherflow / You all 160px tall
-   • Global no-select / no-callout to prevent text highlighting while holding
+/* acceptance.safe.css — v2.3.1 Mobile
+   • HUD-style Hand (fixed, not scaled)
+   • 2× press-and-hold preview on the REAL card (no clone; exact formatting)
+   • Remove tap/active lift on hand cards
+   • Boards: AI / AF / You = 160px
+   • No-select / no-callout while holding
 */
 
 html, body { margin:0; padding:0; }
@@ -16,12 +16,12 @@ html.mobile-land, html.mobile-land body{
 #app, #app.tg-canvas{
   position:absolute; left:50%; top:50%;
   width:1280px; height:720px;
-  transform:translate(-50%,-50%) scale(1);
+  transform:translate(-50%, -50%) scale(1);
   transform-origin:50% 50%;
   will-change:transform;
 }
 
-/* Equal board heights (now 160px) */
+/* Equal board heights (160px) */
 :root{ --board-h:160px; --af-h:160px; }
 
 #app .board{
@@ -45,27 +45,43 @@ html.mobile-land, html.mobile-land body{
   width:96px; height:136px; border-radius:10px;
 }
 
-/* ---------- HUD Hand Layer (fixed, not scaled) ---------- */
+/* ---------- HUD Hand (fixed, not scaled with canvas) ---------- */
 #tgHandLayer{
   position:fixed;
   left:50%; transform:translateX(-50%);
-  /* sit above HUD by ~54px, adjust if you change HUD size */
   bottom:calc(54px + env(safe-area-inset-bottom));
   width:var(--tg-scaled-width, min(1280px, 100vw));
   pointer-events:none; z-index:10800;
 }
-#tgHandLayer .hand{
-  position:relative; height:180px; pointer-events:auto;
-}
+#tgHandLayer .hand{ position:relative; height:180px; pointer-events:auto; }
 #tgHandLayer .hand .card{
   position:absolute; left:50%; transform-origin:50% 100%; will-change:transform;
 }
-
-/* Kill any little :active lifts on hand cards */
+/* remove any tiny :active lift—we handle preview ourselves */
 #tgHandLayer .hand .card:active,
-#app .hand .card:active{ transform: none !important; }
+#app .hand .card:active{ transform:none !important; }
 
-/* ---------- Bottom HUD ---------- */
+/* ---------- Real-card 2× Preview ---------- */
+.card, .af-card{ transition: transform 120ms ease, box-shadow 120ms ease; will-change:transform; }
+.magnify{ transform:scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); pointer-events:none; }
+#tgHandLayer .hand .card.magnify-hand{ transform:translate(-50%, -72px) scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); }
+
+/* Hand neighbors spread a bit while previewing */
+#tgHandLayer .hand.spread .card{ transition: transform 120ms ease, z-index 120ms ease; }
+
+/* Invisible proxy inside #app for animations that need a hand origin */
+#tgHandAnchor{
+  position:absolute; width:1px; height:1px; pointer-events:none; visibility:hidden;
+}
+
+/* Rotate overlay (hidden unless portrait) */
+.tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.75); color:#fff; display:none; align-items:center; justify-content:center; z-index:12000; text-align:center; padding:24px; }
+.tg-rotate-overlay.show{ display:flex; }
+.tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
+.tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
+.tg-rotate-sub{ font-size:13px; opacity:.85; }
+
+/* HUD */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom:calc(8px + env(safe-area-inset-bottom));
@@ -76,31 +92,6 @@ html.mobile-land, html.mobile-land body{
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 #tgCompactToggle, #tgAFZoom{ display:none !important; }
 
-/* ---------- 2× Press-and-hold Preview (pure transform) ---------- */
-/* detached preview layer so original card never reflows */
-#tgPreviewLayer{ position:fixed; inset:0; pointer-events:none; z-index:11000; display:none; }
-#tgPreviewLayer.show{ display:block; }
-.preview-card{
-  position:absolute; left:0; top:0;
-  /* IMPORTANT: do not change width/height of inner content; only transform */
-  transform: translate(-50%, -50%) scale(2);
-  transform-origin: center center;
-  box-shadow:0 18px 48px rgba(0,0,0,.32);
-  border-radius:10px;
-  font-size: inherit;
-  background: transparent; /* keep original visuals exactly */
-}
-.preview-card.is-hand{
-  transform: translate(-50%, -72px) scale(2);
-  transform-origin:50% 85%;
-}
-
-/* No-select overlay (extra safety on iOS) */
-#tgNoSelectOverlay{ position:fixed; inset:0; background:transparent; z-index:10999; display:none; }
-#tgNoSelectOverlay.show{ display:block; }
-
-/* Misc */
-@media (orientation:landscape){ .tg-title, .logo-title{ display:none !important; } }
 @keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
 .card.drop-zoom{ animation: tgSnap 160ms ease-out; }
 body::-webkit-scrollbar{ display:none; }
