@@ -1,8 +1,8 @@
-/* acceptance.safe.css — v2.3.3
-   • HUD hand is a visual proxy (engine keeps real hand hidden in #app)
-   • Smaller HUD hand; one dial controls size
-   • External board info: name + hearts (line 1), trance (line 2)
-   • Boards remain 160px
+/* acceptance.safe.css — v2.3.5-mobile-sync2
+   - Equal-height boards (160px)
+   - Scaled 1280×720 canvas centered
+   - HUD hand is a fixed visual proxy (not canvas-scaled)
+   - FIX: engine hand is hidden ONLY when HUD proxy is ready (html.has-hud-hand)
 */
 
 html, body { margin:0; padding:0; }
@@ -11,7 +11,7 @@ html.mobile-land, html.mobile-land body{
   -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation;
 }
 
-/* Scaled game canvas */
+/* Scaled game canvas (fixed 1280×720) */
 #app, #app.tg-canvas{
   position:absolute; left:50%; top:50%;
   width:1280px; height:720px;
@@ -22,9 +22,9 @@ html.mobile-land, html.mobile-land body{
 
 /* Equal board heights */
 :root{
-  --board-h:160px; --af-h:160px;
-  --hand-scale:.78;          /* <<< dial hand size here */
-  --hand-lift:40px;          /* distance above HUD */
+  --board-h:160px; --af-h:160px;     /* ← source of truth for layout */
+  --hand-scale:.78;                  /* dial HUD hand size here */
+  --hand-lift:40px;                  /* distance above HUD */
 }
 
 /* Boards */
@@ -46,25 +46,11 @@ html.mobile-land, html.mobile-land body{
 #app .board .badges,
 #app .board .hearts { display:none !important; }
 
-/* External board info */
-.tg-board-info{
-  position:absolute; z-index:2;
-  display:flex; flex-direction:column; gap:2px;
-  background:rgba(255,255,255,.9);
-  border:1px solid rgba(0,0,0,.06); border-radius:10px; padding:6px 10px;
-  box-shadow:0 6px 18px rgba(0,0,0,.08);
-  font-size:13px; min-width:128px;
-}
-.tg-board-info .line1{ display:flex; align-items:center; gap:8px; font-weight:600; }
-.tg-board-info .hearts{ color:#e45a5a; letter-spacing:2px; }
-.tg-board-info .trance{ font-size:12px; opacity:.7; }
-
-/* Zones / slots */
+/* Zones / slots (compact card footprints on board/AF) */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
 
-/* Compact cards on board/AF */
 #app .slot, #app .glyph-slot, #app .af-card, #app .slots .card{
   width:96px; height:136px; border-radius:10px;
 }
@@ -87,25 +73,30 @@ html.mobile-land, html.mobile-land body{
 #tgHandLayer .hand .card{
   position:absolute; left:50%; transform-origin:50% 100%; will-change:transform;
 }
-/* Kill tiny tap lift */
+
+/* Disable tiny tap-lift */
 #tgHandLayer .hand .card:active,
 #app .hand .card:active{ transform:none !important; }
 
-/* Keep engine's canvas hand hidden but alive */
-#app .hand{ visibility:hidden !important; pointer-events:none !important; }
+/* IMPORTANT: keep engine hand visible until HUD proxy is ready */
+html.has-hud-hand #app .hand{
+  visibility:hidden !important; pointer-events:none !important;
+}
 
-/* Invisible proxy inside #app for animations that need a hand origin */
+/* Invisible proxy inside #app for animations that need a hand origin (future use) */
 #tgHandAnchor{
   position:absolute; width:1px; height:1px; pointer-events:none; visibility:hidden;
 }
 
 /* ---------- Real-card 2× Preview (applied to HUD cards) ---------- */
-.card, .af-card{ transition: transform 120ms ease, box-shadow 120ms ease; will-change:transform; }
+.card, .af-card{
+  transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
+  will-change:transform;
+}
 .magnify{ transform:scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); pointer-events:none; }
 #tgHandLayer .hand .card.magnify-hand{ transform:translate(-50%, -72px) scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); }
-#tgHandLayer .hand.spread .card{ transition: transform 120ms ease, z-index 120ms ease; }
 
-/* HUD */
+/* HUD row */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom:calc(8px + env(safe-area-inset-bottom));
@@ -114,8 +105,13 @@ html.mobile-land, html.mobile-land body{
   padding:0 10px; gap:10px; pointer-events:none;
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
+
+/* Compact/AF zoom toggles off for this branch */
 #tgCompactToggle, #tgAFZoom{ display:none !important; }
 
+/* Arrival / drop easing */
 @keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
 .card.drop-zoom{ animation: tgSnap 160ms ease-out; }
+
+/* Cleanup */
 body::-webkit-scrollbar{ display:none; }
