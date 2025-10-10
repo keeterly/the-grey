@@ -1,57 +1,91 @@
-/* acceptance.safe.css — v2.2.3 Mobile Unified (landscape tune)
-   • true mobile-landscape sizing
-   • smaller slots + tighter gaps
-   • centered board (no drift), no side scroll
-   • AF row + controls aligned; hand clears HUD
+/* acceptance.safe.css — v2.2.4 Mobile Unified (landscape final)
+   • compact slot sizes & row heights
+   • tighter gaps
+   • canvas centered, no scroll
+   • Aetherflow controls aligned
+   • hand sits above HUD
 */
+
 html, body { margin:0; padding:0; }
-html.mobile-land, html.mobile-land body { height:100%; width:100%; overflow:hidden; background:#f7f5f0; -webkit-text-size-adjust:100%; }
-
-/* Fixed game surface (JS centers/scales this) */
-#app.tg-canvas{ position:absolute; left:50%; top:50%; width:1280px; height:720px; transform:translate(-50%,-50%) scale(1); transform-origin:50% 50%; will-change:transform; }
-
-@supports (-webkit-touch-callout:none){
-  html.mobile-land, html.mobile-land body { min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom)); }
+html.mobile-land, html.mobile-land body {
+  height:100%; width:100%; overflow:hidden; background:#f7f5f0; -webkit-text-size-adjust:100%;
 }
 
-/* Hide big title on small landscape */
+/* Fixed-size surface; JS scales & centers */
+#app.tg-canvas{
+  position:absolute; left:50%; top:50%;
+  width:1280px; height:720px;
+  transform:translate(-50%,-50%) scale(1); transform-origin:50% 50%;
+  will-change:transform;
+}
+
+@supports (-webkit-touch-callout:none){
+  html.mobile-land, html.mobile-land body {
+    min-height:calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
+
+/* Hide title on mobile-landscape */
 @media (orientation:landscape){ .tg-title, .logo-title { display:none !important; } }
 
-/* Boards / zones */
-.tg-canvas .board, .tg-canvas .aetherflow{ margin:4px auto; padding:6px 10px; max-width:1280px; border-radius:10px; }
-.tg-zone{ display:flex; align-items:stretch; gap:10px; padding:8px 10px; }
-.tg-zone .tg-slot{ flex:1 1 0; min-height:132px; display:flex; align-items:center; justify-content:center; }
-.tg-zone--aetherflow .tg-slot{ min-height:84px; }
+/* ---------- Boards / zones ---------- */
+.tg-canvas .board, .tg-canvas .aetherflow{
+  margin:2px auto; padding:4px 8px; max-width:1280px; border-radius:10px;
+}
 
-/* Smaller slots/cards for mobile-land */
-.tg-canvas .slot, .tg-canvas .glyph-slot, .tg-canvas .af-card, .tg-canvas .slots .card{ width:104px; height:148px; border-radius:10px; }
-.tg-canvas .slots{ display:flex; justify-content:center; align-items:center; gap:10px; }
+.tg-zone{
+  display:flex; align-items:stretch; gap:8px; padding:6px 8px;
+}
 
-/* Aetherflow row */
-.aetherflow{ display:flex; align-items:center; gap:10px; }
-.aetherflow .af-cards{ flex:1 1 auto; display:flex; align-items:center; gap:8px; min-height:74px; }
+/* Compact row heights */
+.tg-zone .tg-slot{
+  flex:1 1 0;
+  min-height:116px; /* was 132 -> tighter */
+  display:flex; align-items:center; justify-content:center;
+}
+.tg-zone--aetherflow .tg-slot{ min-height:64px; } /* was 84 */
+
+/* ---------- Slots & cards (compact) ---------- */
+.tg-canvas .slot,
+.tg-canvas .glyph-slot,
+.tg-canvas .af-card,
+.tg-canvas .slots .card{
+  width:96px;            /* was 104 */
+  height:136px;          /* was 148 */
+  border-radius:10px;
+}
+
+.tg-canvas .slots{
+  display:flex; justify-content:center; align-items:center; gap:8px;
+}
+
+/* ---------- Aetherflow row ---------- */
+.aetherflow{ display:flex; align-items:center; gap:8px; }
+.aetherflow .af-cards{ flex:1 1 auto; display:flex; align-items:center; gap:6px; min-height:58px; }
 .aetherflow .af-controls{ flex:0 0 auto; display:inline-flex; align-items:center; gap:8px; }
 #tgAFZoom{ order:99; }
 html.af-zoom .aetherflow{ transform:scale(1.08); transform-origin:center; }
 
-/* Hand (fan) */
-.tg-canvas .hand{ position:relative; height:200px; }
+/* ---------- Hand (fan) ---------- */
+.tg-canvas .hand{ position:relative; height:180px; }   /* was 200 */
 .tg-canvas .hand .card{ position:absolute; left:50%; transform-origin:50% 100%; will-change:transform; }
 
-/* Bottom HUD — width follows scaled canvas via CSS var set by JS */
+/* ---------- Bottom HUD ---------- */
+/* width follows the scaled canvas via CSS var set by JS */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
-  bottom:calc(10px + env(safe-area-inset-bottom));
+  bottom:calc(8px + env(safe-area-inset-bottom));
   width:var(--tg-scaled-width, min(1280px, 100vw));
-  display:flex; align-items:center; justify-content:space-between; padding:0 12px; gap:12px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 10px; gap:10px;
   pointer-events:none;
 }
-.hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:12px; pointer-events:auto; }
+.hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 .hud-pill{ display:inline-flex; align-items:center; gap:6px; line-height:1; vertical-align:middle; }
-.hud-pill .val{ font-variant-numeric:tabular-nums; }
-#tgCompactToggle.icon.btn{ min-width:34px; min-height:26px; line-height:24px; font-weight:600; }
-#tgAFZoom.icon.btn{ min-width:40px; min-height:26px; line-height:24px; font-weight:700; }
-#btnEnd{ min-width:34px; min-height:26px; line-height:24px; }
+.hud-pill .val{ font-variant-numeric: tabular-nums; }
+#tgCompactToggle.icon.btn{ min-width:32px; min-height:24px; line-height:22px; font-weight:600; }
+#tgAFZoom.icon.btn{       min-width:38px; min-height:24px; line-height:22px; font-weight:700; }
+#btnEnd{                  min-width:32px; min-height:24px; line-height:22px; }
 
 /* Rotate overlay */
 .tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.75); color:#fff; display:none; align-items:center; justify-content:center; z-index:10000; text-align:center; padding:24px; }
