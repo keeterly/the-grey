@@ -1,7 +1,7 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-sync4 “hand-layer”)
-   - Keep engine hand interactive, but visually float it as a layer
+/* The Grey — mobile bootstrap (v2.3.5-mobile-sync5-stable)
+   - Stable mobile: keep engine hand in flow; reserve space via CSS
    - First-time sync on load (dual RAF + timer)
-   - External board infos (names, hearts, trances)
+   - External board info (names, hearts, trances)
    - Version tag (top-right)
 */
 
@@ -13,28 +13,27 @@
   const noop = ()=>{};
 
   // ---- sync hook (resilient) ----------------------------------------------
-  const rawCallSync = () => {
+  const callSync = () => {
     const f = (window.tgSyncAll || window.syncAll || window.TG_SYNC_ALL || window.__syncAll || noop);
     try { f(); } catch(_) {}
     try { window.dispatchEvent(new CustomEvent('tg:resync', {bubbles:true})); } catch(_) {}
     try { document.dispatchEvent(new CustomEvent('tg:resync', {bubbles:true})); } catch(_) {}
+    ensureBoardInfos();
   };
-  const callSync = () => { rawCallSync(); ensureBoardInfos(); };
-
-  // ---- Version badge -------------------------------------------------------
-  const ensureVersionTag = once(() => {
-    const div = document.createElement('div');
-    div.id = 'tgVersionTag';
-    div.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-sync4');
-    document.body.appendChild(div);
-  });
 
   // ---- CSS micro-injection -------------------------------------------------
   const injectCSS = once(() => {
     const css = `
-      /* prevent long-press text selection */
+      /* prevent long-press selection */
       .card, .hand, .aether-card, .slot, .tg-board-info, .tg-trance, .tg-hearts, .tg-name {
         -webkit-user-select: none; -moz-user-select: none; user-select: none;
+      }
+      /* version tag */
+      #tgVersionTag{
+        position: fixed; right: 12px; top: 8px; z-index: 99999;
+        font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
+        background: rgba(255,255,255,.85); padding: 3px 6px; border-radius: 6px;
+        box-shadow: 0 1px 6px rgba(0,0,0,.06);
       }
       /* external board info container */
       .tg-board-info{
@@ -46,19 +45,19 @@
       .tg-board-info .tg-name{ font-weight:600; opacity:.9; }
       .tg-board-info .tg-hearts{ letter-spacing:2px; }
       .tg-board-info .tg-trance{ opacity:.8; font-size:11px; }
-
-      /* small version tag */
-      #tgVersionTag{
-        position: fixed; right: 12px; top: 8px; z-index: 99999;
-        font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
-        background: rgba(255,255,255,.85); padding: 3px 6px; border-radius: 6px;
-        box-shadow: 0 1px 6px rgba(0,0,0,.06);
-      }
     `;
     const tag = document.createElement('style');
     tag.id = 'tgBootMobileCSS';
     tag.textContent = css;
     document.head.appendChild(tag);
+  });
+
+  // ---- Version badge -------------------------------------------------------
+  const ensureVersionTag = once(() => {
+    const div = document.createElement('div');
+    div.id = 'tgVersionTag';
+    div.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-sync5-stable');
+    document.body.appendChild(div);
   });
 
   // ---- External board infos (name/hearts/trance) ---------------------------
