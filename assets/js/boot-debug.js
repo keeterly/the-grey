@@ -1,12 +1,9 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fit+anim2)
-   - Centered, uniformly scaled 1280×720 canvas
-   - Extra vertical spacing between rows
-   - Deck button sits next to End Turn (right); Discard anchor on left
-   - Hides lightning-bolt HUD
-   - Aether HUD (blue=regular, red=temporary) auto-updating bottom-right
+/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fit+anim3)
+   - Centered 1280×720, spacing, hand in-flow
+   - Deck (right, next to End Turn) / Discard (left)
+   - Hide bolt; add Aether HUD (blue=regular, red=temporary)
    - Draw animation (Deck → Hand), Discard animation (Hand → Discard)
-   - Hide Aetherflow header
-   - Press-and-hold preview (kept)
+   - Hide AF header; press-and-hold preview
 */
 
 (() => {
@@ -50,67 +47,71 @@
   const ensureHudRootAndVersion = once(() => {
     let hud = qs('#tgHudRoot'); if(!hud){ hud = document.createElement('div'); hud.id='tgHudRoot'; document.body.appendChild(hud); }
     let tag = qs('#tgVersionTag'); if(!tag){ tag = document.createElement('div'); tag.id='tgVersionTag'; hud.appendChild(tag); }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fit+anim2');
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fit+anim3');
   });
 
-  /* ---------------- HUD controls: deck button + groups -------------------- */
+  /* ---------------- HUD controls / move deck right ------------------------ */
   const ensureHudControls = once(() => {
-    const hudRight = document.querySelector('.hud-min .right') || (() => {
-      const root = document.createElement('div'); root.className='hud-min'; document.body.appendChild(root);
-      const left = document.createElement('div'); left.className='left';
-      const right= document.createElement('div'); right.className='right';
-      root.append(left,right);
-      return right;
-    })();
+    const hud = qs('.hud-min'); if(!hud){
+      const root = document.createElement('div'); root.className='hud-min';
+      root.innerHTML = `<div class="left"></div><div class="right"></div>`;
+      document.body.appendChild(root);
+    }
+    const left  = qs('.hud-min .left');
+    const right = qs('.hud-min .right');
 
-    // Hide any pre-existing “bolt/energy” visually in case it exists.
-    qsa('.hud-min .bolt, .hud-min .energy, .hud-min [data-hud="energy"]').forEach(el => el.style.display='none');
+    // Move deck icon to the right (next to End Turn), keep discard on left.
+    const deck    = qs('#deckIcon');
+    const discard = qs('#discardIcon');
+    const endBtn  = qs('#btnEnd');
 
-    // Aether HUD (dots)
-    let aetherHUD = qs('#tgAetherHUD');
-    if(!aetherHUD){
-      aetherHUD = document.createElement('div');
-      aetherHUD.id = 'tgAetherHUD';
-      aetherHUD.innerHTML = `<div class="dots dots-blue"></div><div class="dots dots-red"></div>`;
-      hudRight.prepend(aetherHUD); // keep close to end turn & deck
+    if(deck && right && deck.parentElement !== right){
+      right.appendChild(deck);
+    }
+    if(endBtn && right && endBtn.nextSibling !== deck){
+      right.insertBefore(deck, null); // after End Turn
+    }
+    if(discard && left && discard.parentElement !== left){
+      left.appendChild(discard);
     }
 
-    // Deck button (sits next to End Turn)
-    let deckBtn = qs('#tgDeckBtn');
-    if(!deckBtn){
-      deckBtn = document.createElement('button');
-      deckBtn.id = 'tgDeckBtn';
-      deckBtn.textContent = 'DECK';
-      deckBtn.type = 'button';
-      // purely visual for now; we keep pointer-events for future menus
-      hudRight.appendChild(deckBtn);
+    // Aether HUD (blue/red dots)
+    let hudDots = qs('#tgAetherHUD');
+    if(!hudDots){
+      hudDots = document.createElement('div');
+      hudDots.id = 'tgAetherHUD';
+      hudDots.innerHTML = `
+        <div class="dots dots-blue"></div>
+        <div class="dots dots-red"></div>`;
+      right?.appendChild(hudDots);
     }
   });
 
-  /* ---------------- Discard anchor (left), Deck anchor = deckBtn (right) -- */
-  const ensureAnchors = once(() => {
-    if(!qs('#tgDiscardAnchor')){ const a=document.createElement('div'); a.id='tgDiscardAnchor'; document.body.appendChild(a); }
-  });
-
-  /* ---------------- Aetherflow header remover ---------------------------- */
+  /* ---------------- Hide AF header --------------------------------------- */
   function hideAetherflowHeader(){
-    try{
-      const af = qs('#app .aetherflow'); if(!af) return;
-      af.querySelectorAll('.title,.name,.label,[data-label]').forEach(el => el.style.display='none');
-      qsa('span,div', af).forEach(el => { const t=(el.textContent||'').trim().toLowerCase(); if(t==='aetherflow') el.style.display='none'; });
-    }catch(_){}
+    qsa('#app .aetherflow .af-title').forEach(el => el.style.display='none');
   }
 
-  /* ---------------- Press & Hold Preview (kept) -------------------------- */
+  /* ---------------- Press & Hold Preview --------------------------------- */
   function installPressPreview(){
-    let downX=0, downY=0, timer=null, active=null;
-    const PRESS_MS=220, MOVE_CANCEL=8;
-    const clear=()=>{ if(timer){clearTimeout(timer);timer=null;} if(active){active.classList.remove('magnify','magnify-hand'); active=null;} };
+    const DELAY = 220; const MOVE_CANCEL = 8;
+    let timer=null, active=null, downX=0, downY=0;
+
     on(document,'pointerdown',e=>{
-      const card=e.target?.closest?.('.card'); if(!card || (e.button&&e.button!==0)) return;
+      const card = e.target && e.target.closest && e.target.closest('#app .hand .card');
+      if(!card) return;
       downX=e.clientX; downY=e.clientY;
-      timer=setTimeout(()=>{ if(active) return; active=card; active.classList.add('magnify'); if(active.closest('.hand')) active.classList.add('magnify-hand'); },PRESS_MS);
-    },{passive:true});
+      timer = setTimeout(()=>{
+        active=card;
+        card.classList.add('magnify','magnify-hand');
+      }, DELAY);
+    }, {passive:true});
+
+    function clear(){
+      if(timer){ clearTimeout(timer); timer=null; }
+      if(active){ active.classList.remove('magnify','magnify-hand'); active=null; }
+    }
+
     on(document,'pointermove',e=>{
       if(!timer && !active) return;
       if(Math.hypot(e.clientX-downX,e.clientY-downY)>MOVE_CANCEL) clear();
@@ -147,12 +148,13 @@
   // Observe YOUR hand for draws: animate Deck → new card
   function observeDraws(){
     const hand = qs('#app [data-board="YOU"] .hand'); if(!hand) return;
-    const deckBtn = qs('#tgDeckBtn');
+    const deckBtn = qs('#deckIcon'); // engine updates this count in render() :contentReference[oaicite:4]{index=4}
     const mo = new MutationObserver(muts=>{
       muts.forEach(m=>{
         m.addedNodes?.forEach(n=>{
           if(n.nodeType===1 && n.classList.contains('card')){
-            setTimeout(()=> fly(deckBtn, n), 10); // from deck to card
+            // delay one frame so the card has its base transform set (layoutHand) :contentReference[oaicite:5]{index=5}
+            requestAnimationFrame(()=> fly(deckBtn, n));
           }
         });
       });
@@ -160,43 +162,32 @@
     mo.observe(hand, {childList:true, subtree:false});
   }
 
-  // Observe Discard pile count rises → fly last selected/played card to Discard
+  // Observe Discard count changes → fly last hand card to Discard
   function observeDiscards(){
-    const discardA = qs('#tgDiscardAnchor');
-    // Heuristic: whenever a .discard-pile or similar count bumps, animate from the last hand card
-    // If the app exposes a discard node, hook it; otherwise fallback to listen to DOM changes globally
-    const root = document.body;
-    let lastHandCard = null;
-    on(document, 'pointerdown', (e) => {
-      const c = e.target?.closest?.('#app .hand .card'); if(c) lastHandCard = c;
-    }, {passive:true});
+    const discardIcon = qs('#discardIcon');
+    if(!discardIcon) return;
 
     const mo = new MutationObserver(muts=>{
-      // If anything labeled 'discard' changes, assume a discard happened.
-      const changed = muts.some(m=>{
-        const n = (m.target?.closest && m.target.closest('[data-pile="discard"], .discard, .discard-pile')) || null;
-        return !!n;
-      });
-      if(changed){
-        const src = lastHandCard || qs('#app .hand .card:last-child');
-        fly(src, discardA);
+      const attrChanged = muts.some(m => m.type==='attributes' && m.attributeName==='data-count');
+      if(attrChanged){
+        const src = qs('#app .hand .card:last-child');
+        fly(src, discardIcon);
       }
     });
-    mo.observe(root, {subtree:true, childList:true, characterData:true});
+    mo.observe(discardIcon, {attributes:true, attributeFilter:['data-count']});
   }
 
   /* ---------------- Aether HUD (blue=regular, red=temporary) -------------- */
   function getAether(){
-    // Try multiple property names defensively
-    const g = window.game || {};
-    const you = g.you || {};
-    const reg = you.aether ?? you.mana ?? you.energy ?? 0;      // regular aether
-    const tmp = you.tempAether ?? you.tempMana ?? you.temp ?? 0; // temporary (this round)
-    return {reg: Number(reg)||0, tmp: Number(tmp)||0};
+    // Prefer engine state if exposed later; otherwise read the HUD the engine already sets.
+    // Engine sets #aetherWell data-count in render(...) :contentReference[oaicite:6]{index=6}
+    const aetherFromHud = Number(qs('#aetherWell')?.getAttribute('data-count')||0);
+    // If you later add temp aether to state (e.g., state.you.tempAether), this reader can be extended.
+    return {reg:aetherFromHud, tmp:0};
   }
   function renderDots(container, count, cls){
     const dots = [];
-    const n = Math.max(0, Math.min(20, count|0)); // clamp 0..20
+    const n = Math.max(0, Math.min(20, count|0)); // clamp 0..20 so we don’t explode UI
     for(let i=0;i<n;i++) dots.push(`<span class="aether-dot ${cls}"></span>`);
     container.innerHTML = dots.join('');
   }
@@ -210,7 +201,7 @@
   }
   function startAetherTicker(){
     updateAetherHUD();
-    // light polling to reflect channel/spend without engine hooks
+    // light polling to reflect channel/spend without direct engine hooks
     setInterval(updateAetherHUD, 300);
   }
 
@@ -225,7 +216,6 @@
   const boot = () => {
     ensureHudRootAndVersion();
     ensureHudControls();
-    ensureAnchors();
     installPressPreview();
     observeDraws();
     observeDiscards();
@@ -235,6 +225,9 @@
     ['resize','orientationchange','visibilitychange'].forEach(evt =>
       on(window, evt, applyAll, {passive:true})
     );
+
+    // give the engine a nudge so counts/handlers are in place
+    forceFirstSync();
   };
 
   if (document.readyState === 'loading') {
