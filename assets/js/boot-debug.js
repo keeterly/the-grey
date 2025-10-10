@@ -1,10 +1,10 @@
-/* boot-debug.js — v2.2.6-mobile-centered (MAIN)
-   • Enforce mobile compact layout (no toggle)
-   • Remove +AF control and Compact/Mini button if present
-   • Center scale as before; expose scaled width for HUD
+/* boot-debug.js — v2.2.7-mobile-centered+magnify (MAIN)
+   • Enforce compact mobile layout & one boot file
+   • Equal board heights (CSS variables)
+   • Press-and-hold magnify for all cards (hand + board + AF)
 */
 (function () {
-  window.__THE_GREY_BUILD = 'v2.2.6-mobile-centered (main)';
+  window.__THE_GREY_BUILD = 'v2.2.7-mobile-centered+magnify (main)';
   window.__BUILD_SOURCE = 'boot-debug.js';
 })();
 
@@ -64,23 +64,85 @@
   apply();
 })();
 
-/* Remove +AF and Compact/Mini; enforce compact */
+/* Enforce compact; remove any toggles/AF remnants */
 (function enforceMobilePolicy(){
   function nuke(id){ const el = document.getElementById(id); if (el) el.remove(); }
   function run(){
-    // Remove UI controls if they exist
-    nuke('tgAFZoom');       // +AF
-    nuke('tgCompactToggle');// Compact/Mini
-
-    // Enforce compact layout classes and clear any zoom flags
+    nuke('tgAFZoom'); nuke('tgCompactToggle');
     const root = document.documentElement;
     root.classList.remove('af-zoom');
-    root.classList.add('mobile-mini'); // force compact visuals if any styles key off it
+    root.classList.add('mobile-mini'); // if any styles key off this, keep them compact
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* Keep snap + badge helpers as-is */
+/* Press-and-hold magnify (hand + board + aetherflow) */
+(function cardMagnify(){
+  const LONG_MS = 260;          // press duration to trigger
+  const MOVE_TOL = 8;           // px movement before cancel (treat as drag)
+  let timer = null, startX=0, startY=0, target = null, magnified = null;
+
+  const isCard = (el)=>{
+    return el && (el.classList?.contains('card') || el.classList?.contains('af-card'));
+  };
+
+  function beginPress(el, x, y){
+    clearTimeout(timer);
+    target = el; startX = x; startY = y;
+    timer = setTimeout(()=> {
+      if (!target) return;
+      magnified = target;
+      magnified.classList.add('magnify');
+    }, LONG_MS);
+  }
+
+  function move(x, y){
+    if (!target) return;
+    if (Math.abs(x - startX) > MOVE_TOL || Math.abs(y - startY) > MOVE_TOL){
+      cancel(); // treat as drag
+    }
+  }
+
+  function cancel(){
+    clearTimeout(timer); timer = null;
+    target = null;
+    if (magnified){
+      magnified.classList.remove('magnify');
+      magnified = null;
+    }
+  }
+
+  // Touch
+  document.addEventListener('touchstart', (e)=>{
+    const t = e.target.closest('.card, .af-card');
+    if (!isCard(t)) return;
+    const touch = e.changedTouches[0];
+    beginPress(t, touch.clientX, touch.clientY);
+  }, {passive:true});
+
+  document.addEventListener('touchmove', (e)=>{
+    if (!target) return;
+    const touch = e.changedTouches[0];
+    move(touch.clientX, touch.clientY);
+  }, {passive:true});
+
+  document.addEventListener('touchend', cancel, {passive:true});
+  document.addEventListener('touchcancel', cancel, {passive:true});
+
+  // Mouse (desktop debugging)
+  document.addEventListener('mousedown', (e)=>{
+    const t = e.target.closest('.card, .af-card');
+    if (!isCard(t)) return;
+    beginPress(t, e.clientX, e.clientY);
+  });
+  document.addEventListener('mousemove', (e)=> move(e.clientX, e.clientY));
+  document.addEventListener('mouseup', cancel);
+  document.addEventListener('mouseleave', cancel);
+
+  // If the app dispatches a drag start in code, you can also listen for it and cancel here if needed.
+})();
+
+/* Snap + badge */
 (function dropSnap(){
   function attach(el){
     const obs = new MutationObserver(()=>{ el.querySelectorAll('.card').forEach(c=>{ c.classList.remove('drop-zoom'); void c.offsetWidth; c.classList.add('drop-zoom'); }); });
