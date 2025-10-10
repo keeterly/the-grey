@@ -1,7 +1,8 @@
-/* acceptance.safe.css — v2.3.5-mobile-sync5-stable
-   - STABLE: keep the engine's hand in normal flow (no absolute layer)
-   - Ensure the hand never covers the player slots by reserving space
-   - Keep 1280×720 canvas centered and boards = 160px tall
+/* acceptance.safe.css — v2.3.5-mobile-landscape-fix
+   - Landscape-only tune for mobile
+   - Stable hand (engine DOM in-flow), with space reserved so it never overlaps slots
+   - Horizontal drag enabled (touch-action: none on cards)
+   - Spellweaver name/hearts hidden for now
 */
 
 html, body { margin:0; padding:0; }
@@ -22,7 +23,7 @@ html.mobile-land, html.mobile-land body{
 /* Equal board heights + dials */
 :root{
   --board-h:160px; --af-h:160px;
-  --hand-reserve:84px;             /* space kept inside YOU board for hand row */
+  --hand-reserve:88px;             /* space kept inside YOU board for hand row */
 }
 
 /* Boards */
@@ -44,6 +45,9 @@ html.mobile-land, html.mobile-land body{
 #app .board .badges,
 #app .board .hearts { display:none !important; }
 
+/* TEMP: hide external Spellweaver name/hearts HUD chips completely */
+.tg-board-info { display:none !important; }
+
 /* Zones / slots (compact) */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
@@ -60,16 +64,16 @@ html.mobile-land, html.mobile-land body{
 
 /* Engine hand stays relative/in-flow; no forced width or absolute positioning */
 #app .board[data-board="YOU"] .hand{
-  position:relative;               /* default in your engine */
-  width:auto; height:auto;         /* engine controls height */
+  position:relative;
+  width:auto; height:auto;
   left:auto; right:auto; bottom:auto; transform:none;
   pointer-events:auto !important;
 }
 
-/* Cards: the engine already positions each card with left:50% & transforms.
-   We only ensure smooth transforms and mobile-friendly touch behavior. */
+/* Cards: enable full horizontal drag and smooth transforms.
+   (Your engine positions each card absolute/left:50% in its own CSS) */
 #app .hand .card{
-  touch-action:manipulation;
+  touch-action:none;               /* <<< critical for iOS horizontal drag */
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change:transform;
 }
@@ -84,7 +88,6 @@ html.mobile-land, html.mobile-land body{
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 
-/* Tiny polish */
 @keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
 .card.drop-zoom{ animation: tgSnap 160ms ease-out; }
 
