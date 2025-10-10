@@ -1,7 +1,7 @@
-/* acceptance.safe.css — v2.2.6 Mobile Unified
-   • Center all slot rows and cards
-   • Remove UI affordances for +AF and Compact/Mini
-   • Keep compact mobile sizing enforced at all times
+/* acceptance.safe.css — v2.2.7 Mobile Unified
+   • All boards have equal height (top/bottom)
+   • Rows & cards centered
+   • Press-and-hold magnify styles for cards
 */
 
 html, body { margin:0; padding:0; }
@@ -21,58 +21,54 @@ html.mobile-land, html.mobile-land body {
   }
 }
 
-/* Hide large desktop title on landscape mobile */
 @media (orientation:landscape){ .tg-title, .logo-title { display:none !important; } }
 
-/* ---------- Boards / zones (centered) ---------- */
-#app .board, #app .aetherflow {
+/* ---------- Even board heights ---------- */
+/* Tune these if you want taller/shorter boards later */
+:root { --board-h: 240px; --af-h: 120px; }
+
+#app .board{
+  min-height:var(--board-h);
+  display:flex; flex-direction:column; justify-content:center;   /* centers contents vertically */
+  gap:8px; margin:0 auto; padding:6px 8px; max-width:1280px; border-radius:10px;
+}
+#app .board .slots{ min-height:calc(var(--board-h) - 64px); }   /* accounts for name/traits row */
+#app .aetherflow{
+  min-height:var(--af-h);
+  display:flex; align-items:center; justify-content:center; gap:8px;
   margin:0 auto; padding:6px 8px; max-width:1280px; border-radius:10px;
 }
 
-#app .tg-zone {
-  display:flex; align-items:center; /* centered vertically */
-  justify-content:center;           /* centered horizontally */
-  gap:8px; padding:8px 8px;
-  width:100%;
+/* ---------- Zones / slots centered ---------- */
+#app .tg-zone{
+  display:flex; align-items:center; justify-content:center;
+  gap:8px; padding:8px 8px; width:100%;
 }
-
 #app .tg-zone .tg-slot{
-  flex:0 0 auto;                    /* keep slots’ natural width; no stretch */
-  min-height:116px;
+  flex:0 0 auto; min-height:116px;
   display:flex; align-items:center; justify-content:center;
 }
-
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
 
-/* ---------- Slots & cards (compact) ---------- */
+/* ---------- Compact cards ---------- */
 #app .slot, #app .glyph-slot, #app .af-card, #app .slots .card{
   width:96px; height:136px; border-radius:10px;
 }
-
-/* Ensure every slot row packs tight & stays centered */
 #app .slots{
   display:flex; align-items:center; justify-content:center; gap:8px;
   margin-inline:auto;
 }
 
-/* ---------- Aetherflow row (centered, no control) ---------- */
-#app .aetherflow{
-  display:flex; align-items:center; justify-content:center; gap:8px;
-}
-#app .aetherflow .af-cards{
-  display:flex; align-items:center; justify-content:center; gap:6px; min-height:58px;
-}
-#app .aetherflow .af-controls{ display:none !important; } /* hide +AF cluster */
-
-/* Optional AF zoom was removed; keep any stray class harmless */
-html.af-zoom #app .aetherflow{ transform:none; }
+/* Aetherflow row internals */
+#app .aetherflow .af-cards{ display:flex; align-items:center; justify-content:center; gap:6px; min-height:58px; }
+#app .aetherflow .af-controls{ display:none !important; } /* +AF permanently removed */
+html.af-zoom #app .aetherflow{ transform:none; } /* no-op if class lingers */
 
 /* ---------- Hand (fan) ---------- */
 #app .hand{ position:relative; height:180px; }
 #app .hand .card{ position:absolute; left:50%; transform-origin:50% 100%; will-change:transform; }
 
 /* ---------- Bottom HUD ---------- */
-/* width follows scaled canvas via CSS var set by JS */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom:calc(8px + env(safe-area-inset-bottom));
@@ -81,22 +77,29 @@ html.af-zoom #app .aetherflow{ transform:none; }
   padding:0 10px; gap:10px; pointer-events:none;
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
-
-/* Pills */
 .hud-pill{ display:inline-flex; align-items:center; gap:6px; line-height:1; vertical-align:middle; }
 .hud-pill .val{ font-variant-numeric: tabular-nums; }
+#tgCompactToggle, #tgAFZoom{ display:none !important; } /* controls removed */
 
-/* Remove Compact/Mini and +AF buttons */
-#tgCompactToggle, #tgAFZoom { display:none !important; }
+/* ---------- Press-and-hold magnify ---------- */
+.card, .af-card{
+  transition: transform 120ms ease, box-shadow 120ms ease;
+  will-change: transform;
+}
+.magnify{
+  transform: scale(1.7) translateZ(0);
+  z-index: 9999;
+  box-shadow: 0 16px 36px rgba(0,0,0,.28);
+}
+#app .hand .card.magnify{ transform-origin: center bottom; }
+#app .slots .card.magnify, #app .aetherflow .af-card.magnify{ transform-origin: center center; }
 
-/* Rotate overlay */
+/* Rotate overlay + snap */
 .tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.75); color:#fff; display:none; align-items:center; justify-content:center; z-index:10000; text-align:center; padding:24px; }
 .tg-rotate-overlay.show{ display:flex; }
 .tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
 .tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
 .tg-rotate-sub{ font-size:13px; opacity:.85; }
-
-/* Snap feedback */
 @keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
 .card.drop-zoom{ animation: tgSnap 160ms ease-out; }
 
