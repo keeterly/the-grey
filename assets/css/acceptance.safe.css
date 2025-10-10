@@ -1,8 +1,9 @@
-/* acceptance.safe.css — v2.3.5-mobile-landscape-fix
-   - Landscape-only tune for mobile
-   - Stable hand (engine DOM in-flow), with space reserved so it never overlaps slots
-   - Horizontal drag enabled (touch-action: none on cards)
-   - Spellweaver name/hearts hidden for now
+/* acceptance.safe.css — v2.3.5-mobile-landscape-fix2
+   - Landscape tune
+   - Engine hand in-flow + reserved space (no overlap)
+   - Horizontal drag enabled (iOS)
+   - Spellweaver chips hidden
+   - Version label moved to separate fixed HUD root (cannot affect layout)
 */
 
 html, body { margin:0; padding:0; }
@@ -18,6 +19,7 @@ html.mobile-land, html.mobile-land body{
   transform:translate(-50%, -50%) scale(1);
   transform-origin:50% 50%;
   will-change:transform;
+  contain: layout paint; /* ensure nothing leaks layout-wise */
 }
 
 /* Equal board heights + dials */
@@ -57,23 +59,15 @@ html.mobile-land, html.mobile-land body{
 }
 
 /* ---------------- Hand: keep engine DOM in flow, centered, with space ------ */
-/* Reserve space in the YOU board so the hand never overlaps slots */
-#app .board[data-board="YOU"]{
-  padding-bottom: calc(6px + var(--hand-reserve));
-}
+#app .board[data-board="YOU"]{ padding-bottom: calc(6px + var(--hand-reserve)); }
 
-/* Engine hand stays relative/in-flow; no forced width or absolute positioning */
 #app .board[data-board="YOU"] .hand{
-  position:relative;
-  width:auto; height:auto;
-  left:auto; right:auto; bottom:auto; transform:none;
+  position:relative; width:auto; height:auto; left:auto; right:auto; bottom:auto; transform:none;
   pointer-events:auto !important;
 }
 
-/* Cards: enable full horizontal drag and smooth transforms.
-   (Your engine positions each card absolute/left:50% in its own CSS) */
 #app .hand .card{
-  touch-action:none;               /* <<< critical for iOS horizontal drag */
+  touch-action:none;               /* restore full horizontal drag on iOS */
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change:transform;
 }
@@ -93,3 +87,15 @@ html.mobile-land, html.mobile-land body{
 
 #tgCompactToggle, #tgAFZoom{ display:none !important; }
 body::-webkit-scrollbar{ display:none; }
+
+/* -------- Version HUD root (independent fixed layer; no layout impact) ---- */
+#tgHudRoot{
+  position:fixed; inset:0; z-index: 99998; pointer-events:none; /* no input capture */
+}
+#tgVersionTag{
+  position:absolute; right:12px; top:8px; z-index: 99999;
+  font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
+  background: rgba(255,255,255,.85); padding: 3px 6px; border-radius: 6px;
+  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  pointer-events:none;
+}
