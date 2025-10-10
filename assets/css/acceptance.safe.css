@@ -1,9 +1,8 @@
-/* acceptance.safe.css — v2.3.1 Mobile
-   • HUD-style Hand (fixed, not scaled)
-   • 2× press-and-hold preview on the REAL card (no clone; exact formatting)
-   • Remove tap/active lift on hand cards
-   • Boards: AI / AF / You = 160px
-   • No-select / no-callout while holding
+/* acceptance.safe.css — v2.3.2
+   • HUD hand = only hand; scaled smaller
+   • Remove in-board labels and show compact info blocks adjacent to boards
+   • Boards remain 160px
+   • Real-card 2× press & hold preview retained
 */
 
 html, body { margin:0; padding:0; }
@@ -22,8 +21,13 @@ html.mobile-land, html.mobile-land body{
 }
 
 /* Equal board heights (160px) */
-:root{ --board-h:160px; --af-h:160px; }
+:root{
+  --board-h:160px; --af-h:160px;
+  --hand-scale: .86;                  /* <<< hand size dial */
+  --hand-lift:  46px;                  /* distance above HUD */
+}
 
+/* Boards */
 #app .board{
   height:var(--board-h);
   display:flex; flex-direction:column; justify-content:center; align-items:center;
@@ -35,46 +39,71 @@ html.mobile-land, html.mobile-land body{
   margin:0 auto; padding:6px 8px; max-width:1280px; border-radius:10px;
 }
 
-/* Centered slot rows */
+/* Hide in-board labels that were causing layout shifts */
+#app .board .title,
+#app .board .name,
+#app .board .traits,
+#app .board .badges,
+#app .board .hearts { display:none !important; }
+
+/* Adjacent board info blocks (rendered via JS) */
+.tg-board-info{
+  position:absolute; z-index:2;
+  display:flex; align-items:center; gap:8px;
+  background:rgba(255,255,255,.9);
+  border:1px solid rgba(0,0,0,.06); border-radius:10px; padding:6px 10px;
+  box-shadow:0 6px 18px rgba(0,0,0,.08);
+  font-weight:600; font-size:13px;
+}
+.tg-board-info .hearts{ color:#e45a5a; letter-spacing:2px; }
+
+/* Zones / slots */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
 
-/* Compact card size on board/AF */
+/* Compact cards on board/AF */
 #app .slot, #app .glyph-slot, #app .af-card, #app .slots .card{
   width:96px; height:136px; border-radius:10px;
 }
 
 /* ---------- HUD Hand (fixed, not scaled with canvas) ---------- */
 #tgHandLayer{
-  position:fixed;
-  left:50%; transform:translateX(-50%);
-  bottom:calc(54px + env(safe-area-inset-bottom));
-  width:var(--tg-scaled-width, min(1280px, 100vw));
-  pointer-events:none; z-index:10800;
+  position:fixed; left:50%; transform:translateX(-50%);
+  bottom:calc(var(--hand-lift) + env(safe-area-inset-bottom));
+  width:var(--tg-scaled-width, min(1280px, 100vw)); z-index:10800; pointer-events:none;
 }
-#tgHandLayer .hand{ position:relative; height:180px; pointer-events:auto; }
+#tgHandLayerInner{                      /* scalable wrapper so we can size hand cleanly */
+  transform:scale(var(--hand-scale));
+  transform-origin:center bottom;
+  width:100%; pointer-events:none;
+}
+#tgHandLayer .hand{
+  position:relative; height:180px; pointer-events:auto; margin:0 auto; width:100%;
+}
 #tgHandLayer .hand .card{
   position:absolute; left:50%; transform-origin:50% 100%; will-change:transform;
 }
-/* remove any tiny :active lift—we handle preview ourselves */
+/* remove tap lift on hand cards */
 #tgHandLayer .hand .card:active,
 #app .hand .card:active{ transform:none !important; }
-
-/* ---------- Real-card 2× Preview ---------- */
-.card, .af-card{ transition: transform 120ms ease, box-shadow 120ms ease; will-change:transform; }
-.magnify{ transform:scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); pointer-events:none; }
-#tgHandLayer .hand .card.magnify-hand{ transform:translate(-50%, -72px) scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); }
-
-/* Hand neighbors spread a bit while previewing */
-#tgHandLayer .hand.spread .card{ transition: transform 120ms ease, z-index 120ms ease; }
 
 /* Invisible proxy inside #app for animations that need a hand origin */
 #tgHandAnchor{
   position:absolute; width:1px; height:1px; pointer-events:none; visibility:hidden;
 }
 
-/* Rotate overlay (hidden unless portrait) */
+/* ---------- Real-card 2× Preview ---------- */
+.card, .af-card{ transition: transform 120ms ease, box-shadow 120ms ease; will-change:transform; }
+.magnify{ transform:scale(2) !important; z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32); pointer-events:none; }
+#tgHandLayer .hand .card.magnify-hand{
+  transform:translate(-50%, -72px) scale(2) !important;
+  z-index:10000; box-shadow:0 18px 48px rgba(0,0,0,.32);
+}
+/* neighbor spread while previewing */
+#tgHandLayer .hand.spread .card{ transition: transform 120ms ease, z-index 120ms ease; }
+
+/* Rotate overlay */
 .tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.75); color:#fff; display:none; align-items:center; justify-content:center; z-index:12000; text-align:center; padding:24px; }
 .tg-rotate-overlay.show{ display:flex; }
 .tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
