@@ -15,14 +15,12 @@
   const BASE_H = 720;
 
   function computeScale(){
-    // Fit entire canvas in viewport (landscape). We don’t subtract HUD; it floats.
+    // Fit entire canvas in viewport (landscape). HUD floats, so no subtraction.
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    // Use the smaller ratio so nothing clips.
     const sx = vw / BASE_W;
     const sy = vh / BASE_H;
-    // Slight inset so borders don’t kiss edges on small devices
-    const scale = Math.min(sx, sy) * 0.995;
+    const scale = Math.min(sx, sy) * 0.995;   // tiny inset to avoid edge kissing
     return Math.max(0.1, Math.min(scale, 2));
   }
 
