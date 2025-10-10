@@ -1,26 +1,23 @@
-/* acceptance.safe.css — v2.2.8 Mobile Unified
-   • Disable text selection / callout while interacting
-   • 2× press-and-hold preview (MTGA-style for hand)
-   • AI / You board heights = Aetherflow (all 120px)
+/* acceptance.safe.css — v2.2.9
+   • Equal board heights (AI/AF/You = 120px)
+   • 2× press-and-hold preview uses a detached clone (smooth, no ghost)
+   • Hand cards spread subtly while previewing
+   • Disable selection/callout everywhere inside app
 */
 
 html, body { margin:0; padding:0; }
 html.mobile-land, html.mobile-land body {
   height:100%; width:100%; overflow:hidden; background:#f7f5f0; -webkit-text-size-adjust:100%;
-
-  /* Prevent iOS long-press selection/callout globally inside the app */
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  touch-action: manipulation;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation;
 }
 
 /* Fixed-size surface; JS centers/scales it */
-#app { position:absolute; left:50%; top:50%; width:1280px; height:720px;
-       transform:translate(-50%,-50%) scale(1); transform-origin:50% 50%; will-change:transform;
-       -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
-#app.tg-canvas { position:absolute; left:50%; top:50%; width:1280px; height:720px;
-                 transform:translate(-50%,-50%) scale(1); transform-origin:50% 50%; will-change:transform; }
+#app,
+#app.tg-canvas{
+  position:absolute; left:50%; top:50%; width:1280px; height:720px;
+  transform:translate(-50%,-50%) scale(1); transform-origin:50% 50%; will-change:transform;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+}
 
 @supports (-webkit-touch-callout:none){
   html.mobile-land, html.mobile-land body {
@@ -30,17 +27,16 @@ html.mobile-land, html.mobile-land body {
 
 @media (orientation:landscape){ .tg-title, .logo-title { display:none !important; } }
 
-/* ---------- Even board heights ---------- */
+/* ---------- Equal board heights ---------- */
 :root { --board-h: 120px; --af-h: 120px; }
 
 #app .board{
-  min-height:var(--board-h);
-  display:flex; flex-direction:column; justify-content:center;
+  height:var(--board-h);       /* fixed, not min-height -> visually identical rows */
+  display:flex; flex-direction:column; justify-content:center; align-items:center;
   gap:8px; margin:0 auto; padding:6px 8px; max-width:1280px; border-radius:10px;
 }
-#app .board .slots{ min-height:calc(var(--board-h) - 46px); } /* header+padding allowance */
 #app .aetherflow{
-  min-height:var(--af-h);
+  height:var(--af-h);
   display:flex; align-items:center; justify-content:center; gap:8px;
   margin:0 auto; padding:6px 8px; max-width:1280px; border-radius:10px;
 }
@@ -51,7 +47,7 @@ html.mobile-land, html.mobile-land body {
   gap:8px; padding:8px 8px; width:100%;
 }
 #app .tg-zone .tg-slot{
-  flex:0 0 auto; min-height:116px;
+  flex:0 0 auto; min-height:96px;
   display:flex; align-items:center; justify-content:center;
 }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
@@ -75,49 +71,36 @@ html.af-zoom #app .aetherflow{ transform:none; }
 #app .hand{ position:relative; height:180px; }
 #app .hand .card{ position:absolute; left:50%; transform-origin:50% 100%; will-change:transform; }
 
-/* ---------- Bottom HUD ---------- */
-.hud-min{
-  position:fixed; left:50%; transform:translateX(-50%);
-  bottom:calc(8px + env(safe-area-inset-bottom));
-  width:var(--tg-scaled-width, min(1280px, 100vw));
-  display:flex; align-items:center; justify-content:space-between;
-  padding:0 10px; gap:10px; pointer-events:none;
-  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
-}
-.hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
-#tgCompactToggle, #tgAFZoom{ display:none !important; }
-
-/* ---------- Press-and-hold preview ---------- */
-.card, .af-card{
-  transition: transform 120ms ease, box-shadow 120ms ease;
-  will-change: transform;
+/* Spread neighbors when previewing one card in hand */
+#app .hand.spread .card{
+  transition: transform 120ms ease, z-index 120ms ease;
 }
 
-/* Default (board/AF) preview — 2× at current position */
-.magnify{
-  transform: scale(2) translateZ(0);
-  z-index: 9999;
-  box-shadow: 0 16px 36px rgba(0,0,0,.28);
-  pointer-events: none; /* ignore taps while magnified */
+/* ---------- Preview layer (detached clone) ---------- */
+#tgPreviewLayer{
+  position:fixed; inset:0; pointer-events:none; z-index:11000; display:none;
+}
+#tgPreviewLayer.show{ display:block; }
+.preview-card{
+  position:absolute; left:0; top:0;
+  transform:translate(-50%, -50%) scale(2); /* 2× everywhere by default */
+  transform-origin:center center;
+  box-shadow:0 18px 48px rgba(0,0,0,.32);
+  border-radius:10px; background:#fff;
 }
 
-/* Hand preview — pop upward and 2× */
-#app .hand .card.magnify-hand{
-  transform: translate(-50%, -72px) scale(2);   /* lift above fan */
-  z-index: 10000;
-  box-shadow: 0 18px 48px rgba(0,0,0,.32);
-  pointer-events: none;
-  transform-origin: 50% 85%;
+/* Hand preview pops up a bit higher than default */
+.preview-card.is-hand{
+  transform:translate(-50%, -72px) scale(2);   /* lift above fan */
+  transform-origin:50% 85%;
 }
 
-/* Overlay to further suppress selection/callout if needed */
-#tgNoSelectOverlay{
-  position: fixed; inset: 0; background: transparent; z-index: 9998; display: none;
-}
-#tgNoSelectOverlay.show{ display: block; }
+/* Overlay to suppress selection during hold (safety) */
+#tgNoSelectOverlay{ position:fixed; inset:0; background:transparent; z-index:10999; display:none; }
+#tgNoSelectOverlay.show{ display:block; }
 
 /* Rotate overlay + snap */
-.tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.75); color:#fff; display:none; align-items:center; justify-content:center; z-index:10000; text-align:center; padding:24px; }
+.tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.75); color:#fff; display:none; align-items:center; justify-content:center; z-index:12000; text-align:center; padding:24px; }
 .tg-rotate-overlay.show{ display:flex; }
 .tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
 .tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
