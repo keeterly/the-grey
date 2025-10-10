@@ -1,31 +1,41 @@
-/* boot-debug.js — v2.3.1-mobile-hud-hand+real-preview (MAIN) */
-(function(){ window.__THE_GREY_BUILD='v2.3.1-mobile-hud-hand+real-preview (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
+/* boot-debug.js — v2.3.2 hand-resize+dedup, board-info-outside (MAIN) */
+(function(){ window.__THE_GREY_BUILD='v2.3.2-mobile-hand-resize+dedup (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
 
 /* Keep legacy class for old selectors */
 (function(){ const run=()=>document.getElementById('app')?.classList.add('tg-canvas'); 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run(); })();
 
-/* One-time layers */
+/* Layers & wrappers */
 (function(){
   function mk(id){ const d=document.createElement('div'); d.id=id; return d; }
   document.addEventListener('DOMContentLoaded', ()=>{
-    if(!document.getElementById('tgHandLayer'))  document.body.appendChild(mk('tgHandLayer'));
+    if(!document.getElementById('tgHandLayer')){
+      const layer=mk('tgHandLayer'); const inner=document.createElement('div'); inner.id='tgHandLayerInner'; layer.appendChild(inner); document.body.appendChild(layer);
+    }
     if(!document.getElementById('tgNoSelectOverlay')) document.body.appendChild(mk('tgNoSelectOverlay'));
-    // Anchor proxy lives *inside* the canvas
     if(!document.getElementById('tgHandAnchor')){ const a=mk('tgHandAnchor'); document.getElementById('app')?.appendChild(a); }
+    // Info blocks
+    if(!document.getElementById('tgBoardInfoTop')){ const div=mk('tgBoardInfoTop'); div.className='tg-board-info'; document.getElementById('app')?.appendChild(div); }
+    if(!document.getElementById('tgBoardInfoBot')){ const div=mk('tgBoardInfoBot'); div.className='tg-board-info'; document.getElementById('app')?.appendChild(div); }
   }, {once:true});
 })();
 
-/* Move the in-canvas hand into the fixed HUD layer */
+/* Move any canvas hand into HUD layer (and keep it there) */
 (function(){
-  function moveHand(){
-    const hand=document.querySelector('#app .hand'); const dest=document.getElementById('tgHandLayer');
-    if(hand && dest && !dest.contains(hand)) dest.appendChild(hand);
+  const destInner = ()=> document.getElementById('tgHandLayerInner');
+  function moveHandsOnce(){
+    const hands=[...document.querySelectorAll('#app .hand')];
+    const dest=destInner(); if(!dest) return;
+    hands.forEach(h=>{ if(!dest.contains(h)) dest.appendChild(h); });
   }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', moveHand, {once:true}); else moveHand();
+  // initial
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', moveHandsOnce, {once:true}); else moveHandsOnce();
+  // Mutation watcher (engine may recreate the hand at end/begin turn)
+  const obs=new MutationObserver(()=> moveHandsOnce());
+  document.addEventListener('DOMContentLoaded', ()=>{ const app=document.getElementById('app'); if(app) obs.observe(app,{childList:true,subtree:true}); });
 })();
 
-/* Fit 1280×720 canvas and set --tg-scaled-width; robust landscape check */
+/* Fit 1280×720 and set --tg-scaled-width, update anchors/infos */
 (function(){
   const DESIGN_W=1280, DESIGN_H=720, root=document.documentElement;
   const isLandscape=()=> window.matchMedia('(orientation: landscape)').matches || innerWidth >= innerHeight;
@@ -45,7 +55,8 @@
       root.style.setProperty('--tg-scaled-width', Math.round(DESIGN_W*scale)+'px');
     }
     root.classList.add('mobile-land');
-    updateHandAnchor(); // keep proxy in sync with current scale/layout
+    updateHandAnchor();    // keep the proxy aligned
+    placeBoardInfos();     // position external info blocks
   }
   addEventListener('resize', apply, {passive:true});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply, {once:true}); else apply();
@@ -58,7 +69,7 @@
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* -------- REAL-CARD 2× PREVIEW + HAND SPREAD (no DOM clone) -------- */
+/* -------- REAL-CARD 2× PREVIEW + HAND SPREAD -------- */
 (function(){
   const LONG_MS=260, MOVE_TOL=8;
   let timer=null, startX=0, startY=0, target=null, isHand=false;
@@ -85,12 +96,8 @@
 
   function show(){
     overlay()?.classList.add('show');
-    if(isHand){
-      target.classList.add('magnify-hand');
-      spreadNeighbors(true);
-    }else{
-      target.classList.add('magnify');
-    }
+    if(isHand){ target.classList.add('magnify-hand'); spreadNeighbors(true); }
+    else      { target.classList.add('magnify'); }
   }
   function hide(){
     clearTimeout(timer); timer=null;
@@ -100,33 +107,21 @@
     if(isHand) spreadNeighbors(false);
     target=null; isHand=false;
   }
-  function begin(el, x, y){
-    hide(); target=el; isHand=!!el.closest('#tgHandLayer'); startX=x; startY=y;
-    timer=setTimeout(show, LONG_MS);
-  }
-  function moved(x, y){ if(!target) return;
-    if(Math.abs(x-startX)>MOVE_TOL || Math.abs(y-startY)>MOVE_TOL) hide(); }
+  function begin(el, x, y){ hide(); target=el; isHand=!!el.closest('#tgHandLayer'); startX=x; startY=y; timer=setTimeout(show, LONG_MS); }
+  function moved(x, y){ if(!target) return; if(Math.abs(x-startX)>MOVE_TOL || Math.abs(y-startY)>MOVE_TOL) hide(); }
 
-  addEventListener('touchstart', e=>{ const t=e.target.closest('.card, .af-card'); if(!isCard(t)) return;
-    const p=e.changedTouches[0]; begin(t,p.clientX,p.clientY); }, {passive:true});
+  addEventListener('touchstart', e=>{ const t=e.target.closest('.card, .af-card'); if(!isCard(t)) return; const p=e.changedTouches[0]; begin(t,p.clientX,p.clientY); }, {passive:true});
   addEventListener('touchmove', e=>{ if(!target) return; const p=e.changedTouches[0]; moved(p.clientX,p.clientY); }, {passive:true});
   addEventListener('touchend', hide, {passive:true});
   addEventListener('touchcancel', hide, {passive:true});
-
-  addEventListener('mousedown', e=>{ const t=e.target.closest('.card, .af-card'); if(!isCard(t)) return;
-    begin(t,e.clientX,e.clientY); });
+  addEventListener('mousedown', e=>{ const t=e.target.closest('.card, .af-card'); if(!isCard(t)) return; begin(t,e.clientX,e.clientY); });
   addEventListener('mousemove', e=>moved(e.clientX,e.clientY));
   addEventListener('mouseup', hide); addEventListener('mouseleave', hide);
   addEventListener('visibilitychange', ()=>{ if(document.hidden) hide(); });
   addEventListener('blur', hide);
 })();
 
-/* -------- Hand-origin proxy inside #app for draw/discard animations --------
-   This keeps an invisible anchor (#tgHandAnchor) *inside the scaled canvas*
-   aligned to the visual center of the HUD hand. If your animation code looks
-   up a DOM rect for the hand, point it to #tgHandAnchor (or call
-   window.getHandAnchorRect()) and you’ll get the correct on-screen origin.
----------------------------------------------------------------------------- */
+/* -------- Hand origin proxy inside #app for draw/discard animations -------- */
 function updateHandAnchor(){
   const anchor = document.getElementById('tgHandAnchor');
   const app    = document.getElementById('app');
@@ -135,23 +130,58 @@ function updateHandAnchor(){
 
   const appRect  = app.getBoundingClientRect();
   const handRect = hand.getBoundingClientRect();
+  const scale    = appRect.width / 1280;
 
-  // Map screen point -> app-local coordinates (1280×720 space)
-  const scale = appRect.width / 1280; // same scale used on #app
-  const centerX_screen = handRect.left + handRect.width/2;
-  const centerY_screen = handRect.top  + handRect.height*0.65; // a bit above bottom of fan
+  const cx = handRect.left + handRect.width/2;
+  const cy = handRect.bottom - handRect.height*0.25; // slightly above bottom of fan
 
-  const x_app = (centerX_screen - appRect.left) / scale;
-  const y_app = (centerY_screen - appRect.top)  / scale;
+  const x_app = (cx - appRect.left) / scale;
+  const y_app = (cy - appRect.top ) / scale;
 
   anchor.style.left = x_app + 'px';
   anchor.style.top  = y_app + 'px';
 }
-
-/* Export a helper for the animation system, if wanted */
 window.getHandAnchorRect = () => document.getElementById('tgHandAnchor')?.getBoundingClientRect?.() || null;
-
-/* Keep proxy in sync when layout changes */
 addEventListener('resize', updateHandAnchor, {passive:true});
 addEventListener('orientationchange', updateHandAnchor);
 document.addEventListener('DOMContentLoaded', updateHandAnchor, {once:true});
+
+/* -------- External board info (name/hearts) placed adjacent to boards ------ */
+function placeBoardInfos(){
+  const app = document.getElementById('app'); if(!app) return;
+  const boards = [...app.querySelectorAll('.board')];
+  if(boards.length < 2) return;
+
+  const top    = boards[0].getBoundingClientRect();
+  const mid    = app.querySelector('.aetherflow')?.getBoundingClientRect?.();
+  const bottom = boards[boards.length-1].getBoundingClientRect();
+
+  const appRect = app.getBoundingClientRect();
+  const scale   = appRect.width / 1280;
+
+  function toApp(x,y){ return { x:(x-appRect.left)/scale, y:(y-appRect.top)/scale }; }
+
+  // Grab bits from original DOM if present (fallback to defaults)
+  const aiName  = (boards[0].querySelector('.name')?.textContent || 'Spellweaver (AI)').trim();
+  const youName = (boards[boards.length-1].querySelector('.name')?.textContent || 'Spellweaver (You)').trim();
+  const aiHearts  = (boards[0].querySelector('.hearts')?.textContent || '♥♥♥♥♥').trim();
+  const youHearts = (boards[boards.length-1].querySelector('.hearts')?.textContent || '♥♥♥♥♥').trim();
+
+  // Position: to the left of each board, vertically centered
+  const topCenter = toApp(top.left, (top.top+top.bottom)/2);
+  const botCenter = toApp(bottom.left, (bottom.top+bottom.bottom)/2);
+
+  const topBox = document.getElementById('tgBoardInfoTop');
+  const botBox = document.getElementById('tgBoardInfoBot');
+
+  if(topBox){
+    topBox.innerHTML = `<span class="name">${aiName}</span><span class="hearts">${aiHearts}</span>`;
+    topBox.style.left = (topCenter.x - 110) + 'px';
+    topBox.style.top  = (topCenter.y - 18) + 'px';
+  }
+  if(botBox){
+    botBox.innerHTML = `<span class="name">${youName}</span><span class="hearts">${youHearts}</span>`;
+    botBox.style.left = (botCenter.x - 110) + 'px';
+    botBox.style.top  = (botCenter.y - 18) + 'px';
+  }
+}
