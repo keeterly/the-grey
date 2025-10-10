@@ -1,23 +1,56 @@
 
-/* acceptance.safe.css — Board Proportions + Aetherflow River (mobile) */
-.slots{display:flex;gap:10px;justify-content:center;}
-.board .row:not(.head){justify-content:center;}
-.board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
+/* acceptance.safe.css — v2.2 Mobile Unified
+   - Landscape-first; one-screen fit
+   - Minimal spacing; equal board widths
+   - Unified card sizes across AI/AF/Player
+   - Correct hand fan (top wide)
+*/
 
-html.mobile-mini .slot,
-html.mobile-mini .glyph-slot{ width:112px; height:160px; }
-html.mobile-mini [data-board] .slots .card{ width:112px; height:160px; }
-html.mobile-mini .af-card{ width:112px; height:160px; }
-html.mobile-mini .slots{ gap:8px; }
-html.mobile-mini .aetherflow{ gap:8px; padding:6px; margin:4px auto; }
+/* Landscape mobile canvas */
+html.mobile-land, html.mobile-land body { height: 100%; overflow: hidden; background: #f7f5f0; }
+#app.tg-canvas {
+  position: absolute; left: 50%; top: 50%;
+  transform-origin: 50% 50%;
+}
 
+/* Minimal board spacing + full width inside the canvas */
+.tg-canvas .board, .tg-canvas .aetherflow { margin: 6px 0; padding: 8px 10px; }
+.tg-canvas .slots { display: flex; justify-content: center; gap: 10px; }
+
+/* Unified card/slot sizes (7:10-ish ratio) */
+.tg-canvas .slot, .tg-canvas .glyph-slot,
+.tg-canvas .af-card, .tg-canvas .slots .card {
+  width: 120px; height: 171px;
+}
+
+/* Corrected hand fan — bottoms aligned; top edge forms wide arc */
+.tg-canvas .hand { position: relative; height: 220px; }
+.tg-canvas .hand .card {
+  position: absolute;
+  left: 50%;
+  transform-origin: 50% 100%;  /* pivot at bottom-center */
+  will-change: transform;
+}
+
+/* Buttons (⇆, +AF) visibility/help */
 #tgCompactToggle.icon.btn{ min-width:36px; min-height:28px; line-height:26px; font-weight:600; }
-.tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.72); color:#fff; display:none; align-items:center; justify-content:center; z-index:1000; text-align:center; padding:24px; }
-.tg-rotate-overlay.show{ display:flex; animation: tgFade .18s ease; }
-.tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
+#tgAFZoom.icon.btn{ min-width:42px; min-height:28px; line-height:26px; font-weight:700; }
+
+/* Rotate overlay for portrait */
+.tg-rotate-overlay{
+  position:fixed; inset:0; background:rgba(0,0,0,.75);
+  color:#fff; display:none; align-items:center; justify-content:center;
+  z-index:10000; text-align:center; padding:24px;
+}
+.tg-rotate-overlay.show{ display:flex; }
+.tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12);
+  border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
 .tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
 .tg-rotate-sub{ font-size:13px; opacity:.85; }
-@keyframes tgFade{ from{opacity:0} to{opacity:1} }
 
+/* Subtle snap when a card lands */
 @keyframes tgSnap { 0%{ transform: scale(0.94);} 60%{ transform: scale(1.06);} 100%{ transform: scale(1.0);} }
 .card.drop-zoom { animation: tgSnap 160ms ease-out; }
+
+/* Optional: hide scrollbars just in case */
+body::-webkit-scrollbar{ display:none; }
