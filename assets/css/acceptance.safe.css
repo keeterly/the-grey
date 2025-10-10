@@ -1,8 +1,8 @@
-/* acceptance.safe.css — v2.3.5-mobile-sync3-fallback
-   STABLE: use the engine's real hand (no HUD proxy), so gestures keep working.
+/* acceptance.safe.css — v2.3.5-mobile-sync4 (hand-layer)
+   - Keep engine hand interactive, but render it on its own floating layer
+     within #app so drag/drop continues to work.
+   - 1280×720 fixed canvas centered
    - Equal-height boards (160px)
-   - Scaled 1280×720 canvas centered
-   - Keep mobile polish (preview easing, HUD row) without hiding #app hand
 */
 
 html, body { margin:0; padding:0; }
@@ -20,11 +20,12 @@ html.mobile-land, html.mobile-land body{
   will-change:transform;
 }
 
-/* Equal board heights */
+/* Equal board heights + dials */
 :root{
   --board-h:160px; --af-h:160px;
-  --hand-scale:1;                 /* engine hand uses its own scale/fan */
-  --hand-lift:40px;               /* retained for future HUD work */
+  --hand-lift:42px;                 /* distance above HUD row */
+  --hand-layer-height:200px;        /* visual layer box for hand */
+  --hand-layer-z:5400;              /* sits under HUD icons (~6k) */
 }
 
 /* Boards */
@@ -46,7 +47,7 @@ html.mobile-land, html.mobile-land body{
 #app .board .badges,
 #app .board .hearts { display:none !important; }
 
-/* Zones / slots (compact footprints on board/AF) */
+/* Zones / slots (compact) */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
@@ -54,17 +55,43 @@ html.mobile-land, html.mobile-land body{
   width:96px; height:136px; border-radius:10px;
 }
 
-/* ---------- Hand & cards (engine DOM; keep interactive) ---------- */
-#app .hand{ visibility:visible !important; pointer-events:auto !important; }
-#app .hand .card{ touch-action:manipulation; }
+/* ---------------- Hand: float as its own layer inside #app ---------------- */
+/* The engine renders the hand inside the YOU board. We “promote” that hand
+   to a floating layer region so it sits visually above the board but remains
+   a child of #app (so drag/drop wiring still works). */
 
-/* Preview polish (applies to engine cards) */
-.card, .af-card{
+#app .board[data-board="YOU"]{
+  position:relative; /* create containing block for the layer */
+}
+
+/* Layer box that the hand sits in */
+#app .board[data-board="YOU"] .hand{
+  position:absolute;                 /* lift out of normal flow */
+  left:50%; transform:translateX(-50%); /* center the fan exactly on canvas */
+  bottom:calc(0px - var(--hand-lift));  /* scoot upward slightly off the board */
+  width:1280px;                       /* align to canvas width */
+  height:var(--hand-layer-height);
+  z-index:var(--hand-layer-z);
+  pointer-events:auto !important;
+}
+
+/* Keep cards interactive and well-behaved */
+#app .hand .card{
+  touch-action:manipulation;
+  /* existing project CSS already positions cards with left:50% & absolute;
+     we just make sure transforms look smooth */
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change:transform;
 }
-.card.drop-zoom{ animation: tgSnap 160ms ease-out; }
-@keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
+
+/* Subtle visual separation from the board (optional) */
+#app .board[data-board="YOU"] .hand::before{
+  content:"";
+  position:absolute; left:50%; transform:translateX(-50%);
+  bottom:-8px; width:92%; height:24px;
+  background:linear-gradient(to bottom, rgba(0,0,0,0.06), rgba(0,0,0,0));
+  filter:blur(8px); opacity:.35; pointer-events:none;
+}
 
 /* HUD row (unchanged) */
 .hud-min{
@@ -76,6 +103,9 @@ html.mobile-land, html.mobile-land body{
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 
-/* Clean up */
+/* Tiny polish */
+@keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
+.card.drop-zoom{ animation: tgSnap 160ms ease-out; }
+
 #tgCompactToggle, #tgAFZoom{ display:none !important; }
 body::-webkit-scrollbar{ display:none; }
