@@ -1,244 +1,183 @@
-/* boot-debug.js — v2.3.4 proxy-HUD-hand robust sync (MAIN) */
-(function(){ window.__THE_GREY_BUILD='v2.3.4-mobile-proxy-hand-robust (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
+/* The Grey — mobile bootstrap (v2.3.5-mobile-sync)
+   - Ensures first-time hand render (force resync on load)
+   - Places trance under Spellweaver names
+   - Adds a small version tag (top-right)
+   - Gentle, non-breaking: only calls existing game hooks if present
+*/
 
-/* legacy class */
-(function(){ const run=()=>document.getElementById('app')?.classList.add('tg-canvas'); 
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run(); })();
+(() => {
+  // ---- helpers -------------------------------------------------------------
+  const on = (t, k, fn, o) => t && t.addEventListener && t.addEventListener(k, fn, o || false);
+  const qs  = (s, r=document) => r.querySelector(s);
+  const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const once = (fn) => { let did=false; return (...a)=>{ if(did) return; did=true; try{ fn(...a); }catch(e){} }; };
+  const noop = ()=>{};
 
-/* layers / wrappers / info blocks (minimal) */
-(function(){
-  function mk(id){ const d=document.createElement('div'); d.id=id; return d; }
-  document.addEventListener('DOMContentLoaded', ()=>{
-    if(!document.getElementById('tgHandLayer')){
-      const layer=mk('tgHandLayer'); const inner=document.createElement('div'); inner.id='tgHandLayerInner'; layer.appendChild(inner); document.body.appendChild(layer);
-    }
-    if(!document.getElementById('tgNoSelectOverlay')) document.body.appendChild(mk('tgNoSelectOverlay'));
-    if(!document.getElementById('tgHandAnchor')){ const a=mk('tgHandAnchor'); document.getElementById('app')?.appendChild(a); }
-    // Info blocks created in prior version; keep if present.
-    if(!document.getElementById('tgBoardInfoTop')){ const div=mk('tgBoardInfoTop'); div.className='tg-board-info'; div.innerHTML='<div class="line1"><span class="name"></span><span class="hearts"></span></div><div class="trance"></div>'; document.getElementById('app')?.appendChild(div); }
-    if(!document.getElementById('tgBoardInfoBot')){ const div=mk('tgBoardInfoBot'); div.className='tg-board-info'; div.innerHTML='<div class="line1"><span class="name"></span><span class="hearts"></span></div><div class="trance"></div>'; document.getElementById('app')?.appendChild(div); }
-  }, {once:true});
-})();
-
-/* ---------- Canvas fit & scaled width ---------- */
-(function(){
-  const DESIGN_W=1280, DESIGN_H=720, root=document.documentElement;
-  const isLandscape=()=> window.matchMedia('(orientation: landscape)').matches || innerWidth >= innerHeight;
-  function apply(){
-    const el=document.getElementById('app'); if(!el) return;
-    const vw=innerWidth, vh=innerHeight;
-    if(!isLandscape()){
-      el.style.width=DESIGN_W+'px'; el.style.height=DESIGN_H+'px';
-      el.style.transform='translate(-50%, -50%) scale(0.9)';
-      root.style.setProperty('--tg-scaled-width', Math.min(vw, DESIGN_W) + 'px');
-    }else{
-      const scale=Math.min(vw/DESIGN_W, vh/DESIGN_H);
-      el.style.width=DESIGN_W+'px'; el.style.height=DESIGN_H+'px';
-      el.style.transform=`translate(-50%, -50%) scale(${scale})`;
-      root.style.setProperty('--tg-scaled-width', Math.round(DESIGN_W*scale)+'px');
-    }
-    root.classList.add('mobile-land');
-    updateHandAnchor();
-    placeBoardInfos?.();
-  }
-  addEventListener('resize', apply, {passive:true});
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply, {once:true}); else apply();
-})();
-
-/* kill legacy toggles; force compact */
-(function(){
-  function run(){ ['tgAFZoom','tgCompactToggle'].forEach(id=>document.getElementById(id)?.remove());
-    const r=document.documentElement; r.classList.remove('af-zoom'); r.classList.add('mobile-mini'); }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
-})();
-
-/* ---------- PROXY HAND (robust) ----------------------------------------- */
-(function(){
-  const PROXY_ATTR='data-proxy-key';
-  let uid=1, rafHandle=0, pollHandle=0;
-
-  const hudHand   = ()=> document.querySelector('#tgHandLayerInner .hand') || createHudHand();
-  const canvasHand= ()=> document.querySelector('#app .hand');
-
-  function createHudHand(){
-    const h=document.createElement('div'); h.className='hand';
-    document.getElementById('tgHandLayerInner')?.appendChild(h);
-    return h;
-  }
-  function keyFor(el){
-    // Prefer a stable id from game if present
-    const stable = el.getAttribute('data-card-id') || el.getAttribute('data-id') || el.id;
-    if(stable){ el.setAttribute(PROXY_ATTR, stable); return stable; }
-    if(el.getAttribute(PROXY_ATTR)) return el.getAttribute(PROXY_ATTR);
-    const k=String(uid++); el.setAttribute(PROXY_ATTR, k); return k;
-  }
-  function cloneCard(src){
-    const k=keyFor(src);
-    const clone=src.cloneNode(true);
-    clone.removeAttribute('id');
-    clone.setAttribute(PROXY_ATTR, k);
-    return clone;
-  }
-  function syncAll(){
-    const ch=canvasHand(); const hh=hudHand(); if(!ch || !hh) return;
-    const seen=new Set();
-
-    // Source set: all .card under canvas hand (deep)
-    ch.querySelectorAll('.card').forEach(src=>{
-      const k=keyFor(src); seen.add(k);
-      let dst = hh.querySelector(`.card[${PROXY_ATTR}="${k}"]`);
-      if(!dst){
-        dst = cloneCard(src);
-        hh.appendChild(dst);
-      }else{
-        // keep simple: mirror text content (labels/costs) and classes
-        dst.className = src.className;
-        dst.innerHTML = src.innerHTML;
-      }
-      // Copy inline transform so the fan/tilt looks same
-      dst.style.transform = src.style.transform || '';
-    });
-
-    // Remove HUD cards that the engine removed
-    hh.querySelectorAll(`.card[${PROXY_ATTR}]`).forEach(n=>{
-      if(!seen.has(n.getAttribute(PROXY_ATTR))) n.remove();
-    });
-  }
-  function scheduleSync(){ cancelAnimationFrame(rafHandle); rafHandle=requestAnimationFrame(syncAll); }
-
-  function startObservers(){
-    const app=document.getElementById('app'); if(!app) return;
-    // Observe the entire app tree; engine often rebuilds branches
-    const obs=new MutationObserver(scheduleSync);
-    obs.observe(app, {childList:true, subtree:true});
-    scheduleSync();
-
-    // Safety poll for late async loads (stops after first non-empty sync)
-    let tries=0;
-    function poll(){
-      tries++;
-      scheduleSync();
-      const hh=document.querySelector('#tgHandLayerInner .hand');
-      if(hh && hh.querySelector('.card')) { clearInterval(pollHandle); return; }
-      if(tries>40) { clearInterval(pollHandle); } // ~4s max
-    }
-    pollHandle=setInterval(poll, 100);
-  }
-
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', startObservers, {once:true}); else startObservers();
-})();
-
-/* ---------- Long-press 2× preview (HUD cards) + neighbor spread ---------- */
-(function(){
-  const LONG_MS=260, MOVE_TOL=8;
-  let timer=null, startX=0, startY=0, target=null;
-
-  const overlay=()=>document.getElementById('tgNoSelectOverlay');
-
-  function spreadNeighbors(on){
-    const hand=document.querySelector('#tgHandLayer .hand'); if(!hand || !target) return;
-    hand.classList.toggle('spread', on);
-    const cards=[...hand.querySelectorAll('.card')]; const idx=cards.indexOf(target);
-    const baseOffset=16, baseZ=100;
-    cards.forEach((c,i)=>{
-      if(!on){
-        if(c.dataset._spreadPrev){ c.style.transform=c.dataset._spreadPrev; delete c.dataset._spreadPrev; }
-        c.style.zIndex='';
-      }else{
-        const prev=c.style.transform||''; c.dataset._spreadPrev=prev;
-        if(i!==idx) c.style.transform=`${prev} translateX(${(i-idx)*baseOffset}px)`;
-        c.style.zIndex = i===idx ? baseZ+50 : baseZ+(10-Math.abs(i-idx));
-      }
-    });
-  }
-
-  function show(){ overlay()?.classList.add('show'); target.classList.add('magnify-hand'); spreadNeighbors(true); }
-  function hide(){
-    clearTimeout(timer); timer=null; overlay()?.classList.remove('show');
-    if(!target) return; target.classList.remove('magnify-hand'); spreadNeighbors(false); target=null;
-  }
-  function begin(el, x, y){ hide(); target=el; startX=x; startY=y; timer=setTimeout(show, LONG_MS); }
-  function moved(x,y){ if(!target) return; if(Math.abs(x-startX)>MOVE_TOL || Math.abs(y-startY)>MOVE_TOL) hide(); }
-
-  addEventListener('touchstart', e=>{ const t=e.target.closest('#tgHandLayer .card'); if(!t) return; const p=e.changedTouches[0]; begin(t,p.clientX,p.clientY); }, {passive:true});
-  addEventListener('touchmove',  e=>{ if(!target) return; const p=e.changedTouches[0]; moved(p.clientX,p.clientY); }, {passive:true});
-  addEventListener('touchend', hide, {passive:true});
-  addEventListener('touchcancel', hide, {passive:true});
-  addEventListener('mousedown', e=>{ const t=e.target.closest('#tgHandLayer .card'); if(!t) return; begin(t,e.clientX,e.clientY); });
-  addEventListener('mousemove', e=>moved(e.clientX,e.clientY));
-  addEventListener('mouseup', hide); addEventListener('mouseleave', hide);
-  addEventListener('visibilitychange', ()=>{ if(document.hidden) hide(); });
-  addEventListener('blur', hide);
-})();
-
-/* ---------- Hand-origin proxy for animations ---------- */
-function updateHandAnchor(){
-  const anchor = document.getElementById('tgHandAnchor');
-  const app    = document.getElementById('app');
-  const hand   = document.querySelector('#tgHandLayer .hand');
-  if(!anchor || !app || !hand) return;
-
-  const appRect  = app.getBoundingClientRect();
-  const handRect = hand.getBoundingClientRect();
-  const scale    = appRect.width / 1280;
-
-  const cx = handRect.left + handRect.width/2;
-  const cy = handRect.bottom - handRect.height*0.25;
-
-  const x_app = (cx - appRect.left) / scale;
-  const y_app = (cy - appRect.top ) / scale;
-
-  anchor.style.left = x_app + 'px';
-  anchor.style.top  = y_app + 'px';
-}
-window.getHandAnchorRect = () => document.getElementById('tgHandAnchor')?.getBoundingClientRect?.() || null;
-addEventListener('resize', updateHandAnchor, {passive:true});
-addEventListener('orientationchange', updateHandAnchor);
-document.addEventListener('DOMContentLoaded', updateHandAnchor, {once:true});
-
-/* ---------- External board info (unchanged from 2.3.3) ---------- */
-function placeBoardInfos(){
-  const app = document.getElementById('app'); if(!app) return;
-  const boards = [...app.querySelectorAll('.board')];
-  if(boards.length < 2) return;
-
-  const top    = boards[0].getBoundingClientRect();
-  const bottom = boards[boards.length-1].getBoundingClientRect();
-  const appRect= app.getBoundingClientRect(); const scale= appRect.width / 1280;
-  const toApp  = (x,y)=> ({x:(x-appRect.left)/scale, y:(y-appRect.top)/scale});
-
-  const getTrance = (board)=> {
-    const tags = [...board.querySelectorAll('.traits .tag, .trances .tag')].map(n=>n.textContent.trim());
-    if(tags.length) return tags.join(' • ');
-    const chips = [...board.querySelectorAll('.chips .chip')].map(n=>n.textContent.trim());
-    return chips.join(' • ');
+  // Call whichever sync hook exists in the current build.
+  const callSync = () => {
+    const f = (window.tgSyncAll || window.syncAll || window.TG_SYNC_ALL || window.__syncAll || noop);
+    try { f(); } catch(e) { /* no-op */ }
+    // Some builds react to a synthetic event instead of an explicit function:
+    try { window.dispatchEvent(new CustomEvent('tg:resync', {bubbles:true})); } catch(e) {}
+    try { document.dispatchEvent(new CustomEvent('tg:resync', {bubbles:true})); } catch(e) {}
   };
 
-  const aiName  = (boards[0].querySelector('.name')?.textContent || 'Spellweaver (AI)').trim();
-  const youName = (boards[boards.length-1].querySelector('.name')?.textContent || 'Spellweaver (You)').trim();
-  const aiHearts  = (boards[0].querySelector('.hearts')?.textContent || '♥♥♥♥♥').trim();
-  const youHearts = (boards[boards.length-1].querySelector('.hearts')?.textContent || '♥♥♥♥♥').trim();
-  const aiTrance  = getTrance(boards[0]) || '';
-  const youTrance = getTrance(boards[boards.length-1]) || '';
+  // ---- CSS injection -------------------------------------------------------
+  const injectCSS = once(() => {
+    const css = `
+      /* prevent long-press text selection on cards/labels */
+      .card, .hand, .aether-card, .slot, .tg-board-info, .tg-trance, .tg-hearts, .tg-name {
+        -webkit-user-select: none; -moz-user-select: none; user-select: none;
+      }
 
-  const topCenter = toApp(top.left, (top.top+top.bottom)/2);
-  const botCenter = toApp(bottom.left, (bottom.top+bottom.bottom)/2);
+      /* Board info badges (left side) */
+      .tg-board-info {
+        position: absolute;
+        left: 16px;
+        display: inline-flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: rgba(255,255,255,0.85);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Helvetica, Arial;
+        font-size: 12px;
+        line-height: 1.1;
+        pointer-events: none;
+        z-index: 40;
+      }
+      .tg-board-info .line1 { display: flex; align-items: center; gap: 8px; }
+      .tg-board-info .tg-name   { font-weight: 600; opacity: .9; }
+      .tg-board-info .tg-hearts { letter-spacing: 2px; }
+      .tg-board-info .tg-trance { opacity: .8; font-size: 11px; }
 
-  const topBox = document.getElementById('tgBoardInfoTop');
-  const botBox = document.getElementById('tgBoardInfoBot');
+      /* Positions (tuned for mobile portrait/landscape) */
+      .tg-board-info.ai   { top: 140px;  }   /* near AI board top-left */
+      .tg-board-info.you  { top: 420px;  }   /* near player board */
 
-  if(topBox){
-    topBox.querySelector('.name').textContent   = aiName;
-    topBox.querySelector('.hearts').textContent = aiHearts;
-    topBox.querySelector('.trance').textContent = aiTrance;
-    topBox.style.left = (topCenter.x - 120) + 'px';
-    topBox.style.top  = (topCenter.y - 26) + 'px';
+      /* Small version tag */
+      #tgVersionTag {
+        position: fixed; right: 12px; top: 8px; z-index: 99999;
+        font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
+        background: rgba(255,255,255,.7);
+        padding: 2px 6px; border-radius: 6px;
+      }
+
+      /* If your build already renders a trance label inline somewhere,
+         stacking this way keeps it *under* the name line automatically. */
+      .tg-board-info .line2 { display: block; }
+    `;
+    const style = document.createElement('style');
+    style.id = 'tg-mobile-boot-style';
+    style.textContent = css;
+    document.head.appendChild(style);
+  });
+
+  // ---- Board info (names/hearts + trance below) ---------------------------
+  const ensureBoardInfos = () => {
+    const host = document.body;
+
+    // Remove older clones to avoid duplication across reloads
+    qsa('.tg-board-info').forEach(n => n.remove());
+
+    // Create AI + You tiles
+    const mk = (who, nameText) => {
+      const div = document.createElement('div');
+      div.className = `tg-board-info ${who}`;
+      div.innerHTML = `
+        <div class="line1">
+          <span class="tg-name">${nameText}</span>
+          <span class="tg-hearts">♥ ♥ ♥ ♥ ♥</span>
+        </div>
+        <div class="line2 tg-trance"></div>
+      `;
+      host.appendChild(div);
+      return div;
+    };
+
+    const ai  = mk('ai',  'Spellweaver (AI)');
+    const you = mk('you', 'Spellweaver (You)');
+
+    // Try to fetch hearts/trance from the live UI if present
+    // (Non-breaking: if not found, keep defaults above.)
+    try {
+      // Hearts: look for the original heart clusters nearest each board
+      const allHearts = qsa('[data-hearts], .hearts, .life, .hp, .lives');
+      const aiHearts  = allHearts.find(n => n.textContent && n.getBoundingClientRect().top < window.innerHeight/3);
+      const youHearts = allHearts.find(n => n.textContent && n.getBoundingClientRect().top > window.innerHeight/2);
+
+      if (aiHearts)  ai.querySelector('.tg-hearts').textContent  = aiHearts.textContent.trim();
+      if (youHearts) you.querySelector('.tg-hearts').textContent = youHearts.textContent.trim();
+
+      // Trance: look for chip-like labels near each board name
+      const chipSel = '.chip,.tag,.badge,[data-chip]';
+      const chips = qsa(chipSel);
+      const takeChipsNear = (yMin, yMax) =>
+        chips
+          .filter(n => {
+            const r = n.getBoundingClientRect();
+            return r.top >= yMin && r.bottom <= yMax;
+          })
+          .map(n => n.textContent.trim())
+          .filter(Boolean)
+          .join(' · ');
+
+      const viewportH = window.innerHeight || document.documentElement.clientHeight;
+      const aiTr   = takeChipsNear(0, viewportH * 0.40);
+      const youTr  = takeChipsNear(viewportH * 0.55, viewportH);
+
+      if (aiTr)  ai.querySelector('.tg-trance').textContent  = aiTr;
+      if (youTr) you.querySelector('.tg-trance').textContent = youTr;
+    } catch(_) { /* non-fatal */ }
+  };
+
+  // ---- Version badge -------------------------------------------------------
+  const ensureVersionTag = once(() => {
+    const div = document.createElement('div');
+    div.id = 'tgVersionTag';
+    // If your build pipe exports a version, prefer it. Fallback to this string.
+    div.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-sync');
+    document.body.appendChild(div);
+  });
+
+  // ---- First-time sync on load --------------------------------------------
+  const forceFirstSync = once(() => {
+    // Minimum: two RAFs after DOMContentLoaded (layout settled),
+    // then a timed safety net for async engines.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => callSync());
+    });
+    setTimeout(callSync, 500);
+  });
+
+  // ---- Keep infos fresh when the game mutates ------------------------------
+  const attachObservers = once(() => {
+    const obs = new MutationObserver((m) => {
+      // light work every few changes (throttle)
+      if (!attachObservers._t) {
+        attachObservers._t = setTimeout(() => {
+          attachObservers._t = null;
+          ensureBoardInfos();
+        }, 150);
+      }
+    });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+  });
+
+  // ---- Boot sequence -------------------------------------------------------
+  const boot = () => {
+    injectCSS();
+    ensureVersionTag();
+    ensureBoardInfos();
+    attachObservers();
+    forceFirstSync();
+  };
+
+  if (document.readyState === 'loading') {
+    on(document, 'DOMContentLoaded', boot);
+  } else {
+    boot();
   }
-  if(botBox){
-    botBox.querySelector('.name').textContent   = youName;
-    botBox.querySelector('.hearts').textContent = youHearts;
-    botBox.querySelector('.trance').textContent = youTrance;
-    botBox.style.left = (botCenter.x - 120) + 'px';
-    botBox.style.top  = (botCenter.y - 26) + 'px';
-  }
-}
+
+})();
