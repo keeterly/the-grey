@@ -1,39 +1,41 @@
-/* acceptance.safe.css — v2.3.5-mobile-scale-fit
-   - Scales the fixed 1280×720 canvas to fit ANY mobile landscape viewport
-   - Keeps engine hand interactive and in-flow
-   - Hides Spellweaver chips for now
-   - Restores full-board visibility & perfect centering
+/* acceptance.safe.css — v2.3.5-mobile-landscape-fit
+   - Uniform canvas scaling to fit viewport (centers perfectly)
+   - Engine hand in-flow + reserved space (no overlap)
+   - iOS horizontal drag enabled
+   - Spellweaver chips hidden
+   - Version label isolated in fixed HUD root
 */
 
 html, body { margin:0; padding:0; }
-html, body {
-  height:100%; width:100%;
-  background:#f7f5f0;
-  -webkit-text-size-adjust:100%;
-  -webkit-user-select:none; user-select:none;
-  -webkit-touch-callout:none; touch-action:manipulation;
-  overflow:hidden;
+html.mobile-land, html.mobile-land body{
+  height:100%; width:100%; overflow:hidden; background:#f7f5f0; -webkit-text-size-adjust:100%;
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation;
 }
 
-/* -------- Canvas: fixed logical size, scaled by JS via --tg-scale -------- */
+/* ---- Canvas sizing ------------------------------------------------------ */
 :root{
-  --tg-scale: 1;                 /* set by JS */
-  --tg-scaled-width: 1280px;     /* set by JS (px value) */
-  --board-h:160px;               /* equal row heights */
-  --af-h:160px;
-  --hand-reserve:88px;           /* keeps hand from overlapping player slots */
+  --tg-base-w:1280;
+  --tg-base-h:720;
+  --tg-scale:1;                                /* set by JS */
+  --tg-scaled-w: calc(var(--tg-base-w) * 1px * var(--tg-scale));
+  --tg-scaled-h: calc(var(--tg-base-h) * 1px * var(--tg-scale));
+
+  --board-h:160px; --af-h:160px;
+  --hand-reserve:88px;                         /* keeps hand off player slots */
 }
 
-/* Center 1280×720; runtime scale is applied via CSS var */
+/* Center the fixed-size game “canvas” and scale uniformly */
 #app, #app.tg-canvas{
   position:absolute; left:50%; top:50%;
-  width:1280px; height:720px;
-  transform: translate(-50%, -50%) scale(var(--tg-scale));
+  width:calc(var(--tg-base-w) * 1px);
+  height:calc(var(--tg-base-h) * 1px);
+  transform:translate(-50%, -50%) scale(var(--tg-scale));
   transform-origin:50% 50%;
   will-change:transform;
+  contain:layout paint;
 }
 
-/* Boards */
+/* Boards (stay at logical 160px inside the 1280×720 space; scale handles actual px) */
 #app .board{
   height:var(--board-h);
   display:flex; flex-direction:column; justify-content:center; align-items:center;
@@ -45,17 +47,17 @@ html, body {
   margin:0 auto; padding:6px 8px; max-width:1280px; border-radius:10px;
 }
 
-/* Hide in-board labels that disturb layout */
+/* Hide in-board labels that can bump layout */
 #app .board .title,
 #app .board .name,
 #app .board .traits,
 #app .board .badges,
 #app .board .hearts { display:none !important; }
 
-/* TEMP: hide external Spellweaver name/hearts HUD chips completely */
+/* TEMP: hide external Spellweaver chips entirely */
 .tg-board-info { display:none !important; }
 
-/* Zones / slots footprint */
+/* Slot sizes (logical) */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
@@ -63,45 +65,44 @@ html, body {
   width:96px; height:136px; border-radius:10px;
 }
 
-/* ---------------- Hand: keep engine DOM in flow, with space reserved ------ */
+/* ---------------- Hand: engine DOM in flow, reserve space ---------------- */
 #app .board[data-board="YOU"]{ padding-bottom: calc(6px + var(--hand-reserve)); }
-
 #app .board[data-board="YOU"] .hand{
   position:relative; width:auto; height:auto; left:auto; right:auto; bottom:auto; transform:none;
   pointer-events:auto !important;
 }
-
 #app .hand .card{
-  /* Horizontal drag on iOS needs this */
-  touch-action:none;
+  touch-action:none;  /* full horizontal drag on iOS */
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change:transform;
 }
 
-/* HUD row uses the scaled canvas width so it stays centered visually */
+/* HUD row aligns to the scaled canvas width */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom:calc(8px + env(safe-area-inset-bottom));
-  width:var(--tg-scaled-width);
+  width:var(--tg-scaled-w);
   max-width:100vw;
   display:flex; align-items:center; justify-content:space-between;
   padding:0 10px; gap:10px; pointer-events:none;
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 
+/* Tiny polish */
 @keyframes tgSnap{ 0%{transform:scale(.94);} 60%{transform:scale(1.06);} 100%{transform:scale(1);} }
 .card.drop-zoom{ animation: tgSnap 160ms ease-out; }
 
 #tgCompactToggle, #tgAFZoom{ display:none !important; }
 body::-webkit-scrollbar{ display:none; }
 
-/* -------- Version HUD root (independent fixed layer; no layout impact) ---- */
+/* -------- Version HUD root (independent fixed layer) --------------------- */
 #tgHudRoot{
-  position:fixed; inset:0; z-index: 99998; pointer-events:none;
+  position:fixed; inset:0; z-index:99998; pointer-events:none;
 }
 #tgVersionTag{
-  position:absolute; right:12px; top:8px; z-index: 99999;
-  font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
-  background: rgba(255,255,255,.85); padding: 3px 6px; border-radius: 6px;
-  box-shadow: 0 1px 6px rgba(0,0,0,.06);
+  position:absolute; right:12px; top:8px; z-index:99999;
+  font:11px/1 monospace; opacity:.55; letter-spacing:.25px;
+  background:rgba(255,255,255,.85); padding:3px 6px; border-radius:6px;
+  box-shadow:0 1px 6px rgba(0,0,0,.06);
+  pointer-events:none;
 }
