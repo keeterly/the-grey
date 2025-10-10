@@ -1,11 +1,11 @@
-/* boot-debug.js — v2.3.2 hand-resize+dedup, board-info-outside (MAIN) */
-(function(){ window.__THE_GREY_BUILD='v2.3.2-mobile-hand-resize+dedup (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
+/* boot-debug.js — v2.3.3 proxy-HUD-hand + board-info w/ trance (MAIN) */
+(function(){ window.__THE_GREY_BUILD='v2.3.3-mobile-proxy-hand (main)'; window.__BUILD_SOURCE='boot-debug.js'; })();
 
-/* Keep legacy class for old selectors */
+/* legacy class */
 (function(){ const run=()=>document.getElementById('app')?.classList.add('tg-canvas'); 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run(); })();
 
-/* Layers & wrappers */
+/* layers / wrappers / info blocks */
 (function(){
   function mk(id){ const d=document.createElement('div'); d.id=id; return d; }
   document.addEventListener('DOMContentLoaded', ()=>{
@@ -14,28 +14,12 @@
     }
     if(!document.getElementById('tgNoSelectOverlay')) document.body.appendChild(mk('tgNoSelectOverlay'));
     if(!document.getElementById('tgHandAnchor')){ const a=mk('tgHandAnchor'); document.getElementById('app')?.appendChild(a); }
-    // Info blocks
-    if(!document.getElementById('tgBoardInfoTop')){ const div=mk('tgBoardInfoTop'); div.className='tg-board-info'; document.getElementById('app')?.appendChild(div); }
-    if(!document.getElementById('tgBoardInfoBot')){ const div=mk('tgBoardInfoBot'); div.className='tg-board-info'; document.getElementById('app')?.appendChild(div); }
+    if(!document.getElementById('tgBoardInfoTop')){ const div=mk('tgBoardInfoTop'); div.className='tg-board-info'; div.innerHTML='<div class="line1"><span class="name"></span><span class="hearts"></span></div><div class="trance"></div>'; document.getElementById('app')?.appendChild(div); }
+    if(!document.getElementById('tgBoardInfoBot')){ const div=mk('tgBoardInfoBot'); div.className='tg-board-info'; div.innerHTML='<div class="line1"><span class="name"></span><span class="hearts"></span></div><div class="trance"></div>'; document.getElementById('app')?.appendChild(div); }
   }, {once:true});
 })();
 
-/* Move any canvas hand into HUD layer (and keep it there) */
-(function(){
-  const destInner = ()=> document.getElementById('tgHandLayerInner');
-  function moveHandsOnce(){
-    const hands=[...document.querySelectorAll('#app .hand')];
-    const dest=destInner(); if(!dest) return;
-    hands.forEach(h=>{ if(!dest.contains(h)) dest.appendChild(h); });
-  }
-  // initial
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', moveHandsOnce, {once:true}); else moveHandsOnce();
-  // Mutation watcher (engine may recreate the hand at end/begin turn)
-  const obs=new MutationObserver(()=> moveHandsOnce());
-  document.addEventListener('DOMContentLoaded', ()=>{ const app=document.getElementById('app'); if(app) obs.observe(app,{childList:true,subtree:true}); });
-})();
-
-/* Fit 1280×720 and set --tg-scaled-width, update anchors/infos */
+/* ---------- Canvas fit & scaled width ---------- */
 (function(){
   const DESIGN_W=1280, DESIGN_H=720, root=document.documentElement;
   const isLandscape=()=> window.matchMedia('(orientation: landscape)').matches || innerWidth >= innerHeight;
@@ -55,27 +39,71 @@
       root.style.setProperty('--tg-scaled-width', Math.round(DESIGN_W*scale)+'px');
     }
     root.classList.add('mobile-land');
-    updateHandAnchor();    // keep the proxy aligned
-    placeBoardInfos();     // position external info blocks
+    updateHandAnchor();
+    placeBoardInfos();
   }
   addEventListener('resize', apply, {passive:true});
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', apply, {once:true}); else apply();
 })();
 
-/* Remove legacy toggles; force compact */
+/* kill legacy toggles; force compact */
 (function(){
   function run(){ ['tgAFZoom','tgCompactToggle'].forEach(id=>document.getElementById(id)?.remove());
     const r=document.documentElement; r.classList.remove('af-zoom'); r.classList.add('mobile-mini'); }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* -------- REAL-CARD 2× PREVIEW + HAND SPREAD -------- */
+/* ---------- PROXY HAND: mirror canvas hand into HUD layer -------------- */
+(function(){
+  const PROXY_ATTR='data-proxy-key';
+  let uid=1;
+
+  const hudHand   = ()=> document.querySelector('#tgHandLayerInner .hand') || createHudHand();
+  const canvasHand= ()=> document.querySelector('#app .hand');
+  function createHudHand(){
+    const h=document.createElement('div'); h.className='hand'; document.getElementById('tgHandLayerInner')?.appendChild(h); return h;
+  }
+  function keyFor(el){
+    if(el.getAttribute(PROXY_ATTR)) return el.getAttribute(PROXY_ATTR);
+    const k=String(uid++); el.setAttribute(PROXY_ATTR, k); return k;
+  }
+  function cloneCard(src){
+    const k=keyFor(src);
+    const clone=src.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.setAttribute(PROXY_ATTR, k);
+    return clone;
+  }
+  function syncAll(){
+    const ch=canvasHand(); const hh=hudHand(); if(!ch || !hh) return;
+    const seen=new Set();
+    ch.querySelectorAll('.card').forEach(src=>{
+      const k=keyFor(src); seen.add(k);
+      if(!hh.querySelector(`.card[${PROXY_ATTR}="${k}"]`)){
+        hh.appendChild(cloneCard(src));
+      }
+    });
+    // remove HUD cards that no longer exist in canvas
+    hh.querySelectorAll(`.card[${PROXY_ATTR}]`).forEach(n=>{
+      if(!seen.has(n.getAttribute(PROXY_ATTR))) n.remove();
+    });
+  }
+  function observe(){
+    const ch=canvasHand(); if(!ch) return;
+    syncAll();
+    const obs=new MutationObserver(()=> syncAll());
+    obs.observe(ch, {childList:true, subtree:false});
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', observe, {once:true}); else observe();
+})();
+
+/* ---------- Long-press 2× preview (HUD cards) + neighbor spread ---------- */
 (function(){
   const LONG_MS=260, MOVE_TOL=8;
-  let timer=null, startX=0, startY=0, target=null, isHand=false;
+  let timer=null, startX=0, startY=0, target=null;
 
   const overlay=()=>document.getElementById('tgNoSelectOverlay');
-  const isCard=el=>el && (el.classList?.contains('card') || el.classList?.contains('af-card'));
+  const isHudCard=el=> !!el && !!el.closest('#tgHandLayer');
 
   function spreadNeighbors(on){
     const hand=document.querySelector('#tgHandLayer .hand'); if(!hand || !target) return;
@@ -94,34 +122,27 @@
     });
   }
 
-  function show(){
-    overlay()?.classList.add('show');
-    if(isHand){ target.classList.add('magnify-hand'); spreadNeighbors(true); }
-    else      { target.classList.add('magnify'); }
-  }
+  function show(){ overlay()?.classList.add('show'); target.classList.add('magnify-hand'); spreadNeighbors(true); }
   function hide(){
-    clearTimeout(timer); timer=null;
-    overlay()?.classList.remove('show');
-    if(!target) return;
-    target.classList.remove('magnify','magnify-hand');
-    if(isHand) spreadNeighbors(false);
-    target=null; isHand=false;
+    clearTimeout(timer); timer=null; overlay()?.classList.remove('show');
+    if(!target) return; target.classList.remove('magnify-hand'); spreadNeighbors(false); target=null;
   }
-  function begin(el, x, y){ hide(); target=el; isHand=!!el.closest('#tgHandLayer'); startX=x; startY=y; timer=setTimeout(show, LONG_MS); }
-  function moved(x, y){ if(!target) return; if(Math.abs(x-startX)>MOVE_TOL || Math.abs(y-startY)>MOVE_TOL) hide(); }
+  function begin(el, x, y){ if(!isHudCard(el)) return; hide(); target=el; startX=x; startY=y; timer=setTimeout(show, LONG_MS); }
+  function moved(x,y){ if(!target) return; if(Math.abs(x-startX)>MOVE_TOL || Math.abs(y-startY)>MOVE_TOL) hide(); }
 
-  addEventListener('touchstart', e=>{ const t=e.target.closest('.card, .af-card'); if(!isCard(t)) return; const p=e.changedTouches[0]; begin(t,p.clientX,p.clientY); }, {passive:true});
-  addEventListener('touchmove', e=>{ if(!target) return; const p=e.changedTouches[0]; moved(p.clientX,p.clientY); }, {passive:true});
+  addEventListener('touchstart', e=>{ const t=e.target.closest('#tgHandLayer .card'); if(!t) return; const p=e.changedTouches[0]; begin(t,p.clientX,p.clientY); }, {passive:true});
+  addEventListener('touchmove',  e=>{ if(!target) return; const p=e.changedTouches[0]; moved(p.clientX,p.clientY); }, {passive:true});
   addEventListener('touchend', hide, {passive:true});
   addEventListener('touchcancel', hide, {passive:true});
-  addEventListener('mousedown', e=>{ const t=e.target.closest('.card, .af-card'); if(!isCard(t)) return; begin(t,e.clientX,e.clientY); });
+
+  addEventListener('mousedown', e=>{ const t=e.target.closest('#tgHandLayer .card'); if(!t) return; begin(t,e.clientX,e.clientY); });
   addEventListener('mousemove', e=>moved(e.clientX,e.clientY));
   addEventListener('mouseup', hide); addEventListener('mouseleave', hide);
   addEventListener('visibilitychange', ()=>{ if(document.hidden) hide(); });
   addEventListener('blur', hide);
 })();
 
-/* -------- Hand origin proxy inside #app for draw/discard animations -------- */
+/* ---------- Hand-origin proxy for animations ---------- */
 function updateHandAnchor(){
   const anchor = document.getElementById('tgHandAnchor');
   const app    = document.getElementById('app');
@@ -133,7 +154,7 @@ function updateHandAnchor(){
   const scale    = appRect.width / 1280;
 
   const cx = handRect.left + handRect.width/2;
-  const cy = handRect.bottom - handRect.height*0.25; // slightly above bottom of fan
+  const cy = handRect.bottom - handRect.height*0.25; // slightly above bottom
 
   const x_app = (cx - appRect.left) / scale;
   const y_app = (cy - appRect.top ) / scale;
@@ -146,28 +167,32 @@ addEventListener('resize', updateHandAnchor, {passive:true});
 addEventListener('orientationchange', updateHandAnchor);
 document.addEventListener('DOMContentLoaded', updateHandAnchor, {once:true});
 
-/* -------- External board info (name/hearts) placed adjacent to boards ------ */
+/* ---------- External board info (name/hearts + trance below) ---------- */
 function placeBoardInfos(){
   const app = document.getElementById('app'); if(!app) return;
   const boards = [...app.querySelectorAll('.board')];
   if(boards.length < 2) return;
 
   const top    = boards[0].getBoundingClientRect();
-  const mid    = app.querySelector('.aetherflow')?.getBoundingClientRect?.();
   const bottom = boards[boards.length-1].getBoundingClientRect();
+  const appRect= app.getBoundingClientRect(); const scale= appRect.width / 1280;
+  const toApp  = (x,y)=> ({x:(x-appRect.left)/scale, y:(y-appRect.top)/scale});
 
-  const appRect = app.getBoundingClientRect();
-  const scale   = appRect.width / 1280;
+  // Pull data from existing DOM (fallbacks provided)
+  const getTrance = (board)=> {
+    const tags = [...board.querySelectorAll('.traits .tag, .trances .tag')].map(n=>n.textContent.trim());
+    if(tags.length) return tags.join(' • ');
+    const chips = [...board.querySelectorAll('.chips .chip')].map(n=>n.textContent.trim());
+    return chips.join(' • ');
+  };
 
-  function toApp(x,y){ return { x:(x-appRect.left)/scale, y:(y-appRect.top)/scale }; }
-
-  // Grab bits from original DOM if present (fallback to defaults)
   const aiName  = (boards[0].querySelector('.name')?.textContent || 'Spellweaver (AI)').trim();
   const youName = (boards[boards.length-1].querySelector('.name')?.textContent || 'Spellweaver (You)').trim();
   const aiHearts  = (boards[0].querySelector('.hearts')?.textContent || '♥♥♥♥♥').trim();
   const youHearts = (boards[boards.length-1].querySelector('.hearts')?.textContent || '♥♥♥♥♥').trim();
+  const aiTrance  = getTrance(boards[0]) || '';
+  const youTrance = getTrance(boards[boards.length-1]) || '';
 
-  // Position: to the left of each board, vertically centered
   const topCenter = toApp(top.left, (top.top+top.bottom)/2);
   const botCenter = toApp(bottom.left, (bottom.top+bottom.bottom)/2);
 
@@ -175,13 +200,17 @@ function placeBoardInfos(){
   const botBox = document.getElementById('tgBoardInfoBot');
 
   if(topBox){
-    topBox.innerHTML = `<span class="name">${aiName}</span><span class="hearts">${aiHearts}</span>`;
-    topBox.style.left = (topCenter.x - 110) + 'px';
-    topBox.style.top  = (topCenter.y - 18) + 'px';
+    topBox.querySelector('.name').textContent   = aiName;
+    topBox.querySelector('.hearts').textContent = aiHearts;
+    topBox.querySelector('.trance').textContent = aiTrance;
+    topBox.style.left = (topCenter.x - 120) + 'px';
+    topBox.style.top  = (topCenter.y - 26) + 'px';
   }
   if(botBox){
-    botBox.innerHTML = `<span class="name">${youName}</span><span class="hearts">${youHearts}</span>`;
-    botBox.style.left = (botCenter.x - 110) + 'px';
-    botBox.style.top  = (botCenter.y - 18) + 'px';
+    botBox.querySelector('.name').textContent   = youName;
+    botBox.querySelector('.hearts').textContent = youHearts;
+    botBox.querySelector('.trance').textContent = youTrance;
+    botBox.style.left = (botCenter.x - 120) + 'px';
+    botBox.style.top  = (botCenter.y - 26) + 'px';
   }
 }
