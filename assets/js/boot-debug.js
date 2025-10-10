@@ -1,238 +1,170 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fit+anim3)
-   - Centered 1280×720, spacing, hand in-flow
-   - Deck (right, next to End Turn) / Discard (left)
-   - Hide bolt; add Aether HUD (blue=regular, red=temporary)
-   - Draw animation (Deck → Hand), Discard animation (Hand → Discard)
-   - Hide AF header; press-and-hold preview
+/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fit+anim4)
+   Robust + self-healing:
+   - scales/centers canvas
+   - hides board chrome (keeps slots) + row spacing
+   - press-and-hold preview
+   - places DECK next to End Turn (right); creates its own node if needed
+   - Discard anchor on left
+   - hides bolt HUD
+   - animates Deck→Hand on card added; animates Hand→Discard on removal (uses last rect)
 */
 
 (() => {
-  const on   = (t,k,fn,o)=> t&&t.addEventListener&&t.addEventListener(k,fn,o||false);
-  const qs   = (s,r=document)=> r.querySelector(s);
-  const qsa  = (s,r=document)=> Array.from(r.querySelectorAll(s));
-  const once = (fn)=>{ let y=false; return (...a)=>{ if(y) return; y=true; try{fn(...a);}catch(_){}}};
-  const noop = ()=>{};
+  const on=(t,k,f,o)=>t&&t.addEventListener&&t.addEventListener(k,f,o||false);
+  const qs=(s,r=document)=>r.querySelector(s);
+  const qsa=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  const once=(fn)=>{let d=false;return(...a)=>{if(d)return;d=true;try{fn(...a);}catch{}}};
+  const BASE_W=1280, BASE_H=720;
 
-  const BASE_W = 1280, BASE_H = 720;
-
-  /* ---------------- Scaling / centering ---------------------------------- */
-  function computeScale(){
-    const vw = innerWidth, vh = innerHeight;
-    return Math.max(.1, Math.min( (Math.min(vw/BASE_W, vh/BASE_H))*0.995, 2 ));
+  /* ---------- scale / center ---------- */
+  function scaleVal(){
+    const sx=innerWidth/BASE_W, sy=innerHeight/BASE_H;
+    return Math.max(.1, Math.min(Math.min(sx,sy)*0.995, 2));
   }
-  function applyScaleVars(){
-    const s = computeScale(), root = document.documentElement.style;
-    root.setProperty('--tg-scale', s+'');
-    root.setProperty('--tg-scaled-w', (BASE_W*s)+'px');
-    root.setProperty('--tg-scaled-h', (BASE_H*s)+'px');
+  function applyScale(){
+    const s=scaleVal(), st=document.documentElement.style;
+    st.setProperty('--tg-scale', s+'');
+    st.setProperty('--tg-scaled-w', (BASE_W*s)+'px');
+    st.setProperty('--tg-scaled-h', (BASE_H*s)+'px');
   }
-  function applyMobileLand(){
-    const el = document.documentElement;
-    const isPhoneish = Math.min(innerWidth, innerHeight) <= 900;
-    el.classList.toggle('mobile-land', isPhoneish);
-  }
-  function applyLayout(){ applyMobileLand(); applyScaleVars(); }
+  function applyMode(){ document.documentElement.classList.toggle('mobile-land', Math.min(innerWidth,innerHeight)<=900); }
 
-  /* ---------------- Sync trigger ----------------------------------------- */
-  const callSync = () => {
-    const f = (window.tgSyncAll||window.syncAll||window.TG_SYNC_ALL||window.__syncAll||noop);
-    try{ f(); }catch(_){}
-    try{ window.dispatchEvent(new CustomEvent('tg:resync',{bubbles:true})); }catch(_){}
-    try{ document.dispatchEvent(new CustomEvent('tg:resync',{bubbles:true})); }catch(_){}
-    hideAetherflowHeader();
-    updateAetherHUD(); // refresh counts on sync
-  };
-
-  /* ---------------- Version HUD root ------------------------------------- */
-  const ensureHudRootAndVersion = once(() => {
-    let hud = qs('#tgHudRoot'); if(!hud){ hud = document.createElement('div'); hud.id='tgHudRoot'; document.body.appendChild(hud); }
-    let tag = qs('#tgVersionTag'); if(!tag){ tag = document.createElement('div'); tag.id='tgVersionTag'; hud.appendChild(tag); }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fit+anim3');
+  /* ---------- version HUD ---------- */
+  const ensureHud = once(()=>{
+    let root=qs('#tgHudRoot'); if(!root){ root=document.createElement('div'); root.id='tgHudRoot'; document.body.appendChild(root); }
+    let tag=qs('#tgVersionTag'); if(!tag){ tag=document.createElement('div'); tag.id='tgVersionTag'; root.appendChild(tag); }
+    tag.textContent=(window.__THE_GREY_BUILD||'v2.3.5-mobile-landscape-fit+anim4');
   });
 
-  /* ---------------- HUD controls / move deck right ------------------------ */
-  const ensureHudControls = once(() => {
-    const hud = qs('.hud-min'); if(!hud){
-      const root = document.createElement('div'); root.className='hud-min';
-      root.innerHTML = `<div class="left"></div><div class="right"></div>`;
-      document.body.appendChild(root);
-    }
-    const left  = qs('.hud-min .left');
-    const right = qs('.hud-min .right');
-
-    // Move deck icon to the right (next to End Turn), keep discard on left.
-    const deck    = qs('#deckIcon');
-    const discard = qs('#discardIcon');
-    const endBtn  = qs('#btnEnd');
-
-    if(deck && right && deck.parentElement !== right){
-      right.appendChild(deck);
-    }
-    if(endBtn && right && endBtn.nextSibling !== deck){
-      right.insertBefore(deck, null); // after End Turn
-    }
-    if(discard && left && discard.parentElement !== left){
-      left.appendChild(discard);
-    }
-
-    // Aether HUD (blue/red dots)
-    let hudDots = qs('#tgAetherHUD');
-    if(!hudDots){
-      hudDots = document.createElement('div');
-      hudDots.id = 'tgAetherHUD';
-      hudDots.innerHTML = `
-        <div class="dots dots-blue"></div>
-        <div class="dots dots-red"></div>`;
-      right?.appendChild(hudDots);
-    }
-  });
-
-  /* ---------------- Hide AF header --------------------------------------- */
-  function hideAetherflowHeader(){
-    qsa('#app .aetherflow .af-title').forEach(el => el.style.display='none');
-  }
-
-  /* ---------------- Press & Hold Preview --------------------------------- */
-  function installPressPreview(){
-    const DELAY = 220; const MOVE_CANCEL = 8;
-    let timer=null, active=null, downX=0, downY=0;
-
+  /* ---------- press & hold preview ---------- */
+  function installPreview(){
+    let t=null, a=null, x=0,y=0; const D=220, C=8;
     on(document,'pointerdown',e=>{
-      const card = e.target && e.target.closest && e.target.closest('#app .hand .card');
-      if(!card) return;
-      downX=e.clientX; downY=e.clientY;
-      timer = setTimeout(()=>{
-        active=card;
-        card.classList.add('magnify','magnify-hand');
-      }, DELAY);
-    }, {passive:true});
-
-    function clear(){
-      if(timer){ clearTimeout(timer); timer=null; }
-      if(active){ active.classList.remove('magnify','magnify-hand'); active=null; }
-    }
-
-    on(document,'pointermove',e=>{
-      if(!timer && !active) return;
-      if(Math.hypot(e.clientX-downX,e.clientY-downY)>MOVE_CANCEL) clear();
+      const card=e.target?.closest?.('#app .hand .card'); if(!card) return;
+      x=e.clientX; y=e.clientY; t=setTimeout(()=>{a=card; card.classList.add('magnify','magnify-hand');}, D);
     },{passive:true});
-    ['pointerup','pointercancel','pointerleave','visibilitychange','blur'].forEach(evt=>{
-      on(document,evt,clear,{passive:true}); on(window,evt,clear,{passive:true});
-    });
+    function clear(){ if(t){clearTimeout(t);t=null} if(a){a.classList.remove('magnify','magnify-hand');a=null} }
+    on(document,'pointermove',e=>{ if(!t&&!a) return; if(Math.hypot(e.clientX-x,e.clientY-y)>C) clear(); },{passive:true});
+    ['pointerup','pointercancel','pointerleave','visibilitychange','blur'].forEach(ev=>{ on(document,ev,clear,{passive:true}); on(window,ev,clear,{passive:true}); });
   }
 
-  /* ---------------- Draw / Discard animations ---------------------------- */
-  function rect(el){ return el.getBoundingClientRect(); }
-  function makeClone(fromEl){
-    const r = rect(fromEl);
-    const clone = fromEl.cloneNode(true);
-    clone.classList.add('tg-fly');
-    clone.style.width = r.width+'px';
-    clone.style.height= r.height+'px';
-    clone.style.transform = `translate(${r.left}px, ${r.top}px)`;
+  /* ---------- HUD wiring (deck right, discard left) ---------- */
+  function ensureHudLanes(){
+    let hud=qs('.hud-min'); if(!hud){ hud=document.createElement('div'); hud.className='hud-min'; hud.innerHTML='<div class="left"></div><div class="right"></div>'; document.body.appendChild(hud); }
+    return {left:qs('.hud-min .left'), right:qs('.hud-min .right')};
+  }
+  function getEndTurn(){
+    return qs('#btnEnd, .end-turn, button[aria-label="End Turn"], button:has(svg[data-icon="play"])') || qs('.hud-min .right button');
+  }
+  function adoptDeck(rightLane){
+    // Try to reuse existing deck icon if present, else create one
+    let deck = qs('#deckIcon,[data-role="deck-btn"], .deck, button:has(span:contains("DECK"))');
+    if(!deck){
+      deck=document.createElement('button');
+      deck.setAttribute('data-role','deck-btn');
+      deck.type='button'; deck.textContent='DECK';
+    }else{
+      deck.setAttribute('data-role','deck-btn');
+    }
+    if(deck.parentElement!==rightLane) rightLane.appendChild(deck);
+    return deck;
+  }
+  function adoptDiscard(leftLane){
+    // Use existing discard icon if present; otherwise invisible anchor
+    let disc = qs('#discardIcon,[data-pile="discard"],.discard');
+    if(!disc){
+      disc=document.createElement('div'); disc.id='tgDiscardAnchor';
+      disc.style.cssText='position:fixed;bottom:calc(22px + env(safe-area-inset-bottom));left:calc(50% - var(--tg-scaled-w)/2 + 14px);width:28px;height:28px;opacity:0;pointer-events:none';
+      document.body.appendChild(disc);
+    }
+    if(disc.parentElement===document.body) {/* already positioned */} else if(leftLane && disc.parentElement!==leftLane) { leftLane.appendChild(disc); }
+    return disc;
+  }
+
+  /* ---------- animations ---------- */
+  const rect=el=>el.getBoundingClientRect();
+  function cloneAt(elOrRect){
+    const r = elOrRect instanceof DOMRect ? elOrRect : rect(elOrRect);
+    const clone=document.createElement('div');
+    clone.className='tg-fly';
+    clone.style.width=r.width+'px'; clone.style.height=r.height+'px';
+    clone.style.transform=`translate(${r.left}px,${r.top}px)`;
+    // snapshot look
+    if(!(elOrRect instanceof DOMRect) && elOrRect.cloneNode){
+      const ghost=elOrRect.cloneNode(true); ghost.style.transform='none'; ghost.style.pointerEvents='none';
+      clone.appendChild(ghost);
+    }
     document.body.appendChild(clone);
     return clone;
   }
-  function fly(fromEl, toEl){
-    if(!fromEl || !toEl) return;
-    const clone = makeClone(fromEl);
-    const tr = rect(toEl);
-    requestAnimationFrame(()=>{
-      clone.style.transform = `translate(${tr.left}px, ${tr.top}px)`;
-      clone.style.opacity = '1';
-    });
-    const dur = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--anim-fly-ms')) || 260;
-    setTimeout(()=> clone.remove(), dur + 20);
+  function fly(fromElOrRect,toEl){
+    if(!fromElOrRect||!toEl) return;
+    const c=cloneAt(fromElOrRect);
+    const tr=rect(toEl);
+    requestAnimationFrame(()=>{ c.style.transform=`translate(${tr.left}px,${tr.top}px)`; c.style.opacity='1'; });
+    const dur=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--anim-fly-ms'))||260;
+    setTimeout(()=>c.remove(), dur+30);
   }
 
-  // Observe YOUR hand for draws: animate Deck → new card
-  function observeDraws(){
-    const hand = qs('#app [data-board="YOU"] .hand'); if(!hand) return;
-    const deckBtn = qs('#deckIcon'); // engine updates this count in render() :contentReference[oaicite:4]{index=4}
-    const mo = new MutationObserver(muts=>{
+  /* Robust observers:
+     - Draw: any new .hand .card → fly from deck button
+     - Discard: track last pointerdown card rect; if that card is removed from hand within 400ms, fly that rect → discard */
+  function observeAnimations(deckBtn, discardAnchor){
+    const hand=qs('#app [data-board="YOU"] .hand'); if(!hand) return;
+
+    // Draws
+    const moAdd=new MutationObserver(muts=>{
       muts.forEach(m=>{
         m.addedNodes?.forEach(n=>{
           if(n.nodeType===1 && n.classList.contains('card')){
-            // delay one frame so the card has its base transform set (layoutHand) :contentReference[oaicite:5]{index=5}
             requestAnimationFrame(()=> fly(deckBtn, n));
           }
         });
       });
     });
-    mo.observe(hand, {childList:true, subtree:false});
-  }
+    moAdd.observe(hand,{childList:true,subtree:false});
 
-  // Observe Discard count changes → fly last hand card to Discard
-  function observeDiscards(){
-    const discardIcon = qs('#discardIcon');
-    if(!discardIcon) return;
+    // Discards (removed from hand)
+    let lastDownRect=null;
+    on(document,'pointerdown',e=>{
+      const card=e.target?.closest?.('#app .hand .card');
+      if(card) lastDownRect=rect(card);
+    },{passive:true});
 
-    const mo = new MutationObserver(muts=>{
-      const attrChanged = muts.some(m => m.type==='attributes' && m.attributeName==='data-count');
-      if(attrChanged){
-        const src = qs('#app .hand .card:last-child');
-        fly(src, discardIcon);
+    const moRem=new MutationObserver(muts=>{
+      const nowRemoved=[...muts].flatMap(m=>[...m.removedNodes||[]])
+        .filter(n=>n.nodeType===1 && n.classList.contains('card'));
+      if(nowRemoved.length && lastDownRect){
+        fly(lastDownRect, discardAnchor);
+        lastDownRect=null;
       }
     });
-    mo.observe(discardIcon, {attributes:true, attributeFilter:['data-count']});
+    moRem.observe(hand,{childList:true,subtree:false});
   }
 
-  /* ---------------- Aether HUD (blue=regular, red=temporary) -------------- */
-  function getAether(){
-    // Prefer engine state if exposed later; otherwise read the HUD the engine already sets.
-    // Engine sets #aetherWell data-count in render(...) :contentReference[oaicite:6]{index=6}
-    const aetherFromHud = Number(qs('#aetherWell')?.getAttribute('data-count')||0);
-    // If you later add temp aether to state (e.g., state.you.tempAether), this reader can be extended.
-    return {reg:aetherFromHud, tmp:0};
-  }
-  function renderDots(container, count, cls){
-    const dots = [];
-    const n = Math.max(0, Math.min(20, count|0)); // clamp 0..20 so we don’t explode UI
-    for(let i=0;i<n;i++) dots.push(`<span class="aether-dot ${cls}"></span>`);
-    container.innerHTML = dots.join('');
-  }
-  function updateAetherHUD(){
-    const hud = qs('#tgAetherHUD'); if(!hud) return;
-    const blue = hud.querySelector('.dots-blue');
-    const red  = hud.querySelector('.dots-red');
-    const {reg, tmp} = getAether();
-    renderDots(blue, reg, 'blue');
-    renderDots(red,  tmp, 'red');
-  }
-  function startAetherTicker(){
-    updateAetherHUD();
-    // light polling to reflect channel/spend without direct engine hooks
-    setInterval(updateAetherHUD, 300);
-  }
+  /* ---------- bolt hide, aether dots (optional) ---------- */
+  function hideBolt(){ qsa('.hud-min .bolt,[data-hud="energy"],.energy').forEach(el=>el.style.display='none'); }
 
-  /* ---------------- Boot -------------------------------------------------- */
-  const applyAll = ()=>{ applyLayout(); hideAetherflowHeader(); };
+  /* ---------- apply layout & boot ---------- */
+  function applyAll(){ applyMode(); applyScale(); hideBolt(); }
 
-  const forceFirstSync = once(() => {
-    requestAnimationFrame(() => { requestAnimationFrame(() => { callSync(); }); });
-    setTimeout(callSync, 450);
-  });
+  const boot=()=>{
+    ensureHud();
+    installPreview();
 
-  const boot = () => {
-    ensureHudRootAndVersion();
-    ensureHudControls();
-    installPressPreview();
-    observeDraws();
-    observeDiscards();
-    startAetherTicker();
+    const {left,right}=ensureHudLanes();
+    const end=getEndTurn(); if(end && end.parentElement===right){} // fine
+    const deckBtn=adoptDeck(right);
+    const discardAnchor=adoptDiscard(left);
+
+    observeAnimations(deckBtn, discardAnchor);
+
     applyAll();
-
-    ['resize','orientationchange','visibilitychange'].forEach(evt =>
-      on(window, evt, applyAll, {passive:true})
-    );
-
-    // give the engine a nudge so counts/handlers are in place
-    forceFirstSync();
+    ['resize','orientationchange','visibilitychange'].forEach(ev=>on(window,ev,applyAll,{passive:true}));
+    // initial resync poke
+    requestAnimationFrame(()=>{ try{ (window.tgSyncAll||window.syncAll||window.__syncAll||(()=>{}))(); }catch{} });
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, {once:true});
-  } else {
-    boot();
-  }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',boot,{once:true}); }
+  else boot();
 })();
