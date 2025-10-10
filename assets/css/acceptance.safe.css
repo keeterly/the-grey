@@ -1,8 +1,10 @@
-/* acceptance.safe.css — v2.3.5-mobile-landscape-fit
-   - Uniform canvas scaling to fit viewport (centers perfectly)
+/* acceptance.safe.css — v2.3.5-mobile-landscape-fit+preview
+   - Uniform canvas scaling to fit viewport (centered)
    - Engine hand in-flow + reserved space (no overlap)
    - iOS horizontal drag enabled
    - Spellweaver chips hidden
+   - Aetherflow header hidden
+   - Press-and-hold preview styling
    - Version label isolated in fixed HUD root
 */
 
@@ -54,10 +56,16 @@ html.mobile-land, html.mobile-land body{
 #app .board .badges,
 #app .board .hearts { display:none !important; }
 
-/* TEMP: hide external Spellweaver chips entirely */
+/* Hide external Spellweaver chips entirely for now */
 .tg-board-info { display:none !important; }
 
-/* Zones / slots (logical) */
+/* Hide “Aetherflow” header text (common classes + hard fallback) */
+#app .aetherflow .title,
+#app .aetherflow .name,
+#app .aetherflow [data-label],
+#app .aetherflow .label { display:none !important; }
+
+/* Slot sizes (logical) */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
@@ -75,6 +83,19 @@ html.mobile-land, html.mobile-land body{
   touch-action:none;  /* full horizontal drag on iOS */
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change:transform;
+}
+
+/* ---------------- Press & Hold Preview ----------------------------------- */
+/* Base preview pop (used anywhere) */
+.card.magnify{
+  transform: scale(2) !important;
+  z-index: 10000 !important;
+  box-shadow: 0 18px 48px rgba(0,0,0,.32) !important;
+  pointer-events:none !important; /* preview is read-only */
+}
+/* Hand-specific nudge upward while magnified */
+#app .hand .card.magnify-hand{
+  transform: translateY(-72px) scale(2) !important;
 }
 
 /* HUD row aligns to the scaled canvas width */
