@@ -1,9 +1,8 @@
-/* acceptance.safe.css — v2.2.1 Mobile Unified (align pass)
-   Goals:
-   • Center the game canvas in mobile-landscape
-   • Even row/slot heights
-   • Baseline-align HUD counters; stable hand fan
-   • Place +AF control flush-right of the Aetherflow row
+/* acceptance.safe.css — v2.2.2 Mobile Unified (alignment tighten)
+   - Canvas centered & scaled
+   - HUD width matches scaled canvas (via CSS var from JS)
+   - Even zone/slot heights
+   - +AF pinned to Aetherflow row’s right
 */
 
 /* ----- Canvas / viewport ----- */
@@ -21,8 +20,8 @@ html.mobile-land body {
   transform: translate(-50%, -50%) scale(1);
   transform-origin: 50% 50%;
   will-change: transform;
-  width: 1280px;           /* set by JS as well; here for safety */
-  height: 720px;           /* set by JS as well; here for safety */
+  width: 1280px;           /* JS also sets these; here for safety */
+  height: 720px;
 }
 
 /* iOS viewport quirks */
@@ -85,12 +84,13 @@ html.af-zoom .aetherflow {
 }
 
 /* ----- HUD (bottom mini bar) ----- */
+/* width follows the scaled canvas via --tg-scaled-width (set by JS) */
 .hud-min{
   position: fixed;
   left: 50%;
   transform: translateX(-50%);
   bottom: calc(8px + env(safe-area-inset-bottom));
-  width: min(1280px, 100vw);
+  width: var(--tg-scaled-width, min(1280px, 100vw));
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 12px; gap: 12px;
 }
