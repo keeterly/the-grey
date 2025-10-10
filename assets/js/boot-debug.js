@@ -1,8 +1,8 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fix)
+/* The Grey — mobile bootstrap (v2.3.5-mobile-landscape-fix2)
    - Enforce mobile-land (landscape) class
    - First-time sync on load (dual RAF + timer)
-   - TEMP: hide Spellweaver name/hearts HUD chips
-   - Version tag (top-right)
+   - Version tag moved to a separate fixed HUD root (cannot affect layout)
+   - Spellweaver chips remain hidden via CSS
 */
 
 (() => {
@@ -15,7 +15,6 @@
   // ---- orientation / mode --------------------------------------------------
   function applyMobileLand(){
     const docEl = document.documentElement;
-    // Consider it "mobile" when the small side is <= 900px
     const smallSide = Math.min(window.innerWidth, window.innerHeight);
     const isMobile = smallSide <= 900;
     docEl.classList.toggle('mobile-land', isMobile);
@@ -36,13 +35,6 @@
       .card, .hand, .aether-card, .slot, .tg-board-info, .tg-trance, .tg-hearts, .tg-name {
         -webkit-user-select: none; -moz-user-select: none; user-select: none;
       }
-      /* version tag */
-      #tgVersionTag{
-        position: fixed; right: 12px; top: 8px; z-index: 99999;
-        font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
-        background: rgba(255,255,255,.85); padding: 3px 6px; border-radius: 6px;
-        box-shadow: 0 1px 6px rgba(0,0,0,.06);
-      }
     `;
     const tag = document.createElement('style');
     tag.id = 'tgBootMobileCSS';
@@ -50,12 +42,21 @@
     document.head.appendChild(tag);
   });
 
-  // ---- Version badge -------------------------------------------------------
-  const ensureVersionTag = once(() => {
-    const div = document.createElement('div');
-    div.id = 'tgVersionTag';
-    div.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fix');
-    document.body.appendChild(div);
+  // ---- HUD root + Version badge (independent fixed layer) ------------------
+  const ensureHudRootAndVersion = once(() => {
+    let hud = qs('#tgHudRoot');
+    if (!hud){
+      hud = document.createElement('div');
+      hud.id = 'tgHudRoot';
+      document.body.appendChild(hud);
+    }
+    let tag = qs('#tgVersionTag');
+    if (!tag){
+      tag = document.createElement('div');
+      tag.id = 'tgVersionTag';
+      hud.appendChild(tag);
+    }
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-landscape-fix2');
   });
 
   // ---- First-time sync on load --------------------------------------------
@@ -67,7 +68,6 @@
   // ---- Observers & events --------------------------------------------------
   const attachObservers = once(() => {
     const apply = () => applyMobileLand();
-
     ['resize','orientationchange'].forEach(evt => on(window, evt, apply, {passive:true}));
     on(document, 'visibilitychange', apply);
     apply();
@@ -76,7 +76,7 @@
   // ---- Boot ---------------------------------------------------------------
   const boot = () => {
     injectCSS();
-    ensureVersionTag();
+    ensureHudRootAndVersion();  // version label lives outside #app now
     attachObservers();
     forceFirstSync();
   };
