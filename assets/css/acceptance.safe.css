@@ -1,31 +1,36 @@
-/* acceptance.safe.css — v2.3.5-mobile-landscape-fix2
-   - Landscape tune
-   - Engine hand in-flow + reserved space (no overlap)
-   - Horizontal drag enabled (iOS)
-   - Spellweaver chips hidden
-   - Version label moved to separate fixed HUD root (cannot affect layout)
+/* acceptance.safe.css — v2.3.5-mobile-scale-fit
+   - Scales the fixed 1280×720 canvas to fit ANY mobile landscape viewport
+   - Keeps engine hand interactive and in-flow
+   - Hides Spellweaver chips for now
+   - Restores full-board visibility & perfect centering
 */
 
 html, body { margin:0; padding:0; }
-html.mobile-land, html.mobile-land body{
-  height:100%; width:100%; overflow:hidden; background:#f7f5f0; -webkit-text-size-adjust:100%;
-  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; touch-action:manipulation;
+html, body {
+  height:100%; width:100%;
+  background:#f7f5f0;
+  -webkit-text-size-adjust:100%;
+  -webkit-user-select:none; user-select:none;
+  -webkit-touch-callout:none; touch-action:manipulation;
+  overflow:hidden;
 }
 
-/* Scaled game canvas (fixed 1280×720) */
+/* -------- Canvas: fixed logical size, scaled by JS via --tg-scale -------- */
+:root{
+  --tg-scale: 1;                 /* set by JS */
+  --tg-scaled-width: 1280px;     /* set by JS (px value) */
+  --board-h:160px;               /* equal row heights */
+  --af-h:160px;
+  --hand-reserve:88px;           /* keeps hand from overlapping player slots */
+}
+
+/* Center 1280×720; runtime scale is applied via CSS var */
 #app, #app.tg-canvas{
   position:absolute; left:50%; top:50%;
   width:1280px; height:720px;
-  transform:translate(-50%, -50%) scale(1);
+  transform: translate(-50%, -50%) scale(var(--tg-scale));
   transform-origin:50% 50%;
   will-change:transform;
-  contain: layout paint; /* ensure nothing leaks layout-wise */
-}
-
-/* Equal board heights + dials */
-:root{
-  --board-h:160px; --af-h:160px;
-  --hand-reserve:88px;             /* space kept inside YOU board for hand row */
 }
 
 /* Boards */
@@ -50,7 +55,7 @@ html.mobile-land, html.mobile-land body{
 /* TEMP: hide external Spellweaver name/hearts HUD chips completely */
 .tg-board-info { display:none !important; }
 
-/* Zones / slots (compact) */
+/* Zones / slots footprint */
 #app .tg-zone{ display:flex; align-items:center; justify-content:center; gap:8px; padding:8px 8px; width:100%; }
 #app .tg-zone .tg-slot{ flex:0 0 auto; min-height:96px; display:flex; align-items:center; justify-content:center; }
 #app .tg-zone--aetherflow .tg-slot{ min-height:64px; }
@@ -58,7 +63,7 @@ html.mobile-land, html.mobile-land body{
   width:96px; height:136px; border-radius:10px;
 }
 
-/* ---------------- Hand: keep engine DOM in flow, centered, with space ------ */
+/* ---------------- Hand: keep engine DOM in flow, with space reserved ------ */
 #app .board[data-board="YOU"]{ padding-bottom: calc(6px + var(--hand-reserve)); }
 
 #app .board[data-board="YOU"] .hand{
@@ -67,16 +72,18 @@ html.mobile-land, html.mobile-land body{
 }
 
 #app .hand .card{
-  touch-action:none;               /* restore full horizontal drag on iOS */
+  /* Horizontal drag on iOS needs this */
+  touch-action:none;
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change:transform;
 }
 
-/* HUD row */
+/* HUD row uses the scaled canvas width so it stays centered visually */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom:calc(8px + env(safe-area-inset-bottom));
-  width:var(--tg-scaled-width, min(1280px, 100vw));
+  width:var(--tg-scaled-width);
+  max-width:100vw;
   display:flex; align-items:center; justify-content:space-between;
   padding:0 10px; gap:10px; pointer-events:none;
 }
@@ -90,12 +97,11 @@ body::-webkit-scrollbar{ display:none; }
 
 /* -------- Version HUD root (independent fixed layer; no layout impact) ---- */
 #tgHudRoot{
-  position:fixed; inset:0; z-index: 99998; pointer-events:none; /* no input capture */
+  position:fixed; inset:0; z-index: 99998; pointer-events:none;
 }
 #tgVersionTag{
   position:absolute; right:12px; top:8px; z-index: 99999;
   font: 11px/1 monospace; opacity: .55; letter-spacing: .25px;
   background: rgba(255,255,255,.85); padding: 3px 6px; border-radius: 6px;
   box-shadow: 0 1px 6px rgba(0,0,0,.06);
-  pointer-events:none;
 }
