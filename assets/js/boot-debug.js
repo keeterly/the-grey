@@ -1,10 +1,14 @@
-/* boot-debug.js — v2.2.5-mobile-land-lock (MAIN) */
+/* boot-debug.js — v2.2.6-mobile-centered (MAIN)
+   • Enforce mobile compact layout (no toggle)
+   • Remove +AF control and Compact/Mini button if present
+   • Center scale as before; expose scaled width for HUD
+*/
 (function () {
-  window.__THE_GREY_BUILD = 'v2.2.5-mobile-land-lock (main)';
+  window.__THE_GREY_BUILD = 'v2.2.6-mobile-centered (main)';
   window.__BUILD_SOURCE = 'boot-debug.js';
 })();
 
-/* Ensure #app has the canvas class so any legacy .tg-canvas rules apply */
+/* Ensure #app has the canvas class for any legacy rules */
 (function ensureCanvasClass(){
   function run(){ document.getElementById('app')?.classList.add('tg-canvas'); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
@@ -48,7 +52,7 @@
     document.getElementById('tgRotateOverlay')?.classList.remove('show');
     root.classList.add('mobile-land');
 
-    const scale = round2(Math.min(vw / DESIGN_W, vh / DESIGN_H)); // exact fit, <=1
+    const scale = round2(Math.min(vw / DESIGN_W, vh / DESIGN_H)); // exact fit, ≤1
     el.style.width = DESIGN_W + 'px';
     el.style.height = DESIGN_H + 'px';
     el.style.transform = `translate(-50%, -50%) scale(${scale})`;
@@ -60,46 +64,28 @@
   apply();
 })();
 
-/* HUD controls (⇆, +AF) — unchanged */
-(function ensureHudButtons(){
-  const $ = (s)=> document.querySelector(s);
-  const mk = (id, cls, text, title)=>{ const el=document.createElement('div'); el.id=id; el.className=cls; el.textContent=text; el.title=title||''; return el; };
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const left = $('.hud-min .left'); const right = $('.hud-min .right');
-    if (left && !document.getElementById('tgCompactToggle')) left.appendChild(mk('tgCompactToggle','icon btn','⇆','Compact Layout'));
-    if (right && !document.getElementById('tgAFZoom')) right.appendChild(mk('tgAFZoom','icon btn','+AF','Zoom Aetherflow'));
-  }, {once:true});
-})();
+/* Remove +AF and Compact/Mini; enforce compact */
+(function enforceMobilePolicy(){
+  function nuke(id){ const el = document.getElementById(id); if (el) el.remove(); }
+  function run(){
+    // Remove UI controls if they exist
+    nuke('tgAFZoom');       // +AF
+    nuke('tgCompactToggle');// Compact/Mini
 
-/* Compact/Mini + AF Zoom — unchanged */
-(function mobileModes(){
-  const docEl = document.documentElement;
-  const LS_KEY='tgCompactPref';
-  const getPref=()=>{ try{ return localStorage.getItem(LS_KEY)||'off'; }catch(_){ return 'off'; } };
-  const setPref=(v)=>{ try{ localStorage.setItem(LS_KEY,v);}catch(_){ } };
-  const label=(p)=> p==='mini'?'Mini':(p==='off'?'Off':'Auto');
-  function cycle(){ setPref({off:'mini', mini:'auto', auto:'off'}[getPref()]); apply(); }
-  function apply(){
-    const pref=getPref();
-    docEl.classList.toggle('mobile-mini', pref==='mini');
-    docEl.classList.toggle('af-zoom', false);
-    const btn=document.getElementById('tgCompactToggle'); if (btn) btn.setAttribute('data-count', label(pref));
+    // Enforce compact layout classes and clear any zoom flags
+    const root = document.documentElement;
+    root.classList.remove('af-zoom');
+    root.classList.add('mobile-mini'); // force compact visuals if any styles key off it
   }
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const btn=document.getElementById('tgCompactToggle');
-    const af=document.getElementById('tgAFZoom');
-    if (btn) btn.onclick=cycle;
-    if (af) af.onclick=function(){
-      const on=!docEl.classList.contains('af-zoom');
-      docEl.classList.toggle('af-zoom', on);
-      document.querySelector('.aetherflow')?.scrollIntoView({behavior:'smooth', block:'center'});
-    };
-    apply();
-  }, {once:true});
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, {once:true}); else run();
 })();
 
-/* Snap + badge — unchanged */
-(function dropSnap(){ function attach(el){ const obs=new MutationObserver(()=>{ el.querySelectorAll('.card').forEach(c=>{ c.classList.remove('drop-zoom'); void c.offsetWidth; c.classList.add('drop-zoom'); }); }); obs.observe(el,{childList:true,subtree:true}); }
+/* Keep snap + badge helpers as-is */
+(function dropSnap(){
+  function attach(el){
+    const obs = new MutationObserver(()=>{ el.querySelectorAll('.card').forEach(c=>{ c.classList.remove('drop-zoom'); void c.offsetWidth; c.classList.add('drop-zoom'); }); });
+    obs.observe(el, {childList:true, subtree:true});
+  }
   document.addEventListener('DOMContentLoaded', ()=>{ document.querySelectorAll('[data-board] .slots').forEach(attach); }, {once:true});
 })();
 (function ensureBottomCounters(){
@@ -109,6 +95,7 @@
     const endBtn=document.getElementById('btnEnd')||right.lastElementChild;
     if (!document.getElementById('tgTempPill')) right.insertBefore(pill('tgTempPill','🜂'), endBtn);
     if (!document.getElementById('tgChanPill')) right.insertBefore(pill('tgChanPill','◇'), endBtn);
+
     if (!document.getElementById('tgVersion')){
       const v=document.createElement('div'); v.id='tgVersion'; v.className='tgVersion';
       v.textContent='The Grey — '+(window.__THE_GREY_BUILD||'dev')+' ['+(window.__BUILD_SOURCE||'?')+']';
