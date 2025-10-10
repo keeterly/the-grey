@@ -1,63 +1,23 @@
 
-/* acceptance.safe.css — micro: snap zoom + AF zoom override (keeps prior mobile-mini/compact rules) */
-
-/* Ensure previous centering + hand fan remain */
+/* acceptance.safe.css — Board Proportions + Aetherflow River (mobile) */
 .slots{display:flex;gap:10px;justify-content:center;}
 .board .row:not(.head){justify-content:center;}
 .board .hand .card{position:absolute;left:50%;transform-origin:50% 90%;pointer-events:auto;}
 
-/* --- Snap Zoom on Drop --- */
-@keyframes tgSnap {
-  0%   { transform: scale(0.9); box-shadow: 0 0 0 rgba(0,0,0,0); }
-  60%  { transform: scale(1.08); box-shadow: 0 10px 22px rgba(0,0,0,.18); }
-  100% { transform: scale(1.0); box-shadow: 0 6px 16px rgba(0,0,0,.12); }
-}
-.card.drop-zoom { animation: tgSnap 180ms ease-out; }
+html.mobile-mini .slot,
+html.mobile-mini .glyph-slot{ width:112px; height:160px; }
+html.mobile-mini [data-board] .slots .card{ width:112px; height:160px; }
+html.mobile-mini .af-card{ width:112px; height:160px; }
+html.mobile-mini .slots{ gap:8px; }
+html.mobile-mini .aetherflow{ gap:8px; padding:6px; margin:4px auto; }
 
-/* --- Mobile MINI (50%) base (from previous pack, kept) --- */
-html.mobile-mini .aetherflow,
-html.mobile-mini [data-board="AI"] .slots,
-html.mobile-mini [data-board="YOU"] .slots{
-  transform: scale(0.5);
-  transform-origin: top center;
-}
-html.mobile-mini .slots{ gap:6px; }
-html.mobile-mini .aetherflow{ margin:4px auto; }
-
-/* --- AF Zoom override: when user taps +AF, zoom AF larger while keeping others mini --- */
-html.mobile-mini.af-zoom .aetherflow{
-  transform: scale(0.9) !important;
-  position: relative;
-  z-index: 999;
-  transition: transform 120ms ease;
-}
-html.mobile-mini.af-zoom .aetherflow::after{
-  content:'';
-  position:absolute; inset:-6px;
-  border-radius:12px;
-  box-shadow: 0 0 0 2px rgba(255,255,255,.15), 0 12px 28px rgba(0,0,0,.35);
-  pointer-events:none;
-}
-
-/* --- Visible HUD buttons --- */
-#tgCompactToggle.icon.btn{
-  min-width:36px; min-height:28px; line-height:26px; font-weight:600;
-}
-#tgAFZoom.icon.btn{
-  min-width:42px; min-height:28px; line-height:26px; font-weight:700;
-}
-
-/* Rotate overlay (kept) */
-.tg-rotate-overlay{
-  position:fixed; inset:0; background:rgba(0,0,0,.72);
-  color:#fff; display:none; align-items:center; justify-content:center;
-  z-index:1000; text-align:center; padding:24px;
-}
+#tgCompactToggle.icon.btn{ min-width:36px; min-height:28px; line-height:26px; font-weight:600; }
+.tg-rotate-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.72); color:#fff; display:none; align-items:center; justify-content:center; z-index:1000; text-align:center; padding:24px; }
 .tg-rotate-overlay.show{ display:flex; animation: tgFade .18s ease; }
-.tg-rotate-card{
-  background:#121212; border:1px solid rgba(255,255,255,.12);
-  border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45);
-}
+.tg-rotate-card{ background:#121212; border:1px solid rgba(255,255,255,.12); border-radius:16px; padding:18px 20px; max-width:360px; box-shadow:0 12px 36px rgba(0,0,0,.45); }
 .tg-rotate-title{ font-size:18px; font-weight:700; margin-bottom:8px; }
 .tg-rotate-sub{ font-size:13px; opacity:.85; }
 @keyframes tgFade{ from{opacity:0} to{opacity:1} }
+
+@keyframes tgSnap { 0%{ transform: scale(0.94);} 60%{ transform: scale(1.06);} 100%{ transform: scale(1.0);} }
+.card.drop-zoom { animation: tgSnap 160ms ease-out; }
