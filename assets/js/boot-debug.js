@@ -1,6 +1,6 @@
-/* boot-debug.js — v2.2.3-mobile-land-tune (MAIN) */
+/* boot-debug.js — v2.2.4-mobile-land-final (MAIN) */
 (function () {
-  window.__THE_GREY_BUILD = 'v2.2.3-mobile-land-tune (main)';
+  window.__THE_GREY_BUILD = 'v2.2.4-mobile-land-final (main)';
   window.__BUILD_SOURCE = 'boot-debug.js';
 })();
 
@@ -18,15 +18,17 @@
   document.addEventListener('DOMContentLoaded', ()=> document.body.appendChild(ov), {once:true});
 })();
 
-/* Fit 1280×720 canvas; expose scaled width for HUD */
+/* Scale 1280×720 to fit; expose scaled width for HUD */
 (function fitToScreen(){
   const DESIGN_W = 1280, DESIGN_H = 720;
   const root = document.documentElement;
+
   const round2 = (n)=> Math.round(n*100)/100;
   const isPortrait = ()=> window.innerHeight > window.innerWidth;
 
   function apply(){
     const el = document.getElementById('app'); if (!el) return;
+
     const vw = window.innerWidth, vh = window.innerHeight;
 
     if (isPortrait()){
@@ -42,8 +44,11 @@
     document.getElementById('tgRotateOverlay')?.classList.remove('show');
     root.classList.add('mobile-land');
 
-    const margin = 0.98; // 2% breathing room to avoid edge contact
-    const scale = round2(Math.min(vw / DESIGN_W, vh / DESIGN_H) * margin);
+    // Exact-fit scaling (no extra margin), but never exceed 1:1
+    const scaleW = vw / DESIGN_W;
+    const scaleH = vh / DESIGN_H;
+    const scale  = round2(Math.min(scaleW, scaleH, 1));
+
     el.style.width = DESIGN_W + 'px';
     el.style.height = DESIGN_H + 'px';
     el.style.transform = `translate(-50%, -50%) scale(${scale})`;
@@ -87,7 +92,11 @@
     const btn=document.getElementById('tgCompactToggle');
     const af=document.getElementById('tgAFZoom');
     if (btn) btn.onclick=cycle;
-    if (af) af.onclick=function(){ const on=!docEl.classList.contains('af-zoom'); docEl.classList.toggle('af-zoom', on); document.querySelector('.aetherflow')?.scrollIntoView({behavior:'smooth', block:'center'}); };
+    if (af) af.onclick=function(){
+      const on=!docEl.classList.contains('af-zoom');
+      docEl.classList.toggle('af-zoom', on);
+      document.querySelector('.aetherflow')?.scrollIntoView({behavior:'smooth', block:'center'});
+    };
     apply();
   }, {once:true});
 })();
