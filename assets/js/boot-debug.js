@@ -1,118 +1,213 @@
-/* The Grey — boot-debug.js (r5)
-   - Scales 1280×720 canvas to viewport (desktop + mobile landscape)
-   - Toggles .mobile-land on small landscape devices (if you want special rules)
-   - Installs press & hold preview for HAND cards only
-   - Injects a version tag
-   - iOS Safari reflow guards (visualViewport, bfcache, timed nudges)
+/* The Grey — Mobile/Desktop layout bootstrap (v2.3.5 mobile sync)
+   - Centers slot rows and preserves a 1280x720 stage with responsive scale
+   - HUD hand overlay layer (non-clipping, above board)
+   - Places Deck next to End Turn on the right
+   - Press & Hold preview (touch + mouse)
+   - Defensive (won’t break if selectors change)
 */
+
 (() => {
-  const on = (t,k,f,o)=> t && t.addEventListener && t.addEventListener(k,f,o||false);
-  const qs = (s,r=document)=> r.querySelector(s);
-  const BASE_W = 1280, BASE_H = 720;
+  const STAGE_W = 1280;
+  const STAGE_H = 720;
+  const HOLD_MS = 260; // long-press threshold
 
-  function computeScale(){
-    const vw = window.innerWidth, vh = window.innerHeight;
-    const s  = Math.min(vw/BASE_W, vh/BASE_H);
-    return Math.max(0.1, Math.min(s*0.995, 2));
-  }
-  function applyScaleVars(){
-    const s = computeScale();
-    const st = document.documentElement.style;
-    st.setProperty('--tg-scale', String(s));
-    st.setProperty('--tg-base-w', BASE_W);
-    st.setProperty('--tg-base-h', BASE_H);
-  }
-  function applyMobileFlag(){
-    const w = window.innerWidth, h = window.innerHeight;
-    const smallLandscape = (w >= h) && Math.min(w,h) <= 900;
-    document.documentElement.classList.toggle('mobile-land', smallLandscape);
-  }
-  function applyLayout(){ applyMobileFlag(); applyScaleVars(); }
+  let stage, scaleWrap, hud, handRow, ctl, preview;
+  let holdTimer = null;
+  let heldCard = null;
 
-  function ensureVersionTag(){
-    let hud = qs('#tgHudRoot');
-    if(!hud){
-      hud = document.createElement('div');
-      hud.id = 'tgHudRoot';
-      hud.style.position='fixed';
-      hud.style.inset='0';
-      hud.style.zIndex='99998';
-      hud.style.pointerEvents='none';
-      document.body.appendChild(hud);
+  // ————— Utilities
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  // scale to fit (keeping 16:9), accounting for HUD
+  function applyScale() {
+    if (!scaleWrap || !stage) return;
+    const hudH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hud-h')) || 180;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight - hudH;
+    const sx = vw / STAGE_W;
+    const sy = vh / STAGE_H;
+    const s = Math.min(sx, sy);
+
+    stage.style.transform = `scale(${s})`;
+  }
+
+  // To avoid fighting your main render, wrap once when #app gets content
+  function ensureScaleFrame() {
+    const mount = $('#app');
+    if (!mount) return;
+
+    if (!$('.tg-scale')) {
+      scaleWrap = document.createElement('div');
+      scaleWrap.className = 'tg-scale';
+
+      stage = document.createElement('div');
+      stage.className = 'tg-stage';
+
+      // move any existing children of #app into stage
+      while (mount.firstChild) stage.appendChild(mount.firstChild);
+      mount.appendChild(scaleWrap);
+      scaleWrap.appendChild(stage);
     }
-    let tag = qs('#tgVersionTag');
-    if(!tag){
-      tag = document.createElement('div');
-      tag.id = 'tgVersionTag';
-      tag.style.cssText = `
-        position:absolute; right:12px; top:8px; z-index:99999;
-        font:11px/1 monospace; opacity:.55; background:rgba(255,255,255,.85);
-        padding:3px 6px; border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,.06)
-      `;
-      hud.appendChild(tag);
-    }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.9-acceptanceP1-safe-v13');
+    applyScale();
   }
 
-  /* Press & hold preview: only for hand cards (#app .hand .card) */
-  function installPressPreview(){
-    const DELAY = 220, CANCEL = 8;
-    let timer = null, active = null, sx=0, sy=0;
+  // HUD overlay with a “hand row” container and a right-side control cluster
+  function ensureHud() {
+    if ($('.tg-hud')) return;
 
-    on(document,'pointerdown',(e)=>{
-      const card = e.target?.closest?.('#app .hand .card');
-      if(!card) return;
-      sx = e.clientX; sy = e.clientY;
-      timer = setTimeout(()=>{
-        active = card;
-        card.classList.add('magnify','magnify-hand');
-      }, DELAY);
-    }, {passive:true});
+    hud = document.createElement('div');
+    hud.className = 'tg-hud';
 
-    const clear = ()=>{
-      if(timer){ clearTimeout(timer); timer=null; }
-      if(active){ active.classList.remove('magnify','magnify-hand'); active=null; }
-    };
+    handRow = document.createElement('div');
+    handRow.className = 'tg-hand-row';
+    hud.appendChild(handRow);
 
-    on(document,'pointermove',(e)=>{
-      if(!timer && !active) return;
-      if(Math.hypot(e.clientX - sx, e.clientY - sy) > CANCEL) clear();
-    }, {passive:true});
+    document.body.appendChild(hud);
 
-    ['pointerup','pointercancel','pointerleave','visibilitychange','blur'].forEach(ev=>{
-      on(document, ev, clear, {passive:true});
-      on(window,   ev, clear, {passive:true});
+    // Controls cluster (End Turn + Deck)
+    ctl = document.createElement('div');
+    ctl.className = 'tg-ctl';
+    document.body.appendChild(ctl);
+
+    // try to graft your existing controls into the cluster (non-breaking)
+    const endTurn = $('[data-btn="endturn"], .endturn, button[aria-label="End Turn"]');
+    if (endTurn) ctl.appendChild(endTurn);
+
+    const deck = $('[data-btn="deck"], .deck, button[aria-label="Deck"], .tg-deck');
+    if (deck) ctl.appendChild(deck);
+
+    // Version tag (optional)
+    const version = window.__THE_GREY_BUILD;
+    if (version && !$('.tg-version')) {
+      const tag = document.createElement('div');
+      tag.className = 'tg-version';
+      tag.textContent = version;
+      document.body.appendChild(tag);
+    }
+  }
+
+  // Try to mirror whatever your game uses as the live “hand” source
+  function syncHandIntoHud() {
+    if (!handRow) return;
+
+    // pick first that exists: .hand, [data-hand], or bottom-most row of cards
+    let src =
+      $('.hand') ||
+      $('[data-hand="you"]') ||
+      (function findBottomRow() {
+        const rows = $$('.row');
+        if (!rows.length) return null;
+        // choose the one visually lowest on screen
+        return rows.slice().sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).pop();
+      })();
+
+    if (!src) return;
+
+    // Grab card nodes (don’t clone deeply to preserve events)
+    const cards = $$('.card', src);
+    // Soft re-render: clear, then append lightweight mirrors
+    handRow.textContent = '';
+    cards.forEach(card => {
+      const ph = document.createElement('div');
+      ph.className = 'card';
+      ph.style.width = getComputedStyle(card).width;
+      ph.style.height = getComputedStyle(card).height;
+      // visually mirror (title/ribbon). If your DOM has richer inner HTML, copy safely:
+      ph.innerHTML = card.innerHTML;
+      // mark so drags don’t interfere with source
+      ph.dataset.mirror = 'hand';
+      handRow.appendChild(ph);
     });
   }
 
-  function boot(){
-    ensureVersionTag();
-    installPressPreview();
-    applyLayout();
-
-    ['resize','orientationchange','visibilitychange'].forEach(ev =>
-      on(window, ev, applyLayout, { passive:true })
-    );
-    if(window.visualViewport){
-      ['resize','scroll'].forEach(ev =>
-        on(window.visualViewport, ev, applyLayout, { passive:true })
-      );
-    }
-    on(window,'pageshow',(e)=>{ if(e.persisted) applyLayout(); }, {passive:true});
-
-    setTimeout(applyLayout, 0);
-    setTimeout(applyLayout, 300);
-    setTimeout(applyLayout, 800);
-
-    // nudge app-side sync if present
-    requestAnimationFrame(()=>{ try{
-      (window.tgSyncAll || window.syncAll || window.__syncAll || (()=>{}))();
-    }catch{} });
+  // Press & hold preview
+  function ensurePreview() {
+    if (preview) return;
+    preview = document.createElement('div');
+    preview.className = 'tg-preview';
+    preview.style.display = 'none';
+    document.body.appendChild(preview);
   }
 
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', boot, {once:true});
-  }else{
-    boot();
+  function showPreview(fromCard) {
+    ensurePreview();
+    document.documentElement.classList.add('tg-no-select');
+    preview.innerHTML = '';
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = fromCard.innerHTML;
+    preview.appendChild(c);
+    preview.style.display = 'grid';
+    requestAnimationFrame(() => preview.classList.add('show'));
+  }
+
+  function hidePreview() {
+    document.documentElement.classList.remove('tg-no-select');
+    if (!preview) return;
+    preview.classList.remove('show');
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+  }
+
+  function startHold(e) {
+    const target = e.target.closest('.card');
+    if (!target) return;
+    clearTimeout(holdTimer);
+    heldCard = target;
+    holdTimer = setTimeout(() => {
+      showPreview(heldCard);
+    }, HOLD_MS);
+  }
+  function endHold() {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    if (preview) hidePreview();
+  }
+
+  // Observe for DOM changes so we can keep the HUD hand mirrored & rows centered
+  function observe() {
+    const mo = new MutationObserver(() => {
+      // ensure wrappers exist
+      ensureScaleFrame();
+      ensureHud();
+      // keep hand mirrored
+      syncHandIntoHud();
+      // rows centering: in case classes are added late
+      $$('.row').forEach(r => {
+        r.style.justifyContent = 'center';
+        r.style.gap = '16px';
+      });
+    });
+    mo.observe(document.body, { subtree: true, childList: true, attributes: false });
+  }
+
+  // Wire events
+  function wire() {
+    window.addEventListener('resize', applyScale, { passive: true });
+    document.addEventListener('scroll', applyScale, { passive: true });
+
+    // long-press handlers (work for both main board and mirrored hand)
+    document.addEventListener('touchstart', startHold, { passive: true });
+    document.addEventListener('mousedown', startHold);
+    ['touchend', 'touchcancel', 'mouseup', 'mouseleave', 'blur'].forEach(ev =>
+      document.addEventListener(ev, endHold, { passive: true })
+    );
+  }
+
+  // Init when DOM is ready; if your core emits a custom event (e.g., game ready),
+  // this still works because we continuously observe.
+  function init() {
+    ensureScaleFrame();
+    ensureHud();
+    observe();
+    wire();
+    applyScale();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
   }
 })();
