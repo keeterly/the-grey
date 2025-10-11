@@ -1,303 +1,276 @@
-/* ==========================================================================
-   The Grey — acceptance.safe.css (r7)
-   - Full layout + interaction pass
-   - Centered slot rows for AI & YOU
-   - Enlarged hand reserve (fits all cards)
-   - Matching AF / board card sizes
-   - Press-and-hold preview, smooth drag
-   ========================================================================== */
+/* ============= THE GREY — CORE LAYOUT (desktop + mobile landscape) ============= */
 
-/* ---------- base / viewport ---------- */
+/* ---- CSS variables ---- */
+:root {
+  /* Stage dimensions */
+  --tg-base-w: 1280;
+  --tg-base-h: 720;
 
+  /* Card + spacing */
+  --card-w: 180px;
+  --card-h: 260px;
+  --slot-w: 180px;
+  --slot-h: 260px;
+
+  --row-gap: 36px;
+  --slot-gap: 32px;
+  --hand-gap: 18px;
+
+  /* Z-layers */
+  --z-slots: 1;
+  --z-board-cards: 2;
+  --z-hand: 3;
+  --z-hud: 4;
+
+  --bg-cream: #f7f5f0;
+  --ink: #443d35;
+  --ink-weak: #7e7265;
+
+  --slot-border: #e6ded2;
+  --slot-dash: #d9cdbf;
+
+  --card-bg: #fffdfa;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, .08);
+
+  --chip-bg: #ede6db;
+  --chip-active: #f6efe6;
+}
+
+/* ---- Global Reset-ish ---- */
 html, body {
   margin: 0;
   padding: 0;
-  background: #f7f5f0;
-  -webkit-text-size-adjust: 100%;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-  touch-action: manipulation;
   height: 100%;
   width: 100%;
+  -webkit-text-size-adjust: 100%;
+  user-select: none;
+  touch-action: manipulation;
   overflow: hidden;
+  background: linear-gradient(#f7f5f0, #eee6d9);
+  color: var(--ink);
+  font: 14px/1.5 "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
 
-:root {
-  --tg-base-w: 1280;
-  --tg-base-h: 720;
-  --tg-scale: 1;
-
-  /* rhythm + spacing */
-  --row-gap: clamp(32px, 5.5vh, 56px);
-  --edge-pad: clamp(6px, 1.2vh, 12px);
-
-  /* larger hand reserve (keeps YOU hand in frame) */
-  --hand-reserve: clamp(180px, 26vh, 280px);
-
-  /* card + slot sizes */
-  --card-w: 140px;
-  --card-h: 200px;
-  --slot-w: 150px;
-  --slot-h: 210px;
-}
-
-@media (max-width: 900px) {
-  :root {
-    --row-gap: clamp(44px, 9vh, 72px);
-    --hand-reserve: clamp(160px, 22vh, 240px);
-    --card-w: 126px;
-    --card-h: 186px;
-    --slot-w: 132px;
-    --slot-h: 190px;
-  }
-}
-
-/* ---------- app canvas ---------- */
-
+/* ---- Stage scaling container ---- */
 #app {
   position: fixed;
   left: 50%;
   top: 50%;
   width: calc(var(--tg-base-w) * 1px);
   height: calc(var(--tg-base-h) * 1px);
-  transform: translate(-50%, -50%) scale(var(--tg-scale));
-  transform-origin: 50% 50%;
-  will-change: transform;
-  contain: layout paint;
-  overflow: visible;
-  padding-top: var(--edge-pad);
-  padding-bottom: var(--edge-pad);
-  pointer-events: auto;
+  transform: translate(-50%, -50%);
+  /* scale is set by mobile.css, but desktop fits naturally; no overflow */
 }
 
-/* ---------- boards ---------- */
-
-.board {
+.container {
   position: relative;
   width: 100%;
-  height: auto;
-  margin-block: var(--row-gap);
+  height: 100%;
+  padding: 20px 28px 24px;
+  box-sizing: border-box;
 }
 
-/* head row */
-.board .row.head {
+/* ---- Boards: AI top / YOU bottom ---- */
+.board {
+  width: 100%;
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* compact header row (weaver + chips + hearts) */
+.row-head {
+  display: flex;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  width: 880px;
+  max-width: 92%;
+  margin: 4px 0 6px;
+  gap: 8px;
+}
+
+.row-head .weaver {
+  font-weight: 600;
+  color: var(--ink-weak);
+}
+
+/* trance chips */
+.trances {
+  display: flex;
   gap: 6px;
 }
+.trance-chip {
+  background: var(--chip-bg);
+  border-radius: 10px;
+  padding: 3px 8px;
+  font-size: 12px;
+  color: var(--ink-weak);
+}
+.trance-chip.active { background: var(--chip-active); }
 
-/* non-head rows */
-.board .row:not(.head) {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(10px, 1.6vmin, 18px);
-  width: 100%;
+/* hearts */
+.hearts { display: flex; gap: 4px; }
+.heart {
+  width: 14px; height: 12px; border-radius: 50% 50% 0 0;
+  background: #e1d3c6; position: relative; transform: rotate(-45deg);
+}
+.heart::after, .heart::before {
+  content: ""; position: absolute; width: 14px; height: 12px; border-radius: 50%;
+  background: inherit;
+}
+.heart::before { top: -7px; left: 0; }
+.heart::after { top: 0; left: 7px; }
+.heart.on { background: #e86d6b; }
+
+/* ---- Slots row ---- */
+.slots {
+  display: grid;
+  grid-template-columns: repeat(4, var(--slot-w));
+  grid-auto-rows: var(--slot-h);
+  gap: var(--slot-gap);
+  place-items: center;
+  margin: 8px 0 var(--row-gap);
 }
 
-/* slots wrapper (for AF + others) */
-.board .row > .slots {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(10px, 1.6vmin, 18px);
-  width: 100%;
-}
-
-/* AI board */
-.board[data-board="AI"] {
-  margin-bottom: var(--row-gap);
-}
-
-/* YOU board — ensure visible hand space */
-.board[data-board="YOU"] {
-  margin-top: var(--row-gap);
-  padding-bottom: calc(20px + var(--hand-reserve));
-}
-
-/* Keep YOU slots tall enough */
-.board[data-board="YOU"] .row:not(.head) {
-  min-height: calc(var(--slot-h) + 10px);
-}
-
-/* Hide old labels + headers (optional aesthetic) */
-.af-title,
-.board .name,
-.board .hearts,
-.board .traits,
-.board .badges {
-  display: none !important;
-}
-
-/* ---------- slots & aetherflow ---------- */
-
-.slot,
-.glyph-slot {
-  box-sizing: border-box;
+.slot {
   width: var(--slot-w);
   height: var(--slot-h);
   border-radius: 16px;
-  border: 2px dashed rgba(0, 0, 0, 0.14);
-  background: rgba(255, 255, 255, 0.55);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #8b7f70;
-  font: 14px/1.1 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
-    Helvetica, Arial;
+  border: 2px dashed var(--slot-dash);
+  color: #c9bba9;
+  display: grid;
+  place-items: center;
+  background: #fffdfb;
+  box-shadow: inset 0 0 0 1px var(--slot-border);
+  z-index: var(--z-slots);
 }
 
-.aetherflow {
-  margin-block: var(--row-gap);
-}
-
-.af-cards {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: clamp(10px, 1.6vmin, 18px);
-}
-
-/* AF cards = board cards */
-.af-card {
+/* ---- Cards (shared: in slots, in aetherflow, etc.) ---- */
+.card {
   width: var(--card-w);
   height: var(--card-h);
-  box-sizing: border-box;
-  border-radius: 16px;
-  background: #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
-  padding: 10px 10px 14px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  will-change: transform;
-}
-
-/* ---------- hand layer ---------- */
-
-.board[data-board="YOU"] .hand {
+  background: var(--card-bg);
+  border-radius: 15px;
+  box-shadow: var(--card-shadow);
   position: relative;
-  z-index: 30000;
-  display: flex;
-  justify-content: center;
-  gap: 0;
-  pointer-events: auto;
-  padding-top: 16px;
+  overflow: hidden;
+  z-index: var(--z-board-cards);
+  transform-origin: 50% 100%;
+  transition: transform .18s ease, box-shadow .18s ease, filter .18s ease;
 }
 
-.hand .card {
-  touch-action: none;
-  cursor: grab;
-  transition: transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    box-shadow 200ms ease;
-  will-change: transform;
+.card .badge {
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  font-weight: 600;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef0f5;
+}
+.badge.spell { background: #e9f6ef; color: #2a7f57; }
+.badge.instant { background: #ecebff; color: #5a55b3; }
+.badge.glyph { background: #ffeae0; color: #8d4d2e; }
+
+.card .title {
+  position: absolute;
+  left: 16px; right: 16px; top: 44px;
+  font-weight: 700; font-size: 16px;
 }
 
-/* drag state */
-.card.is-dragging {
-  position: fixed !important;
-  z-index: 35000 !important;
-  pointer-events: none !important;
+.card .cost {
+  position: absolute;
+  right: 12px; bottom: 10px;
+  font-weight: 700;
+  color: #d1a54a;
 }
 
-/* press-and-hold preview (magnify) */
-.card.magnify {
-  transform: scale(2) !important;
-  z-index: 36000 !important;
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32) !important;
-  pointer-events: none !important;
-}
-.hand .card.magnify-hand {
-  transform: translateY(-72px) scale(2) !important;
+/* Press-and-hold preview behaviour */
+.card.preview {
+  transform: scale(1.18) translateY(-10px);
+  box-shadow: 0 10px 40px rgba(0,0,0,.22);
+  z-index: calc(var(--z-hand) + 1);
 }
 
-/* ---------- HUD ---------- */
-
-.hud-min {
-  position: fixed;
+/* ---- Hand (overlay) ---- */
+.hand {
+  position: absolute;
+  bottom: 78px;
   left: 50%;
   transform: translateX(-50%);
-  bottom: calc(12px + env(safe-area-inset-bottom));
-  width: calc(var(--tg-base-w) * 1px * var(--tg-scale));
-  max-width: 100vw;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 10px;
-  pointer-events: none;
-  z-index: 15000;
-}
-.hud-min .left,
-.hud-min .right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+  gap: var(--hand-gap);
+  align-items: flex-end;
+  z-index: var(--z-hand);
   pointer-events: auto;
 }
 
-/* hide old lightning bolt icon (replaced by deck) */
-#aetherWell,
-.hud-min .bolt,
-[data-hud="energy"] {
-  display: none !important;
+[data-board="YOU"] .hand .card {
+  position: relative;
+  transform: translate(-50%, 0) rotate(0deg);
+  left: 50%;
 }
 
-/* deck button */
-#deckIcon,
-[data-role="deck-btn"] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 36px;
-  min-width: 48px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
-  font: 700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  letter-spacing: 0.3px;
+/* drag helpers (wireHandDrag uses classes like .dragging) */
+.card.dragging {
+  filter: drop-shadow(0 12px 28px rgba(0,0,0,.3));
+  transform: scale(1.06) !important;
+  z-index: calc(var(--z-hand) + 2);
 }
 
-/* ---------- version tag ---------- */
-
-#tgHudRoot {
-  position: fixed;
-  inset: 0;
-  z-index: 99998;
-  pointer-events: none;
-}
-
-#tgVersionTag {
+/* ---- HUD (End Turn / Deck / Undo) ---- */
+.hud {
   position: absolute;
-  right: 12px;
-  top: 8px;
-  z-index: 99999;
-  font: 11px/1 monospace;
-  opacity: 0.55;
-  background: rgba(255, 255, 255, 0.85);
-  padding: 3px 6px;
-  border-radius: 6px;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.06);
+  right: 28px;
+  bottom: 22px;
+  display: flex;
+  gap: 10px;
+  z-index: var(--z-hud);
 }
 
-/* ---------- overlay safety ---------- */
+.hud-btn {
+  min-width: 52px;
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid #e3d9cc;
+  border-radius: 12px;
+  background: #fffaf3;
+  color: var(--ink);
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.hud-btn:active { transform: translateY(1px); }
 
-#overlay,
-.overlay {
+/* ---- Aether display ---- */
+#aetherDisplay {
+  position: absolute;
+  right: 170px;        /* leaves room for HUD buttons on the far right */
+  bottom: 30px;
+  display: flex;
+  gap: 6px;
+  height: 20px;
+  align-items: center;
+  z-index: var(--z-hud);
+}
+.aether {
+  width: 16px; height: 16px; border-radius: 4px; background: #e9e1d6; box-shadow: inset 0 0 0 1px #d7c9b8;
+}
+.aether.blue { background: #9cd2ff; box-shadow: inset 0 0 0 1px #67b6ff; }
+.aether.red  { background: #ff9aa3; box-shadow: inset 0 0 0 1px #ff6b79; }
+
+/* ---- Version tag (top-right) ---- */
+body::after {
+  content: attr(data-build);
   position: fixed;
-  inset: 0;
-  display: none;
-  pointer-events: none;
-  z-index: 1000;
-  background: rgba(0, 0, 0, 0);
+  right: 14px; top: 10px;
+  padding: 4px 10px;
+  font-size: 12px; color: #7f7568;
+  background: #f1eadf;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.05);
 }
-#overlay.is-open,
-.overlay.is-open {
-  display: block;
-  pointer-events: auto;
-  background: rgba(0, 0, 0, 0.35);
-}
+
+/* (Optional) hide big "Aetherflow" text if it exists in content */
+.aetherflow-label { display: none !important; }
