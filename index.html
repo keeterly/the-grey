@@ -6,43 +6,65 @@
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Your base styles first (keep existing), then the safe overlay CSS -->
-  <link rel="stylesheet" href="./src/styles/cards.css" />
+  <!-- Load your base stylesheet where it actually lives (Network shows `cards.css`) -->
+  <link rel="stylesheet" href="./cards.css" />
+  <!-- Layout overlay / mobile-unified fixes -->
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
 </head>
 <body>
   <!-- Scaled 1280×720 canvas root -->
   <div id="app"></div>
 
-  <!-- Minimal HUD so index.js can find the IDs it binds to -->
-  <!-- Left cluster (discard) -->
+  <!-- Minimal HUD so game code can bind by ID (prevents null.onclick crashes) -->
   <div class="hud-min" id="hudRoot">
     <div class="left">
-      <!-- discard button (ID used by many builds) -->
       <button class="icon btn" id="discardIcon" title="Discard">⌫</button>
     </div>
-
     <div class="right">
-      <!-- end turn (your code usually binds onclick to this ID) -->
       <button class="icon btn" id="btnEnd"   title="End Turn">⏵</button>
-      <!-- deck button next to End Turn per your request -->
       <button class="icon btn" id="deckIcon" title="Deck">DECK</button>
     </div>
   </div>
 
-  <!-- Optional: if your code expects these, leave them hidden but present. -->
-  <button id="btnUndo"   style="display:none"></button>
-  <button id="btnReset"  style="display:none"></button>
-  <div    id="overlay"   class="overlay" style="display:none"></div>
+  <!-- Optional stubs if your bundle expects them -->
+  <button id="btnUndo"  style="display:none"></button>
+  <button id="btnReset" style="display:none"></button>
+  <div id="overlay" class="overlay" style="display:none"></div>
 
   <script>
-    /* Build label that the boot script shows top-right */
+    /* Build label shown by boot script */
     window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
   </script>
 
-  <!-- IMPORTANT: this MUST point to your actual game bundle. 
-       In your screenshot the error came from /index.js, so we use that. -->
-  <script type="module" src="./index.js"></script>
+  <!-- 🔧 Dynamic bundle loader: tries common locations and loads the first that exists -->
+  <script>
+  (async () => {
+    const candidates = [
+      "./index.js",
+      "./assets/js/main.js",
+      "./assets/js/index.js",
+      "./src/ui/index.js"
+    ];
+    for (const url of candidates) {
+      try {
+        const res = await fetch(url, { method: "HEAD", cache: "no-store" });
+        if (res.ok) {
+          const s = document.createElement("script");
+          s.type = "module";
+          s.src = url;
+          document.head.appendChild(s);
+          return;
+        }
+      } catch {}
+    }
+    console.error("No game bundle found. Tried:", candidates);
+    // Optional: show a small on-screen hint for debugging
+    const hint = document.createElement("div");
+    hint.style.cssText = "position:fixed;left:12px;bottom:12px;background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12);font:12px/1.4 system-ui;";
+    hint.textContent = "Game bundle not found (check bundle path in index.html).";
+    document.body.appendChild(hint);
+  })();
+  </script>
 
   <!-- Layout bootstrap (scaling, press-and-hold, Safari guards) -->
   <script src="./assets/js/boot-debug.js" defer></script>
