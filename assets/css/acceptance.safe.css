@@ -1,11 +1,11 @@
-/* acceptance.safe.css — v2.3.5-mobile-unified-fit+anim6
-   - 1280×720 board, centered; scale fits any mobile landscape
-   - Boards chrome removed (slots kept), adaptive row spacing
-   - Hand space reserved; no overlap with player slots
-   - Press & Hold preview
+/* acceptance.safe.css — v2.3.5-mobile-unified-fit+anim7
+   - 1280×720 board centered; scale fits all mobile landscape sizes
+   - Board chrome removed (slots kept), adaptive row spacing
+   - Hand has reserved space; no overlap with player row
+   - HUD lane centered to scaled canvas width
    - Deck sits to the right (next to End Turn); Discard on the left
-   - Bolt HUD hidden; optional Aether dots block
-   - Robust fly clones (with boot-debug.js)
+   - Bolt HUD hidden; optional aether dots
+   - Robust fly clones (paired with boot-debug.js)
 */
 
 html, body { margin:0; padding:0; }
@@ -19,21 +19,21 @@ html.mobile-land, html.mobile-land body{
   touch-action:manipulation;
 }
 
-/* Canvas sizing (actual scale is set by JS via --tg-scale) */
+/* Canvas sizing (JS writes --tg-scale) */
 :root{
   --tg-base-w:1280;
   --tg-base-h:720;
   --tg-scale: 1;
 
   /* Adaptive spacing */
-  --row-gap: max(3.5vh, 24px);      /* breathing room between rows */
-  --hand-reserve: max(10vh, 96px);  /* keep hand from overlapping YOU row */
+  --row-gap: max(5vh, 28px);          /* vertical gap between AI / AF / YOU */
+  --hand-reserve: max(12vh, 110px);   /* space for the hand fan */
 
   /* Animations */
   --anim-fly-ms: 260ms;
 }
 
-/* Center + scale the game board */
+/* Center + scale the board */
 #app{
   position:absolute; left:50%; top:50%;
   width:calc(var(--tg-base-w)*1px);
@@ -42,9 +42,10 @@ html.mobile-land, html.mobile-land body{
   transform-origin:50% 50%;
   will-change: transform;
   contain: layout paint;
+  overflow: visible; /* keep fly animations and hand visible */
 }
 
-/* Keep slots, drop board chrome */
+/* Keep slots, remove board chrome */
 #app .board,
 #app .aetherflow{
   background:transparent!important;
@@ -60,7 +61,7 @@ html.mobile-land, html.mobile-land body{
   padding-bottom: calc(6px + var(--hand-reserve));
 }
 
-/* Hide headers / chips that nudge centering */
+/* Hide headers/chips/titles that disturb centering */
 #app .board .title,
 #app .board .name,
 #app .board .traits,
@@ -69,11 +70,9 @@ html.mobile-land, html.mobile-land body{
 #app .row.head,
 #app .trances,
 #app .aetherflow .af-title,
-#app [data-label="Aetherflow"]{
-  display:none!important;
-}
+#app [data-label="Aetherflow"]{ display:none!important; }
 
-/* Slots remain compact */
+/* Slots stay compact; spacing handled by rows */
 #app .tg-zone{
   display:flex; align-items:center; justify-content:center;
   gap:8px; padding:8px 8px; width:100%;
@@ -84,17 +83,15 @@ html.mobile-land, html.mobile-land body{
 }
 #app .slot, #app .glyph-slot{ width:96px; height:136px; border-radius:10px; }
 
-/* Hand: in-flow + horizontal drag allowed */
-#app .board[data-board="YOU"] .hand{
-  position:relative; width:auto; height:auto;
-}
+/* Hand stays in flow; allow horizontal drag */
+#app .board[data-board="YOU"] .hand{ position:relative; width:auto; height:auto; }
 #app .hand .card{
   touch-action:none;
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change: transform;
 }
 
-/* Press & Hold preview for readability */
+/* Press & Hold preview */
 .card.magnify{
   transform: scale(2) !important;
   z-index: 10000 !important;
@@ -103,7 +100,7 @@ html.mobile-land, html.mobile-land body{
 }
 #app .hand .card.magnify-hand{ transform: translateY(-72px) scale(2) !important; }
 
-/* HUD lane pinned to scaled board width */
+/* HUD lane (centered to scaled canvas width) */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom: calc(12px + env(safe-area-inset-bottom));
@@ -116,23 +113,19 @@ html.mobile-land, html.mobile-land body{
   display:flex; align-items:center; gap:10px; pointer-events:auto;
 }
 
-/* Hide old bolt/energy HUD */
-#aetherWell,
-.hud-min .bolt,
-[data-hud="energy"],
-.hud-min .toggle,
-.hud-min .switch{ display:none!important; }
+/* Hide old bolt/energy HUD + stray toggles */
+#aetherWell, .hud-min .bolt, [data-hud="energy"], .hud-min .toggle, .hud-min .switch{ display:none!important; }
 
-/* Deck button look (we adopt existing #deckIcon or create one) */
+/* Deck button look (we adopt #deckIcon or create a fallback) */
 #deckIcon, [data-role="deck-btn"]{
   display:inline-flex; align-items:center; justify-content:center;
-  height:36px; min-width:44px; padding:0 10px;
+  height:36px; min-width:48px; padding:0 12px;
   border-radius:10px; background:#fff; box-shadow:0 2px 10px rgba(0,0,0,.12);
   font:700 12px/1 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
   letter-spacing:.3px;
 }
 
-/* Optional Aether dots HUD (inserted by JS) */
+/* Optional Aether dots (inserted by JS) */
 #tgAetherHUD{
   display:inline-flex; align-items:center; gap:6px;
   padding:6px 8px; background:rgba(255,255,255,.9);
@@ -140,10 +133,10 @@ html.mobile-land, html.mobile-land body{
 }
 #tgAetherHUD .dots{ display:inline-flex; gap:4px; }
 .aether-dot{ width:10px; height:10px; border-radius:50%; box-shadow:0 1px 3px rgba(0,0,0,.15); }
-.aether-dot.blue{ background:#2a7de1; }  /* regular */
-.aether-dot.red { background:#e14c49; }  /* temporary */
+.aether-dot.blue{ background:#2a7de1; } /* regular */
+.aether-dot.red { background:#e14c49; } /* temporary */
 
-/* Fly clones used for draw/discard animations */
+/* Fly clones (draw/discard) */
 .tg-fly{
   position:fixed; top:0; left:0;
   transform: translate3d(0,0,0) scale(1);
