@@ -85,23 +85,46 @@ body.theme-dark.parchment::after{
 }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
-.hand-wrap{position:relative}
-.hand{position:relative;height:38vh;min-height:260px}
+/* ---------- Hand: centered & fanned (MTG Arena style) ---------- */
+.hand-wrap{
+  position:fixed; left:0; right:0; bottom:0;
+  height:32vh; pointer-events:none; /* overlay that doesn't block clicks elsewhere */
+}
+
+.hand{
+  position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
+  width:min(1200px, 96vw); height:30vh; pointer-events:none;
+  perspective:1200px;
+}
+
+/* Cards in hand */
 .card{
-  position:absolute; width:210px; height:290px; border-radius:16px;
+  position:absolute; top:0; left:50%; transform-origin:50% 95%;
+  width:210px; height:290px; border-radius:16px;
   background:linear-gradient(180deg,#30271f,#211b15);
   border:1px solid #5a4b37; color:var(--ink);
   box-shadow:0 14px 24px #000;
-  transition:.15s transform, .2s box-shadow;
+  transition:transform .15s ease, box-shadow .2s ease, z-index .1s;
+  pointer-events:auto; /* clickable */
 }
-.card:hover{transform:translateY(-16px) scale(1.03); box-shadow:0 0 24px var(--aether), 0 16px 40px #000;}
-.card .title{padding:12px 12px 6px;font-weight:600}
-.card .type{opacity:.75;padding:0 12px 6px}
-.card .textbox{padding:0 12px 48px;font-size:.95rem;opacity:.9}
-.card .actions{position:absolute;left:10px;right:10px;bottom:10px;display:flex;gap:8px;justify-content:space-between}
-.card .btn{font-size:.9rem}
 
-/* Cinematic styles (same palette) */
+/* Hover/Focus bring to front and un-tilt a bit */
+.card:hover, .card:focus{
+  z-index:9999 !important;
+  transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))
+           translateY(-24px) scale(1.07);
+  box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
+}
+
+/* Touch-friendly “peek” on mobile */
+@media (hover:none){
+  .card:active{
+    transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))
+             translateY(-20px) scale(1.05);
+  }
+}
+
+/* Cinematic (unchanged palette) */
 #cinematic-root{position:fixed;inset:0;pointer-events:none}
 .cine{position:absolute;inset:0;background:rgba(10,8,6,.92); display:flex;align-items:center;justify-content:center; opacity:0; animation:fadeIn .25s forwards}
 @keyframes fadeIn{to{opacity:1}}
