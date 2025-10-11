@@ -9,47 +9,101 @@ const turnIndicator = document.getElementById("turn-indicator");
 const aetherReadout = document.getElementById("aether-readout");
 
 let state = initState({});
+let prevFlowIds = []; // for river animations
 
-// ---------- Hand fan helpers ----------
+/* ---------------- Hand fanning ---------------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
-
 function layoutHand(container, cards) {
-  const N = cards.length;
-  if (!N) return;
-
-  // Tunables
-  const MAX_ANGLE = 28;          // total degrees arc for large hands
-  const MIN_ANGLE = 8;           // for small hands
-  const MAX_SPREAD_PX = 800;     // max horizontal spread
-  const LIFT_BASE = 48;          // downward arc sag
-  // const RADIUS = 520;          // (kept for future perspective tricks)
-
-  const totalAngle = (N === 1)
-    ? 0
-    : clamp(MIN_ANGLE + (N - 2) * 3.2, MIN_ANGLE, MAX_ANGLE);
-  const step = (N === 1) ? 0 : totalAngle / (N - 1);
-  const startAngle = -totalAngle / 2;
-
+  const N = cards.length; if (!N) return;
+  const MAX_ANGLE = 28, MIN_ANGLE = 8, MAX_SPREAD_PX = 800, LIFT_BASE = 48;
+  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*3.2, MIN_ANGLE, MAX_ANGLE);
+  const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
   const rect = container.getBoundingClientRect();
-  const spread = Math.min(MAX_SPREAD_PX, rect.width * 0.92);
-  const stepX = (N === 1) ? 0 : spread / (N - 1);
-  const startX = -spread / 2;
+  const spread = Math.min(MAX_SPREAD_PX, rect.width*0.92);
+  const stepX = (N===1) ? 0 : spread/(N-1), startX = -spread/2;
 
-  cards.forEach((el, i) => {
-    const a = startAngle + step * i;       // degrees
-    const rad = (a * Math.PI) / 180;
-    const x = startX + stepX * i;          // px
-    const y = LIFT_BASE - Math.cos(rad) * (LIFT_BASE * 0.75);
-
+  cards.forEach((el,i)=>{
+    const a = startAngle + step*i;
+    const rad = a*Math.PI/180;
+    const x = startX + stepX*i;
+    const y = LIFT_BASE - Math.cos(rad) * (LIFT_BASE*0.75);
     el.style.setProperty("--tx", `${x}px`);
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
-    el.style.zIndex = String(400 + i);
+    el.style.zIndex = String(400+i);
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
 
-// ---------- Render ----------
+/* ---------------- Flow (river) FLIP animation ---------------- */
+function buildFlowEl(card){
+  const li = document.createElement("li");
+  li.className = "flow-card";
+  li.dataset.id = card.id;
+  li.innerHTML = `
+    <div class="ttl">${card.name} <span class="typ">(${card.type})</span></div>
+    <div class="price">Price: Æ ${card.price}</div>
+  `;
+  return li;
+}
+
+function renderFlow(nextFlow){
+  const currentChildren = Array.from(flowRowEl.children);
+  const firstRects = new Map(currentChildren.map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  const existingById = new Map(currentChildren.map(el => [el.dataset.id, el]));
+
+  // Determine exiting elements
+  const nextIds = nextFlow.map(c => c.id);
+  const exiting = currentChildren.filter(el => !nextIds.includes(el.dataset.id));
+  exiting.forEach(el => {
+    el.classList.add("flow-exit");
+    requestAnimationFrame(()=> el.classList.add("flow-exit-active"));
+    setTimeout(()=> el.remove(), 180);
+  });
+
+  // Rebuild (reusing nodes when possible) in new order
+  const fragment = document.createDocumentFragment();
+  const newEls = [];
+  nextFlow.forEach(c => {
+    let el = existingById.get(c.id);
+    if (!el) {
+      el = buildFlowEl(c);
+      el.classList.add("flow-enter");
+      requestAnimationFrame(()=> el.classList.add("flow-enter-active"));
+    } else {
+      // Update inner (price may change by column index)
+      el.querySelector(".price").textContent = `Price: Æ ${c.price}`;
+    }
+    fragment.appendChild(el);
+    newEls.push(el);
+  });
+
+  // Apply new order
+  flowRowEl.replaceChildren(fragment);
+
+  // FLIP: animate moved elements
+  newEls.forEach(el => {
+    const id = el.dataset.id;
+    const first = firstRects.get(id);
+    if (!first) return; // newly added handled by 'enter' classes
+    const last = el.getBoundingClientRect();
+    const dx = first.left - last.left;
+    const dy = first.top  - last.top;
+    if (dx || dy) {
+      el.style.transform = `translate(${dx}px, ${dy}px)`;
+      el.style.transition = "none";
+      // next frame, animate back to 0
+      requestAnimationFrame(()=>{
+        el.style.transition = "transform .22s ease";
+        el.style.transform = "translate(0,0)";
+      });
+    }
+  });
+
+  prevFlowIds = nextIds;
+}
+
+/* ---------------- Render ---------------- */
 function render(){
   const snap = serializePublic(state);
 
@@ -62,23 +116,8 @@ function render(){
   document.getElementById("p1-name").textContent = snap.player.weaver.name;
   document.getElementById("p2-name").textContent = snap.ai.weaver.name;
 
-  // flow row
-  flowRowEl.replaceChildren();
-  snap.flow.forEach((c,i)=>{
-    const li = document.createElement("li");
-    li.className = "flow-card";
-    li.innerHTML = `
-      <div class="ttl">${c.name} <span class="typ">(${c.type})</span></div>
-      <div class="price">Price: Æ ${c.price}</div>
-    `;
-    flowRowEl.appendChild(li);
-    // nice little fade-in
-    li.style.opacity='0'; li.style.transform='translateY(8px)';
-    requestAnimationFrame(()=>{
-      li.style.transition='.2s';
-      li.style.opacity='1'; li.style.transform='translateY(0)';
-    });
-  });
+  // flow row (animated diff)
+  renderFlow(snap.flow);
 
   // slots
   slotsEl.replaceChildren();
@@ -112,12 +151,9 @@ function render(){
   layoutHand(handEl, cardEls);
 }
 
-// basic wire-up (keeps your existing flow)
+/* Wire-up */
 startBtn.addEventListener("click", render);
 endBtn.addEventListener("click", render);
-window.addEventListener("resize", ()=> {
-  // re-layout the hand on resize
-  layoutHand(handEl, Array.from(handEl.children));
-});
+window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl.children)));
 
 render();
