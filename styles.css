@@ -49,55 +49,80 @@ body.theme-dark.parchment::after{
   background:linear-gradient(180deg,#241d15,#1a140f);
   border:1px solid #3b3126; border-radius:12px;
   box-shadow:0 0 32px #000 inset;
+  position:relative;
 }
 .flow-card{
   display:flex;flex-direction:column;gap:8px;
   background:linear-gradient(180deg,#30271e,#201a14);
   border:1px solid #5d4d37;border-radius:12px;color:var(--ink);
   padding:10px; box-shadow:0 8px 24px #000;
-  transition:.15s transform,.2s box-shadow;
+  will-change:transform, opacity;
 }
-.flow-card:hover{transform:translateY(-4px); box-shadow:0 0 18px var(--gold), 0 10px 30px #000;}
 .flow-card .ttl{font-weight:600}
 .flow-card .typ{font-size:.85rem; opacity:.7}
 .flow-card .price{font-family:"Crimson Text", serif; color:var(--muted)}
+
+/* entering/leaving helpers used by JS FLIP */
+.flow-enter{opacity:0; transform:translateY(8px)}
+.flow-enter-active{transition:transform .22s ease, opacity .22s ease; opacity:1; transform:translateY(0)}
+.flow-exit{opacity:1}
+.flow-exit-active{transition:transform .18s ease, opacity .18s ease; opacity:0; transform:translateY(-8px)}
 
 .board{display:grid;place-items:center}
 .portraits{display:flex;gap:18px;align-items:center;justify-content:center;margin-top:4px}
 .portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
 
+/* ---------- Slots ---------- */
 .slots{display:grid;grid-template-columns:repeat(3,260px);gap:22px;margin:10px 0 6px}
 .slot{
   width:260px;height:260px;border-radius:50%;
   background:radial-gradient(circle at 50% 45%, #231c14 0%, #17130f 70%);
   border:2px solid #3d3326; position:relative; display:grid;place-items:center;
   color:var(--muted); text-shadow:0 2px 12px #000;
+  transition:filter .2s ease, box-shadow .2s ease;
 }
 .slot::after{
   content:""; position:absolute; inset:14px; border:1px solid #5a4b37; border-radius:50%;
   box-shadow:0 0 10px #000 inset;
 }
-.slot.has-card::before{
-  content:""; position:absolute; inset:0; border-radius:50%;
+/* rotating rune ring */
+.slot::before{
+  content:""; position:absolute; inset:38px; border-radius:50%;
+  background:
+    conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
+  filter:blur(.2px); opacity:.22;
+  animation:spin 12s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.slot.has-card::before{opacity:.35}
+.slot.has-card::after{border-color:#6a583f}
+
+.slot:hover{
+  filter:drop-shadow(0 0 10px rgba(126,182,255,.25));
+  box-shadow:0 0 22px rgba(126,182,255,.25), inset 0 0 18px #000;
+}
+.slot.has-card:hover{
+  filter:drop-shadow(0 0 16px rgba(126,182,255,.45));
+  box-shadow:0 0 28px rgba(126,182,255,.45), inset 0 0 18px #000;
+}
+.slot.has-card{
   box-shadow:0 0 22px var(--aether), inset 0 0 18px #000;
   animation:pulse 1.4s ease-in-out infinite;
 }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
-/* ---------- Hand: centered & fanned (MTG Arena style) ---------- */
+/* ---------- Hand: centered & fanned ---------- */
 .hand-wrap{
   position:fixed; left:0; right:0; bottom:0;
-  height:32vh; pointer-events:none; /* overlay that doesn't block clicks elsewhere */
+  height:32vh; pointer-events:none;
 }
-
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
   width:min(1200px, 96vw); height:30vh; pointer-events:none;
   perspective:1200px;
 }
-
-/* Cards in hand */
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width:210px; height:290px; border-radius:16px;
@@ -105,18 +130,14 @@ body.theme-dark.parchment::after{
   border:1px solid #5a4b37; color:var(--ink);
   box-shadow:0 14px 24px #000;
   transition:transform .15s ease, box-shadow .2s ease, z-index .1s;
-  pointer-events:auto; /* clickable */
+  pointer-events:auto;
 }
-
-/* Hover/Focus bring to front and un-tilt a bit */
 .card:hover, .card:focus{
   z-index:9999 !important;
   transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))
            translateY(-24px) scale(1.07);
   box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
 }
-
-/* Touch-friendly “peek” on mobile */
 @media (hover:none){
   .card:active{
     transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))
@@ -124,7 +145,7 @@ body.theme-dark.parchment::after{
   }
 }
 
-/* Cinematic (unchanged palette) */
+/* ---------- Cinematic (unchanged palette) ---------- */
 #cinematic-root{position:fixed;inset:0;pointer-events:none}
 .cine{position:absolute;inset:0;background:rgba(10,8,6,.92); display:flex;align-items:center;justify-content:center; opacity:0; animation:fadeIn .25s forwards}
 @keyframes fadeIn{to{opacity:1}}
