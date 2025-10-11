@@ -1,13 +1,8 @@
 :root{
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
-
-  /* Global card geometry */
-  --card-w: 210px;
-  --card-h: 290px;
-  --card-radius: 16px;
+  --card-w: 210px; --card-h: 290px; --card-radius: 16px;
 }
-
 *{box-sizing:border-box}
 html,body{height:100%}
 #board.theme-dark.parchment{
@@ -40,8 +35,7 @@ html,body{height:100%}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.1)}
 
 /* ===== Slot rows (4 across) ===== */
-#ai-slots.slot-row,
-#player-slots.slot-row{
+#ai-slots.slot-row, #player-slots.slot-row{
   display:grid !important;
   grid-auto-flow: column !important;
   grid-template-columns: repeat(4, var(--card-w)) !important;
@@ -58,20 +52,10 @@ html,body{height:100%}
   border-radius: var(--card-radius);
   background: linear-gradient(180deg,#2b231b,#1a1511);
   border: 1px solid #5a4b37;
-  box-shadow:
-    inset 0 0 18px rgba(0,0,0,.6),
-    0 8px 18px rgba(0,0,0,.35);
-  display:grid; place-items:center;
-  color: var(--muted);
-  text-shadow: 0 2px 10px #000;
-  position: relative;
+  box-shadow: inset 0 0 18px rgba(0,0,0,.6), 0 8px 18px rgba(0,0,0,.35);
+  display:grid; place-items:center; color:var(--muted); text-shadow:0 2px 10px #000; position:relative;
 }
-.slot::after{
-  content:"";
-  position:absolute; inset:10px;
-  border-radius: calc(var(--card-radius) - 6px);
-  border:1px solid #4a3d2f33;
-}
+.slot::after{content:""; position:absolute; inset:10px; border-radius:calc(var(--card-radius) - 6px); border:1px solid #4a3d2f33;}
 .slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .slot.drag-over{ outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45)); }
@@ -81,9 +65,7 @@ html,body{height:100%}
 #flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
   width: calc(var(--card-w)*5 + 14px*4 + 24px) !important;
-  display:grid !important;
-  grid-template-columns: repeat(5, var(--card-w)) !important;
-  gap:14px !important;
+  display:grid !important; grid-template-columns: repeat(5, var(--card-w)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f);
   border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
@@ -102,8 +84,7 @@ html,body{height:100%}
   background:linear-gradient(180deg,#30271f,#211b15);
   border:1px solid #5a4b37; color:var(--ink);
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
-  pointer-events:auto;
-  display:flex; flex-direction:column;
+  pointer-events:auto; display:flex; flex-direction:column;
 }
 .card.dragging{ opacity:.85; box-shadow:0 0 26px var(--aether), 0 16px 40px #000; }
 .card:hover, .card:focus{
@@ -119,19 +100,23 @@ html,body{height:100%}
 .card .textbox{flex:1}
 .card .actions{display:flex; gap:8px; padding:10px}
 
-/* ===== Preview / Zoom (patched) ===== */
+/* ===== Preview / Zoom (REFINED — can’t stick) ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
 #peek-card.card.peek{
   position:absolute; left:50%; top:18vh; transform:translateX(-50%) scale(1.28);
-  opacity:0; transition:opacity .12s ease; pointer-events:none;
+  opacity:0; display:none; transition:opacity .12s ease; pointer-events:none;
   box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35);
 }
-#peek-card.show{ opacity:1; }
+#peek-card.show{ display:block; opacity:1; }
+
 #zoom-overlay{
-  position:fixed; inset:0; background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px);
-  display:grid; place-items:center; pointer-events:auto; /* critical: can click to dismiss */
+  position:fixed; inset:0;
+  display:none;              /* default closed */
+  background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px);
+  place-items:center; pointer-events:auto;
 }
-#zoom-card.card.zoom{ position:relative; transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2); border-radius: 22px; }
+#zoom-overlay[data-open="true"]{ display:grid; }
+#zoom-card.card.zoom{ position:relative; transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2); border-radius:22px; }
 
 @media (hover:none){
   .card:active{ transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-22px) scale(1.05); }
