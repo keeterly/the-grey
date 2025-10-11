@@ -1,10 +1,10 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only-r2)
+/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only-r3)
    Layout-only:
-   - Fit 1280×720 canvas to viewport (no cropping)
-   - Keep mobile-land class in landscape
+   - Fit 1280×720 canvas to viewport (desktop + mobile)
+   - Apply "mobile-land" ONLY for small, landscape screens
    - Press & hold card preview
    - Version badge
-   - Extra Safari guards (visualViewport + pageshow + timed reflow)
+   - Safari guards (visualViewport / pageshow / timed reflow)
 */
 
 (() => {
@@ -15,15 +15,15 @@
 
   /* ---------------- Fit-to-viewport scaling ---------------- */
   function computeScale() {
-    // Use inner* so iOS URL bar changes are reflected
+    // Use inner* so iOS URL-bar changes are reflected
     const vw = window.innerWidth, vh = window.innerHeight;
-    const s = Math.min(vw / BASE_W, vh / BASE_H);
-    // Nudge to avoid 1px overflow from rounding
+    const s  = Math.min(vw / BASE_W, vh / BASE_H);
+    // Nudge to avoid 1px overflow from rounding; cap to a sensible max on desktop
     return Math.max(0.1, Math.min(s * 0.995, 2));
   }
 
   function applyScaleVars() {
-    const s = computeScale();
+    const s  = computeScale();
     const st = document.documentElement.style;
     st.setProperty('--tg-scale', String(s));
     st.setProperty('--tg-scaled-w', (BASE_W * s) + 'px');
@@ -31,10 +31,11 @@
   }
 
   function applyMobileFlag() {
-    document.documentElement.classList.toggle(
-      'mobile-land',
-      Math.min(window.innerWidth, window.innerHeight) <= 900
-    );
+    const w = window.innerWidth, h = window.innerHeight;
+    const isLandscape = w >= h;
+    // Only treat as mobile-land if it's landscape AND physically small
+    const isMobileLandscape = isLandscape && Math.min(w, h) <= 900;
+    document.documentElement.classList.toggle('mobile-land', isMobileLandscape);
   }
 
   function applyLayout() {
@@ -65,7 +66,7 @@
       `;
       hud.appendChild(tag);
     }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only-r2');
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only-r3');
   }
 
   /* ---------------- Press & Hold preview ---------------- */
@@ -110,22 +111,20 @@
       on(window, ev, applyLayout, { passive: true })
     );
 
-    // Safari: react to visual viewport shifts (URL bar show/hide)
+    // Safari: visual viewport / bfcache
     if (window.visualViewport) {
       ['resize','scroll'].forEach(ev =>
         on(window.visualViewport, ev, applyLayout, { passive: true })
       );
     }
-
-    // Safari bfcache restore
     on(window, 'pageshow', (e) => { if (e.persisted) applyLayout(); }, { passive: true });
 
-    // Timed reflows to catch late changes (iOS address bar settle)
+    // Timed reflows (URL-bar settle etc.)
     setTimeout(applyLayout, 0);
     setTimeout(applyLayout, 300);
     setTimeout(applyLayout, 800);
 
-    // Gentle UI nudge if the app exposes a sync hook
+    // Gentle UI nudge if available
     requestAnimationFrame(() => { try {
       (window.tgSyncAll || window.syncAll || window.__syncAll || (()=>{}))();
     } catch {} });
