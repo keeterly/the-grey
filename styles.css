@@ -3,7 +3,6 @@
   --gold:#c6a56a; --stone:#3a3125; --rune:#796447; --aether:#7eb6ff;
 }
 
-/* Base / theme */
 *{box-sizing:border-box}
 html,body{height:100%}
 body.theme-dark.parchment{
@@ -14,41 +13,35 @@ body.theme-dark.parchment{
     radial-gradient(circle at 90% 95%, rgba(255,190,95,.10), transparent 60%);
   overflow:hidden;
 }
-body.theme-dark.parchment::after{
-  content:""; position:fixed; inset:0; pointer-events:none;
-  background:
-    radial-gradient(circle at 10% 95%, rgba(255,210,120,.18), transparent 50%),
-    radial-gradient(circle at 90% 95%, rgba(255,210,120,.18), transparent 50%);
-  animation:flicker 3s ease-in-out infinite;
-}
-@keyframes flicker{0%,100%{opacity:.8}50%{opacity:1}}
-
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(180deg,#221b14,#1a140f);border-bottom:1px solid #2f261d}
 .btn{border:1px solid var(--rune);background:linear-gradient(180deg,#2f2921,#1f1a14);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 0 8px #000;}
 .btn:hover{box-shadow:0 0 14px var(--gold); transform:translateY(-1px)}
 .turn{opacity:.75;font-weight:600;letter-spacing:.02em}
 .aether{font-family:"Crimson Text", serif;letter-spacing:.06em}
 
-/* ======= STRICT 3-ROW LAYOUT ======= */
-.board-rows{
+/* ===== MAIN GRID: AI (top) — FLOW (middle) — PLAYER (bottom) ===== */
+.grid{
   display:grid;
-  grid-template-rows: 1fr auto 1fr;  /* AI / FLOW / PLAYER */
+  grid-template-rows: 1fr auto 1fr;
+  gap:14px;
   height:calc(100% - 48px);
-  gap:10px;
-  padding:10px 20px 34vh; /* reserve bottom for the hand */
+  padding:10px 16px 36vh; /* leave room for the hand overlay */
 }
 
-/* Each row is centered content in a column (no side columns) */
-.row{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+/* Row shells */
+.row{display:flex;flex-direction:column;align-items:center;gap:10px;min-height:0}
 
-/* Identity blocks */
-.identity .portrait{margin:0;text-align:center;color:var(--muted);font-size:.95rem}
-.identity img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
+/* Portrait blocks */
+.portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
+.portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
 
-/* ===== Slots: 4 in a row (3 Spell + 1 Glyph) ===== */
-.slots-4{
-  display:flex; align-items:center; justify-content:center;
-  gap:22px; width:100%;
+/* ===== SLOT ROWS (exactly four across) ===== */
+.slot-row{
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:18px;
+  width:min(1120px, 92vw);
+  place-items:center;
 }
 .slot{
   width:220px;height:220px;border-radius:50%;
@@ -57,46 +50,40 @@ body.theme-dark.parchment::after{
   color:var(--muted); text-shadow:0 2px 12px #000;
   transition:filter .2s ease, box-shadow .2s ease;
 }
-.slot::after{content:""; position:absolute; inset:12px; border:1px solid #5a4b37; border-radius:50%; box-shadow:0 0 10px #000 inset;}
+.slot::after{
+  content:""; position:absolute; inset:12px; border:1px solid #5a4b37; border-radius:50%;
+  box-shadow:0 0 10px #000 inset;
+}
 .slot::before{
   content:""; position:absolute; inset:34px; border-radius:50%;
-  background:conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
-  opacity:.22; animation:spin 12s linear infinite;
+  background: conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
+  filter:blur(.2px); opacity:.22; animation:spin 12s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-
-.slot.glyph{ background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 70%); border-color:#5a4833; }
-.slot:hover{ filter:drop-shadow(0 0 10px rgba(126,182,255,.25)); box-shadow:0 0 22px rgba(126,182,255,.25), inset 0 0 18px #000; }
+.slot.glyph{
+  background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 70%);
+  border-color:#5a4833;
+}
 .slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite; }
+.slot:hover{ filter:drop-shadow(0 0 14px rgba(126,182,255,.35)); }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
-/* ===== Flow (center) ===== */
-.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:0 0 6px}
+/* ===== AETHER FLOW (center) ===== */
+.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 10px}
 .flow-row{
   list-style:none;margin:0 auto;padding:12px;
-  max-width:1200px;
+  width:min(1200px, 95vw);
   display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;
   background:linear-gradient(180deg,#241d15,#1a140f);
-  border:1px solid #3b3126; border-radius:12px;
-  box-shadow:0 0 32px #000 inset; position:relative;
+  border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
-.flow-card{
-  display:flex;flex-direction:column;gap:8px;
-  background:linear-gradient(180deg,#30271e,#201a14);
-  border:1px solid #5d4d37;border-radius:12px;color:var(--ink);
-  padding:10px; box-shadow:0 8px 24px #000;
-  will-change:transform, opacity;
-}
+.flow-card{display:flex;flex-direction:column;gap:8px;background:linear-gradient(180deg,#30271e,#201a14);border:1px solid #5d4d37;border-radius:12px;color:var(--ink);padding:10px; box-shadow:0 8px 24px #000}
 .flow-card .ttl{font-weight:600}
 .flow-card .typ{font-size:.85rem; opacity:.7}
 .flow-card .price{font-family:"Crimson Text", serif; color:var(--muted)}
-.flow-enter{opacity:0; transform:translateY(8px)}
-.flow-enter-active{transition:transform .22s ease, opacity .22s ease; opacity:1; transform:translateY(0)}
-.flow-exit{opacity:1}
-.flow-exit-active{transition:transform .18s ease, opacity .18s ease; opacity:0; transform:translateY(-8px)}
 
 /* ===== Hand: centered & fanned ===== */
-.hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:32vh; pointer-events:none; }
+.hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:32vh; pointer-events:none; z-index:20; }
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
   width:min(1200px, 96vw); height:30vh; pointer-events:none; perspective:1200px;
@@ -106,9 +93,7 @@ body.theme-dark.parchment::after{
   width:210px; height:290px; border-radius:16px;
   background:linear-gradient(180deg,#30271f,#211b15);
   border:1px solid #5a4b37; color:var(--ink);
-  box-shadow:0 14px 24px #000;
-  transition:transform .15s ease, box-shadow .2s ease, z-index .1s;
-  pointer-events:auto;
+  box-shadow:0 14px 24px #000; transition:transform .15s ease, box-shadow .2s ease, z-index .1s; pointer-events:auto;
 }
 .card:hover, .card:focus{
   z-index:9999 !important;
@@ -116,20 +101,8 @@ body.theme-dark.parchment::after{
   box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
 }
 @media (hover:none){
-  .card:active{
-    transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.05);
-  }
+  .card:active{ transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.05); }
 }
 
-/* Cinematic (unchanged) */
+/* Cinematic container (unchanged) */
 #cinematic-root{position:fixed;inset:0;pointer-events:none}
-.cine{position:absolute;inset:0;background:rgba(10,8,6,.92); display:flex;align-items:center;justify-content:center; opacity:0; animation:fadeIn .25s forwards}
-@keyframes fadeIn{to{opacity:1}}
-.cine .sigil{position:absolute;width:52vmin;height:52vmin;border-radius:50%;box-shadow:0 0 40px 8px var(--aether) inset, 0 0 40px 8px var(--aether); opacity:.9}
-.cine .burst{position:absolute;width:0;height:0;border-radius:50%;box-shadow:0 0 0 2px var(--gold);animation:burst 920ms ease-out forwards}
-@keyframes burst{to{width:130vmin;height:130vmin;opacity:0;box-shadow:0 0 0 0 var(--gold)}}
-.cine .char{position:relative;display:flex;align-items:center;gap:6vmin;isolation:isolate}
-.cine .char img{width:34vmin;height:48vmin;object-fit:cover;border:1px solid #0005;filter:grayscale(.15) contrast(1.1)}
-.cine .caption{font-size:2.4vmin; letter-spacing:.12em; color:#fff; text-shadow:0 2px 10px #000}
-.cine .skip{position:absolute;top:16px;right:16px;border:1px solid #fff;color:#fff;background:transparent;border-radius:999px;padding:6px 10px;cursor:pointer;pointer-events:auto}
-.cine.stage2 .sigil{box-shadow:0 0 40px 8px #ffd27e inset, 0 0 40px 8px #ffd27e}
