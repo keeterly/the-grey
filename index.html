@@ -1,92 +1,39 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+  />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Keep only the acceptance overlay; your old cards.css was 404 in Network -->
+  <!-- Your existing, safe stylesheet (keep) -->
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
+
+  <!-- Mobile/desktop layout polish (new) -->
+  <link rel="stylesheet" href="./assets/css/mobile.css" />
 </head>
 <body>
-  <!-- Scaled 1280×720 canvas root -->
+  <!-- Game mount -->
   <div id="app"></div>
 
-  <!-- Minimal HUD (visible) so you have something to click; IDs are common ones. -->
-  <div class="hud-min" id="hudRoot">
-    <div class="left">
-      <button class="icon btn" id="discardIcon" title="Discard">⌫</button>
-    </div>
-    <div class="right">
-      <button class="icon btn" id="btnEnd"   title="End Turn">⏵</button>
-      <button class="icon btn" id="deckIcon" title="Deck">DECK</button>
-    </div>
-  </div>
-
-  <!-- Optional stubs (kept hidden) if the bundle looks for these by ID -->
-  <button id="btnUndo"  style="display:none"></button>
-  <button id="btnReset" style="display:none"></button>
-  <div id="overlay" class="overlay" style="display:none"></div>
-
+  <!-- Build/version tag (optional – shows small tag in top-right) -->
   <script>
-    /* Build label shown by boot script */
     window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
   </script>
 
-  <!-- 🚑 No-crash shim: if the bundle asks for a missing ID, create a hidden stub
-       so 'null.onclick = …' never throws and block the render. Remove later when
-       you’ve added all real HUD elements the bundle expects. -->
-  <script>
-    (function installNoCrashIdShim(){
-      const origGet = document.getElementById.bind(document);
-      document.getElementById = function(id){
-        const found = origGet(id);
-        if (found) return found;
-        const stub = document.createElement('button');  /* button -> has onclick */
-        stub.id = id;
-        stub.style.display = 'none';
-        document.body.appendChild(stub);
-        return stub;
-      };
-    })();
-  </script>
+  <!-- Your existing core files (keep these names/paths if they exist in your repo root) -->
+  <script src="./index.js" defer></script>
+  <script src="./rules.js" defer></script>
+  <script src="./state.js" defer></script>
+  <script src="./drags.js" defer></script>
+  <script src="./animate.js" defer></script>
 
-  <!-- 🔧 Dynamic bundle loader: tries common locations and loads the first that exists -->
-  <script>
-  (async () => {
-    const candidates = [
-      "./index.js",
-      "./assets/js/main.js",
-      "./assets/js/index.js",
-      "./src/ui/index.js"
-    ];
-
-    for (const url of candidates) {
-      try {
-        const res = await fetch(url, { method: "HEAD", cache: "no-store" });
-        if (res.ok) {
-          const s = document.createElement("script");
-          s.type = "module";
-          s.src = url;
-          document.head.appendChild(s);
-          console.log("[loader] loaded bundle:", url);
-          return;
-        }
-      } catch (e) {
-        // ignore and try next
-      }
-    }
-
-    console.error("[loader] No game bundle found. Tried:", candidates);
-    const hint = document.createElement("div");
-    hint.style.cssText = "position:fixed;left:12px;bottom:12px;background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12);font:12px/1.4 system-ui;";
-    hint.textContent = "Game bundle not found (check bundle path in index.html).";
-    document.body.appendChild(hint);
-  })();
-  </script>
-
-  <!-- Layout bootstrap (scaling, press-and-hold, Safari guards) -->
+  <!-- Layout-only bootstrap that centers rows, overlays HUD hand, adds preview, etc. -->
   <script src="./assets/js/boot-debug.js" defer></script>
 </body>
 </html>
