@@ -1,10 +1,7 @@
-/* The Grey — acceptance.safe.css (r5)
-   Goals:
-   - Center slot rows (with OR without a .slots wrapper)
-   - Aetherflow cards = same size as board cards
-   - Hand always accessible (high z-index, larger bottom reserve)
-   - Press & hold preview works and doesn’t block drag
-   - 1280×720 canvas centered/scaled for desktop + mobile landscape
+/* The Grey — acceptance.safe.css (r6)
+   - Ensures YOU row + hand are always visible within 1280×720 canvas
+   - Centers slot rows with and without a `.slots` wrapper
+   - Keeps AF cards = board card size, press&hold magnify, overlay safety
 */
 
 /* ---------- base / canvas ---------- */
@@ -20,21 +17,19 @@ html, body {
 }
 
 :root{
-  /* Written by boot-debug.js; defaults are harmless for SSR preview */
   --tg-base-w: 1280;
   --tg-base-h: 720;
   --tg-scale: 1;
 
-  /* viewport-aware rhythm */
+  /* rhythm */
   --row-gap: clamp(32px, 5.5vh, 56px);
 
-  /* hand clearance: enough for fan/tilt, bounded so YOU row stays visible */
-  --hand-reserve: clamp(120px, 16vh, 200px);
+  /* 🔧 bigger hand reserve so the fan never falls outside the 720px canvas */
+  --hand-reserve: clamp(160px, 22vh, 260px);
 
-  /* small inner margins inside 1280×720 to avoid edge kiss on odd ARs */
   --edge-pad: clamp(6px, 1.2vh, 12px);
 
-  /* sizing parity (desktop) */
+  /* sizes */
   --card-w: 140px; --card-h: 200px;
   --slot-w: 150px; --slot-h: 210px;
 }
@@ -42,7 +37,7 @@ html, body {
 @media (max-width: 900px){
   :root{
     --row-gap: clamp(44px, 9vh, 72px);
-    --hand-reserve: clamp(120px, 18vh, 200px);
+    --hand-reserve: clamp(140px, 20vh, 240px);
     --card-w: 126px; --card-h: 186px;
     --slot-w: 132px; --slot-h: 190px;
   }
@@ -56,7 +51,7 @@ html, body {
   transform-origin: 50% 50%;
   will-change: transform;
   contain: layout paint;
-  overflow: visible;                 /* do not clip hand or anims */
+  overflow: visible;
   padding-top: var(--edge-pad);
   padding-bottom: var(--edge-pad);
   pointer-events:auto;
@@ -65,41 +60,47 @@ html, body {
 /* ---------- rows / centering ---------- */
 
 .board{ position:relative; width:100%; height:auto; margin-block: var(--row-gap); }
+.board .row{ display:flex; flex-direction:column; gap:8px; width:100%; }
 
-.board .row{ display:flex; flex-direction:column; gap:8px; }
-
-/* Header row uses its original inline layout */
+/* header row (kept inline) */
 .board .row.head{
   flex-direction:row;
   justify-content:space-between;
   gap:6px;
 }
 
-/* ✅ Center ANY non-header row even when no `.slots` wrapper is present */
+/* ✅ center ANY non-header row; make it full-width */
 .board .row:not(.head){
   flex-direction:row;
   justify-content:center;
   align-items:center;
   flex-wrap:wrap;
   gap: clamp(10px, 1.6vmin, 18px);
+  width:100%;
 }
 
-/* …but if there IS a `.slots` wrapper, center that as well (covers both DOM shapes) */
+/* If a `.slots` wrapper exists, center that too (covers both DOM shapes) */
 .board .row > .slots{
   display:flex;
   justify-content:center;
   align-items:center;
   flex-wrap:wrap;
   gap: clamp(10px, 1.6vmin, 18px);
+  width:100%;
 }
 
-/* Keep YOU board inside the frame while reserving space for the hand */
+/* 🔧 keep YOU content inside frame and leave ample room for the hand */
 .board[data-board="YOU"]{
   margin-top: var(--row-gap);
-  padding-bottom: calc(8px + var(--hand-reserve));
+  padding-bottom: calc(16px + var(--hand-reserve));
 }
 
-/* Hide labels you asked to remove temporarily */
+/* Give the YOU slot row a minimum height so it doesn't collapse under the hand */
+.board[data-board="YOU"] .row:not(.head){
+  min-height: calc(var(--slot-h) + 10px);
+}
+
+/* Hide labels for now (as requested earlier) */
 .af-title,
 .board .name,
 .board .hearts,
@@ -125,7 +126,7 @@ html, body {
   gap: clamp(10px, 1.6vmin, 18px);
 }
 
-/* AF cards exactly match board card footprint */
+/* AF cards = board cards */
 .af-card{
   width: var(--card-w); height: var(--card-h);
   box-sizing:border-box; border-radius:16px; background:#fff;
@@ -137,11 +138,12 @@ html, body {
 
 /* ---------- hand layer & interactions ---------- */
 
+/* hand sits above everything, a bit of top spacing so fan clears slots */
 .board[data-board="YOU"] .hand{
   position:relative;
-  z-index: 20000;                          /* win hit-tests */
+  z-index: 30000;               /* ⬆ from r5 */
   display:flex; justify-content:center; gap:0;
-  pointer-events:auto; padding-top:6px;
+  pointer-events:auto; padding-top:12px;  /* ⬆ a touch more */
 }
 
 .hand .card{
@@ -149,23 +151,22 @@ html, body {
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change: transform;
 }
-
 .card.is-dragging{
   position:fixed !important;
-  z-index: 25000 !important;
+  z-index: 35000 !important;
   pointer-events:none !important;
 }
 
-/* Press & hold preview (boot adds .magnify + .magnify-hand on hold) */
+/* press & hold preview */
 .card.magnify{
   transform: scale(2) !important;
-  z-index: 26000 !important;
+  z-index: 36000 !important;
   box-shadow: 0 18px 48px rgba(0,0,0,.32) !important;
   pointer-events: none !important;
 }
 .hand .card.magnify-hand{ transform: translateY(-72px) scale(2) !important; }
 
-/* ---------- HUD (kept compact, centered to scaled width) ---------- */
+/* ---------- HUD ---------- */
 
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
@@ -177,10 +178,8 @@ html, body {
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 
-/* Optional legacy bolt off */
 #aetherWell, .hud-min .bolt, [data-hud="energy"]{ display:none!important; }
 
-/* Deck button look (if you style by id or data-role, both covered) */
 #deckIcon, [data-role="deck-btn"]{
   display:inline-flex; align-items:center; justify-content:center;
   height:36px; min-width:48px; padding:0 12px;
@@ -189,7 +188,7 @@ html, body {
   letter-spacing:.3px;
 }
 
-/* ---------- version tag injected by boot ---------- */
+/* ---------- version tag ---------- */
 
 #tgHudRoot{ position:fixed; inset:0; z-index:99998; pointer-events:none; }
 #tgVersionTag{
@@ -198,7 +197,7 @@ html, body {
   padding:3px 6px; border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,.06);
 }
 
-/* ---------- overlay safety (no accidental blocking) ---------- */
+/* ---------- overlay safety ---------- */
 
 #overlay, .overlay{
   position:fixed; inset:0; display:none; pointer-events:none; z-index:1000;
