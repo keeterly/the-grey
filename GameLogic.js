@@ -1,5 +1,4 @@
-// Minimal engine sufficient for v2.5 UI + drag-to-slot.
-// You can replace this later with the full The Grey engine, keeping the same exports.
+// Minimal engine for v2.5 UI. Keep these exports stable if you swap to your full engine.
 
 const FLOW_COSTS = [4,3,2,2,2];
 const STARTING_VITALITY = 5;
@@ -36,7 +35,6 @@ export function initState(opts = {}) {
         deckCount: 10,
         hand: starterHand(),
         discardCount: 0,
-        // three spell bays we can occupy; glyph is visual for now
         slots: [
           { hasCard:false, card:null },
           { hasCard:false, card:null },
@@ -71,7 +69,7 @@ export function serializePublic(state) {
   };
 }
 
-// === simple mutation for drag-to-slot ===
+// drag-to-slot: hand SPELL -> player spell slot
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
