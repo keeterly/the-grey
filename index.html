@@ -11,69 +11,46 @@
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Your base stylesheet -->
+  <!-- Base styles -->
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
-  <!-- Layout polish (centering, HUD hand, preview, etc.) -->
+  <!-- Layout polish for mobile + HUD centering -->
   <link rel="stylesheet" href="./assets/css/mobile.css" />
 </head>
 <body>
   <div id="app"></div>
 
+  <!-- ===================== -->
+  <!--  GAME BUILD SETTINGS  -->
+  <!-- ===================== -->
   <script>
-    /* Visible version tag (optional) */
-    window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
+    /* Visible build tag */
+    window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v14";
 
-    /* ============================================================
-       OVERRIDES (set these to immediately point at your bundle)
-       ------------------------------------------------------------
-       Example (single bundle):
-         window.__THE_GREY_ENTRY = "./src/ui/index.js";
-
-       Example (multi-file classic):
-         window.__THE_GREY_MULTI__ = [
-           "./core/index.js","./core/rules.js","./core/state.js","./core/drags.js","./core/animate.js"
-         ];
-    ============================================================ */
-
-    // window.__THE_GREY_ENTRY  = ""; // e.g. "./src/ui/index.js"
-    // window.__THE_GREY_MULTI__ = []; // e.g. ["./core/index.js", "./core/rules.js", ...]
+    /* Explicit bundle entry for branch 2.2 */
+    window.__THE_GREY_ENTRY = "./src/ui/index.js";
   </script>
 
+  <!-- ===================== -->
+  <!--  SMART LOADER SYSTEM  -->
+  <!-- ===================== -->
   <script>
-    /* -------------------------------
-       Dynamic core loader
-       - Uses manual overrides if provided.
-       - Otherwise tries a wide list of common locations.
-       - After core loads, we load boot-debug.js (layout shim).
-    -------------------------------- */
-
     const log = (...a) => console.log("[the-grey loader]", ...a);
     const warn = (...a) => console.warn("[the-grey loader]", ...a);
 
     const singleFileCandidates = [
-      // root / typical
-      "./main.js", "./bundle.js", "./index.bundle.js",
-      // assets / dist
-      "./assets/js/main.js", "./assets/js/bundle.js", "./assets/js/index.js",
-      "./dist/main.js", "./dist/bundle.js", "./dist/index.js",
-      // the-grey subdir variants (GitHub Pages often nests here)
-      "./the-grey/main.js", "./the-grey/bundle.js", "./the-grey/index.js",
-      "./the-grey/assets/js/main.js", "./the-grey/assets/js/bundle.js", "./the-grey/assets/js/index.js",
-      // src/ui style setups
-      "./src/ui/index.js", "./src/index.js", "./ui/index.js",
-      "./the-grey/src/ui/index.js", "./the-grey/ui/index.js"
+      "./src/ui/index.js",
+      "./src/index.js",
+      "./index.js",
+      "./main.js",
+      "./bundle.js",
+      "./assets/js/main.js",
+      "./dist/main.js"
     ];
 
     const multiFileSets = [
-      // root classic
+      ["./src/ui/index.js","./src/engine/rules.js","./src/engine/state.js","./src/ui/drag.js","./src/ui/animate.js"],
       ["./index.js","./rules.js","./state.js","./drags.js","./animate.js"],
-      // assets/js
-      ["./assets/js/index.js","./assets/js/rules.js","./assets/js/state.js","./assets/js/drags.js","./assets/js/animate.js"],
-      // the-grey/
-      ["./the-grey/index.js","./the-grey/rules.js","./the-grey/state.js","./the-grey/drags.js","./the-grey/animate.js"],
-      // core/ or src/ui style
-      ["./core/index.js","./core/rules.js","./core/state.js","./core/drags.js","./core/animate.js"],
-      ["./src/ui/index.js","./src/ui/rules.js","./src/ui/state.js","./src/ui/drags.js","./src/ui/animate.js"]
+      ["./assets/js/index.js","./assets/js/rules.js","./assets/js/state.js","./assets/js/drags.js","./assets/js/animate.js"]
     ];
 
     function loadScript(src) {
@@ -106,73 +83,55 @@
       return true;
     }
 
-    async function tryAuto() {
-      // Single first
-      for (const p of singleFileCandidates) {
-        try { return await loadSingle(p); } catch {}
-      }
-      // Then multi
-      for (const set of multiFileSets) {
-        try { return await loadMulti(set); } catch {}
-      }
-      return false;
-    }
-
     async function boot() {
-      // Manual override wins immediately
-      if (window.__THE_GREY_ENTRY && typeof window.__THE_GREY_ENTRY === "string") {
-        try { await loadSingle(window.__THE_GREY_ENTRY); return afterCore(); }
-        catch (e) { warn("override __THE_GREY_ENTRY failed:", e.message); }
-      }
-      if (Array.isArray(window.__THE_GREY_MULTI__) && window.__THE_GREY_MULTI__.length) {
-        try { await loadMulti(window.__THE_GREY_MULTI__); return afterCore(); }
-        catch (e) { warn("override __THE_GREY_MULTI__ failed:", e.message); }
+      const manual = window.__THE_GREY_ENTRY;
+      if (manual) {
+        try {
+          await loadSingle(manual);
+          return afterCore();
+        } catch (e) {
+          warn("manual __THE_GREY_ENTRY failed:", e.message);
+        }
       }
 
-      // Otherwise try known locations
-      const ok = await tryAuto();
-      if (!ok) {
-        renderBundleMissing();
-        return;
+      for (const p of singleFileCandidates) {
+        try {
+          await loadSingle(p);
+          return afterCore();
+        } catch {}
       }
-      afterCore();
+
+      for (const set of multiFileSets) {
+        try {
+          await loadMulti(set);
+          return afterCore();
+        } catch {}
+      }
+
+      renderError();
     }
 
     function afterCore() {
-      // load our layout shim
       const shim = document.createElement("script");
       shim.src = "./assets/js/boot-debug.js";
       shim.defer = true;
       document.head.appendChild(shim);
+      log("boot-debug.js loaded");
     }
 
-    function renderBundleMissing() {
+    function renderError() {
       const msg = document.createElement("div");
-      msg.style.cssText = "position:fixed;inset:0;display:grid;place-items:center;font:14px/1.5 ui-sans-serif,system-ui,-apple-system; color:#5c5348; background:linear-gradient(#f7f5f0,#eee6d9)";
+      msg.style.cssText =
+        "position:fixed;inset:0;display:grid;place-items:center;font:14px/1.5 ui-sans-serif,system-ui,-apple-system;color:#5c5348;background:linear-gradient(#f7f5f0,#eee6d9)";
       msg.innerHTML = `
-        <div style="max-width:720px;text-align:center; padding:24px 20px; border-radius:12px; background:#fff; box-shadow:0 8px 26px rgba(0,0,0,.10)">
+        <div style="max-width:720px;text-align:center;padding:24px 20px;border-radius:12px;background:#fff;box-shadow:0 8px 26px rgba(0,0,0,.10)">
           <div style="font-weight:700;margin-bottom:6px;">Couldn’t find the game bundle</div>
           <div style="opacity:.8;margin-bottom:10px">
-            None of the expected script paths exist. Easiest fix is to set an override at the top of <code>index.html</code>:
-          </div>
-          <pre style="text-align:left; white-space:pre-wrap; padding:10px 12px; background:#fbf9f5; border-radius:8px; overflow:auto; font-size:12px; line-height:1.45">
-&lt;script&gt;
-  window.__THE_GREY_ENTRY = "./path/to/your/bundle.js"; 
-  // or:
-  window.__THE_GREY_MULTI__ = [
-    "./wherever/index.js",
-    "./wherever/rules.js",
-    "./wherever/state.js",
-    "./wherever/drags.js",
-    "./wherever/animate.js"
-  ];
-&lt;/script&gt;</pre>
-          <div style="opacity:.75;margin-top:8px">
-            Tip: open DevTools → Sources to see where your built files actually live in this branch, then copy that path.
+            Make sure your main file exists at <code>./src/ui/index.js</code>
+            or update <code>window.__THE_GREY_ENTRY</code> in <strong>index.html</strong>.
           </div>
         </div>`;
       document.body.appendChild(msg);
-      warn("bundle not found; set window.__THE_GREY_ENTRY or window.__THE_GREY_MULTI__ in index.html");
     }
 
     boot();
