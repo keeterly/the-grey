@@ -1,0 +1,12 @@
+.hud{display:flex;justify-content:space-between;gap:12px;padding:10px}
+.btn{border:1px solid #2222;background:#fff;padding:8px 12px;border-radius:999px;cursor:pointer}
+.turn{opacity:.7}
+.aether-readout{opacity:.7}
+.main{display:grid;grid-template-rows:auto 1fr auto;gap:12px;padding:0 12px 12px}
+.flow-row{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.flow-card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px}
+.slots{display:grid;grid-template-columns:repeat(3,220px);gap:12px;justify-content:center}
+.slot{width:220px;height:300px;border:1px dashed #aaa;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.hand{position:relative;height:38vh;min-height:220px}
+.card{position:absolute;width:189px;height:264px;border:1px solid #ddd;border-radius:12px;background:#faf7f1}
+.card .actions{position:absolute;left:8px;right:8px;bottom:6px;display:flex;gap:6px;justify-content:space-between}

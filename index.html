@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Grey — v2.3 (Flow pool added)</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script>window.__THE_GREY_ENTRY = "./src/ui/index.js";</script>
+</head>
+<body>
+  <div class="hud">
+    <div class="hud-left">
+      <button id="btn-start-turn" class="btn">Start Turn</button>
+      <button id="btn-end-turn" class="btn">End Turn</button>
+      <span id="turn-indicator" class="turn">Turn 1</span>
+    </div>
+    <div class="hud-right">
+      <span id="aether-readout" class="aether-readout">0 / 0</span>
+    </div>
+  </div>
+  <main class="main">
+    <section class="flow"><h3>Aether Flow</h3><ul id="flow-row" class="flow-row"></ul></section>
+    <section class="board"><div id="slots" class="slots"></div></section>
+    <section class="hand-section"><div id="hand" class="hand"></div></section>
+  </main>
+  <script type="module" src="./src/ui/index.js"></script>
+</body>
+</html>
