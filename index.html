@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — Board Layout (AI ▸ Flow ▸ Player)</title>
+  <title>The Grey — Board Layout</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -20,7 +20,7 @@
   </header>
 
   <main id="board-grid" class="grid">
-    <!-- AI ROW -->
+    <!-- AI -->
     <section class="row ai">
       <figure class="portrait">
         <img id="ai-portrait" alt="Opponent">
@@ -29,13 +29,13 @@
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
-    <!-- FLOW (CENTER) -->
+    <!-- FLOW -->
     <section class="row flow">
       <h2 class="section-title">AETHER FLOW</h2>
       <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
     </section>
 
-    <!-- PLAYER ROW -->
+    <!-- PLAYER -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
       <figure class="portrait">
@@ -51,6 +51,7 @@
   </main>
 
   <div id="cinematic-root" aria-hidden="true"></div>
-  <script type="module" src="./src/ui/index.js"></script>
+  <!-- IMPORTANT: root path -->
+  <script type="module" src="./index.js"></script>
 </body>
 </html>
