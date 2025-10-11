@@ -1,0 +1,181 @@
+/* ====== The Grey — Mobile/Desktop Layout Polish (v2.3.5 mobile sync) ====== */
+
+/* Base canvas and scale variables */
+:root {
+  --tg-base-w: 1280;
+  --tg-base-h: 720;
+  --tg-gap: 16px;
+
+  /* Card geometry (must match cards in your game CSS) */
+  --card-w: 180px;
+  --card-h: 260px;
+  --card-radius: 14px;
+
+  /* HUD */
+  --hud-h: 180px;
+  --hud-pad: 14px;
+
+  /* Layers */
+  --z-hud: 40;
+  --z-preview: 60;
+  --z-drag: 70;
+
+  /* Colors */
+  --hud-bg: linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(24, 20, 15, .06) 45%, rgba(24, 20, 15, .12) 100%);
+  --tag: #b9b1a8;
+}
+
+/* Remove selection highlight and iOS tap flash during hold/drag */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  overscroll-behavior: none;
+}
+html.tg-no-select, body.tg-no-select, .tg-no-select, .tg-no-select * {
+  user-select: none !important;
+}
+
+/* The scaling wrapper is created by boot-debug.js */
+.tg-scale {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none; /* children restore pointer-events */
+}
+.tg-scale > .tg-stage {
+  width: calc(var(--tg-base-w) * 1px);
+  height: calc(var(--tg-base-h) * 1px);
+  transform-origin: 50% 50%;
+  pointer-events: auto;
+}
+
+/* Make rows center and maintain consistent spacing */
+.board .row,
+[data-board] .row {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  justify-content: center !important;   /* <— center slots */
+  gap: var(--tg-gap) !important;
+  margin-inline: auto !important;
+}
+
+/* Slot boxes alignment and sizing */
+.slot, .spell-slot, .glyph-slot,
+.board .slot, .board .spell-slot, .board .glyph-slot {
+  width: var(--card-w) !important;
+  height: var(--card-h) !important;
+  box-sizing: border-box !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: var(--card-radius) !important;
+}
+
+/* Cards should have the exact same footprint across rows and aetherflow */
+.card, .card.is-in-slot, .aetherflow .card {
+  width: var(--card-w) !important;
+  height: var(--card-h) !important;
+  border-radius: var(--card-radius) !important;
+  transform: translateZ(0); /* reduce blur during scale */
+}
+
+/* Ensure dragging cards stay above everything */
+.card.is-dragging {
+  position: relative;
+  z-index: var(--z-drag) !important;
+}
+
+/* ===== HUD Hand Overlay ===== */
+.tg-hud {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: env(safe-area-inset-bottom, 0);
+  height: calc(var(--hud-h) + var(--hud-pad) * 2);
+  padding: var(--hud-pad);
+  display: grid;
+  place-items: end center;
+  background: var(--hud-bg);
+  z-index: var(--z-hud);
+  pointer-events: none; /* we re-enable on the row below */
+}
+
+/* The hand row sits *inside* the overlay, centered */
+.tg-hand-row {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  justify-content: center;
+  pointer-events: auto;
+  transform: translateZ(0);
+}
+
+/* Let the core game draw actual hand cards; we just keep layout consistent */
+.tg-hand-row .card {
+  width: var(--card-w);
+  height: var(--card-h);
+  will-change: transform;
+}
+
+/* End Turn + Deck cluster lives at the right edge of the HUD */
+.tg-ctl {
+  position: fixed;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom, 0) + 16px);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  z-index: var(--z-hud);
+}
+.tg-ctl .deck,
+.tg-ctl .endturn {
+  pointer-events: auto;
+}
+
+/* Version tag in top-right shouldn’t affect centering */
+.tg-version {
+  position: fixed;
+  top: 8px;
+  right: 12px;
+  z-index: 5;
+  pointer-events: none;
+  opacity: .55;
+  font: 12px/1.2 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  color: var(--tag);
+}
+
+/* ===== Press & hold preview ===== */
+.tg-preview {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(1200px 600px at 60% 110%, rgba(12,8,4,.25), rgba(12,8,4,.45));
+  z-index: var(--z-preview);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s ease-out;
+}
+.tg-preview.show {
+  opacity: 1;
+}
+.tg-preview .card {
+  width: calc(var(--card-w) * 1.15);
+  height: calc(var(--card-h) * 1.15);
+  transform: translateZ(0);
+  filter: drop-shadow(0 12px 28px rgba(12,8,4,.32));
+}
+
+/* Hide Aetherflow header label (per request) */
+[data-label="Aetherflow"], .aetherflow-label, .row.label-aetherflow {
+  display: none !important;
+}
+
+/* Prevent the board content from being pushed by the HUD on small screens */
+@media (max-height: 640px) {
+  .tg-scale > .tg-stage {
+    /* leave size fixed; we scale via transform (see JS) */
+  }
+}
