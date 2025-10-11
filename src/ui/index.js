@@ -2,14 +2,18 @@ import { initState, serializePublic, MAX_SLOTS } from "../engine/GameLogic.js";
 
 const startBtn = document.getElementById("btn-start-turn");
 const endBtn   = document.getElementById("btn-end-turn");
+
+const aiSlotsEl     = document.getElementById("ai-slots");
+const playerSlotsEl = document.getElementById("player-slots");
+
 const flowRowEl = document.getElementById("flow-row");
-const slotsEl   = document.getElementById("slots");
 const handEl    = document.getElementById("hand");
+
 const turnIndicator = document.getElementById("turn-indicator");
 const aetherReadout = document.getElementById("aether-readout");
 
 let state = initState({});
-let prevFlowIds = []; // for river animations
+let prevFlowIds = [];
 
 /* ---------------- Hand fanning ---------------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
@@ -46,61 +50,59 @@ function buildFlowEl(card){
   `;
   return li;
 }
-
 function renderFlow(nextFlow){
   const currentChildren = Array.from(flowRowEl.children);
   const firstRects = new Map(currentChildren.map(el => [el.dataset.id, el.getBoundingClientRect()]));
   const existingById = new Map(currentChildren.map(el => [el.dataset.id, el]));
-
-  // Determine exiting elements
   const nextIds = nextFlow.map(c => c.id);
-  const exiting = currentChildren.filter(el => !nextIds.includes(el.dataset.id));
-  exiting.forEach(el => {
-    el.classList.add("flow-exit");
-    requestAnimationFrame(()=> el.classList.add("flow-exit-active"));
-    setTimeout(()=> el.remove(), 180);
+
+  // exiting
+  currentChildren.filter(el => !nextIds.includes(el.dataset.id)).forEach(el=>{
+    el.classList.add("flow-exit"); requestAnimationFrame(()=>el.classList.add("flow-exit-active"));
+    setTimeout(()=>el.remove(), 180);
   });
 
-  // Rebuild (reusing nodes when possible) in new order
-  const fragment = document.createDocumentFragment();
+  // rebuild in new order (reuse nodes)
+  const frag = document.createDocumentFragment();
   const newEls = [];
-  nextFlow.forEach(c => {
+  nextFlow.forEach(c=>{
     let el = existingById.get(c.id);
-    if (!el) {
-      el = buildFlowEl(c);
-      el.classList.add("flow-enter");
-      requestAnimationFrame(()=> el.classList.add("flow-enter-active"));
-    } else {
-      // Update inner (price may change by column index)
-      el.querySelector(".price").textContent = `Price: Æ ${c.price}`;
-    }
-    fragment.appendChild(el);
-    newEls.push(el);
+    if (!el) { el = buildFlowEl(c); el.classList.add("flow-enter"); requestAnimationFrame(()=>el.classList.add("flow-enter-active")); }
+    else { el.querySelector(".price").textContent = `Price: Æ ${c.price}`; }
+    frag.appendChild(el); newEls.push(el);
   });
+  flowRowEl.replaceChildren(frag);
 
-  // Apply new order
-  flowRowEl.replaceChildren(fragment);
-
-  // FLIP: animate moved elements
-  newEls.forEach(el => {
-    const id = el.dataset.id;
-    const first = firstRects.get(id);
-    if (!first) return; // newly added handled by 'enter' classes
+  // FLIP
+  newEls.forEach(el=>{
+    const first = firstRects.get(el.dataset.id); if (!first) return;
     const last = el.getBoundingClientRect();
-    const dx = first.left - last.left;
-    const dy = first.top  - last.top;
-    if (dx || dy) {
-      el.style.transform = `translate(${dx}px, ${dy}px)`;
-      el.style.transition = "none";
-      // next frame, animate back to 0
-      requestAnimationFrame(()=>{
-        el.style.transition = "transform .22s ease";
-        el.style.transform = "translate(0,0)";
-      });
+    const dx = first.left - last.left; const dy = first.top - last.top;
+    if (dx || dy){
+      el.style.transform = `translate(${dx}px, ${dy}px)`; el.style.transition = "none";
+      requestAnimationFrame(()=>{ el.style.transition = "transform .22s ease"; el.style.transform = "translate(0,0)"; });
     }
   });
 
   prevFlowIds = nextIds;
+}
+
+/* ---------------- Slots (3 spell + 1 glyph) ---------------- */
+function renderSlots(container, slotSnapshot/* array from engine */, isGlyphRight=true){
+  container.replaceChildren();
+  // 3 spell bays (bind to engine 0..2)
+  for (let i=0;i<3;i++){
+    const d = document.createElement("div");
+    d.className = "slot";
+    d.textContent = slotSnapshot?.[i]?.hasCard ? (slotSnapshot[i].card?.name || "Spell") : "Spell Slot";
+    if (slotSnapshot?.[i]?.hasCard) d.classList.add("has-card");
+    container.appendChild(d);
+  }
+  // 1 glyph bay (visual only unless engine wires a 4th)
+  const g = document.createElement("div");
+  g.className = "slot glyph";
+  g.textContent = "Glyph Slot";
+  container.appendChild(g);
 }
 
 /* ---------------- Render ---------------- */
@@ -111,28 +113,22 @@ function render(){
   aetherReadout.textContent = `Æ ${snap.player.aether}  ◇ ${snap.player.channeled}`;
 
   // portraits
-  document.getElementById("p1").src = snap.player.weaver.portrait || "";
-  document.getElementById("p2").src = snap.ai.weaver.portrait || "";
-  document.getElementById("p1-name").textContent = snap.player.weaver.name;
-  document.getElementById("p2-name").textContent = snap.ai.weaver.name;
+  document.getElementById("player-portrait").src = snap.player.weaver.portrait || "";
+  document.getElementById("ai-portrait").src = snap.ai.weaver.portrait || "";
+  document.getElementById("player-name").textContent = snap.player.weaver.name;
+  document.getElementById("ai-name").textContent = snap.ai.weaver.name;
 
-  // flow row (animated diff)
+  // sides
+  renderSlots(playerSlotsEl, snap.player.slots);
+  renderSlots(aiSlotsEl, snap.ai.slots);
+
+  // flow
   renderFlow(snap.flow);
-
-  // slots
-  slotsEl.replaceChildren();
-  for (let i=0;i<MAX_SLOTS;i++){
-    const d = document.createElement("div");
-    d.className = "slot";
-    d.textContent = "Empty Slot";
-    if (snap.player.slots[i]?.hasCard) d.classList.add("has-card");
-    slotsEl.appendChild(d);
-  }
 
   // hand
   handEl.replaceChildren();
   const cardEls = [];
-  snap.player.hand.forEach((c)=>{
+  snap.player.hand.forEach(c=>{
     const el = document.createElement("article");
     el.className = "card";
     el.tabIndex = 0;
@@ -145,8 +141,7 @@ function render(){
         <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
       </div>
     `;
-    handEl.appendChild(el);
-    cardEls.push(el);
+    handEl.appendChild(el); cardEls.push(el);
   });
   layoutHand(handEl, cardEls);
 }
