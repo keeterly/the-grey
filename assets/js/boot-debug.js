@@ -1,15 +1,13 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only-r4)
-   - Scales 1280×720 canvas to viewport (desktop + mobile)
-   - Adds 'mobile-land' class for small landscape devices
-   - Press & hold preview for hand cards
-   - Adds version badge
-   - Safari guards (visualViewport / bfcache / timed reflow)
+/* The Grey — boot-debug.js (r5)
+   - Scales 1280×720 canvas to viewport (desktop + mobile landscape)
+   - Toggles .mobile-land on small landscape devices (if you want special rules)
+   - Installs press & hold preview for HAND cards only
+   - Injects a version tag
+   - iOS Safari reflow guards (visualViewport, bfcache, timed nudges)
 */
-
 (() => {
   const on = (t,k,f,o)=> t && t.addEventListener && t.addEventListener(k,f,o||false);
   const qs = (s,r=document)=> r.querySelector(s);
-
   const BASE_W = 1280, BASE_H = 720;
 
   function computeScale(){
@@ -17,25 +15,20 @@
     const s  = Math.min(vw/BASE_W, vh/BASE_H);
     return Math.max(0.1, Math.min(s*0.995, 2));
   }
-
   function applyScaleVars(){
     const s = computeScale();
     const st = document.documentElement.style;
     st.setProperty('--tg-scale', String(s));
-    st.setProperty('--tg-scaled-w', (BASE_W*s)+'px');
-    st.setProperty('--tg-scaled-h', (BASE_H*s)+'px');
+    st.setProperty('--tg-base-w', BASE_W);
+    st.setProperty('--tg-base-h', BASE_H);
   }
-
   function applyMobileFlag(){
     const w = window.innerWidth, h = window.innerHeight;
-    const isLandscape = w >= h;
-    const isMobileLandscape = isLandscape && Math.min(w,h) <= 900;
-    document.documentElement.classList.toggle('mobile-land', isMobileLandscape);
+    const smallLandscape = (w >= h) && Math.min(w,h) <= 900;
+    document.documentElement.classList.toggle('mobile-land', smallLandscape);
   }
-
   function applyLayout(){ applyMobileFlag(); applyScaleVars(); }
 
-  /* ---------------- Version HUD ---------------- */
   function ensureVersionTag(){
     let hud = qs('#tgHudRoot');
     if(!hud){
@@ -58,16 +51,16 @@
       `;
       hud.appendChild(tag);
     }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only-r4');
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.9-acceptanceP1-safe-v13');
   }
 
-  /* ---------------- Press & Hold preview ---------------- */
+  /* Press & hold preview: only for hand cards (#app .hand .card) */
   function installPressPreview(){
     const DELAY = 220, CANCEL = 8;
     let timer = null, active = null, sx=0, sy=0;
 
     on(document,'pointerdown',(e)=>{
-      const card = e.target?.closest?.('#app .hand .card'); /* only hand */
+      const card = e.target?.closest?.('#app .hand .card');
       if(!card) return;
       sx = e.clientX; sy = e.clientY;
       timer = setTimeout(()=>{
@@ -92,18 +85,18 @@
     });
   }
 
-  /* ---------------- Boot ---------------- */
   function boot(){
     ensureVersionTag();
     installPressPreview();
     applyLayout();
 
-    ['resize','orientationchange','visibilitychange'].forEach(ev=>
-      on(window, ev, applyLayout, {passive:true})
+    ['resize','orientationchange','visibilitychange'].forEach(ev =>
+      on(window, ev, applyLayout, { passive:true })
     );
-
     if(window.visualViewport){
-      ['resize','scroll'].forEach(ev=> on(window.visualViewport, ev, applyLayout, {passive:true}));
+      ['resize','scroll'].forEach(ev =>
+        on(window.visualViewport, ev, applyLayout, { passive:true })
+      );
     }
     on(window,'pageshow',(e)=>{ if(e.persisted) applyLayout(); }, {passive:true});
 
@@ -111,6 +104,7 @@
     setTimeout(applyLayout, 300);
     setTimeout(applyLayout, 800);
 
+    // nudge app-side sync if present
     requestAnimationFrame(()=>{ try{
       (window.tgSyncAll || window.syncAll || window.__syncAll || (()=>{}))();
     }catch{} });
