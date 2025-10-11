@@ -1,62 +1,54 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only-r3)
-   Layout-only:
-   - Fit 1280×720 canvas to viewport (desktop + mobile)
-   - Apply "mobile-land" ONLY for small, landscape screens
-   - Press & hold card preview
-   - Version badge
-   - Safari guards (visualViewport / pageshow / timed reflow)
+/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only-r4)
+   - Scales 1280×720 canvas to viewport (desktop + mobile)
+   - Adds 'mobile-land' class for small landscape devices
+   - Press & hold preview for hand cards
+   - Adds version badge
+   - Safari guards (visualViewport / bfcache / timed reflow)
 */
 
 (() => {
-  const on = (t, k, f, o) => t && t.addEventListener && t.addEventListener(k, f, o || false);
-  const qs = (s, r = document) => r.querySelector(s);
+  const on = (t,k,f,o)=> t && t.addEventListener && t.addEventListener(k,f,o||false);
+  const qs = (s,r=document)=> r.querySelector(s);
 
   const BASE_W = 1280, BASE_H = 720;
 
-  /* ---------------- Fit-to-viewport scaling ---------------- */
-  function computeScale() {
-    // Use inner* so iOS URL-bar changes are reflected
+  function computeScale(){
     const vw = window.innerWidth, vh = window.innerHeight;
-    const s  = Math.min(vw / BASE_W, vh / BASE_H);
-    // Nudge to avoid 1px overflow from rounding; cap to a sensible max on desktop
-    return Math.max(0.1, Math.min(s * 0.995, 2));
+    const s  = Math.min(vw/BASE_W, vh/BASE_H);
+    return Math.max(0.1, Math.min(s*0.995, 2));
   }
 
-  function applyScaleVars() {
-    const s  = computeScale();
+  function applyScaleVars(){
+    const s = computeScale();
     const st = document.documentElement.style;
     st.setProperty('--tg-scale', String(s));
-    st.setProperty('--tg-scaled-w', (BASE_W * s) + 'px');
-    st.setProperty('--tg-scaled-h', (BASE_H * s) + 'px');
+    st.setProperty('--tg-scaled-w', (BASE_W*s)+'px');
+    st.setProperty('--tg-scaled-h', (BASE_H*s)+'px');
   }
 
-  function applyMobileFlag() {
+  function applyMobileFlag(){
     const w = window.innerWidth, h = window.innerHeight;
     const isLandscape = w >= h;
-    // Only treat as mobile-land if it's landscape AND physically small
-    const isMobileLandscape = isLandscape && Math.min(w, h) <= 900;
+    const isMobileLandscape = isLandscape && Math.min(w,h) <= 900;
     document.documentElement.classList.toggle('mobile-land', isMobileLandscape);
   }
 
-  function applyLayout() {
-    applyMobileFlag();
-    applyScaleVars();
-  }
+  function applyLayout(){ applyMobileFlag(); applyScaleVars(); }
 
   /* ---------------- Version HUD ---------------- */
-  function ensureVersionTag() {
+  function ensureVersionTag(){
     let hud = qs('#tgHudRoot');
-    if (!hud) {
+    if(!hud){
       hud = document.createElement('div');
       hud.id = 'tgHudRoot';
-      hud.style.position = 'fixed';
-      hud.style.inset = '0';
-      hud.style.zIndex = '99998';
-      hud.style.pointerEvents = 'none';
+      hud.style.position='fixed';
+      hud.style.inset='0';
+      hud.style.zIndex='99998';
+      hud.style.pointerEvents='none';
       document.body.appendChild(hud);
     }
     let tag = qs('#tgVersionTag');
-    if (!tag) {
+    if(!tag){
       tag = document.createElement('div');
       tag.id = 'tgVersionTag';
       tag.style.cssText = `
@@ -66,73 +58,67 @@
       `;
       hud.appendChild(tag);
     }
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only-r3');
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only-r4');
   }
 
   /* ---------------- Press & Hold preview ---------------- */
-  function installPressPreview() {
+  function installPressPreview(){
     const DELAY = 220, CANCEL = 8;
-    let timer = null, active = null, sx = 0, sy = 0;
+    let timer = null, active = null, sx=0, sy=0;
 
-    on(document, 'pointerdown', (e) => {
-      const card = e.target?.closest?.('#app .hand .card');
-      if (!card) return;
+    on(document,'pointerdown',(e)=>{
+      const card = e.target?.closest?.('#app .hand .card'); /* only hand */
+      if(!card) return;
       sx = e.clientX; sy = e.clientY;
-      timer = setTimeout(() => {
+      timer = setTimeout(()=>{
         active = card;
-        card.classList.add('magnify', 'magnify-hand');
+        card.classList.add('magnify','magnify-hand');
       }, DELAY);
-    }, { passive: true });
+    }, {passive:true});
 
-    const clear = () => {
-      if (timer) { clearTimeout(timer); timer = null; }
-      if (active) { active.classList.remove('magnify', 'magnify-hand'); active = null; }
+    const clear = ()=>{
+      if(timer){ clearTimeout(timer); timer=null; }
+      if(active){ active.classList.remove('magnify','magnify-hand'); active=null; }
     };
 
-    on(document, 'pointermove', (e) => {
-      if (!timer && !active) return;
-      if (Math.hypot(e.clientX - sx, e.clientY - sy) > CANCEL) clear();
-    }, { passive: true });
+    on(document,'pointermove',(e)=>{
+      if(!timer && !active) return;
+      if(Math.hypot(e.clientX - sx, e.clientY - sy) > CANCEL) clear();
+    }, {passive:true});
 
-    ['pointerup','pointercancel','pointerleave','visibilitychange','blur'].forEach(ev => {
-      on(document, ev, clear, { passive: true });
-      on(window,   ev, clear, { passive: true });
+    ['pointerup','pointercancel','pointerleave','visibilitychange','blur'].forEach(ev=>{
+      on(document, ev, clear, {passive:true});
+      on(window,   ev, clear, {passive:true});
     });
   }
 
   /* ---------------- Boot ---------------- */
-  function boot() {
+  function boot(){
     ensureVersionTag();
     installPressPreview();
     applyLayout();
 
-    // Normal listeners
-    ['resize', 'orientationchange', 'visibilitychange'].forEach(ev =>
-      on(window, ev, applyLayout, { passive: true })
+    ['resize','orientationchange','visibilitychange'].forEach(ev=>
+      on(window, ev, applyLayout, {passive:true})
     );
 
-    // Safari: visual viewport / bfcache
-    if (window.visualViewport) {
-      ['resize','scroll'].forEach(ev =>
-        on(window.visualViewport, ev, applyLayout, { passive: true })
-      );
+    if(window.visualViewport){
+      ['resize','scroll'].forEach(ev=> on(window.visualViewport, ev, applyLayout, {passive:true}));
     }
-    on(window, 'pageshow', (e) => { if (e.persisted) applyLayout(); }, { passive: true });
+    on(window,'pageshow',(e)=>{ if(e.persisted) applyLayout(); }, {passive:true});
 
-    // Timed reflows (URL-bar settle etc.)
     setTimeout(applyLayout, 0);
     setTimeout(applyLayout, 300);
     setTimeout(applyLayout, 800);
 
-    // Gentle UI nudge if available
-    requestAnimationFrame(() => { try {
+    requestAnimationFrame(()=>{ try{
       (window.tgSyncAll || window.syncAll || window.__syncAll || (()=>{}))();
-    } catch {} });
+    }catch{} });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', boot, { once: true });
-  } else {
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, {once:true});
+  }else{
     boot();
   }
 })();
