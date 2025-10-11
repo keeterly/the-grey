@@ -11,29 +11,105 @@
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Your existing, safe stylesheet (keep) -->
+  <!-- Core stylesheet (yours; keep as-is) -->
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
-
-  <!-- Mobile/desktop layout polish (new) -->
+  <!-- Layout polish (ours; keep) -->
   <link rel="stylesheet" href="./assets/css/mobile.css" />
 </head>
 <body>
-  <!-- Game mount -->
   <div id="app"></div>
 
-  <!-- Build/version tag (optional – shows small tag in top-right) -->
   <script>
+    /* Visible version tag (optional) */
     window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
+
+    /* -------------------------------
+       Dynamic core loader
+       Tries a list of common locations. First that loads "wins".
+       Works for either single-file bundles OR classic multi-file layouts.
+    -------------------------------- */
+
+    const singleFileCandidates = [
+      "./main.js",
+      "./assets/js/main.js",
+      "./the-grey/assets/js/main.js",
+      "./dist/main.js",
+      "./bundle.js",
+      "./the-grey/main.js"
+    ];
+
+    const multiFileSets = [
+      // classic root layout
+      ["./index.js","./rules.js","./state.js","./drags.js","./animate.js"],
+      // under /the-grey/ root
+      ["./the-grey/index.js","./the-grey/rules.js","./the-grey/state.js","./the-grey/drags.js","./the-grey/animate.js"],
+      // under assets/js/
+      ["./assets/js/index.js","./assets/js/rules.js","./assets/js/state.js","./assets/js/drags.js","./assets/js/animate.js"]
+    ];
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = src;
+        s.defer = true;
+        s.onload = () => resolve(src);
+        s.onerror = () => {
+          s.remove();
+          reject(new Error("404 " + src));
+        };
+        document.head.appendChild(s);
+      });
+    }
+
+    async function trySingleFile() {
+      for (const path of singleFileCandidates) {
+        try {
+          await loadScript(path);
+          window.__TG_CORE_PATH__ = path;
+          return true;
+        } catch { /* try next */ }
+      }
+      return false;
+    }
+
+    async function tryMultiFile() {
+      for (const set of multiFileSets) {
+        try {
+          // load in sequence (preserve order)
+          for (const f of set) await loadScript(f);
+          window.__TG_CORE_PATH__ = set.join(", ");
+          return true;
+        } catch { /* try next set */ }
+      }
+      return false;
+    }
+
+    async function boot() {
+      const ok = (await trySingleFile()) || (await tryMultiFile());
+      if (!ok) {
+        const msg = document.createElement("div");
+        msg.style.cssText = "position:fixed;inset:0;display:grid;place-items:center;font:14px/1.4 ui-sans-serif,system-ui,-apple-system; color:#5c5348; background:linear-gradient(#f7f5f0,#eee6d9)";
+        msg.innerHTML = `
+          <div style="max-width:680px;text-align:center; padding:24px 20px; border-radius:12px; background:#fff; box-shadow:0 8px 26px rgba(0,0,0,.10)">
+            <div style="font-weight:700;margin-bottom:6px;">Couldn’t find the game bundle</div>
+            <div style="opacity:.75">
+              None of the expected script paths exist. Make sure your built files are in one of these locations:<br><br>
+              <code>${singleFileCandidates.join("</code>, <code>")}</code><br>
+              or a classic multi-file layout like <code>index.js</code>, <code>rules.js</code>, <code>state.js</code>, <code>drags.js</code>, <code>animate.js</code> at the project root.
+            </div>
+          </div>`;
+        document.body.appendChild(msg);
+        return;
+      }
+
+      // After core is loaded, load the layout shim
+      const shim = document.createElement("script");
+      shim.src = "./assets/js/boot-debug.js";
+      shim.defer = true;
+      document.head.appendChild(shim);
+    }
+
+    boot();
   </script>
-
-  <!-- Your existing core files (keep these names/paths if they exist in your repo root) -->
-  <script src="./index.js" defer></script>
-  <script src="./rules.js" defer></script>
-  <script src="./state.js" defer></script>
-  <script src="./drags.js" defer></script>
-  <script src="./animate.js" defer></script>
-
-  <!-- Layout-only bootstrap that centers rows, overlays HUD hand, adds preview, etc. -->
-  <script src="./assets/js/boot-debug.js" defer></script>
 </body>
 </html>
