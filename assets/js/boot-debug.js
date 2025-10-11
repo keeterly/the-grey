@@ -1,183 +1,213 @@
+/* The Grey — Mobile/Desktop layout bootstrap (v2.3.5 mobile sync)
+   - Centers slot rows and preserves a 1280x720 stage with responsive scale
+   - HUD hand overlay layer (non-clipping, above board)
+   - Places Deck next to End Turn on the right
+   - Press & Hold preview (touch + mouse)
+   - Defensive (won’t break if selectors change)
+*/
 
-/* assets/js/boot-debug.js — Board Proportions + AF River; version v2.3.9-acceptanceP1-safe-v17 */
-(function(){ window.__THE_GREY_BUILD = 'v2.3.9-acceptanceP1-safe-v17'; })();
+(() => {
+  const STAGE_W = 1280;
+  const STAGE_H = 720;
+  const HOLD_MS = 260; // long-press threshold
 
-(function ensureRotateOverlay(){
-  if (document.getElementById('tgRotateOverlay')) return;
-  const overlay = document.createElement('div');
-  overlay.id = 'tgRotateOverlay';
-  overlay.className = 'tg-rotate-overlay';
-  overlay.innerHTML = '<div class="tg-rotate-card"><div class="tg-rotate-title">Rotate for best view</div><div class="tg-rotate-sub">Portrait uses a mini layout. Landscape shows more of the board.</div></div>';
-  document.body.appendChild(overlay);
-})();
+  let stage, scaleWrap, hud, handRow, ctl, preview;
+  let holdTimer = null;
+  let heldCard = null;
 
-(function mobileMiniToggle(){
-  const docEl = document.documentElement;
-  const LS_KEY = 'tgCompactPref';
-  function getPref(){ try{ return localStorage.getItem(LS_KEY) || 'auto'; }catch(_){ return 'auto'; }}
-  function setPref(v){ try{ localStorage.setItem(LS_KEY, v); }catch(_){}};
-  function isSmall(){ return Math.min(window.innerWidth, window.innerHeight) <= 900; }
-  function isPortrait(){ return window.matchMedia('(orientation: portrait)').matches; }
-  const overlay = document.getElementById('tgRotateOverlay');
+  // ————— Utilities
+  const $ = (sel, root = document) => root.querySelector(sel);
+  const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 
-  function ensureToggle(){
-    const left = document.querySelector('.hud-min .left');
-    if (!left) return;
-    let btn = document.getElementById('tgCompactToggle');
-    if (!btn){
-      btn = document.createElement('div');
-      btn.id = 'tgCompactToggle';
-      btn.className = 'icon btn';
-      btn.title = 'Layout: Auto / Mini / Off';
-      btn.textContent = '⇆';
-      left.prepend(btn);
+  // scale to fit (keeping 16:9), accounting for HUD
+  function applyScale() {
+    if (!scaleWrap || !stage) return;
+    const hudH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--hud-h')) || 180;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight - hudH;
+    const sx = vw / STAGE_W;
+    const sy = vh / STAGE_H;
+    const s = Math.min(sx, sy);
+
+    stage.style.transform = `scale(${s})`;
+  }
+
+  // To avoid fighting your main render, wrap once when #app gets content
+  function ensureScaleFrame() {
+    const mount = $('#app');
+    if (!mount) return;
+
+    if (!$('.tg-scale')) {
+      scaleWrap = document.createElement('div');
+      scaleWrap.className = 'tg-scale';
+
+      stage = document.createElement('div');
+      stage.className = 'tg-stage';
+
+      // move any existing children of #app into stage
+      while (mount.firstChild) stage.appendChild(mount.firstChild);
+      mount.appendChild(scaleWrap);
+      scaleWrap.appendChild(stage);
     }
-    function label(p){ return p==='mini' ? 'Mini' : p==='off' ? 'Off' : 'Auto'; }
-    btn.onclick = function(){
-      const p = getPref();
-      const next = p==='auto' ? 'mini' : p==='mini' ? 'off' : 'auto';
-      setPref(next); apply(); btn.setAttribute('data-count', label(next));
-    };
-    btn.setAttribute('data-count', label(getPref()));
+    applyScale();
   }
 
-  function apply(){
-    const pref = getPref();
-    const small = isSmall();
-    const portrait = isPortrait();
-    const autoMini = small && portrait;
-    const mini = pref==='mini' ? true : (pref==='off' ? false : autoMini);
-    document.documentElement.classList.toggle('mobile-mini', mini);
-    document.documentElement.classList.toggle('mobile-compact', false);
-    if (overlay) overlay.classList.toggle('show', small && portrait);
-    const btn = document.getElementById('tgCompactToggle');
-    if (btn) btn.setAttribute('data-count', (pref==='mini'?'Mini':pref==='off'?'Off':'Auto'));
-  }
+  // HUD overlay with a “hand row” container and a right-side control cluster
+  function ensureHud() {
+    if ($('.tg-hud')) return;
 
-  ['resize','orientationchange'].forEach(evt => window.addEventListener(evt, apply, {passive:true}));
-  document.addEventListener('DOMContentLoaded', ()=>{ ensureToggle(); apply(); }, {once:true});
-  apply();
-})();
+    hud = document.createElement('div');
+    hud.className = 'tg-hud';
 
-/* Aetherflow River: starts empty; each START_TURN reveals one; river shift behavior */
-(function aetherflowRiver(){
-  const q = (sel,root=document)=>root.querySelector(sel);
-  const qa = (sel,root=document)=>Array.from(root.querySelectorAll(sel));
+    handRow = document.createElement('div');
+    handRow.className = 'tg-hand-row';
+    hud.appendChild(handRow);
 
-  function setup(){
-    const af = q('.aetherflow');
-    const list = af ? q('.af-cards', af) : null;
-    if (!af || !list) return;
+    document.body.appendChild(hud);
 
-    const cards = qa('.af-card', list);
-    if (!cards.length) return;
+    // Controls cluster (End Turn + Deck)
+    ctl = document.createElement('div');
+    ctl.className = 'tg-ctl';
+    document.body.appendChild(ctl);
 
-    cards.forEach((c,i)=>{ c.dataset.afIdx = String(i); c.classList.add('af-hidden'); });
+    // try to graft your existing controls into the cluster (non-breaking)
+    const endTurn = $('[data-btn="endturn"], .endturn, button[aria-label="End Turn"]');
+    if (endTurn) ctl.appendChild(endTurn);
 
-    window.__AFRiver = {
-      nextIndex: 0,
-      cards,
-      revealOne(){
-        const idx = this.nextIndex;
-        if (idx < this.cards.length){
-          const visible = this.cards.filter(c=>!c.classList.contains('af-hidden'));
-          if (visible.length) visible[0].classList.add('af-hidden'); // shift
-          const c = this.cards[idx];
-          c.classList.remove('af-hidden');
-          this.nextIndex = idx + 1;
-        }
-      },
-      reset(){
-        this.cards.forEach(c=>c.classList.add('af-hidden'));
-        this.nextIndex = 0;
-      }
-    };
+    const deck = $('[data-btn="deck"], .deck, button[aria-label="Deck"], .tg-deck');
+    if (deck) ctl.appendChild(deck);
 
-    if (!document.getElementById('tgAfHiddenStyle')){
-      const st = document.createElement('style'); st.id='tgAfHiddenStyle';
-      st.textContent = '.af-card.af-hidden{ visibility:hidden; pointer-events:none; }';
-      document.head.appendChild(st);
+    // Version tag (optional)
+    const version = window.__THE_GREY_BUILD;
+    if (version && !$('.tg-version')) {
+      const tag = document.createElement('div');
+      tag.className = 'tg-version';
+      tag.textContent = version;
+      document.body.appendChild(tag);
     }
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', setup, {once:true});
-  else setup();
+  // Try to mirror whatever your game uses as the live “hand” source
+  function syncHandIntoHud() {
+    if (!handRow) return;
 
-  const MAX=10000, START=Date.now();
-  (function waitGame(){
-    if (window.game) attach();
-    else if (Date.now()-START<MAX) setTimeout(waitGame, 60);
-  })();
+    // pick first that exists: .hand, [data-hand], or bottom-most row of cards
+    let src =
+      $('.hand') ||
+      $('[data-hand="you"]') ||
+      (function findBottomRow() {
+        const rows = $$('.row');
+        if (!rows.length) return null;
+        // choose the one visually lowest on screen
+        return rows.slice().sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top).pop();
+      })();
 
-  function attach(){
-    try{
-      const origDispatch = window.game && window.game.dispatch ? window.game.dispatch.bind(window.game) : null;
-      if (!origDispatch) return;
-      window.game.dispatch = (action)=>{
-        const r = origDispatch(action);
-        const t = action && action.type;
-        if (t==='START'){
-          window.__AFRiver && window.__AFRiver.reset && window.__AFRiver.reset();
-        } else if (t==='START_TURN'){
-          window.__AFRiver && window.__AFRiver.revealOne && window.__AFRiver.revealOne();
-        }
-        return r;
-      };
-    }catch(_){}
+    if (!src) return;
+
+    // Grab card nodes (don’t clone deeply to preserve events)
+    const cards = $$('.card', src);
+    // Soft re-render: clear, then append lightweight mirrors
+    handRow.textContent = '';
+    cards.forEach(card => {
+      const ph = document.createElement('div');
+      ph.className = 'card';
+      ph.style.width = getComputedStyle(card).width;
+      ph.style.height = getComputedStyle(card).height;
+      // visually mirror (title/ribbon). If your DOM has richer inner HTML, copy safely:
+      ph.innerHTML = card.innerHTML;
+      // mark so drags don’t interfere with source
+      ph.dataset.mirror = 'hand';
+      handRow.appendChild(ph);
+    });
   }
-})();
 
-/* Drop snap nicety */
-(function dropSnap(){
-  const slots = document.querySelectorAll('[data-board] .slots');
-  const obs = new MutationObserver((mutations)=>{
-    for (const m of mutations) {
-      if (m.type==='childList' && m.addedNodes.length) {
-        m.addedNodes.forEach(node=>{
-          if (node && node.classList && node.classList.contains('card')) {
-            node.classList.add('drop-zoom');
-            setTimeout(()=> node.classList.remove('drop-zoom'), 200);
-          }
-        });
-      }
-    }
-  });
-  slots.forEach(s => obs.observe(s, {childList:true}));
-})();
-
-/* Bottom counters + version badge */
-(function ensureBottomCounters(){
-  const right = document.querySelector('.hud-min .right');
-  if (!right) return;
-  const endBtn = document.getElementById('btnEnd') || right.lastElementChild;
-  function pill(id, sym){
-    const el = document.createElement('span');
-    el.id = id; el.className = 'hud-pill';
-    el.innerHTML = `<span class="sym">${sym}</span><span class="val">0</span>`;
-    return el;
+  // Press & hold preview
+  function ensurePreview() {
+    if (preview) return;
+    preview = document.createElement('div');
+    preview.className = 'tg-preview';
+    preview.style.display = 'none';
+    document.body.appendChild(preview);
   }
-  if (!document.getElementById('tgTempPill')) right.insertBefore(pill('tgTempPill','🜂'), endBtn);
-  if (!document.getElementById('tgChanPill')) right.insertBefore(pill('tgChanPill','◇'), endBtn);
-  if (!document.getElementById('tgVersion')) { const v = document.createElement('div'); v.id='tgVersion'; v.className='tgVersion'; v.textContent = 'The Grey — ' + (window.__THE_GREY_BUILD||'dev'); document.body.appendChild(v); }
-})();
 
-/* Engine wire */
-(async function wireAcceptance(){
-  try {
-    const Engine = await import('./engine.acceptance.js');
-    function attach(game){
-      if (typeof game.dispatch === 'function') {
-        const original = game.dispatch.bind(game);
-        game.dispatch = (action)=>{ const r = original(action); const t=(action&&action.type)||'';
-          if (t==='START_TURN' || t==='START_PHASE' || t==='START') { Engine.startPhase(game); if (typeof Engine.checkTrance === 'function') Engine.checkTrance(game, ()=>{}); }
-          return r; };
-      }
-      Engine.startPhase(game);
-      if (typeof Engine.checkTrance === 'function') Engine.checkTrance(game, ()=>{});
-    }
-    const MAX=10000, START=Date.now();
-    (function wait(){ if(window.game && window.game.players && window.game.players.length) attach(window.game);
-      else if(Date.now()-START < MAX) setTimeout(wait, 60);
-      else console.warn('[acceptance] game not detected.'); })();
-  } catch (e) { console.error('boot-debug import error', e); }
+  function showPreview(fromCard) {
+    ensurePreview();
+    document.documentElement.classList.add('tg-no-select');
+    preview.innerHTML = '';
+    const c = document.createElement('div');
+    c.className = 'card';
+    c.innerHTML = fromCard.innerHTML;
+    preview.appendChild(c);
+    preview.style.display = 'grid';
+    requestAnimationFrame(() => preview.classList.add('show'));
+  }
+
+  function hidePreview() {
+    document.documentElement.classList.remove('tg-no-select');
+    if (!preview) return;
+    preview.classList.remove('show');
+    preview.style.display = 'none';
+    preview.innerHTML = '';
+  }
+
+  function startHold(e) {
+    const target = e.target.closest('.card');
+    if (!target) return;
+    clearTimeout(holdTimer);
+    heldCard = target;
+    holdTimer = setTimeout(() => {
+      showPreview(heldCard);
+    }, HOLD_MS);
+  }
+  function endHold() {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    if (preview) hidePreview();
+  }
+
+  // Observe for DOM changes so we can keep the HUD hand mirrored & rows centered
+  function observe() {
+    const mo = new MutationObserver(() => {
+      // ensure wrappers exist
+      ensureScaleFrame();
+      ensureHud();
+      // keep hand mirrored
+      syncHandIntoHud();
+      // rows centering: in case classes are added late
+      $$('.row').forEach(r => {
+        r.style.justifyContent = 'center';
+        r.style.gap = '16px';
+      });
+    });
+    mo.observe(document.body, { subtree: true, childList: true, attributes: false });
+  }
+
+  // Wire events
+  function wire() {
+    window.addEventListener('resize', applyScale, { passive: true });
+    document.addEventListener('scroll', applyScale, { passive: true });
+
+    // long-press handlers (work for both main board and mirrored hand)
+    document.addEventListener('touchstart', startHold, { passive: true });
+    document.addEventListener('mousedown', startHold);
+    ['touchend', 'touchcancel', 'mouseup', 'mouseleave', 'blur'].forEach(ev =>
+      document.addEventListener(ev, endHold, { passive: true })
+    );
+  }
+
+  // Init when DOM is ready; if your core emits a custom event (e.g., game ready),
+  // this still works because we continuously observe.
+  function init() {
+    ensureScaleFrame();
+    ensureHud();
+    observe();
+    wire();
+    applyScale();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
