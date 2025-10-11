@@ -15,7 +15,7 @@ const zoomCardEl     = document.getElementById("zoom-card");
 
 let state = initState({});
 
-/* ---------- Hand fanning ---------- */
+/* ---------- Hand fan ---------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N) return;
@@ -35,8 +35,7 @@ function layoutHand(container, cards) {
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
-    // smooth redistribution (transition is on .card)
-    el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
+    el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`; // smooth redistribution
   });
 }
 
@@ -63,8 +62,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
         d.classList.remove("drag-over");
         const cardId = ev.dataTransfer?.getData("text/card-id");
         const cardType = ev.dataTransfer?.getData("text/card-type");
-        if (!cardId) return;
-        if (cardType !== "SPELL") return; // spell slots accept only SPELL
+        if (!cardId || cardType !== "SPELL") return;
         try{
           playCardToSpellSlot(state, "player", cardId, i);
           render(); // re-render → hand redistributes
@@ -74,12 +72,11 @@ function renderSlots(container, slotSnapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // 1 rectangular Glyph bay (accepts only GLYPH)
+  // 1 rectangular Glyph bay (GLYPH only; hook engine later)
+  const g = document.createElement("div");
+  g.className = "slot glyph";
+  g.textContent = "Glyph Slot";
   if (isPlayer){
-    const g = document.createElement("div");
-    g.className = "slot glyph";
-    g.textContent = "Glyph Slot";
-
     g.addEventListener("dragover", (ev)=> {
       const t = ev.dataTransfer?.getData("text/card-type");
       if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
@@ -87,21 +84,15 @@ function renderSlots(container, slotSnapshot, isPlayer){
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
     g.addEventListener("drop", (ev)=>{
       ev.preventDefault(); g.classList.remove("drag-over");
-      const cardType = ev.dataTransfer?.getData("text/card-type");
-      if (cardType !== "GLYPH") return;
-      // TODO: hook engine when glyph slot exists in state; for now just ignore gracefully
-      // You can wire a playGlyphToSlot(state, "player", cardId) here later.
+      const t = ev.dataTransfer?.getData("text/card-type");
+      if (t !== "GLYPH") return;
+      // TODO: playGlyphToSlot(state, "player", cardId) once engine exposes it.
     });
-    container.appendChild(g);
-  } else {
-    const g = document.createElement("div");
-    g.className = "slot glyph";
-    g.textContent = "Glyph Slot";
-    container.appendChild(g);
   }
+  container.appendChild(g);
 }
 
-/* ---------- Flow row (full-size cards) ---------- */
+/* ---------- Flow row (full-size market cards) ---------- */
 function cardHTML(c){
   return `<div class="title">${c.name}</div>
           <div class="type">${c.type}</div>
@@ -121,7 +112,7 @@ function renderFlow(nextFlow){
   });
 }
 
-/* ---------- Peek + Zoom ---------- */
+/* ---------- Peek + Zoom (fixed) ---------- */
 function fillCardShell(div, data){
   div.innerHTML = `
     <div class="title">${data.name}</div>
@@ -130,34 +121,48 @@ function fillCardShell(div, data){
     <div class="actions" style="opacity:.6"><span>Preview</span></div>
   `;
 }
+
 let longPressTimer = null;
+let pressStart = {x:0, y:0};
+const LONG_PRESS_MS = 350;
+const MOVE_CANCEL_PX = 8;
+
 function attachPeekAndZoom(el, data){
   // Hover peek (desktop)
   el.addEventListener("mouseenter", ()=>{
     fillCardShell(peekEl, data);
     peekEl.hidden = false;
-    peekEl.classList.add("show");
+    requestAnimationFrame(()=> peekEl.classList.add("show"));
   });
   el.addEventListener("mouseleave", ()=>{
     peekEl.classList.remove("show");
     peekEl.hidden = true;
   });
 
-  // Press & hold for 2x zoom (mouse or touch)
-  const start = (ev)=>{
+  // Long-press for 2x zoom
+  const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
+    pressStart = { x: ev.clientX ?? (ev.touches?.[0]?.clientX ?? 0),
+                   y: ev.clientY ?? (ev.touches?.[0]?.clientY ?? 0) };
     longPressTimer = setTimeout(()=>{
       fillCardShell(zoomCardEl, data);
       zoomOverlayEl.hidden = false;
-    }, 350);
+    }, LONG_PRESS_MS);
   };
-  const cancel = ()=>{
-    if (longPressTimer) clearTimeout(longPressTimer);
+  const clearLP = ()=> { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
+  const onMove = (ev)=>{
+    const x = ev.clientX ?? (ev.touches?.[0]?.clientX ?? 0);
+    const y = ev.clientY ?? (ev.touches?.[0]?.clientY ?? 0);
+    if (Math.hypot(x - pressStart.x, y - pressStart.y) > MOVE_CANCEL_PX) clearLP();
   };
-  el.addEventListener("pointerdown", start);
-  el.addEventListener("pointerup", cancel);
-  el.addEventListener("pointerleave", cancel);
-  el.addEventListener("dragstart", cancel);
+
+  el.addEventListener("pointerdown", onDown, {passive:true});
+  el.addEventListener("pointerup", clearLP, {passive:true});
+  el.addEventListener("pointerleave", clearLP, {passive:true});
+  el.addEventListener("pointercancel", clearLP, {passive:true});
+  el.addEventListener("pointermove", onMove, {passive:true});
+  el.addEventListener("dragstart", clearLP);
+  window.addEventListener("scroll", clearLP, {passive:true});
 
   // Dismiss zoom
   zoomOverlayEl.addEventListener("click", ()=> zoomOverlayEl.hidden = true);
@@ -166,6 +171,11 @@ function attachPeekAndZoom(el, data){
 
 /* ---------- Main render ---------- */
 function render(){
+  // hard reset overlays each render so nothing lingers
+  zoomOverlayEl.hidden = true;
+  peekEl.hidden = true;
+  peekEl.classList.remove("show");
+
   const s = serializePublic(state);
 
   turnIndicator.textContent = `Turn ${s.turn} — ${s.activePlayer}`;
