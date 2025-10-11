@@ -1,10 +1,10 @@
-/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only)
-   Purposefully minimal:
+/* The Grey — mobile bootstrap (v2.3.5-mobile-unified-fit+layout-only-r2)
+   Layout-only:
    - Fit 1280×720 canvas to viewport (no cropping)
    - Keep mobile-land class in landscape
    - Press & hold card preview
-   - Version badge on a separate fixed layer
-   - NO animation observers (UI layer handles draw/discard)
+   - Version badge
+   - Extra Safari guards (visualViewport + pageshow + timed reflow)
 */
 
 (() => {
@@ -31,7 +31,6 @@
   }
 
   function applyMobileFlag() {
-    // Keep this simple: when either dimension is small, use mobile-land rules
     document.documentElement.classList.toggle(
       'mobile-land',
       Math.min(window.innerWidth, window.innerHeight) <= 900
@@ -43,7 +42,7 @@
     applyScaleVars();
   }
 
-  /* ---------------- Version HUD (doesn't imply code path) ---------------- */
+  /* ---------------- Version HUD ---------------- */
   function ensureVersionTag() {
     let hud = qs('#tgHudRoot');
     if (!hud) {
@@ -66,8 +65,7 @@
       `;
       hud.appendChild(tag);
     }
-    // Uses whatever __THE_GREY_BUILD index.html set; defaults to this filename tag
-    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only');
+    tag.textContent = (window.__THE_GREY_BUILD || 'v2.3.5-mobile-unified-fit+layout-only-r2');
   }
 
   /* ---------------- Press & Hold preview ---------------- */
@@ -106,11 +104,28 @@
     ensureVersionTag();
     installPressPreview();
     applyLayout();
+
+    // Normal listeners
     ['resize', 'orientationchange', 'visibilitychange'].forEach(ev =>
       on(window, ev, applyLayout, { passive: true })
     );
 
-    // Give UI a gentle nudge to render/realign if it wants
+    // Safari: react to visual viewport shifts (URL bar show/hide)
+    if (window.visualViewport) {
+      ['resize','scroll'].forEach(ev =>
+        on(window.visualViewport, ev, applyLayout, { passive: true })
+      );
+    }
+
+    // Safari bfcache restore
+    on(window, 'pageshow', (e) => { if (e.persisted) applyLayout(); }, { passive: true });
+
+    // Timed reflows to catch late changes (iOS address bar settle)
+    setTimeout(applyLayout, 0);
+    setTimeout(applyLayout, 300);
+    setTimeout(applyLayout, 800);
+
+    // Gentle UI nudge if the app exposes a sync hook
     requestAnimationFrame(() => { try {
       (window.tgSyncAll || window.syncAll || window.__syncAll || (()=>{}))();
     } catch {} });
