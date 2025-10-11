@@ -5,7 +5,7 @@
 
 *{box-sizing:border-box}
 html,body{height:100%}
-body.theme-dark.parchment{
+#board.theme-dark.parchment{
   margin:0; color:var(--ink); font-family:"Cormorant Garamond", serif;
   background:
     radial-gradient(60% 70% at 50% 30%, #2a231b 0%, var(--paper) 60%, #110e0b 100%),
@@ -13,67 +13,69 @@ body.theme-dark.parchment{
     radial-gradient(circle at 90% 95%, rgba(255,190,95,.10), transparent 60%);
   overflow:hidden;
 }
+
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(180deg,#221b14,#1a140f);border-bottom:1px solid #2f261d}
 .btn{border:1px solid var(--rune);background:linear-gradient(180deg,#2f2921,#1f1a14);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 0 8px #000;}
 .btn:hover{box-shadow:0 0 14px var(--gold); transform:translateY(-1px)}
-.turn{opacity:.75;font-weight:600;letter-spacing:.02em}
+.turn{opacity:.75;font-weight:600}
 .aether{font-family:"Crimson Text", serif;letter-spacing:.06em}
 
-/* ===== MAIN GRID: AI (top) — FLOW (middle) — PLAYER (bottom) ===== */
-.grid{
-  display:grid;
-  grid-template-rows: 1fr auto 1fr;
-  gap:14px;
+/* ===== FORCE the three-row board ===== */
+#board-grid.grid{
+  display:grid !important;
+  grid-template-rows: 1fr auto 1fr !important;
+  gap:18px;
   height:calc(100% - 48px);
-  padding:10px 16px 36vh; /* leave room for the hand overlay */
+  padding:12px 16px 36vh; /* space for hand overlay */
 }
 
 /* Row shells */
-.row{display:flex;flex-direction:column;align-items:center;gap:10px;min-height:0}
+#board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0}
 
 /* Portrait blocks */
 .portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
 
-/* ===== SLOT ROWS (exactly four across) ===== */
-.slot-row{
-  display:grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap:18px;
-  width:min(1120px, 92vw);
+/* ===== SLOT ROWS: exactly four across (3 Spell + 1 Glyph) ===== */
+#ai-slots.slot-row,
+#player-slots.slot-row{
+  display:grid !important;
+  grid-auto-flow: column !important;
+  grid-template-columns: repeat(4, 240px) !important; /* hard width to prevent wrap */
+  gap:18px !important;
+  width: calc(240px*4 + 18px*3) !important; /* exact row width */
+  max-width: 92vw;
   place-items:center;
 }
+
 .slot{
-  width:220px;height:220px;border-radius:50%;
-  background:radial-gradient(circle at 50% 45%, #231c14 0%, #17130f 70%);
+  width:240px;height:240px;border-radius:50%;
+  background:radial-gradient(circle at 50% 45%, #231c14 0%, #17130f 72%);
   border:2px solid #3d3326; position:relative; display:grid;place-items:center;
   color:var(--muted); text-shadow:0 2px 12px #000;
-  transition:filter .2s ease, box-shadow .2s ease;
 }
 .slot::after{
-  content:""; position:absolute; inset:12px; border:1px solid #5a4b37; border-radius:50%;
+  content:""; position:absolute; inset:14px; border:1px solid #5a4b37; border-radius:50%;
   box-shadow:0 0 10px #000 inset;
 }
 .slot::before{
-  content:""; position:absolute; inset:34px; border-radius:50%;
+  content:""; position:absolute; inset:36px; border-radius:50%;
   background: conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
   filter:blur(.2px); opacity:.22; animation:spin 12s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
-.slot.glyph{
-  background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 70%);
-  border-color:#5a4833;
-}
-.slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite; }
-.slot:hover{ filter:drop-shadow(0 0 14px rgba(126,182,255,.35)); }
+.slot.glyph{ background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 72%); border-color:#5a4833 }
+.slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
-/* ===== AETHER FLOW (center) ===== */
+/* ===== AETHER FLOW (center): exactly 5 cards ===== */
 .section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 10px}
-.flow-row{
+#flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
-  width:min(1200px, 95vw);
-  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;
+  width: min(1200px, 95vw) !important;
+  display:grid !important;
+  grid-template-columns: repeat(5, 1fr) !important;
+  gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f);
   border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
@@ -103,6 +105,3 @@ body.theme-dark.parchment{
 @media (hover:none){
   .card:active{ transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.05); }
 }
-
-/* Cinematic container (unchanged) */
-#cinematic-root{position:fixed;inset:0;pointer-events:none}
