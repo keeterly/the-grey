@@ -6,16 +6,14 @@
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Load your base stylesheet where it actually lives (Network shows `cards.css`) -->
-  <link rel="stylesheet" href="./cards.css" />
-  <!-- Layout overlay / mobile-unified fixes -->
+  <!-- Keep only the acceptance overlay; your old cards.css was 404 in Network -->
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
 </head>
 <body>
   <!-- Scaled 1280×720 canvas root -->
   <div id="app"></div>
 
-  <!-- Minimal HUD so game code can bind by ID (prevents null.onclick crashes) -->
+  <!-- Minimal HUD (visible) so you have something to click; IDs are common ones. -->
   <div class="hud-min" id="hudRoot">
     <div class="left">
       <button class="icon btn" id="discardIcon" title="Discard">⌫</button>
@@ -26,7 +24,7 @@
     </div>
   </div>
 
-  <!-- Optional stubs if your bundle expects them -->
+  <!-- Optional stubs (kept hidden) if the bundle looks for these by ID -->
   <button id="btnUndo"  style="display:none"></button>
   <button id="btnReset" style="display:none"></button>
   <div id="overlay" class="overlay" style="display:none"></div>
@@ -34,6 +32,24 @@
   <script>
     /* Build label shown by boot script */
     window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
+  </script>
+
+  <!-- 🚑 No-crash shim: if the bundle asks for a missing ID, create a hidden stub
+       so 'null.onclick = …' never throws and block the render. Remove later when
+       you’ve added all real HUD elements the bundle expects. -->
+  <script>
+    (function installNoCrashIdShim(){
+      const origGet = document.getElementById.bind(document);
+      document.getElementById = function(id){
+        const found = origGet(id);
+        if (found) return found;
+        const stub = document.createElement('button');  /* button -> has onclick */
+        stub.id = id;
+        stub.style.display = 'none';
+        document.body.appendChild(stub);
+        return stub;
+      };
+    })();
   </script>
 
   <!-- 🔧 Dynamic bundle loader: tries common locations and loads the first that exists -->
@@ -45,6 +61,7 @@
       "./assets/js/index.js",
       "./src/ui/index.js"
     ];
+
     for (const url of candidates) {
       try {
         const res = await fetch(url, { method: "HEAD", cache: "no-store" });
@@ -53,12 +70,15 @@
           s.type = "module";
           s.src = url;
           document.head.appendChild(s);
+          console.log("[loader] loaded bundle:", url);
           return;
         }
-      } catch {}
+      } catch (e) {
+        // ignore and try next
+      }
     }
-    console.error("No game bundle found. Tried:", candidates);
-    // Optional: show a small on-screen hint for debugging
+
+    console.error("[loader] No game bundle found. Tried:", candidates);
     const hint = document.createElement("div");
     hint.style.cssText = "position:fixed;left:12px;bottom:12px;background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 2px 10px rgba(0,0,0,.12);font:12px/1.4 system-ui;";
     hint.textContent = "Game bundle not found (check bundle path in index.html).";
