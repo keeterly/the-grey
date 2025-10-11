@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — Board Layout</title>
+  <title>The Grey — v2.5 board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -20,27 +20,27 @@
   </header>
 
   <main id="board-grid" class="grid">
-    <!-- AI -->
+    <!-- AI (top) -->
     <section class="row ai">
       <figure class="portrait">
         <img id="ai-portrait" alt="Opponent">
-        <figcaption id="ai-name">Opponent</figcaption>
+        <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
       </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
-    <!-- FLOW -->
+    <!-- FLOW (center) -->
     <section class="row flow">
       <h2 class="section-title">AETHER FLOW</h2>
       <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
     </section>
 
-    <!-- PLAYER -->
+    <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
       <figure class="portrait">
         <img id="player-portrait" alt="Player">
-        <figcaption id="player-name">Player</figcaption>
+        <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
       </figure>
     </section>
 
@@ -51,7 +51,6 @@
   </main>
 
   <div id="cinematic-root" aria-hidden="true"></div>
-  <!-- IMPORTANT: root path -->
   <script type="module" src="./index.js"></script>
 </body>
 </html>
