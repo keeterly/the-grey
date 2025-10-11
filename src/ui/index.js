@@ -1,205 +1,254 @@
-import { newGame, CARD_TYPES, cardCost } from "../engine/state.js";
-import { reducer, A } from "../engine/rules.js";
-import { wireHandDrag } from "./drag.js";
+// src/ui/index.js — Mobile Unified v2.3.5+ (safe)
+// Renders AI row, Aetherflow, Player row, and HUD Hand with animations.
+
+import { newGame, CARD_TYPES } from '../engine/state.js';
+import { reducer, A } from '../engine/rules.js';
+import wireHandDrag from './drags.js';
 import {
-  stageNewDraws,
-  animateCardsToDiscard,
-  animateAFBuyToDiscard,
+  stageNewDraws,            // deck -> hand
+  animateAFBuyToDiscard,    // hand -> discard (buy/channeled)
+  animateCardsToDiscard,    // board -> discard
   spotlightThenDiscard,
-} from "./animate.js";
+} from './animate.js';
 
-let state = newGame();
-const root = document.getElementById("app");
+const root = document.getElementById('app');
 
-/* ------------------------
-   Helper rendering methods
-------------------------- */
-function fanTransform(i, n) {
-  const mid = (n - 1) / 2;
-  const o = i - mid;
-  const rot = (o / Math.max(1, n)) * 10;
-  const x = o * 60;
-  const lift = -Math.abs(o) * 1;
-  return `translate(calc(-50% + ${x}px), ${lift}px) rotate(${rot}deg)`;
+// -----------------------------
+// Utility / tiny DOM helpers
+// -----------------------------
+const $ = (sel, el = document) => el.querySelector(sel);
+const $$ = (sel, el = document) => Array.from(el.querySelectorAll(sel));
+const h = (tag, cls = '', attrs = {}) => {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === undefined || v === null) continue;
+    if (k === 'text') el.textContent = v;
+    else if (k.startsWith('on') && typeof v === 'function') el.addEventListener(k.slice(2), v);
+    else el.setAttribute(k, v);
+  }
+  return el;
+};
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// -----------------------------
+// Game state
+// -----------------------------
+let G = newGame();
+let dispatching = false;
+
+function dispatch(action) {
+  if (dispatching) return;
+  dispatching = true;
+  try {
+    G = reducer(G, action);
+    scheduleRender();
+  } finally {
+    dispatching = false;
+  }
 }
 
-function layoutHand() {
-  const cards = [...document.querySelectorAll('[data-board="YOU"] .hand .card')];
-  const n = cards.length;
-  cards.forEach((el, i) => {
-    el.style.transform = fanTransform(i, n);
-  });
+let raf;
+function scheduleRender() {
+  if (raf) cancelAnimationFrame(raf);
+  raf = requestAnimationFrame(render);
 }
 
-function typeBadge(c) {
-  const label = c.type.charAt(0).toUpperCase() + c.type.slice(1).toLowerCase();
-  return `<div class="badge ${label.toLowerCase()}">${label}</div>`;
-}
-
-function heartHtml(hp, id) {
-  const max = 5;
-  return `<div class="hearts" id="${id}">${Array.from({ length: max })
-    .map((_, i) => `<div class="heart ${i < hp ? "on" : "off"}"></div>`)
-    .join("")}</div>`;
-}
-
-function tranceChips(side, who) {
-  return `
-    <div class="trances">
-      ${side.trances
-        .map((t, idx) => {
-          const active =
-            idx === side.tranceActive || idx === side.trance2Active ? "active" : "";
-          const key = `${who}-tr-${idx}`;
-          return `<div class="trance-chip ${active}" data-trance="${key}" data-who="${who}" data-tr-index="${idx}" title="Activates at ${t.at} HP">${t.name}</div>`;
-        })
-        .join("")}
-    </div>`;
-}
-
-function sideHeader(side, who) {
-  const hpID = who === "YOU" ? "youHearts" : "aiHearts";
-  return `
-    <div class="row-head">
-      <div class="weaver">${side.weaverName || who}</div>
-      ${tranceChips(side, who)}
-      ${heartHtml(side.health, hpID)}
-    </div>`;
-}
-
-/* ------------------------
-   Core Card Rendering
-------------------------- */
-function renderCard(c, i) {
-  const cost = cardCost(c);
-  const badge = typeBadge(c);
-  const costTag = cost
-    ? `<div class="cost ${c.type}">${cost}⚡</div>`
-    : `<div class="cost none"></div>`;
-  return `
-    <div class="card" data-card="${i}" data-type="${c.type}">
-      ${badge}
-      <div class="title">${c.name}</div>
-      ${costTag}
-    </div>`;
-}
-
-/* ------------------------
-   Game Board Rendering
-------------------------- */
-function renderBoard() {
-  const you = state.YOU;
-  const ai = state.AI;
-
+// -----------------------------
+// Layout skeleton
+// -----------------------------
+function ensureScaffold() {
   root.innerHTML = `
-    <div class="container">
+    <div id="container">
+      <div id="decktag" class="ver-tag">${window.__THE_GREY_BUILD || ''}</div>
       <section class="board" data-board="AI">
-        ${sideHeader(ai, "AI")}
-        <div class="slots">
-          ${ai.slots
-            .map(
-              (s) =>
-                `<div class="slot ${s.type || "empty"}">${s.card ? renderCard(s.card) : "Spell Slot"}</div>`
-            )
-            .join("")}
-        </div>
+        <div class="row head"></div>
+        <div class="row aether"></div>
       </section>
 
       <section class="board" data-board="YOU">
-        ${sideHeader(you, "YOU")}
-        <div class="slots">
-          ${you.slots
-            .map(
-              (s) =>
-                `<div class="slot ${s.type || "empty"}">${s.card ? renderCard(s.card) : "Spell Slot"}</div>`
-            )
-            .join("")}
-        </div>
-
-        <div class="hand">
-          ${you.hand.map(renderCard).join("")}
-        </div>
-
-        <div class="hud">
-          <button id="deck" class="hud-btn">🂠 Deck</button>
-          <button id="play" class="hud-btn">▶ End Turn</button>
-          <button id="undo" class="hud-btn">↺ Undo</button>
-        </div>
-
-        <div id="aetherDisplay" class="aether"></div>
+        <div class="row head"></div>
+        <div class="row aether"></div>
       </section>
-    </div>`;
 
-  layoutHand();
-  wireHandDrag(state, dispatch);
-  updateAetherDisplay();
+      <div id="hud" class="hud">
+        <div class="hud-foot">
+          <button class="btn play" data-action="end">▶</button>
+          <div class="hud-spacer" data-role="discard"></div>
+          <button class="btn deck" data-role="deck">DECK</button>
+        </div>
+        <div class="hand" data-who="YOU"></div>
+      </div>
+    </div>
+  `;
 }
 
-/* ------------------------
-   Aether Display Update
-------------------------- */
-function updateAetherDisplay() {
-  const el = document.getElementById("aetherDisplay");
-  if (!el) return;
-  const total = state.YOU.aether || 0;
-  const temp = state.YOU.tempAether || 0;
-  const icons = [
-    ...Array(total).fill('<div class="aether blue"></div>'),
-    ...Array(temp).fill('<div class="aether red"></div>'),
-  ].join("");
-  el.innerHTML = icons || '<div class="aether none"></div>';
+function rowHeader(side) {
+  // Spec said we can hide spellweaver name/HP for now if it helps visually.
+  // Keep invisible placeholders for consistent spacing.
+  const wrap = h('div', 'side-head');
+  wrap.innerHTML = `
+    <div class="weaver" aria-hidden="true"></div>
+  `;
+  return wrap;
 }
 
-/* ------------------------
-   Dispatch / Reducer
-------------------------- */
-function dispatch(action) {
-  const prev = state;
-  state = reducer(state, action);
-  renderBoard();
-  stageNewDraws(prev, state);
-  animateCardsToDiscard(prev, state);
-  animateAFBuyToDiscard(prev, state);
-  spotlightThenDiscard(prev, state);
+function slot(kind = 'spell') {
+  const label = kind === 'glyph' ? 'Glyph Slot' : 'Spell Slot';
+  const cls = kind === 'glyph' ? 'slot glyph' : 'slot';
+  const s = h('div', cls);
+  s.setAttribute('data-slot', kind);
+  s.innerHTML = `<div class="slot-label">${label}</div>`;
+  return s;
 }
 
-/* ------------------------
-   Initialization
-------------------------- */
-function bootGame() {
-  renderBoard();
-  bindUI();
+// -----------------------------
+// Cards
+// -----------------------------
+function costPips(cost = 0) {
+  if (!cost) return '';
+  return `<div class="pips"><span class="icon">⚡</span> ${cost}</div>`;
 }
 
-function bindUI() {
-  const deck = document.getElementById("deck");
-  const play = document.getElementById("play");
-  const undo = document.getElementById("undo");
+function cardFace(c) {
+  const t = (c?.type || 'Spell').toLowerCase();
+  const cost = (c?.cost ?? 0);
+  return `
+    <div class="card-tag ${t}">${c?.type || 'Spell'}</div>
+    <div class="card-name">${c?.name || ''}</div>
+    <div class="card-bot">${costPips(cost)}</div>
+  `;
+}
 
-  if (deck) deck.onclick = () => dispatch({ type: A.DRAW });
-  if (play) play.onclick = () => dispatch({ type: A.END_TURN });
-  if (undo) undo.onclick = () => dispatch({ type: A.UNDO });
+function cardEl(c, who) {
+  const el = h('div', 'card');
+  el.setAttribute('data-type', (c?.type || 'Spell').toLowerCase());
+  el.setAttribute('data-who', who);
+  el.innerHTML = cardFace(c);
+  return el;
+}
 
-  // Add press-and-hold preview (MTG style)
-  document.querySelectorAll(".card").forEach((card) => {
-    let hold;
-    card.addEventListener("mousedown", () => {
-      hold = setTimeout(() => {
-        card.classList.add("preview");
-      }, 300);
-    });
-    card.addEventListener("mouseup", () => {
-      clearTimeout(hold);
-      card.classList.remove("preview");
-    });
-    card.addEventListener("mouseleave", () => {
-      clearTimeout(hold);
-      card.classList.remove("preview");
-    });
+// -----------------------------
+// Press-and-hold preview
+// -----------------------------
+function enablePressHoldPreview(handRoot) {
+  let holdTimer = null;
+  let preview = null;
+
+  function clearPreview() {
+    if (preview) {
+      preview.remove();
+      preview = null;
+    }
+  }
+  function cancel() {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+    clearPreview();
+  }
+  handRoot.addEventListener('touchstart', onStart, { passive: true });
+  handRoot.addEventListener('mousedown', onStart);
+  handRoot.addEventListener('touchend', cancel);
+  handRoot.addEventListener('mouseup', cancel);
+  handRoot.addEventListener('mouseleave', cancel);
+
+  function onStart(e) {
+    const target = e.target.closest('.card');
+    if (!target) return;
+    cancel();
+    holdTimer = setTimeout(() => {
+      // Build preview clone
+      const r = target.getBoundingClientRect();
+      preview = target.cloneNode(true);
+      preview.classList.add('preview');
+      Object.assign(preview.style, {
+        position: 'fixed',
+        left: `${r.left}px`,
+        top: `${r.top}px`,
+        width: `${r.width}px`,
+        height: `${r.height}px`,
+        transform: 'translate(0,-18px) scale(1.28)',
+        zIndex: 9998,
+      });
+      document.body.appendChild(preview);
+    }, 220); // MTG-ish hold threshold
+  }
+}
+
+// -----------------------------
+// Render
+// -----------------------------
+let firstPaint = true;
+
+function render() {
+  if (!$('#container', root)) ensureScaffold();
+
+  const ai = $('[data-board="AI"]', root);
+  const you = $('[data-board="YOU"]', root);
+  const aiHead = $('.row.head', ai);
+  const aiRow = $('.row.aether', ai);
+  const youHead = $('.row.head', you);
+  const youRow = $('.row.aether', you);
+  const handEl = $('.hand[data-who="YOU"]', root);
+
+  // Headers (hidden labels to keep spacing consistent)
+  aiHead.replaceChildren(rowHeader('AI'));
+  youHead.replaceChildren(rowHeader('YOU'));
+
+  // --- Board rows (centered) ---
+  aiRow.replaceChildren(slot('spell'), slot('spell'), slot('spell'), slot('glyph'));
+  youRow.replaceChildren(slot('spell'), slot('spell'), slot('spell'), slot('glyph'));
+
+  // Place board cards (Aetherflow middle lane in your state)
+  // Safe fallback if structure differs — we just map by index.
+  const mid = G?.board?.mid || [];
+  const aiMid = mid.filter(x => x?.who === 'AI');
+  const youMid = mid.filter(x => x?.who === 'YOU');
+
+  [...aiMid].forEach((c, i) => {
+    const s = aiRow.children[i] || aiRow.lastElementChild;
+    if (c) s.appendChild(cardEl(c, 'AI'));
   });
+  [...youMid].forEach((c, i) => {
+    const s = youRow.children[i] || youRow.lastElementChild;
+    if (c) s.appendChild(cardEl(c, 'YOU'));
+  });
+
+  // --- Hand (HUD layer; separate stacking context so it never clips) ---
+  handEl.replaceChildren();
+  const hand = G?.you?.hand || [];
+  const newCardEls = [];
+  hand.forEach(c => {
+    const el = cardEl(c, 'YOU');
+    handEl.appendChild(el);
+    newCardEls.push(el);
+  });
+
+  if (firstPaint) {
+    // Animate initial hand from deck once on first paint
+    stageNewDraws(newCardEls).catch(() => {});
+    // Drag wiring (no-op if module decides to bail)
+    try { wireHandDrag?.(handEl, dispatch); } catch {}
+    // Press-and-hold preview
+    enablePressHoldPreview(handEl);
+    firstPaint = false;
+  }
+
+  // --- HUD buttons
+  const btnEnd = $('[data-action="end"]', root);
+  btnEnd.onclick = () => dispatch({ type: A.END_TURN });
+
+  // Keep version tag updated
+  const tag = $('#decktag', root);
+  tag.textContent = window.__THE_GREY_BUILD || '';
 }
 
-/* ------------------------
-   DOM Ready Boot
-------------------------- */
-window.addEventListener("DOMContentLoaded", bootGame);
+// Kick it off
+scheduleRender();
+
+// Expose a minimal API for debug (optional)
+window.__TG__ = {
+  get state() { return G; },
+  dispatch,
+  redraw: scheduleRender,
+};
