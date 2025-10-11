@@ -50,10 +50,10 @@
     </section>
   </main>
 
-  <!-- Peek + Zoom layers -->
+  <!-- Peek + Zoom layers (state-driven; cannot get “stuck”) -->
   <div id="preview-layer" aria-hidden="true">
-    <div id="peek-card" class="card peek" hidden></div>
-    <div id="zoom-overlay" hidden>
+    <div id="peek-card" class="card peek"></div>
+    <div id="zoom-overlay" data-open="false">
       <div id="zoom-card" class="card zoom"></div>
     </div>
   </div>
