@@ -1,7 +1,13 @@
-/* acceptance.safe.css — r4a
-   - Desktop + Mobile Landscape
-   - Hand access hot-fix: more bottom reserve, higher z-index, overlay safe defaults
+/* The Grey — acceptance.safe.css (r5)
+   Goals:
+   - Center slot rows (with OR without a .slots wrapper)
+   - Aetherflow cards = same size as board cards
+   - Hand always accessible (high z-index, larger bottom reserve)
+   - Press & hold preview works and doesn’t block drag
+   - 1280×720 canvas centered/scaled for desktop + mobile landscape
 */
+
+/* ---------- base / canvas ---------- */
 
 html, body { margin:0; padding:0; background:#f7f5f0; }
 html, body {
@@ -13,19 +19,22 @@ html, body {
   overflow:hidden;
 }
 
-/* Base canvas dimensions; JS writes --tg-scale */
 :root{
+  /* Written by boot-debug.js; defaults are harmless for SSR preview */
   --tg-base-w: 1280;
   --tg-base-h: 720;
   --tg-scale: 1;
 
-  /* Desktop baseline (bigger hand reserve so the fan never hugs the edge) */
+  /* viewport-aware rhythm */
   --row-gap: clamp(32px, 5.5vh, 56px);
-  --hand-reserve: clamp(160px, 20vh, 240px);  /* bumped up */
 
+  /* hand clearance: enough for fan/tilt, bounded so YOU row stays visible */
+  --hand-reserve: clamp(120px, 16vh, 200px);
+
+  /* small inner margins inside 1280×720 to avoid edge kiss on odd ARs */
   --edge-pad: clamp(6px, 1.2vh, 12px);
 
-  /* card + slot sizes */
+  /* sizing parity (desktop) */
   --card-w: 140px; --card-h: 200px;
   --slot-w: 150px; --slot-h: 210px;
 }
@@ -33,13 +42,12 @@ html, body {
 @media (max-width: 900px){
   :root{
     --row-gap: clamp(44px, 9vh, 72px);
-    --hand-reserve: clamp(130px, 18vh, 220px); /* mobile-landscape reserve */
+    --hand-reserve: clamp(120px, 18vh, 200px);
     --card-w: 126px; --card-h: 186px;
     --slot-w: 132px; --slot-h: 190px;
   }
 }
 
-/* Center + scale the board */
 #app{
   position:fixed; left:50%; top:50%;
   width:calc(var(--tg-base-w)*1px);
@@ -48,53 +56,76 @@ html, body {
   transform-origin: 50% 50%;
   will-change: transform;
   contain: layout paint;
-  overflow: visible;
+  overflow: visible;                 /* do not clip hand or anims */
   padding-top: var(--edge-pad);
   padding-bottom: var(--edge-pad);
-  pointer-events:auto; /* ensure the canvas participates in hit-testing */
+  pointer-events:auto;
 }
 
-/* Remove board chrome, keep slots */
-#app .board, #app .aetherflow{
-  background:transparent!important;
-  box-shadow:none!important;
-  border:none!important; height:auto;
-}
+/* ---------- rows / centering ---------- */
 
-/* Spacing between rows */
-#app .board[data-board="AI"]  { margin-bottom: var(--row-gap); }
-#app .aetherflow             { margin: var(--row-gap) auto; }
-#app .board[data-board="YOU"]{
-  position:relative;
-  margin-top: var(--row-gap);
-  padding-bottom: calc(10px + var(--hand-reserve)); /* more room for the fan */
-}
+.board{ position:relative; width:100%; height:auto; margin-block: var(--row-gap); }
 
-/* Row + centering */
 .board .row{ display:flex; flex-direction:column; gap:8px; }
-.board .row > .slots{
-  display:flex; justify-content:center; align-items:center;
-  flex-wrap:wrap; gap: clamp(10px, 1.6vmin, 18px);
+
+/* Header row uses its original inline layout */
+.board .row.head{
+  flex-direction:row;
+  justify-content:space-between;
+  gap:6px;
 }
 
-/* Slots */
+/* ✅ Center ANY non-header row even when no `.slots` wrapper is present */
+.board .row:not(.head){
+  flex-direction:row;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap: clamp(10px, 1.6vmin, 18px);
+}
+
+/* …but if there IS a `.slots` wrapper, center that as well (covers both DOM shapes) */
+.board .row > .slots{
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  flex-wrap:wrap;
+  gap: clamp(10px, 1.6vmin, 18px);
+}
+
+/* Keep YOU board inside the frame while reserving space for the hand */
+.board[data-board="YOU"]{
+  margin-top: var(--row-gap);
+  padding-bottom: calc(8px + var(--hand-reserve));
+}
+
+/* Hide labels you asked to remove temporarily */
+.af-title,
+.board .name,
+.board .hearts,
+.board .traits,
+.board .badges { display:none !important; }
+
+/* ---------- slots & AF cards ---------- */
+
 .slot, .glyph-slot{
   box-sizing:border-box;
   width: var(--slot-w); height: var(--slot-h);
   border-radius:16px; border:2px dashed rgba(0,0,0,.14);
   background:rgba(255,255,255,.55);
   display:flex; align-items:center; justify-content:center;
-  color:#8b7f70; font: 14px/1.1 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+  color:#8b7f70;
+  font: 14px/1.1 ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
 }
 
-/* Hide Aetherflow title */
-.af-title{ display:none !important; }
+.aetherflow{ margin-block: var(--row-gap); }
 
-/* Aetherflow cards same size as board cards */
 .af-cards{
   display:flex; justify-content:center; flex-wrap:wrap;
   gap: clamp(10px, 1.6vmin, 18px);
 }
+
+/* AF cards exactly match board card footprint */
 .af-card{
   width: var(--card-w); height: var(--card-h);
   box-sizing:border-box; border-radius:16px; background:#fff;
@@ -104,34 +135,38 @@ html, body {
   will-change: transform;
 }
 
-/* Hand: keep well above everything and fully interactive */
-#app .board[data-board="YOU"] .hand{
+/* ---------- hand layer & interactions ---------- */
+
+.board[data-board="YOU"] .hand{
   position:relative;
-  z-index: 20000;              /* very high to beat any overlay/HUD */
+  z-index: 20000;                          /* win hit-tests */
   display:flex; justify-content:center; gap:0;
   pointer-events:auto; padding-top:6px;
 }
-#app .hand .card{
+
+.hand .card{
   touch-action:none; cursor:grab;
   transition: transform 200ms cubic-bezier(.2,.8,.2,1), box-shadow 200ms ease;
   will-change: transform;
 }
+
 .card.is-dragging{
   position:fixed !important;
   z-index: 25000 !important;
   pointer-events:none !important;
 }
 
-/* Press & hold preview */
+/* Press & hold preview (boot adds .magnify + .magnify-hand on hold) */
 .card.magnify{
   transform: scale(2) !important;
   z-index: 26000 !important;
   box-shadow: 0 18px 48px rgba(0,0,0,.32) !important;
   pointer-events: none !important;
 }
-#app .hand .card.magnify-hand{ transform: translateY(-72px) scale(2) !important; }
+.hand .card.magnify-hand{ transform: translateY(-72px) scale(2) !important; }
 
-/* HUD centered to scaled width (doesn't block the board) */
+/* ---------- HUD (kept compact, centered to scaled width) ---------- */
+
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom: calc(12px + env(safe-area-inset-bottom));
@@ -142,10 +177,10 @@ html, body {
 }
 .hud-min .left, .hud-min .right{ display:flex; align-items:center; gap:10px; pointer-events:auto; }
 
-/* Hide legacy bolt HUD */
+/* Optional legacy bolt off */
 #aetherWell, .hud-min .bolt, [data-hud="energy"]{ display:none!important; }
 
-/* Deck button look */
+/* Deck button look (if you style by id or data-role, both covered) */
 #deckIcon, [data-role="deck-btn"]{
   display:inline-flex; align-items:center; justify-content:center;
   height:36px; min-width:48px; padding:0 12px;
@@ -154,7 +189,8 @@ html, body {
   letter-spacing:.3px;
 }
 
-/* Version badge (inserted by boot) */
+/* ---------- version tag injected by boot ---------- */
+
 #tgHudRoot{ position:fixed; inset:0; z-index:99998; pointer-events:none; }
 #tgVersionTag{
   position:absolute; right:12px; top:8px; z-index:99999;
@@ -162,10 +198,11 @@ html, body {
   padding:3px 6px; border-radius:6px; box-shadow:0 1px 6px rgba(0,0,0,.06);
 }
 
-/* --- Overlay safety: never block the board unless explicitly opened --- */
+/* ---------- overlay safety (no accidental blocking) ---------- */
+
 #overlay, .overlay{
   position:fixed; inset:0; display:none; pointer-events:none; z-index:1000;
-  background: rgba(0,0,0,0); /* transparent by default */
+  background: rgba(0,0,0,0);
 }
 #overlay.is-open, .overlay.is-open{
   display:block; pointer-events:auto; background: rgba(0,0,0,.35);
