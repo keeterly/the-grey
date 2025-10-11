@@ -1,21 +1,18 @@
-/* acceptance.safe.css — v2.3.5-mobile-unified-fit+layout-only-r2
-   - 1280×720 board centered and scaled via --tg-scale (set by boot)
-   - Larger adaptive row spacing (prevents pile-ups on short landscape)
-   - Bigger hand reserve so the fan never covers player slots
-   - Board chrome hidden (names/hearts/trances/Aetherflow title)
-   - HUD centered to scaled canvas width
-   - Legacy bolt HUD hidden (counts can still update behind the scenes)
+/* acceptance.safe.css — v2.3.5-mobile-unified-fit+layout-only-r3
+   - Desktop + Mobile Landscape support
+   - Desktop: centered canvas, pleasant spacing
+   - Mobile-land (small landscape): larger adaptive spacing & hand reserve
+   - Board chrome hidden; HUD centered to scaled width
 */
 
-html, body { margin:0; padding:0; }
-html.mobile-land, html.mobile-land body {
-  height:100%; width:100%;
-  overflow:hidden;
-  background:#f7f5f0;
+html, body { margin:0; padding:0; background:#f7f5f0; }
+html, body {
   -webkit-text-size-adjust:100%;
   -webkit-user-select:none; user-select:none;
   -webkit-touch-callout:none;
   touch-action:manipulation;
+  height:100%; width:100%;
+  overflow:hidden;
 }
 
 /* Base canvas dimensions; JS writes --tg-scale */
@@ -24,9 +21,15 @@ html.mobile-land, html.mobile-land body {
   --tg-base-h: 720;
   --tg-scale: 1;
 
-  /* Adaptive vertical rhythm (bumped up for safety) */
-  --row-gap: max(9vh, 44px);         /* gap between AI / AF / YOU */
-  --hand-reserve: max(14vh, 120px);  /* space for the hand fan */
+  /* Desktop / large screens defaults */
+  --row-gap: 36px;          /* gap between AI / AF / YOU (desktop baseline) */
+  --hand-reserve: 120px;    /* space for the hand fan (desktop baseline) */
+}
+
+/* Mobile landscape overrides — activated by JS toggling .mobile-land */
+html.mobile-land{
+  --row-gap: max(9vh, 44px);
+  --hand-reserve: max(14vh, 120px);
 }
 
 /* Center + scale the board */
@@ -50,7 +53,7 @@ html.mobile-land, html.mobile-land body {
   height:auto;
 }
 
-/* Extra breathing room between rows */
+/* Spacing between rows */
 #app .board[data-board="AI"]  { margin-bottom: var(--row-gap); }
 #app .aetherflow             { margin: var(--row-gap) auto; }
 #app .board[data-board="YOU"]{
@@ -58,7 +61,7 @@ html.mobile-land, html.mobile-land body {
   padding-bottom: calc(6px + var(--hand-reserve));
 }
 
-/* Hide titles/names/hearts/trance labels & "Aetherflow" header while we debug */
+/* Hide titles/names/hearts/trances/Aetherflow header */
 #app .board .title,
 #app .board .name,
 #app .board .traits,
@@ -71,7 +74,7 @@ html.mobile-land, html.mobile-land body {
   display:none!important;
 }
 
-/* Slots stay compact; spacing is handled by row gaps above */
+/* Slot sizing (keep compact); spacing handled by row gaps */
 #app .tg-zone{
   display:flex; align-items:center; justify-content:center;
   gap:8px; padding:8px 8px; width:100%;
@@ -84,7 +87,7 @@ html.mobile-land, html.mobile-land body {
   width:96px; height:136px; border-radius:10px;
 }
 
-/* Hand: stays in flow (no overlap with YOU thanks to --hand-reserve) */
+/* Hand in flow (no overlap with YOU thanks to --hand-reserve) */
 #app .board[data-board="YOU"] .hand{ position:relative; width:auto; height:auto; }
 #app .hand .card{
   touch-action:none;
@@ -101,7 +104,7 @@ html.mobile-land, html.mobile-land body {
 }
 #app .hand .card.magnify-hand{ transform: translateY(-72px) scale(2) !important; }
 
-/* HUD lane: keep it centered to scaled canvas width */
+/* HUD lane centered to scaled canvas width */
 .hud-min{
   position:fixed; left:50%; transform:translateX(-50%);
   bottom: calc(12px + env(safe-area-inset-bottom));
@@ -114,10 +117,10 @@ html.mobile-land, html.mobile-land body {
   display:flex; align-items:center; gap:10px; pointer-events:auto;
 }
 
-/* Hide legacy bolt/energy HUD (keeps counts logic intact if you need it) */
+/* Hide legacy bolt HUD; your UI can still update counts behind the scenes */
 #aetherWell, .hud-min .bolt, [data-hud="energy"]{ display:none!important; }
 
-/* Deck button look (only styles an existing node; we do NOT move or create it here) */
+/* Deck button look (only styles an existing node; no DOM moves here) */
 #deckIcon, [data-role="deck-btn"]{
   display:inline-flex; align-items:center; justify-content:center;
   height:36px; min-width:48px; padding:0 12px;
