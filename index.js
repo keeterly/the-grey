@@ -15,7 +15,7 @@ const zoomCardEl     = document.getElementById("zoom-card");
 
 let state = initState({});
 
-/* ---------- Hand fan ---------- */
+/* ---------- Hand fanning ---------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N) return;
@@ -72,7 +72,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // 1 rectangular Glyph bay (GLYPH only; hook engine later)
+  // 1 rectangular Glyph bay (GLYPH only; hook engine when ready)
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
@@ -112,7 +112,7 @@ function renderFlow(nextFlow){
   });
 }
 
-/* ---------- Peek + Zoom (fixed) ---------- */
+/* ---------- Peek + Zoom (patched) ---------- */
 function fillCardShell(div, data){
   div.innerHTML = `
     <div class="title">${data.name}</div>
@@ -171,7 +171,7 @@ function attachPeekAndZoom(el, data){
 
 /* ---------- Main render ---------- */
 function render(){
-  // hard reset overlays each render so nothing lingers
+  // Always reset overlays to avoid stuck blur
   zoomOverlayEl.hidden = true;
   peekEl.hidden = true;
   peekEl.classList.remove("show");
