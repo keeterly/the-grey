@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Grey — v2.4</title>
+  <link rel="stylesheet" href="../../styles.css" />
+  <link rel="stylesheet" href="./styles.local.css" />
+</head>
+<body class="theme-parchment">
+  <div id="cinematic-root" aria-hidden="true"></div>
+  <div class="hud">
+    <div class="hud-left">
+      <button id="btn-start-turn" class="btn">Start Turn</button>
+      <button id="btn-end-turn" class="btn">End Turn</button>
+      <span id="turn-indicator" class="turn">Turn 1</span>
+    </div>
+    <div class="hud-right">
+      <span id="aether-readout" class="aether-readout">Æ 0  ◇ 0</span>
+    </div>
+  </div>
+  <main class="main">
+    <section class="flow"><h3>Aether Flow</h3><ul id="flow-row" class="flow-row"></ul></section>
+    <section class="board">
+      <div class="portraits">
+        <figure class="portrait"><img id="p1" alt="Player" /><figcaption id="p1-name">Player</figcaption></figure>
+        <figure class="portrait"><img id="p2" alt="Opponent" /><figcaption id="p2-name">Opponent</figcaption></figure>
+      </div>
+      <div id="slots" class="slots"></div>
+    </section>
+    <section class="hand-section"><div id="hand" class="hand"></div></section>
+  </main>
+  <script type="module" src="./src/ui/index.js"></script>
+</body>
+</html>

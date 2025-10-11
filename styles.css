@@ -1,6 +1,4 @@
-:root{
-  --ink:#1b1b1b; --paper:#f3efe7; --muted:#6f665b; --gold:#b9a06a; --glow:#88c0ff;
-}
+:root{ --ink:#1b1b1b; --paper:#f3efe7; --muted:#6f665b; --gold:#b9a06a; --glow:#88c0ff; }
 *{box-sizing:border-box}
 body.theme-parchment{background:radial-gradient(ellipse at center,#f6f2ea 0%,#efe9df 50%,#e7e0d5 100%); color:var(--ink); font-family:ui-serif, Georgia, 'Times New Roman', serif; margin:0}
 .hud{display:flex;justify-content:space-between;gap:12px;padding:10px 14px}
@@ -19,22 +17,3 @@ body.theme-parchment{background:radial-gradient(ellipse at center,#f6f2ea 0%,#ef
 .hand{position:relative;height:38vh;min-height:240px}
 .card{position:absolute;width:189px;height:264px;border:1px solid #ddd;border-radius:12px;background:#faf7f1;box-shadow:0 8px 24px #00000020}
 .card .actions{position:absolute;left:8px;right:8px;bottom:6px;display:flex;gap:6px;justify-content:space-between}
-
-/* Cinematic overlay */
-#cinematic-root{position:fixed;inset:0;pointer-events:none}
-.cine{position:absolute;inset:0;background:rgba(8,7,6,.92); display:flex;align-items:center;justify-content:center;opacity:0;animation:fadeIn .25s forwards}
-@keyframes fadeIn{to{opacity:1}}
-.cine .sigil{position:absolute;width:54vmin;height:54vmin;border-radius:50%;box-shadow:0 0 40px 8px var(--glow) inset, 0 0 40px 8px var(--glow);opacity:.85;filter:blur(.3px)}
-.cine .burst{position:absolute;width:0;height:0;border-radius:50%;box-shadow:0 0 0 2px var(--gold);animation:burst 950ms ease-out forwards}
-@keyframes burst{to{width:130vmin;height:130vmin;opacity:0;box-shadow:0 0 0 0 var(--gold)}}
-.cine .char{position:relative;display:flex;align-items:center;gap:6vmin;isolation:isolate}
-.cine .char img{width:34vmin;height:48vmin;object-fit:cover;border:1px solid #0005;filter:grayscale(.15) contrast(1.1)}
-.cine .caption{font-size:2.6vmin; letter-spacing:.12em; color:#fff; text-shadow:0 2px 10px #000}
-/* Skip button */
-.cine .skip{position:absolute;top:16px;right:16px;border:1px solid #fff;color:#fff;background:transparent;border-radius:999px;padding:6px 10px;cursor:pointer;pointer-events:auto}
-/* Trance stage accents */
-.cine.stage1{--glow:#7ed0ff}
-.cine.stage2{--glow:#ffd27e}
-/* Camera shake */
-@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-6px,4px)}50%{transform:translate(5px,-5px)}75%{transform:translate(3px,6px)}}
-.shake{animation:shake .35s linear 2}
