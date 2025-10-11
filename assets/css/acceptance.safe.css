@@ -1,7 +1,7 @@
-/* acceptance.safe.css — v2.3.5-mobile-unified-fit+layout-only-r3
-   - Desktop + Mobile Landscape support
-   - Desktop: centered canvas, pleasant spacing
-   - Mobile-land (small landscape): larger adaptive spacing & hand reserve
+/* acceptance.safe.css — v2.3.5-mobile-unified-fit+layout-only-r4
+   - Works on Desktop + Mobile Landscape
+   - Uses clamped, viewport-aware spacing so rows never feel cramped or too far apart
+   - Extra hand reserve to keep fan from touching the player slots
    - Board chrome hidden; HUD centered to scaled width
 */
 
@@ -21,15 +21,18 @@ html, body {
   --tg-base-h: 720;
   --tg-scale: 1;
 
-  /* Desktop / large screens defaults */
-  --row-gap: 36px;          /* gap between AI / AF / YOU (desktop baseline) */
-  --hand-reserve: 120px;    /* space for the hand fan (desktop baseline) */
+  /* Desktop / large screens baseline (clamped so it looks good on small laptops and 4K) */
+  --row-gap: clamp(32px, 5.5vh, 56px);
+  --hand-reserve: clamp(120px, 14vh, 180px);
+
+  /* Optional breathing room at the very top/bottom inside the frame (scaled) */
+  --edge-pad: clamp(6px, 1.2vh, 12px);
 }
 
 /* Mobile landscape overrides — activated by JS toggling .mobile-land */
 html.mobile-land{
-  --row-gap: max(9vh, 44px);
-  --hand-reserve: max(14vh, 120px);
+  --row-gap: clamp(44px, 9vh, 72px);
+  --hand-reserve: clamp(120px, 16vh, 200px);
 }
 
 /* Center + scale the board */
@@ -42,6 +45,9 @@ html.mobile-land{
   will-change: transform;
   contain: layout paint;
   overflow: visible; /* keep hand/animations visible */
+  /* small inner pad so top row doesn't kiss the frame edge on very short viewports */
+  padding-top: var(--edge-pad);
+  padding-bottom: var(--edge-pad);
 }
 
 /* Remove board chrome, keep slots */
@@ -74,7 +80,7 @@ html.mobile-land{
   display:none!important;
 }
 
-/* Slot sizing (keep compact); spacing handled by row gaps */
+/* Slot sizing; spacing handled by row gaps */
 #app .tg-zone{
   display:flex; align-items:center; justify-content:center;
   gap:8px; padding:8px 8px; width:100%;
@@ -95,7 +101,7 @@ html.mobile-land{
   will-change: transform;
 }
 
-/* Press & Hold preview */
+/* Press & Hold preview (paired with boot JS) */
 .card.magnify{
   transform: scale(2) !important;
   z-index: 10000 !important;
