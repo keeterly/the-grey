@@ -1,11 +1,9 @@
 /* The Grey — UI animation helpers (mobile-unified v2.3.5+)
-   These are Promise-based so game logic can await animations without race conditions.
-   They use safe fallbacks if a target anchor isn't available.
+   Promise-based helpers; safe fallbacks if anchors aren't present.
 */
 
 const CSS_ID = "__tg_anim_css__";
 
-/* Inject minimal keyframes once */
 function ensureAnimCSS() {
   if (document.getElementById(CSS_ID)) return;
   const css = /* css */`
@@ -23,7 +21,6 @@ function ensureAnimCSS() {
 }
 ensureAnimCSS();
 
-/* Utility: wait for one animation (or fallback timeout) */
 function onceAnimation(el, timeout = 450) {
   return new Promise(res => {
     let done = false;
@@ -33,7 +30,6 @@ function onceAnimation(el, timeout = 450) {
   });
 }
 
-/* Utility: animate a ghost element flying between rects (best effort) */
 async function flyFromTo(srcRect, dstRect, opts = {}) {
   const { duration = 260, borderRadius = 14, background = "#fffdfa", shadow = "0 8px 26px rgba(0,0,0,.18)" } = opts;
   if (!srcRect || !dstRect) return;
@@ -50,28 +46,24 @@ async function flyFromTo(srcRect, dstRect, opts = {}) {
 
   const dx = (dstRect.left - srcRect.left);
   const dy = (dstRect.top  - srcRect.top);
-  // next frame
   requestAnimationFrame(() => { ghost.style.transform = `translate(${dx}px, ${dy}px)`; ghost.style.opacity = "1"; });
   await new Promise(r => setTimeout(r, duration + 20));
   ghost.remove();
 }
 
-/* Try to find HUD anchors */
 function findDeckAnchor() {
-  // Right-side HUD area near End Turn/Deck; adapt as needed if you rename buttons
   return document.querySelector('[data-role="deck"], .hud [data-action="deck"]') ||
-         document.querySelector('.hud'); // fallback to HUD block
+         document.querySelector('.hud');
 }
 function findDiscardAnchor() {
-  // Left of End Turn in our unified HUD; adapt selector if you add a real discard node
   return document.querySelector('[data-role="discard"], .hud [data-action="discard"]') ||
-         document.querySelector('.hud'); // fallback
+         document.querySelector('.hud');
 }
 
-/* ============== EXPORTED HELPERS ============== */
+/* --------- Public helpers --------- */
 
-/** Animate freshly drawn cards into the hand (soft pop; if deck anchor is present, quick fly). */
-export async function animateNewDraws(cardEls = []) {
+/** Primary “draws into hand” animation. */
+export async function stageNewDraws(cardEls = []) {
   if (!Array.isArray(cardEls) || !cardEls.length) return;
   const deck = findDeckAnchor();
   for (const el of cardEls) {
@@ -85,11 +77,11 @@ export async function animateNewDraws(cardEls = []) {
         await onceAnimation(el, 260);
         el.classList.remove("tg-anim-pop");
       }
-    } catch { /* best effort; continue */ }
+    } catch { /* continue */ }
   }
 }
 
-/** Animate one card purchased/channeled from the **hand** to the **discard**. */
+/** Hand → discard (buy/channeled). */
 export async function animateAFBuyToDiscard(cardEl) {
   if (!cardEl) return;
   const discard = findDiscardAnchor();
@@ -110,7 +102,7 @@ export async function animateAFBuyToDiscard(cardEl) {
   }
 }
 
-/** Batch: move multiple board cards to discard with a subtle fade/fly. */
+/** Board cards → discard. */
 export async function animateCardsToDiscard(cardEls = []) {
   if (!Array.isArray(cardEls) || !cardEls.length) return;
   const discard = findDiscardAnchor();
@@ -129,7 +121,7 @@ export async function animateCardsToDiscard(cardEls = []) {
   }
 }
 
-/** Briefly spotlight a card (scale/shadow), then send it to discard. */
+/** Spotlight a card briefly, then send to discard. */
 export async function spotlightThenDiscard(cardEl) {
   if (!cardEl) return;
   try {
@@ -140,3 +132,11 @@ export async function spotlightThenDiscard(cardEl) {
     await animateAFBuyToDiscard(cardEl);
   }
 }
+
+/* Optional default export (some bundlers/tools prefer it) */
+export default {
+  stageNewDraws,
+  animateAFBuyToDiscard,
+  animateCardsToDiscard,
+  spotlightThenDiscard,
+};
