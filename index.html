@@ -11,9 +11,9 @@
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Core stylesheet (yours; keep as-is) -->
+  <!-- Your base stylesheet -->
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
-  <!-- Layout polish (ours; keep) -->
+  <!-- Layout polish (centering, HUD hand, preview, etc.) -->
   <link rel="stylesheet" href="./assets/css/mobile.css" />
 </head>
 <body>
@@ -23,28 +23,57 @@
     /* Visible version tag (optional) */
     window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
 
+    /* ============================================================
+       OVERRIDES (set these to immediately point at your bundle)
+       ------------------------------------------------------------
+       Example (single bundle):
+         window.__THE_GREY_ENTRY = "./src/ui/index.js";
+
+       Example (multi-file classic):
+         window.__THE_GREY_MULTI__ = [
+           "./core/index.js","./core/rules.js","./core/state.js","./core/drags.js","./core/animate.js"
+         ];
+    ============================================================ */
+
+    // window.__THE_GREY_ENTRY  = ""; // e.g. "./src/ui/index.js"
+    // window.__THE_GREY_MULTI__ = []; // e.g. ["./core/index.js", "./core/rules.js", ...]
+  </script>
+
+  <script>
     /* -------------------------------
        Dynamic core loader
-       Tries a list of common locations. First that loads "wins".
-       Works for either single-file bundles OR classic multi-file layouts.
+       - Uses manual overrides if provided.
+       - Otherwise tries a wide list of common locations.
+       - After core loads, we load boot-debug.js (layout shim).
     -------------------------------- */
 
+    const log = (...a) => console.log("[the-grey loader]", ...a);
+    const warn = (...a) => console.warn("[the-grey loader]", ...a);
+
     const singleFileCandidates = [
-      "./main.js",
-      "./assets/js/main.js",
-      "./the-grey/assets/js/main.js",
-      "./dist/main.js",
-      "./bundle.js",
-      "./the-grey/main.js"
+      // root / typical
+      "./main.js", "./bundle.js", "./index.bundle.js",
+      // assets / dist
+      "./assets/js/main.js", "./assets/js/bundle.js", "./assets/js/index.js",
+      "./dist/main.js", "./dist/bundle.js", "./dist/index.js",
+      // the-grey subdir variants (GitHub Pages often nests here)
+      "./the-grey/main.js", "./the-grey/bundle.js", "./the-grey/index.js",
+      "./the-grey/assets/js/main.js", "./the-grey/assets/js/bundle.js", "./the-grey/assets/js/index.js",
+      // src/ui style setups
+      "./src/ui/index.js", "./src/index.js", "./ui/index.js",
+      "./the-grey/src/ui/index.js", "./the-grey/ui/index.js"
     ];
 
     const multiFileSets = [
-      // classic root layout
+      // root classic
       ["./index.js","./rules.js","./state.js","./drags.js","./animate.js"],
-      // under /the-grey/ root
+      // assets/js
+      ["./assets/js/index.js","./assets/js/rules.js","./assets/js/state.js","./assets/js/drags.js","./assets/js/animate.js"],
+      // the-grey/
       ["./the-grey/index.js","./the-grey/rules.js","./the-grey/state.js","./the-grey/drags.js","./the-grey/animate.js"],
-      // under assets/js/
-      ["./assets/js/index.js","./assets/js/rules.js","./assets/js/state.js","./assets/js/drags.js","./assets/js/animate.js"]
+      // core/ or src/ui style
+      ["./core/index.js","./core/rules.js","./core/state.js","./core/drags.js","./core/animate.js"],
+      ["./src/ui/index.js","./src/ui/rules.js","./src/ui/state.js","./src/ui/drags.js","./src/ui/animate.js"]
     ];
 
     function loadScript(src) {
@@ -61,52 +90,89 @@
       });
     }
 
-    async function trySingleFile() {
-      for (const path of singleFileCandidates) {
-        try {
-          await loadScript(path);
-          window.__TG_CORE_PATH__ = path;
-          return true;
-        } catch { /* try next */ }
-      }
-      return false;
+    async function loadSingle(path) {
+      log("trying single bundle:", path);
+      await loadScript(path);
+      window.__TG_CORE_PATH__ = path;
+      log("loaded:", path);
+      return true;
     }
 
-    async function tryMultiFile() {
+    async function loadMulti(list) {
+      log("trying multi-file:", list.join(", "));
+      for (const f of list) await loadScript(f);
+      window.__TG_CORE_PATH__ = list.join(", ");
+      log("loaded:", window.__TG_CORE_PATH__);
+      return true;
+    }
+
+    async function tryAuto() {
+      // Single first
+      for (const p of singleFileCandidates) {
+        try { return await loadSingle(p); } catch {}
+      }
+      // Then multi
       for (const set of multiFileSets) {
-        try {
-          // load in sequence (preserve order)
-          for (const f of set) await loadScript(f);
-          window.__TG_CORE_PATH__ = set.join(", ");
-          return true;
-        } catch { /* try next set */ }
+        try { return await loadMulti(set); } catch {}
       }
       return false;
     }
 
     async function boot() {
-      const ok = (await trySingleFile()) || (await tryMultiFile());
-      if (!ok) {
-        const msg = document.createElement("div");
-        msg.style.cssText = "position:fixed;inset:0;display:grid;place-items:center;font:14px/1.4 ui-sans-serif,system-ui,-apple-system; color:#5c5348; background:linear-gradient(#f7f5f0,#eee6d9)";
-        msg.innerHTML = `
-          <div style="max-width:680px;text-align:center; padding:24px 20px; border-radius:12px; background:#fff; box-shadow:0 8px 26px rgba(0,0,0,.10)">
-            <div style="font-weight:700;margin-bottom:6px;">Couldn’t find the game bundle</div>
-            <div style="opacity:.75">
-              None of the expected script paths exist. Make sure your built files are in one of these locations:<br><br>
-              <code>${singleFileCandidates.join("</code>, <code>")}</code><br>
-              or a classic multi-file layout like <code>index.js</code>, <code>rules.js</code>, <code>state.js</code>, <code>drags.js</code>, <code>animate.js</code> at the project root.
-            </div>
-          </div>`;
-        document.body.appendChild(msg);
-        return;
+      // Manual override wins immediately
+      if (window.__THE_GREY_ENTRY && typeof window.__THE_GREY_ENTRY === "string") {
+        try { await loadSingle(window.__THE_GREY_ENTRY); return afterCore(); }
+        catch (e) { warn("override __THE_GREY_ENTRY failed:", e.message); }
+      }
+      if (Array.isArray(window.__THE_GREY_MULTI__) && window.__THE_GREY_MULTI__.length) {
+        try { await loadMulti(window.__THE_GREY_MULTI__); return afterCore(); }
+        catch (e) { warn("override __THE_GREY_MULTI__ failed:", e.message); }
       }
 
-      // After core is loaded, load the layout shim
+      // Otherwise try known locations
+      const ok = await tryAuto();
+      if (!ok) {
+        renderBundleMissing();
+        return;
+      }
+      afterCore();
+    }
+
+    function afterCore() {
+      // load our layout shim
       const shim = document.createElement("script");
       shim.src = "./assets/js/boot-debug.js";
       shim.defer = true;
       document.head.appendChild(shim);
+    }
+
+    function renderBundleMissing() {
+      const msg = document.createElement("div");
+      msg.style.cssText = "position:fixed;inset:0;display:grid;place-items:center;font:14px/1.5 ui-sans-serif,system-ui,-apple-system; color:#5c5348; background:linear-gradient(#f7f5f0,#eee6d9)";
+      msg.innerHTML = `
+        <div style="max-width:720px;text-align:center; padding:24px 20px; border-radius:12px; background:#fff; box-shadow:0 8px 26px rgba(0,0,0,.10)">
+          <div style="font-weight:700;margin-bottom:6px;">Couldn’t find the game bundle</div>
+          <div style="opacity:.8;margin-bottom:10px">
+            None of the expected script paths exist. Easiest fix is to set an override at the top of <code>index.html</code>:
+          </div>
+          <pre style="text-align:left; white-space:pre-wrap; padding:10px 12px; background:#fbf9f5; border-radius:8px; overflow:auto; font-size:12px; line-height:1.45">
+&lt;script&gt;
+  window.__THE_GREY_ENTRY = "./path/to/your/bundle.js"; 
+  // or:
+  window.__THE_GREY_MULTI__ = [
+    "./wherever/index.js",
+    "./wherever/rules.js",
+    "./wherever/state.js",
+    "./wherever/drags.js",
+    "./wherever/animate.js"
+  ];
+&lt;/script&gt;</pre>
+          <div style="opacity:.75;margin-top:8px">
+            Tip: open DevTools → Sources to see where your built files actually live in this branch, then copy that path.
+          </div>
+        </div>`;
+      document.body.appendChild(msg);
+      warn("bundle not found; set window.__THE_GREY_ENTRY or window.__THE_GREY_MULTI__ in index.html");
     }
 
     boot();
