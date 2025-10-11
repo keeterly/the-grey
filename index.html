@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.5 layout (AI ▸ Flow ▸ Player)</title>
+  <title>The Grey — Board Layout (AI ▸ Flow ▸ Player)</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body class="theme-dark parchment">
+<body id="board" class="theme-dark parchment">
   <header class="topbar">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
@@ -19,33 +19,29 @@
     </div>
   </header>
 
-  <main class="grid">
+  <main id="board-grid" class="grid">
     <!-- AI ROW -->
     <section class="row ai">
-      <div class="row-header">
-        <figure class="portrait">
-          <img id="ai-portrait" alt="Opponent">
-          <figcaption id="ai-name">Opponent</figcaption>
-        </figure>
-      </div>
+      <figure class="portrait">
+        <img id="ai-portrait" alt="Opponent">
+        <figcaption id="ai-name">Opponent</figcaption>
+      </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
-    <!-- AETHER FLOW (CENTER) -->
+    <!-- FLOW (CENTER) -->
     <section class="row flow">
       <h2 class="section-title">AETHER FLOW</h2>
-      <ul id="flow-row" class="flow-row"></ul>
+      <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
     </section>
 
     <!-- PLAYER ROW -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-      <div class="row-footer">
-        <figure class="portrait">
-          <img id="player-portrait" alt="Player">
-          <figcaption id="player-name">Player</figcaption>
-        </figure>
-      </div>
+      <figure class="portrait">
+        <img id="player-portrait" alt="Player">
+        <figcaption id="player-name">Player</figcaption>
+      </figure>
     </section>
 
     <!-- HAND -->
