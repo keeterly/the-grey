@@ -2,7 +2,7 @@
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
 
-  /* Card geometry used everywhere */
+  /* Global card geometry */
   --card-w: 210px;
   --card-h: 290px;
   --card-radius: 16px;
@@ -39,7 +39,7 @@ html,body{height:100%}
 .portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.1)}
 
-/* ===== Slot rows (4 bays across) ===== */
+/* ===== Slot rows (4 across) ===== */
 #ai-slots.slot-row,
 #player-slots.slot-row{
   display:grid !important;
@@ -51,7 +51,7 @@ html,body{height:100%}
   place-items:center;
 }
 
-/* ===== Rectangular slots: spell & glyph use same geometry ===== */
+/* ===== Rectangular slots (spell & glyph share geometry) ===== */
 .slot{
   width: var(--card-w);
   height: var(--card-h);
@@ -119,7 +119,7 @@ html,body{height:100%}
 .card .textbox{flex:1}
 .card .actions{display:flex; gap:8px; padding:10px}
 
-/* ===== Preview / Zoom (fixed & safe) ===== */
+/* ===== Preview / Zoom (patched) ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
 #peek-card.card.peek{
   position:absolute; left:50%; top:18vh; transform:translateX(-50%) scale(1.28);
