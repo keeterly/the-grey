@@ -3,6 +3,7 @@
   --gold:#c6a56a; --stone:#3a3125; --rune:#796447; --aether:#7eb6ff;
 }
 
+/* Base / theme */
 *{box-sizing:border-box}
 html,body{height:100%}
 body.theme-dark.parchment{
@@ -28,36 +29,26 @@ body.theme-dark.parchment::after{
 .turn{opacity:.75;font-weight:600;letter-spacing:.02em}
 .aether{font-family:"Crimson Text", serif;letter-spacing:.06em}
 
-/* ===== LAYOUT: AI (top) — FLOW (middle) — PLAYER (bottom) ===== */
-.board-grid{
+/* ======= STRICT 3-ROW LAYOUT ======= */
+.board-rows{
   display:grid;
-  grid-template-rows: 1fr auto 1fr;
-  grid-template-areas:
-    "ai"
-    "flow"
-    "player";
+  grid-template-rows: 1fr auto 1fr;  /* AI / FLOW / PLAYER */
   height:calc(100% - 48px);
-  gap:8px;
-  padding:8px 14px 34vh; /* leave room for hand overlay */
+  gap:10px;
+  padding:10px 20px 34vh; /* reserve bottom for the hand */
 }
 
-/* SIDES (AI / PLAYER) */
-.side{
-  display:grid; align-items:center; justify-content:center;
-  grid-template-columns: 200px minmax(640px, 1100px) 200px;
-  column-gap:20px;
-}
-.side.ai   { grid-area: ai;   grid-template-columns: 200px minmax(640px, 1100px) 0 }
-.side.player{ grid-area: player; grid-template-columns: 0 minmax(640px, 1100px) 200px }
+/* Each row is centered content in a column (no side columns) */
+.row{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
 
-.identity{display:flex; align-items:center; justify-content:center}
-.portrait{margin:0; text-align:center; font-size:.95rem; color:var(--muted)}
-.portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
+/* Identity blocks */
+.identity .portrait{margin:0;text-align:center;color:var(--muted);font-size:.95rem}
+.identity img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
 
-/* Four bays: 3 Spell + 1 Glyph */
+/* ===== Slots: 4 in a row (3 Spell + 1 Glyph) ===== */
 .slots-4{
-  display:grid; grid-template-columns: repeat(4, 1fr);
-  gap:18px; place-items:center;
+  display:flex; align-items:center; justify-content:center;
+  gap:22px; width:100%;
 }
 .slot{
   width:220px;height:220px;border-radius:50%;
@@ -66,36 +57,21 @@ body.theme-dark.parchment::after{
   color:var(--muted); text-shadow:0 2px 12px #000;
   transition:filter .2s ease, box-shadow .2s ease;
 }
-.slot::after{
-  content:""; position:absolute; inset:12px; border:1px solid #5a4b37; border-radius:50%;
-  box-shadow:0 0 10px #000 inset;
-}
-/* rotating rune ring */
+.slot::after{content:""; position:absolute; inset:12px; border:1px solid #5a4b37; border-radius:50%; box-shadow:0 0 10px #000 inset;}
 .slot::before{
   content:""; position:absolute; inset:34px; border-radius:50%;
-  background: conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
-  filter:blur(.2px); opacity:.22; animation:spin 12s linear infinite;
+  background:conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
+  opacity:.22; animation:spin 12s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.slot.glyph{
-  background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 70%);
-  border-color:#5a4833;
-}
-.slot.glyph::before{opacity:.35}
-.slot:hover{
-  filter:drop-shadow(0 0 10px rgba(126,182,255,.25));
-  box-shadow:0 0 22px rgba(126,182,255,.25), inset 0 0 18px #000;
-}
-.slot.has-card{
-  box-shadow:0 0 22px var(--aether), inset 0 0 18px #000;
-  animation:pulse 1.4s ease-in-out infinite;
-}
+.slot.glyph{ background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 70%); border-color:#5a4833; }
+.slot:hover{ filter:drop-shadow(0 0 10px rgba(126,182,255,.25)); box-shadow:0 0 22px rgba(126,182,255,.25), inset 0 0 18px #000; }
+.slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite; }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
-/* ===== FLOW (center) ===== */
-.altar{ grid-area: flow; }
-.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 10px}
+/* ===== Flow (center) ===== */
+.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:0 0 6px}
 .flow-row{
   list-style:none;margin:0 auto;padding:12px;
   max-width:1200px;
@@ -108,7 +84,8 @@ body.theme-dark.parchment::after{
   display:flex;flex-direction:column;gap:8px;
   background:linear-gradient(180deg,#30271e,#201a14);
   border:1px solid #5d4d37;border-radius:12px;color:var(--ink);
-  padding:10px; box-shadow:0 8px 24px #000; will-change:transform, opacity;
+  padding:10px; box-shadow:0 8px 24px #000;
+  will-change:transform, opacity;
 }
 .flow-card .ttl{font-weight:600}
 .flow-card .typ{font-size:.85rem; opacity:.7}
@@ -144,7 +121,7 @@ body.theme-dark.parchment::after{
   }
 }
 
-/* ===== Cinematic (unchanged palette) ===== */
+/* Cinematic (unchanged) */
 #cinematic-root{position:fixed;inset:0;pointer-events:none}
 .cine{position:absolute;inset:0;background:rgba(10,8,6,.92); display:flex;align-items:center;justify-content:center; opacity:0; animation:fadeIn .25s forwards}
 @keyframes fadeIn{to{opacity:1}}
