@@ -6,19 +6,45 @@
   <meta name="theme-color" content="#f7f5f0" />
   <title>The Grey</title>
 
-  <!-- Your base styling (keep whatever you already had), then the safe overlay -->
+  <!-- Your base styles first (keep existing), then the safe overlay CSS -->
   <link rel="stylesheet" href="./src/styles/cards.css" />
   <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
 </head>
 <body>
+  <!-- Scaled 1280×720 canvas root -->
   <div id="app"></div>
 
-  <script>window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";</script>
+  <!-- Minimal HUD so index.js can find the IDs it binds to -->
+  <!-- Left cluster (discard) -->
+  <div class="hud-min" id="hudRoot">
+    <div class="left">
+      <!-- discard button (ID used by many builds) -->
+      <button class="icon btn" id="discardIcon" title="Discard">⌫</button>
+    </div>
 
-  <!-- IMPORTANT: point to your real game bundle path here -->
-  <script type="module" src="./src/ui/index.js"></script>
+    <div class="right">
+      <!-- end turn (your code usually binds onclick to this ID) -->
+      <button class="icon btn" id="btnEnd"   title="End Turn">⏵</button>
+      <!-- deck button next to End Turn per your request -->
+      <button class="icon btn" id="deckIcon" title="Deck">DECK</button>
+    </div>
+  </div>
 
-  <!-- Layout bootstrap -->
+  <!-- Optional: if your code expects these, leave them hidden but present. -->
+  <button id="btnUndo"   style="display:none"></button>
+  <button id="btnReset"  style="display:none"></button>
+  <div    id="overlay"   class="overlay" style="display:none"></div>
+
+  <script>
+    /* Build label that the boot script shows top-right */
+    window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";
+  </script>
+
+  <!-- IMPORTANT: this MUST point to your actual game bundle. 
+       In your screenshot the error came from /index.js, so we use that. -->
+  <script type="module" src="./index.js"></script>
+
+  <!-- Layout bootstrap (scaling, press-and-hold, Safari guards) -->
   <script src="./assets/js/boot-debug.js" defer></script>
 </body>
 </html>
