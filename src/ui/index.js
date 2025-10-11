@@ -40,7 +40,8 @@ function layoutHand(container, cards) {
 /* ---------- Slots: render 3 Spell + 1 Glyph ---------- */
 function renderSlots(container, slotSnapshot){
   container.replaceChildren();
-  // Three Spell bays bound to engine indices 0..2
+
+  // 3 Spell bays bound to engine indices 0..2
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot";
@@ -49,17 +50,18 @@ function renderSlots(container, slotSnapshot){
     if (has) d.classList.add("has-card");
     container.appendChild(d);
   }
-  // One Glyph bay (visual for now)
+
+  // 1 Glyph bay (visual placeholder until engine exposes a glyph slot)
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
   container.appendChild(g);
 }
 
-/* ---------- Flow row ---------- */
+/* ---------- Flow row (5 columns) ---------- */
 function renderFlow(nextFlow){
   flowRowEl.replaceChildren();
-  nextFlow.forEach(c=>{
+  nextFlow.slice(0,5).forEach(c=>{
     const li = document.createElement("li");
     li.className = "flow-card";
     li.innerHTML = `<div class="ttl">${c.name} <span class="typ">(${c.type})</span></div>
@@ -84,8 +86,9 @@ function render(){
   renderSlots(aiSlotsEl, s.ai.slots);
   renderFlow(s.flow);
 
+  // Hand
   handEl.replaceChildren();
-  const hands = [];
+  const els = [];
   s.player.hand.forEach(c=>{
     const el = document.createElement("article");
     el.className = "card"; el.tabIndex = 0;
@@ -96,9 +99,9 @@ function render(){
                       <button class="btn">Play</button>
                       <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
                     </div>`;
-    handEl.appendChild(el); hands.push(el);
+    handEl.appendChild(el); els.push(el);
   });
-  layoutHand(handEl, hands);
+  layoutHand(handEl, els);
 }
 
 /* Wire-up */
