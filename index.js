@@ -1,5 +1,4 @@
-// Path fix: import from root, not /src/...
-import { initState, serializePublic } from "./GameLogic.js";
+import { initState, serializePublic, playCardToSpellSlot } from "./GameLogic.js";
 
 const startBtn       = document.getElementById("btn-start-turn");
 const endBtn         = document.getElementById("btn-end-turn");
@@ -10,8 +9,9 @@ const handEl         = document.getElementById("hand");
 const turnIndicator  = document.getElementById("turn-indicator");
 const aetherReadout  = document.getElementById("aether-readout");
 
-let state;
+let state = initState({});
 
+/* ---------- Hand fanning ---------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N) return;
@@ -35,35 +35,53 @@ function layoutHand(container, cards) {
   });
 }
 
-function renderSlots(container, slotSnapshot){
+/* ---------- Slots ---------- */
+function renderSlots(container, slotSnapshot, isPlayer){
   container.replaceChildren();
-  // 3 Spell bays (bind to engine slots 0..2)
+
+  // 3 Spell bays (card-shaped)
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
-    d.className = "slot";
+    d.className = "slot spell";
+    d.dataset.slotIndex = String(i);
     const has = slotSnapshot?.[i]?.hasCard;
     d.textContent = has ? (slotSnapshot[i].card?.name || "Spell") : "Spell Slot";
     if (has) d.classList.add("has-card");
+
+    if (isPlayer){
+      // drag target wiring
+      d.addEventListener("dragover", (ev)=> {
+        ev.preventDefault(); d.classList.add("drag-over");
+      });
+      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
+      d.addEventListener("drop", (ev)=>{
+        ev.preventDefault();
+        d.classList.remove("drag-over");
+        const cardId = ev.dataTransfer?.getData("text/card-id");
+        const cardType = ev.dataTransfer?.getData("text/card-type");
+        if (!cardId) return;
+        if (cardType !== "SPELL") return; // only spells go to spell slots
+        try{
+          playCardToSpellSlot(state, "player", cardId, i);
+          render(); // re-render after mutation
+        }catch(e){ console.warn(e?.message || e); }
+      });
+    }
+
     container.appendChild(d);
   }
-  // 1 Glyph bay (visual for now)
+
+  // 1 Glyph bay (circular; visual only for now)
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
   container.appendChild(g);
 }
 
-function renderFlow(flow){
+/* ---------- Flow row (5 columns) ---------- */
+function renderFlow(nextFlow){
   flowRowEl.replaceChildren();
-  const list = (Array.isArray(flow) && flow.length) ? flow : [
-    // fallback placeholders if engine misfires
-    {id:"p1", name:"—", type:"INSTANT", price:4},
-    {id:"p2", name:"—", type:"SPELL",   price:3},
-    {id:"p3", name:"—", type:"GLYPH",   price:2},
-    {id:"p4", name:"—", type:"SPELL",   price:2},
-    {id:"p5", name:"—", type:"INSTANT", price:2},
-  ];
-  list.slice(0,5).forEach(c=>{
+  nextFlow.slice(0,5).forEach(c=>{
     const li = document.createElement("li");
     li.className = "flow-card";
     li.innerHTML = `<div class="ttl">${c.name} <span class="typ">(${c.type})</span></div>
@@ -72,6 +90,7 @@ function renderFlow(flow){
   });
 }
 
+/* ---------- Main render ---------- */
 function render(){
   const s = serializePublic(state);
 
@@ -83,44 +102,43 @@ function render(){
   document.getElementById("player-name").textContent = s.player.weaver.name;
   document.getElementById("ai-name").textContent     = s.ai.weaver.name;
 
-  renderSlots(playerSlotsEl, s.player.slots);
-  renderSlots(aiSlotsEl, s.ai.slots);
+  renderSlots(playerSlotsEl, s.player.slots, true);
+  renderSlots(aiSlotsEl, s.ai.slots, false);
   renderFlow(s.flow);
 
   // Hand
   handEl.replaceChildren();
-  const cardEls = [];
+  const els = [];
   s.player.hand.forEach(c=>{
     const el = document.createElement("article");
-    el.className = "card"; el.tabIndex = 0;
-    el.innerHTML = `<div class="title">${c.name}</div>
-                    <div class="type">${c.type}</div>
-                    <div class="textbox"></div>
-                    <div class="actions">
+    el.className = "card"; el.tabIndex = 0; el.draggable = true;
+    el.dataset.cardId = c.id;
+    el.dataset.cardType = c.type;
+
+    el.innerHTML = `<div class="title" style="padding:10px 10px 0 10px; font-weight:600;">${c.name}</div>
+                    <div class="type" style="opacity:.75; padding:0 10px 6px 10px; font-size:.9rem">${c.type}</div>
+                    <div class="textbox" style="flex:1"></div>
+                    <div class="actions" style="display:flex; gap:8px; padding:10px">
                       <button class="btn">Play</button>
                       <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
                     </div>`;
-    handEl.appendChild(el); cardEls.push(el);
+
+    // drag source
+    el.addEventListener("dragstart", (ev)=>{
+      el.classList.add("dragging");
+      ev.dataTransfer?.setData("text/card-id", c.id);
+      ev.dataTransfer?.setData("text/card-type", c.type);
+      ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
+    });
+    el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+
+    handEl.appendChild(el); els.push(el);
   });
-  layoutHand(handEl, cardEls);
+  layoutHand(handEl, els);
 }
 
-function boot(){
-  try{
-    state = initState({});
-    render();
-  }catch(e){
-    console.error("[UI] boot error:", e);
-    // Visual hint in case of import path issues
-    const hint = document.createElement("div");
-    hint.style.position="fixed";hint.style.top="56px";hint.style.left="16px";
-    hint.style.padding="8px 12px";hint.style.background="#5a2";hint.style.color="#fff";
-    hint.style.zIndex="99999";hint.textContent="Boot error (open console)";
-    document.body.appendChild(hint);
-  }
-}
-
+/* Wire-up */
 startBtn.addEventListener("click", render);
 endBtn.addEventListener("click", render);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl.children)));
-document.addEventListener("DOMContentLoaded", boot);
+document.addEventListener("DOMContentLoaded", render);
