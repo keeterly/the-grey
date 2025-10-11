@@ -3,12 +3,13 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.5 (Themed)</title>
+  <title>The Grey — v2.5 (Board: AI ↔ Flow ↔ Player)</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body class="theme-dark parchment">
   <div id="cinematic-root" aria-hidden="true"></div>
+
   <header class="topbar">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
@@ -20,20 +21,40 @@
     </div>
   </header>
 
-  <main class="layout">
+  <main class="board-grid">
+    <!-- AI ROW -->
+    <section class="side ai">
+      <div class="identity">
+        <figure class="portrait">
+          <img id="ai-portrait" alt="Opponent">
+          <figcaption id="ai-name">Opponent</figcaption>
+        </figure>
+      </div>
+      <div id="ai-slots" class="slots-4">
+        <!-- 3 Spell + 1 Glyph -->
+      </div>
+    </section>
+
+    <!-- FLOW (CENTER) -->
     <section class="altar">
       <h2 class="section-title">AETHER FLOW</h2>
       <ul id="flow-row" class="flow-row"></ul>
     </section>
 
-    <section class="board">
-      <div class="portraits">
-        <figure class="portrait"><img id="p1" alt="Player"><figcaption id="p1-name">Player</figcaption></figure>
-        <figure class="portrait"><img id="p2" alt="Opponent"><figcaption id="p2-name">Opponent</figcaption></figure>
+    <!-- PLAYER ROW -->
+    <section class="side player">
+      <div id="player-slots" class="slots-4">
+        <!-- 3 Spell + 1 Glyph -->
       </div>
-      <div id="slots" class="slots"></div>
+      <div class="identity">
+        <figure class="portrait">
+          <img id="player-portrait" alt="Player">
+          <figcaption id="player-name">Player</figcaption>
+        </figure>
+      </div>
     </section>
 
+    <!-- HAND -->
     <section class="hand-wrap">
       <div id="hand" class="hand"></div>
     </section>
