@@ -9,6 +9,10 @@ const handEl         = document.getElementById("hand");
 const turnIndicator  = document.getElementById("turn-indicator");
 const aetherReadout  = document.getElementById("aether-readout");
 
+const peekEl         = document.getElementById("peek-card");
+const zoomOverlayEl  = document.getElementById("zoom-overlay");
+const zoomCardEl     = document.getElementById("zoom-card");
+
 let state = initState({});
 
 /* ---------- Hand fanning ---------- */
@@ -31,6 +35,7 @@ function layoutHand(container, cards) {
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
+    // smooth redistribution (transition is on .card)
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
@@ -39,7 +44,7 @@ function layoutHand(container, cards) {
 function renderSlots(container, slotSnapshot, isPlayer){
   container.replaceChildren();
 
-  // 3 Spell bays (card-shaped)
+  // 3 rectangular Spell bays
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -49,7 +54,6 @@ function renderSlots(container, slotSnapshot, isPlayer){
     if (has) d.classList.add("has-card");
 
     if (isPlayer){
-      // drag target wiring
       d.addEventListener("dragover", (ev)=> {
         ev.preventDefault(); d.classList.add("drag-over");
       });
@@ -60,34 +64,104 @@ function renderSlots(container, slotSnapshot, isPlayer){
         const cardId = ev.dataTransfer?.getData("text/card-id");
         const cardType = ev.dataTransfer?.getData("text/card-type");
         if (!cardId) return;
-        if (cardType !== "SPELL") return; // only spells go to spell slots
+        if (cardType !== "SPELL") return; // spell slots accept only SPELL
         try{
           playCardToSpellSlot(state, "player", cardId, i);
-          render(); // re-render after mutation
+          render(); // re-render → hand redistributes
         }catch(e){ console.warn(e?.message || e); }
       });
     }
-
     container.appendChild(d);
   }
 
-  // 1 Glyph bay (circular; visual only for now)
-  const g = document.createElement("div");
-  g.className = "slot glyph";
-  g.textContent = "Glyph Slot";
-  container.appendChild(g);
+  // 1 rectangular Glyph bay (accepts only GLYPH)
+  if (isPlayer){
+    const g = document.createElement("div");
+    g.className = "slot glyph";
+    g.textContent = "Glyph Slot";
+
+    g.addEventListener("dragover", (ev)=> {
+      const t = ev.dataTransfer?.getData("text/card-type");
+      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
+    });
+    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
+    g.addEventListener("drop", (ev)=>{
+      ev.preventDefault(); g.classList.remove("drag-over");
+      const cardType = ev.dataTransfer?.getData("text/card-type");
+      if (cardType !== "GLYPH") return;
+      // TODO: hook engine when glyph slot exists in state; for now just ignore gracefully
+      // You can wire a playGlyphToSlot(state, "player", cardId) here later.
+    });
+    container.appendChild(g);
+  } else {
+    const g = document.createElement("div");
+    g.className = "slot glyph";
+    g.textContent = "Glyph Slot";
+    container.appendChild(g);
+  }
 }
 
-/* ---------- Flow row (5 columns) ---------- */
+/* ---------- Flow row (full-size cards) ---------- */
+function cardHTML(c){
+  return `<div class="title">${c.name}</div>
+          <div class="type">${c.type}</div>
+          <div class="textbox"></div>
+          <div class="actions"><button class="btn">Buy (Æ ${c.price ?? 0})</button></div>`;
+}
 function renderFlow(nextFlow){
   flowRowEl.replaceChildren();
   nextFlow.slice(0,5).forEach(c=>{
     const li = document.createElement("li");
     li.className = "flow-card";
-    li.innerHTML = `<div class="ttl">${c.name} <span class="typ">(${c.type})</span></div>
-                    <div class="price">Price: Æ ${c.price}</div>`;
+    const card = document.createElement("article");
+    card.className = "card market";
+    card.innerHTML = cardHTML(c);
+    li.appendChild(card);
     flowRowEl.appendChild(li);
   });
+}
+
+/* ---------- Peek + Zoom ---------- */
+function fillCardShell(div, data){
+  div.innerHTML = `
+    <div class="title">${data.name}</div>
+    <div class="type">${data.type}</div>
+    <div class="textbox"></div>
+    <div class="actions" style="opacity:.6"><span>Preview</span></div>
+  `;
+}
+let longPressTimer = null;
+function attachPeekAndZoom(el, data){
+  // Hover peek (desktop)
+  el.addEventListener("mouseenter", ()=>{
+    fillCardShell(peekEl, data);
+    peekEl.hidden = false;
+    peekEl.classList.add("show");
+  });
+  el.addEventListener("mouseleave", ()=>{
+    peekEl.classList.remove("show");
+    peekEl.hidden = true;
+  });
+
+  // Press & hold for 2x zoom (mouse or touch)
+  const start = (ev)=>{
+    if (longPressTimer) clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(()=>{
+      fillCardShell(zoomCardEl, data);
+      zoomOverlayEl.hidden = false;
+    }, 350);
+  };
+  const cancel = ()=>{
+    if (longPressTimer) clearTimeout(longPressTimer);
+  };
+  el.addEventListener("pointerdown", start);
+  el.addEventListener("pointerup", cancel);
+  el.addEventListener("pointerleave", cancel);
+  el.addEventListener("dragstart", cancel);
+
+  // Dismiss zoom
+  zoomOverlayEl.addEventListener("click", ()=> zoomOverlayEl.hidden = true);
+  document.addEventListener("keydown", (e)=> { if (e.key === "Escape") zoomOverlayEl.hidden = true; });
 }
 
 /* ---------- Main render ---------- */
@@ -115,13 +189,14 @@ function render(){
     el.dataset.cardId = c.id;
     el.dataset.cardType = c.type;
 
-    el.innerHTML = `<div class="title" style="padding:10px 10px 0 10px; font-weight:600;">${c.name}</div>
-                    <div class="type" style="opacity:.75; padding:0 10px 6px 10px; font-size:.9rem">${c.type}</div>
-                    <div class="textbox" style="flex:1"></div>
-                    <div class="actions" style="display:flex; gap:8px; padding:10px">
-                      <button class="btn">Play</button>
-                      <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
-                    </div>`;
+    el.innerHTML = `
+      <div class="title">${c.name}</div>
+      <div class="type">${c.type}</div>
+      <div class="textbox"></div>
+      <div class="actions">
+        <button class="btn">Play</button>
+        <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
+      </div>`;
 
     // drag source
     el.addEventListener("dragstart", (ev)=>{
@@ -131,6 +206,9 @@ function render(){
       ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
     });
     el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+
+    // peek + zoom
+    attachPeekAndZoom(el, c);
 
     handEl.appendChild(el); els.push(el);
   });
