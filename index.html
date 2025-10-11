@@ -2,52 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- keep viewport-fit for iOS safe areas -->
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#f7f5f0" />
-  <title>The Grey — v2.3.9</title>
+  <title>The Grey</title>
 
-  <!-- Base board/card styles, then safe/mobile overrides -->
-  <link rel="stylesheet" href="./src/styles/cards.css">
-  <link rel="stylesheet" href="./assets/css/acceptance.safe.css" data-tg-safe="true">
+  <!-- Your base styling (keep whatever you already had), then the safe overlay -->
+  <link rel="stylesheet" href="./src/styles/cards.css" />
+  <link rel="stylesheet" href="./assets/css/acceptance.safe.css" />
 </head>
 <body>
-  <div class="container">
-    <div id="app"></div>
-  </div>
-
-  <!-- Minimal bottom HUD -->
-  <div class="hud-min">
-    <div class="left">
-      <!-- Discard stays on the left -->
-      <div class="icon btn" id="discardIcon" title="Discard">⌫</div>
-    </div>
-    <div class="right">
-      <!-- End Turn + Deck (requested order) -->
-      <div class="icon btn" id="btnEnd"   title="End Turn">⏵</div>
-      <div class="icon btn" id="deckIcon" title="Deck">⟲</div>
-    </div>
-  </div>
-
-  <!-- Spotlight overlay for AF purchases -->
-  <div id="overlay" class="overlay"></div>
-
-  <!-- Generic modal for deck/discard + trance info -->
-  <div id="modal" class="modal">
-    <div class="modal-card">
-      <div class="modal-head">
-        <div class="modal-title" id="modalTitle">Title</div>
-        <button class="btn-close" id="modalClose">Close</button>
-      </div>
-      <div class="modal-body" id="modalBody"></div>
-    </div>
-  </div>
+  <div id="app"></div>
 
   <script>window.__THE_GREY_BUILD = "v2.3.9-acceptanceP1-safe-v13";</script>
 
-  <!-- App (module) -->
+  <!-- IMPORTANT: point to your real game bundle path here -->
   <script type="module" src="./src/ui/index.js"></script>
-  <!-- Layout-only bootstrap + helpers -->
-  <script src="./assets/js/boot-debug.js"></script>
+
+  <!-- Layout bootstrap -->
+  <script src="./assets/js/boot-debug.js" defer></script>
 </body>
 </html>
