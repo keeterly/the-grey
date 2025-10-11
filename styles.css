@@ -1,20 +1,12 @@
 :root{
-  --paper:#191512;
-  --paper-2:#1b1611;
-  --ink:#e7dcc3;
-  --muted:#bfb39a;
-  --gold:#c6a56a;
-  --stone:#3a3125;
-  --rune:#796447;
-  --aether:#7eb6ff;
+  --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
+  --gold:#c6a56a; --stone:#3a3125; --rune:#796447; --aether:#7eb6ff;
 }
 
 *{box-sizing:border-box}
 html,body{height:100%}
 body.theme-dark.parchment{
-  margin:0;
-  color:var(--ink);
-  font-family:"Cormorant Garamond", serif;
+  margin:0; color:var(--ink); font-family:"Cormorant Garamond", serif;
   background:
     radial-gradient(60% 70% at 50% 30%, #2a231b 0%, var(--paper) 60%, #110e0b 100%),
     radial-gradient(circle at 10% 95%, rgba(255,190,95,.10), transparent 60%),
@@ -33,79 +25,67 @@ body.theme-dark.parchment::after{
 .topbar{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;background:linear-gradient(180deg,#221b14,#1a140f);border-bottom:1px solid #2f261d}
 .btn{border:1px solid var(--rune);background:linear-gradient(180deg,#2f2921,#1f1a14);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer;box-shadow:0 0 8px #000;}
 .btn:hover{box-shadow:0 0 14px var(--gold); transform:translateY(-1px)}
-
 .turn{opacity:.75;font-weight:600;letter-spacing:.02em}
 .aether{font-family:"Crimson Text", serif;letter-spacing:.06em}
 
-.layout{display:grid;grid-template-rows:auto 1fr auto;height:calc(100% - 48px)}
-
-.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:10px 0 8px}
-
-.altar{padding:10px 14px}
-.flow-row{
-  list-style:none;margin:0 auto;padding:12px;
-  max-width:1200px;
-  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;
-  background:linear-gradient(180deg,#241d15,#1a140f);
-  border:1px solid #3b3126; border-radius:12px;
-  box-shadow:0 0 32px #000 inset;
-  position:relative;
+/* ===== LAYOUT: AI (top) — FLOW (middle) — PLAYER (bottom) ===== */
+.board-grid{
+  display:grid;
+  grid-template-rows: 1fr auto 1fr;
+  grid-template-areas:
+    "ai"
+    "flow"
+    "player";
+  height:calc(100% - 48px);
+  gap:8px;
+  padding:8px 14px 34vh; /* leave room for hand overlay */
 }
-.flow-card{
-  display:flex;flex-direction:column;gap:8px;
-  background:linear-gradient(180deg,#30271e,#201a14);
-  border:1px solid #5d4d37;border-radius:12px;color:var(--ink);
-  padding:10px; box-shadow:0 8px 24px #000;
-  will-change:transform, opacity;
+
+/* SIDES (AI / PLAYER) */
+.side{
+  display:grid; align-items:center; justify-content:center;
+  grid-template-columns: 200px minmax(640px, 1100px) 200px;
+  column-gap:20px;
 }
-.flow-card .ttl{font-weight:600}
-.flow-card .typ{font-size:.85rem; opacity:.7}
-.flow-card .price{font-family:"Crimson Text", serif; color:var(--muted)}
+.side.ai   { grid-area: ai;   grid-template-columns: 200px minmax(640px, 1100px) 0 }
+.side.player{ grid-area: player; grid-template-columns: 0 minmax(640px, 1100px) 200px }
 
-/* entering/leaving helpers used by JS FLIP */
-.flow-enter{opacity:0; transform:translateY(8px)}
-.flow-enter-active{transition:transform .22s ease, opacity .22s ease; opacity:1; transform:translateY(0)}
-.flow-exit{opacity:1}
-.flow-exit-active{transition:transform .18s ease, opacity .18s ease; opacity:0; transform:translateY(-8px)}
-
-.board{display:grid;place-items:center}
-.portraits{display:flex;gap:18px;align-items:center;justify-content:center;margin-top:4px}
-.portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
+.identity{display:flex; align-items:center; justify-content:center}
+.portrait{margin:0; text-align:center; font-size:.95rem; color:var(--muted)}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.15)}
 
-/* ---------- Slots ---------- */
-.slots{display:grid;grid-template-columns:repeat(3,260px);gap:22px;margin:10px 0 6px}
+/* Four bays: 3 Spell + 1 Glyph */
+.slots-4{
+  display:grid; grid-template-columns: repeat(4, 1fr);
+  gap:18px; place-items:center;
+}
 .slot{
-  width:260px;height:260px;border-radius:50%;
+  width:220px;height:220px;border-radius:50%;
   background:radial-gradient(circle at 50% 45%, #231c14 0%, #17130f 70%);
   border:2px solid #3d3326; position:relative; display:grid;place-items:center;
   color:var(--muted); text-shadow:0 2px 12px #000;
   transition:filter .2s ease, box-shadow .2s ease;
 }
 .slot::after{
-  content:""; position:absolute; inset:14px; border:1px solid #5a4b37; border-radius:50%;
+  content:""; position:absolute; inset:12px; border:1px solid #5a4b37; border-radius:50%;
   box-shadow:0 0 10px #000 inset;
 }
 /* rotating rune ring */
 .slot::before{
-  content:""; position:absolute; inset:38px; border-radius:50%;
-  background:
-    conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
-  filter:blur(.2px); opacity:.22;
-  animation:spin 12s linear infinite;
+  content:""; position:absolute; inset:34px; border-radius:50%;
+  background: conic-gradient(from 0deg, rgba(121,100,71,.35), rgba(121,100,71,0) 55% 100%);
+  filter:blur(.2px); opacity:.22; animation:spin 12s linear infinite;
 }
 @keyframes spin{to{transform:rotate(360deg)}}
 
-.slot.has-card::before{opacity:.35}
-.slot.has-card::after{border-color:#6a583f}
-
+.slot.glyph{
+  background:radial-gradient(circle at 50% 45%, #1e1812 0%, #15110d 70%);
+  border-color:#5a4833;
+}
+.slot.glyph::before{opacity:.35}
 .slot:hover{
   filter:drop-shadow(0 0 10px rgba(126,182,255,.25));
   box-shadow:0 0 22px rgba(126,182,255,.25), inset 0 0 18px #000;
-}
-.slot.has-card:hover{
-  filter:drop-shadow(0 0 16px rgba(126,182,255,.45));
-  box-shadow:0 0 28px rgba(126,182,255,.45), inset 0 0 18px #000;
 }
 .slot.has-card{
   box-shadow:0 0 22px var(--aether), inset 0 0 18px #000;
@@ -113,15 +93,36 @@ body.theme-dark.parchment::after{
 }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 
-/* ---------- Hand: centered & fanned ---------- */
-.hand-wrap{
-  position:fixed; left:0; right:0; bottom:0;
-  height:32vh; pointer-events:none;
+/* ===== FLOW (center) ===== */
+.altar{ grid-area: flow; }
+.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 10px}
+.flow-row{
+  list-style:none;margin:0 auto;padding:12px;
+  max-width:1200px;
+  display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;
+  background:linear-gradient(180deg,#241d15,#1a140f);
+  border:1px solid #3b3126; border-radius:12px;
+  box-shadow:0 0 32px #000 inset; position:relative;
 }
+.flow-card{
+  display:flex;flex-direction:column;gap:8px;
+  background:linear-gradient(180deg,#30271e,#201a14);
+  border:1px solid #5d4d37;border-radius:12px;color:var(--ink);
+  padding:10px; box-shadow:0 8px 24px #000; will-change:transform, opacity;
+}
+.flow-card .ttl{font-weight:600}
+.flow-card .typ{font-size:.85rem; opacity:.7}
+.flow-card .price{font-family:"Crimson Text", serif; color:var(--muted)}
+.flow-enter{opacity:0; transform:translateY(8px)}
+.flow-enter-active{transition:transform .22s ease, opacity .22s ease; opacity:1; transform:translateY(0)}
+.flow-exit{opacity:1}
+.flow-exit-active{transition:transform .18s ease, opacity .18s ease; opacity:0; transform:translateY(-8px)}
+
+/* ===== Hand: centered & fanned ===== */
+.hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:32vh; pointer-events:none; }
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
-  width:min(1200px, 96vw); height:30vh; pointer-events:none;
-  perspective:1200px;
+  width:min(1200px, 96vw); height:30vh; pointer-events:none; perspective:1200px;
 }
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
@@ -134,18 +135,16 @@ body.theme-dark.parchment::after{
 }
 .card:hover, .card:focus{
   z-index:9999 !important;
-  transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))
-           translateY(-24px) scale(1.07);
+  transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-24px) scale(1.07);
   box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
 }
 @media (hover:none){
   .card:active{
-    transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))
-             translateY(-20px) scale(1.05);
+    transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.05);
   }
 }
 
-/* ---------- Cinematic (unchanged palette) ---------- */
+/* ===== Cinematic (unchanged palette) ===== */
 #cinematic-root{position:fixed;inset:0;pointer-events:none}
 .cine{position:absolute;inset:0;background:rgba(10,8,6,.92); display:flex;align-items:center;justify-content:center; opacity:0; animation:fadeIn .25s forwards}
 @keyframes fadeIn{to{opacity:1}}
