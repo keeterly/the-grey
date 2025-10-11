@@ -1,1 +1,44 @@
-<meta http-equiv='refresh' content='0; url=versions/v2.4/index.html'>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Grey — v2.5 (Themed)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body class="theme-dark parchment">
+  <div id="cinematic-root" aria-hidden="true"></div>
+  <header class="topbar">
+    <div class="left">
+      <button id="btn-start-turn" class="btn">Start Turn</button>
+      <button id="btn-end-turn" class="btn">End Turn</button>
+      <span id="turn-indicator" class="turn">Turn 1 — player</span>
+    </div>
+    <div class="right">
+      <span id="aether-readout" class="aether">Æ 0  ◇ 0</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="altar">
+      <h2 class="section-title">AETHER FLOW</h2>
+      <ul id="flow-row" class="flow-row"></ul>
+    </section>
+
+    <section class="board">
+      <div class="portraits">
+        <figure class="portrait"><img id="p1" alt="Player"><figcaption id="p1-name">Player</figcaption></figure>
+        <figure class="portrait"><img id="p2" alt="Opponent"><figcaption id="p2-name">Opponent</figcaption></figure>
+      </div>
+      <div id="slots" class="slots"></div>
+    </section>
+
+    <section class="hand-wrap">
+      <div id="hand" class="hand"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./src/ui/index.js"></script>
+</body>
+</html>
