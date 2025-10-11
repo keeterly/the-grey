@@ -50,7 +50,14 @@
     </section>
   </main>
 
-  <div id="cinematic-root" aria-hidden="true"></div>
+  <!-- Peek + Zoom layers -->
+  <div id="preview-layer" aria-hidden="true">
+    <div id="peek-card" class="card peek" hidden></div>
+    <div id="zoom-overlay" hidden>
+      <div id="zoom-card" class="card zoom"></div>
+    </div>
+  </div>
+
   <script type="module" src="./index.js"></script>
 </body>
 </html>
