@@ -1,21 +1,19 @@
-import { initState, serializePublic, MAX_SLOTS } from "../engine/GameLogic.js";
+import { initState, serializePublic } from "../engine/GameLogic.js";
 
 const startBtn = document.getElementById("btn-start-turn");
 const endBtn   = document.getElementById("btn-end-turn");
 
 const aiSlotsEl     = document.getElementById("ai-slots");
 const playerSlotsEl = document.getElementById("player-slots");
-
-const flowRowEl = document.getElementById("flow-row");
-const handEl    = document.getElementById("hand");
-
+const flowRowEl     = document.getElementById("flow-row");
+const handEl        = document.getElementById("hand");
 const turnIndicator = document.getElementById("turn-indicator");
 const aetherReadout = document.getElementById("aether-readout");
 
 let state = initState({});
 let prevFlowIds = [];
 
-/* ---------------- Hand fanning ---------------- */
+/* ---------- Hand fan ---------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N) return;
@@ -39,7 +37,7 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ---------------- Flow (river) FLIP animation ---------------- */
+/* ---------- Flow FLIP ---------- */
 function buildFlowEl(card){
   const li = document.createElement("li");
   li.className = "flow-card";
@@ -51,22 +49,22 @@ function buildFlowEl(card){
   return li;
 }
 function renderFlow(nextFlow){
-  const currentChildren = Array.from(flowRowEl.children);
-  const firstRects = new Map(currentChildren.map(el => [el.dataset.id, el.getBoundingClientRect()]));
-  const existingById = new Map(currentChildren.map(el => [el.dataset.id, el]));
-  const nextIds = nextFlow.map(c => c.id);
+  const children = Array.from(flowRowEl.children);
+  const firstRects = new Map(children.map(el => [el.dataset.id, el.getBoundingClientRect()]));
+  const existing = new Map(children.map(el => [el.dataset.id, el]));
+  const nextIds = nextFlow.map(c=>c.id);
 
-  // exiting
-  currentChildren.filter(el => !nextIds.includes(el.dataset.id)).forEach(el=>{
+  // exit
+  children.filter(el => !nextIds.includes(el.dataset.id)).forEach(el=>{
     el.classList.add("flow-exit"); requestAnimationFrame(()=>el.classList.add("flow-exit-active"));
     setTimeout(()=>el.remove(), 180);
   });
 
-  // rebuild in new order (reuse nodes)
+  // build new order
   const frag = document.createDocumentFragment();
   const newEls = [];
   nextFlow.forEach(c=>{
-    let el = existingById.get(c.id);
+    let el = existing.get(c.id);
     if (!el) { el = buildFlowEl(c); el.classList.add("flow-enter"); requestAnimationFrame(()=>el.classList.add("flow-enter-active")); }
     else { el.querySelector(".price").textContent = `Price: Æ ${c.price}`; }
     frag.appendChild(el); newEls.push(el);
@@ -83,14 +81,13 @@ function renderFlow(nextFlow){
       requestAnimationFrame(()=>{ el.style.transition = "transform .22s ease"; el.style.transform = "translate(0,0)"; });
     }
   });
-
-  prevFlowIds = nextIds;
 }
 
-/* ---------------- Slots (3 spell + 1 glyph) ---------------- */
-function renderSlots(container, slotSnapshot/* array from engine */, isGlyphRight=true){
+/* ---------- Slots (3 spell + 1 glyph bay) ---------- */
+function renderSlots(container, slotSnapshot){
   container.replaceChildren();
-  // 3 spell bays (bind to engine 0..2)
+
+  // 3 spell bays mapped to engine slots 0..2
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot";
@@ -98,57 +95,34 @@ function renderSlots(container, slotSnapshot/* array from engine */, isGlyphRigh
     if (slotSnapshot?.[i]?.hasCard) d.classList.add("has-card");
     container.appendChild(d);
   }
-  // 1 glyph bay (visual only unless engine wires a 4th)
-  const g = document.createElement("div");
-  g.className = "slot glyph";
-  g.textContent = "Glyph Slot";
-  container.appendChild(g);
+
+  // 1 glyph bay (visual placeholder until engine wires a glyph slot)
+  const glyph = document.createElement("div");
+  glyph.className = "slot glyph";
+  glyph.textContent = "Glyph Slot";
+  container.appendChild(glyph);
 }
 
-/* ---------------- Render ---------------- */
+/* ---------- Render ---------- */
 function render(){
-  const snap = serializePublic(state);
+  const s = serializePublic(state);
 
-  turnIndicator.textContent = `Turn ${snap.turn} — ${snap.activePlayer}`;
-  aetherReadout.textContent = `Æ ${snap.player.aether}  ◇ ${snap.player.channeled}`;
+  turnIndicator.textContent = `Turn ${s.turn} — ${s.activePlayer}`;
+  aetherReadout.textContent = `Æ ${s.player.aether}  ◇ ${s.player.channeled}`;
 
   // portraits
-  document.getElementById("player-portrait").src = snap.player.weaver.portrait || "";
-  document.getElementById("ai-portrait").src = snap.ai.weaver.portrait || "";
-  document.getElementById("player-name").textContent = snap.player.weaver.name;
-  document.getElementById("ai-name").textContent = snap.ai.weaver.name;
+  document.getElementById("ai-portrait").src = s.ai.weaver.portrait || "";
+  document.getElementById("player-portrait").src = s.player.weaver.portrait || "";
+  document.getElementById("ai-name").textContent = s.ai.weaver.name;
+  document.getElementById("player-name").textContent = s.player.weaver.name;
 
-  // sides
-  renderSlots(playerSlotsEl, snap.player.slots);
-  renderSlots(aiSlotsEl, snap.ai.slots);
-
-  // flow
-  renderFlow(snap.flow);
+  // rows
+  renderSlots(aiSlotsEl, s.ai.slots);
+  renderSlots(playerSlotsEl, s.player.slots);
+  renderFlow(s.flow);
 
   // hand
   handEl.replaceChildren();
   const cardEls = [];
-  snap.player.hand.forEach(c=>{
-    const el = document.createElement("article");
-    el.className = "card";
-    el.tabIndex = 0;
-    el.innerHTML = `
-      <div class="title">${c.name}</div>
-      <div class="type">${c.type}</div>
-      <div class="textbox"></div>
-      <div class="actions">
-        <button class="btn">Play</button>
-        <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
-      </div>
-    `;
-    handEl.appendChild(el); cardEls.push(el);
-  });
-  layoutHand(handEl, cardEls);
-}
-
-/* Wire-up */
-startBtn.addEventListener("click", render);
-endBtn.addEventListener("click", render);
-window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl.children)));
-
-render();
+  s.player.hand.forEach(c=>{
+    const el
