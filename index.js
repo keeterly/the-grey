@@ -35,7 +35,7 @@ function layoutHand(container, cards) {
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
-    el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`; // smooth redistribution
+    el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
 
@@ -72,7 +72,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // 1 rectangular Glyph bay (GLYPH only; hook engine when ready)
+  // 1 rectangular Glyph bay (accepts GLYPH only; hook engine later)
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
@@ -86,7 +86,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
       ev.preventDefault(); g.classList.remove("drag-over");
       const t = ev.dataTransfer?.getData("text/card-type");
       if (t !== "GLYPH") return;
-      // TODO: playGlyphToSlot(state, "player", cardId) once engine exposes it.
+      // TODO: playGlyphToSlot(state, "player", cardId)
     });
   }
   container.appendChild(g);
@@ -112,7 +112,10 @@ function renderFlow(nextFlow){
   });
 }
 
-/* ---------- Peek + Zoom (patched) ---------- */
+/* ---------- Preview / Zoom helpers (cannot stick) ---------- */
+function closeZoom(){
+  zoomOverlayEl.setAttribute("data-open","false");
+}
 function fillCardShell(div, data){
   div.innerHTML = `
     <div class="title">${data.name}</div>
@@ -121,32 +124,29 @@ function fillCardShell(div, data){
     <div class="actions" style="opacity:.6"><span>Preview</span></div>
   `;
 }
-
 let longPressTimer = null;
 let pressStart = {x:0, y:0};
 const LONG_PRESS_MS = 350;
 const MOVE_CANCEL_PX = 8;
 
 function attachPeekAndZoom(el, data){
-  // Hover peek (desktop)
+  // Hover peek
   el.addEventListener("mouseenter", ()=>{
     fillCardShell(peekEl, data);
-    peekEl.hidden = false;
-    requestAnimationFrame(()=> peekEl.classList.add("show"));
+    peekEl.classList.add("show");
   });
   el.addEventListener("mouseleave", ()=>{
     peekEl.classList.remove("show");
-    peekEl.hidden = true;
   });
 
-  // Long-press for 2x zoom
+  // Long-press 2x
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     pressStart = { x: ev.clientX ?? (ev.touches?.[0]?.clientX ?? 0),
                    y: ev.clientY ?? (ev.touches?.[0]?.clientY ?? 0) };
     longPressTimer = setTimeout(()=>{
       fillCardShell(zoomCardEl, data);
-      zoomOverlayEl.hidden = false;
+      zoomOverlayEl.setAttribute("data-open","true");
     }, LONG_PRESS_MS);
   };
   const clearLP = ()=> { if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; } };
@@ -162,24 +162,18 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("pointercancel", clearLP, {passive:true});
   el.addEventListener("pointermove", onMove, {passive:true});
   el.addEventListener("dragstart", clearLP);
-  window.addEventListener("scroll", clearLP, {passive:true});
-
-  // Dismiss zoom
-  zoomOverlayEl.addEventListener("click", ()=> zoomOverlayEl.hidden = true);
-  document.addEventListener("keydown", (e)=> { if (e.key === "Escape") zoomOverlayEl.hidden = true; });
 }
 
 /* ---------- Main render ---------- */
 function render(){
-  // Always reset overlays to avoid stuck blur
-  zoomOverlayEl.hidden = true;
-  peekEl.hidden = true;
+  // Hard close any overlays to prevent stuck dim/blur
+  closeZoom();
   peekEl.classList.remove("show");
 
   const s = serializePublic(state);
 
   turnIndicator.textContent = `Turn ${s.turn} — ${s.activePlayer}`;
-  aetherReadout.textContent = `Æ ${s.player.aether}  ◇ ${s.player.channeled}`;
+  aetherReadout.textContent  = `Æ ${s.player.aether}  ◇ ${s.player.channeled}`;
 
   document.getElementById("player-portrait").src = s.player.weaver.portrait || "";
   document.getElementById("ai-portrait").src     = s.ai.weaver.portrait || "";
@@ -217,7 +211,7 @@ function render(){
     });
     el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 
-    // peek + zoom
+    // peek + long-press zoom
     attachPeekAndZoom(el, c);
 
     handEl.appendChild(el); els.push(el);
@@ -229,4 +223,7 @@ function render(){
 startBtn.addEventListener("click", render);
 endBtn.addEventListener("click", render);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl.children)));
+document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
+zoomOverlayEl.addEventListener("click", closeZoom);
+
 document.addEventListener("DOMContentLoaded", render);
