@@ -1,12 +1,40 @@
-.hud{display:flex;justify-content:space-between;gap:12px;padding:10px}
-.btn{border:1px solid #2222;background:#fff;padding:8px 12px;border-radius:999px;cursor:pointer}
+:root{
+  --ink:#1b1b1b; --paper:#f3efe7; --muted:#6f665b; --gold:#b9a06a; --glow:#88c0ff;
+}
+*{box-sizing:border-box}
+body.theme-parchment{background:radial-gradient(ellipse at center,#f6f2ea 0%,#efe9df 50%,#e7e0d5 100%); color:var(--ink); font-family:ui-serif, Georgia, 'Times New Roman', serif; margin:0}
+.hud{display:flex;justify-content:space-between;gap:12px;padding:10px 14px}
+.btn{border:1px solid var(--ink); background:#fff; padding:8px 12px; border-radius:999px; cursor:pointer}
 .turn{opacity:.7}
-.aether-readout{opacity:.7}
+.aether-readout{opacity:.85}
 .main{display:grid;grid-template-rows:auto 1fr auto;gap:12px;padding:0 12px 12px}
 .flow-row{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
-.flow-card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px}
+.flow-card{background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.portraits{display:flex;gap:14px;justify-content:center;align-items:center;margin:4px 0 12px}
+.portrait{margin:0;text-align:center}
+.portrait img{width:88px;height:88px;object-fit:cover;border-radius:8px;border:1px solid #0002;filter:grayscale(.2)}
 .slots{display:grid;grid-template-columns:repeat(3,220px);gap:12px;justify-content:center}
-.slot{width:220px;height:300px;border:1px dashed #aaa;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
-.hand{position:relative;height:38vh;min-height:220px}
-.card{position:absolute;width:189px;height:264px;border:1px solid #ddd;border-radius:12px;background:#faf7f1}
+.slot{width:220px;height:300px;border:1px dashed #aaa;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:#fff4}
+.slot.has-card{border-style:solid;background:#fff}
+.hand{position:relative;height:38vh;min-height:240px}
+.card{position:absolute;width:189px;height:264px;border:1px solid #ddd;border-radius:12px;background:#faf7f1;box-shadow:0 8px 24px #00000020}
 .card .actions{position:absolute;left:8px;right:8px;bottom:6px;display:flex;gap:6px;justify-content:space-between}
+
+/* Cinematic overlay */
+#cinematic-root{position:fixed;inset:0;pointer-events:none}
+.cine{position:absolute;inset:0;background:rgba(8,7,6,.92); display:flex;align-items:center;justify-content:center;opacity:0;animation:fadeIn .25s forwards}
+@keyframes fadeIn{to{opacity:1}}
+.cine .sigil{position:absolute;width:54vmin;height:54vmin;border-radius:50%;box-shadow:0 0 40px 8px var(--glow) inset, 0 0 40px 8px var(--glow);opacity:.85;filter:blur(.3px)}
+.cine .burst{position:absolute;width:0;height:0;border-radius:50%;box-shadow:0 0 0 2px var(--gold);animation:burst 950ms ease-out forwards}
+@keyframes burst{to{width:130vmin;height:130vmin;opacity:0;box-shadow:0 0 0 0 var(--gold)}}
+.cine .char{position:relative;display:flex;align-items:center;gap:6vmin;isolation:isolate}
+.cine .char img{width:34vmin;height:48vmin;object-fit:cover;border:1px solid #0005;filter:grayscale(.15) contrast(1.1)}
+.cine .caption{font-size:2.6vmin; letter-spacing:.12em; color:#fff; text-shadow:0 2px 10px #000}
+/* Skip button */
+.cine .skip{position:absolute;top:16px;right:16px;border:1px solid #fff;color:#fff;background:transparent;border-radius:999px;padding:6px 10px;cursor:pointer;pointer-events:auto}
+/* Trance stage accents */
+.cine.stage1{--glow:#7ed0ff}
+.cine.stage2{--glow:#ffd27e}
+/* Camera shake */
+@keyframes shake{0%,100%{transform:translate(0,0)}25%{transform:translate(-6px,4px)}50%{transform:translate(5px,-5px)}75%{transform:translate(3px,6px)}}
+.shake{animation:shake .35s linear 2}

@@ -1,5 +1,4 @@
-// GameLogic.js — v2.3 with confirmed 10-card base deck + full Flow pool and glyph triggers
-
+// GameLogic.js — v2.3 (full) + portraits for trance cinematic
 export const HAND_SIZE = 5;
 export const STARTING_VITALITY = 5;
 export const STARTING_AETHER = 0;
@@ -36,7 +35,7 @@ export function buildStarterDeckExact10(){
   ];
 }
 
-// === Full Flow (Instants 5, Spells 6, Glyphs 4) ===
+// Full Flow market
 export const FlowCards = [
   // Instants
   { id:'f:surgeCinders', name:'Surge of Cinders', type:'INSTANT', cost:{aether:2}, aetherValue:0, effect:'deal2' },
@@ -62,13 +61,12 @@ export const FlowCards = [
 
 function computeTranceStage(vitality, w){ if (vitality <= w.thresholds.stage2) return 2; if (vitality <= w.thresholds.stage1) return 1; return 0; }
 export const Weavers = [
-  { id:'aria', name:'Aria, Runesurge Adept', thresholds:{stage1:4, stage2:2} },
+  { id:'aria', name:'Aria, Runesurge Adept', thresholds:{stage1:4, stage2:2}, portrait:'assets/weaver_aria.jpg' },
   { id:'enoch', name:'Enoch, Stillmind Scribe', thresholds:{stage1:3, stage2:1} },
-  { id:'morr', name:'Morr, Gravecurrent Binder', thresholds:{stage1:4, stage2:1} },
+  { id:'morr', name:'Morr, Gravecurrent Binder', thresholds:{stage1:4, stage2:1}, portrait:'assets/weaver_morr.jpg' },
   { id:'veyra', name:'Veyra, Spiral Sage', thresholds:{stage1:4, stage2:2} },
   { id:'kareth', name:'Kareth, Ember Architect', thresholds:{stage1:3, stage2:1} },
 ];
-
 export function getWeaver(id){ const w = Weavers.find(w=>w.id===id); if(!w) throw new Error('Unknown weaver id: '+id); return w; }
 
 export function initState(opts={}){
@@ -119,7 +117,7 @@ function resolveSpellIfComplete(state, pid, slotIndex){
       case 'copyNextInstant': /* hook */ break;
       case 'lose1Gain3Aether': P.vitality = Math.max(0, P.vitality-1); P.aether += 3; break;
 
-      // Starter names for compatibility:
+      // Starter names
       case 'c:pulse': P.aether += 1; draw(state, pid, 1); break;
       case 'c:wisp': break;
       case 'c:greyfire': break;
@@ -132,7 +130,12 @@ function resolveSpellIfComplete(state, pid, slotIndex){
     slot.card=null; slot.progress=0; slot.advancedThisTurn=false; slot.isGlyph=false; slot.glyphArmed=false;
   }
 }
-function updateTranceStages(state){ ['player','ai'].forEach(pid=>{ const P = state.players[pid]; P.tranceStage = computeTranceStage(P.vitality, P.weaver); }); }
+function updateTranceStages(state){
+  ['player','ai'].forEach(pid=>{
+    const P = state.players[pid];
+    P.tranceStage = computeTranceStage(P.vitality, P.weaver);
+  });
+}
 function resetPerTurnFlags(P){ P.perTurn = {}; P.slots.forEach(s=>s.advancedThisTurn=false); }
 function riverAdvance(state){
   if (state.flowRow.length===0) return;
@@ -186,7 +189,7 @@ export function reducer(state, action){
       if (card.type!=='SPELL') throw new Error('Only Spells go to slots');
       if (!payAether(P, card.cost?.aether ?? 0)) throw new Error('Insufficient Aether');
       placeIntoSlot(P, card, action.slotIndex, false);
-      // Opponent's Glyph of Withering Light — when you play a Spell, lose 1 Aether
+      // Opponent's Glyph of Withering Light
       const Opp = state.players[EID];
       if (hasGlyph(Opp, 'oppPlaysSpellLose1Aether')) P.aether = Math.max(0, P.aether - 1);
       return state;
@@ -210,7 +213,6 @@ export function reducer(state, action){
       const P = state.players[action.player]; const idx = P.hand.findIndex(c=>c.id===action.cardId);
       if (idx<0) throw new Error('Card not in hand'); const [card]=P.hand.splice(idx,1);
       if (card.type!=='INSTANT') throw new Error('Not an instant'); if (!payAether(P, card.cost?.aether ?? 0)) throw new Error('Insufficient Aether');
-      // Starter Surge targets a slot; Flow instants handled by card.effect
       if (card.id === 'c:surgeAsh'){
         const slot = P.slots[action.slotIndex]; if (!slot||!slot.card||slot.isGlyph) throw new Error('Target slot must contain a Spell'); if (!slot.card.advance) throw new Error('Target spell has no advance spec');
         slot.progress += 1;
@@ -254,6 +256,6 @@ function snapshotBoard(P){
     hand: P.hand.map(c=>({ id:c.id, name:c.name, type:c.type, aetherValue:c.aetherValue })),
     discardCount: P.discard.length,
     slots: P.slots.map(s=>({ hasCard: !!s.card, card: s.card ? { id:s.card.id, name:s.card.name, type:s.card.type } : null, progress:s.progress, isGlyph:s.isGlyph })),
-    weaver: { id: P.weaver.id, name: P.weaver.name, stage: P.tranceStage },
+    weaver: { id: P.weaver.id, name: P.weaver.name, stage: P.tranceStage, portrait: P.weaver.portrait || null },
   };
 }
