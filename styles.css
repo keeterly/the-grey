@@ -1,5 +1,5 @@
 :root{
-  /* ~25% smaller than previous defaults */
+  /* ~25% smaller cards */
   --card-w: clamp(105px, 13.5vw, 158px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
@@ -7,8 +7,6 @@
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gap: 14px;
-
-  /* Flow width reused for vertical title placement */
   --flow-w: calc(var(--card-w)*5 + var(--gap)*4 + 24px);
 }
 
@@ -33,7 +31,7 @@ html,body{height:100%}
 .turn{opacity:.75;font-weight:600}
 .aether{font-family:"Crimson Text", serif;letter-spacing:.06em}
 
-/* ===== Board grid (AI ▸ FLOW ▸ Player) ===== */
+/* ===== Board grid ===== */
 #board-grid.grid{
   display:grid !important;
   grid-template-rows: 1fr auto 1fr !important;
@@ -41,15 +39,12 @@ html,body{height:100%}
   height:calc(100% - 48px);
   padding:12px 16px calc(26vh + 12px);
 }
-
-/* Mobile landscape: slightly tighter rows and hand space */
 @media (max-height: 540px){
   #board-grid.grid{ grid-template-rows: .9fr auto .9fr; padding-bottom: 22vh; }
 }
-
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0}
 
-/* ===== Slot rows (4 across: 3 Spell + 1 Glyph) ===== */
+/* ===== Slots ===== */
 #ai-slots.slot-row, #player-slots.slot-row{
   display:grid !important;
   grid-auto-flow: column !important;
@@ -59,11 +54,8 @@ html,body{height:100%}
   max-width: 96vw;
   place-items:center;
 }
-
-/* Rectangular slots (spell & glyph same geometry) */
 .slot{
-  width: var(--card-w);
-  height: var(--card-h);
+  width: var(--card-w); height: var(--card-h);
   border-radius: var(--card-radius);
   background: linear-gradient(180deg,#2b231b,#1a1511);
   border: 1px solid #5a4b37;
@@ -75,7 +67,7 @@ html,body{height:100%}
 .slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; }
 .slot.drag-over{ outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45)); }
 
-/* ===== Flow row + rotated title ===== */
+/* ===== Flow row + vertical title ===== */
 .flow-wrap{ display:flex; justify-content:center; width:100%; }
 .flow-area{ position:relative; width: var(--flow-w); }
 .flow-title-vert{
@@ -98,13 +90,12 @@ html,body{height:100%}
 /* ===== Hand (fanned) ===== */
 .hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:26vh; pointer-events:none; z-index:20; }
 @media (max-height: 540px){ .hand-wrap{ height:22vh; } }
-
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
   width:min(1100px, 96vw); height:24vh; pointer-events:none; perspective:1200px;
 }
 
-/* CARD base */
+/* ===== Cards ===== */
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width: var(--card-w); height: var(--card-h); border-radius: var(--card-radius);
@@ -132,8 +123,7 @@ html,body{height:100%}
 /* ===== Peek / Zoom ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
 #peek-card.card.peek{
-  position:fixed;
-  left:50%; top:50%; transform:translate(-50%,-50%) scale(1.18);
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%) scale(1.18);
   width:var(--card-w); height:var(--card-h);
   display:none; opacity:0; transition:opacity .12s ease;
   box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35);
@@ -162,19 +152,20 @@ html,body{height:100%}
 .hearts .heart{ width:14px; height:14px; border-radius:50%; background:#7a1d1d; border:1px solid #300; box-shadow:0 0 6px #000 inset; }
 .hearts .heart.on{ background:#dc6b6b; }
 
-/* ===== Right-side HUD ===== */
+/* ===== Right-side HUD (SVG icons) ===== */
 .hud-right{
   position:fixed; right:14px; bottom:20vh; display:flex; flex-direction:column; gap:10px; z-index:15;
 }
 .pill{
   display:flex; align-items:center; gap:8px; justify-content:center;
-  width:44px; height:44px; border-radius:12px; color:var(--ink);
+  min-width:44px; height:44px; padding:0 10px; border-radius:12px; color:var(--ink);
   background:linear-gradient(180deg,#2f2921,#1f1a14); border:1px solid #5a4b37;
-  box-shadow:0 4px 12px #000; cursor:pointer; user-select:none;
+  box-shadow:0 4px 12px #000; user-select:none;
 }
-.pill.muted{ cursor:default; }
-.pill b{ font-family:"Crimson Text", serif; }
+.pill:not(.muted){ cursor:pointer; }
 .pill:hover:not(.muted){ box-shadow:0 0 14px var(--gold); transform:translateY(-1px) }
+.pill svg{ width:22px; height:22px; stroke:var(--muted); fill:none; stroke-linecap:round; stroke-linejoin:round; stroke-width:1.6; }
+.pill b{ font-family:"Crimson Text", serif; }
 
 /* ===== Toast ===== */
 .toast{
