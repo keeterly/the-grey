@@ -42,13 +42,40 @@
 
   <!-- Right-side HUD: deck / discard counters + end turn -->
   <aside class="hud-right">
-    <button class="pill" id="btn-end-turn-big" title="End Turn (discard hand)">⏭</button>
-    <div class="pill muted" title="Discard pile"><span>♻️</span><b id="count-discard">0</b></div>
-    <div class="pill muted" title="Deck"><span>🃏</span><b id="count-deck">0</b></div>
+    <!-- End Turn -->
+    <button class="pill" id="btn-end-turn-big" title="End Turn (discard hand)" aria-label="End Turn">
+      <!-- double chevron icon -->
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M5 6l6 6-6 6" />
+        <path d="M13 6l6 6-6 6" />
+      </svg>
+    </button>
+
+    <!-- Discard -->
+    <div class="pill muted" id="pill-discard" title="Discard pile">
+      <!-- grave/urn icon -->
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 8h8" />
+        <path d="M10 3h4" />
+        <path d="M7 8h10v8a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V8z" />
+      </svg>
+      <b id="count-discard">0</b>
+    </div>
+
+    <!-- Deck -->
+    <div class="pill muted" id="pill-deck" title="Deck">
+      <!-- stacked cards icon -->
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 7l8-3 8 3-8 3-8-3z" />
+        <path d="M4 12l8 3 8-3" />
+        <path d="M4 17l8 3 8-3" />
+      </svg>
+      <b id="count-deck">0</b>
+    </div>
   </aside>
 
   <main id="board-grid" class="grid">
-    <!-- AI row (slots only) -->
+    <!-- AI row -->
     <section class="row ai">
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
