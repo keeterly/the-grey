@@ -2,12 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.6 board</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>The Grey — v2.5 board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
-<body id="board" class="theme-dark parchment">
+<body id="board" class="theme-dark parchment no-select">
   <header class="topbar">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
@@ -50,10 +50,10 @@
     </section>
   </main>
 
-  <!-- Peek + Zoom -->
+  <!-- Peek + Zoom layers -->
   <div id="preview-layer" aria-hidden="true">
-    <div id="peek-card" class="card peek" role="presentation"></div>
-    <div id="zoom-overlay" data-open="false" role="dialog" aria-modal="true">
+    <div id="peek-card" class="card peek"></div>
+    <div id="zoom-overlay" data-open="false">
       <div id="zoom-card" class="card zoom"></div>
     </div>
   </div>
