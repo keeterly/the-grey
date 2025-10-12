@@ -1,6 +1,5 @@
 :root{
-  /* Responsive card size (desktop → mobile landscape) */
-  --card-w: clamp(148px, 17.5vw, 210px);
+  --card-w: clamp(140px, 17.5vw, 210px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
 
@@ -10,6 +9,12 @@
 
 *{box-sizing:border-box}
 html,body{height:100%}
+
+/* never select text while long-pressing / dragging */
+.no-select, .no-select *{
+  -webkit-user-select:none; user-select:none; -webkit-touch-callout:none;
+}
+
 #board.theme-dark.parchment{
   margin:0; color:var(--ink); font-family:"Cormorant Garamond", serif;
   background:
@@ -31,10 +36,9 @@ html,body{height:100%}
   grid-template-rows: 1fr auto 1fr !important;
   gap:18px;
   height:calc(100% - 48px);
-  padding:12px 16px calc(28vh + 12px); /* space for hand overlay */
+  padding:12px 16px calc(28vh + 12px);
 }
 
-/* Mobile landscape */
 @media (max-height: 540px){
   #board-grid.grid{ grid-template-rows: .9fr auto .9fr; padding-bottom: 24vh; }
 }
@@ -45,7 +49,7 @@ html,body{height:100%}
 .portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.1)}
 
-/* ===== Slot rows (4 across: 3 Spell + 1 Glyph) ===== */
+/* ===== Slot rows ===== */
 #ai-slots.slot-row, #player-slots.slot-row{
   display:grid !important;
   grid-auto-flow: column !important;
@@ -56,16 +60,14 @@ html,body{height:100%}
   place-items:center;
 }
 
-/* ===== Rectangular slots (spell & glyph same geometry) ===== */
+/* Rectangular slots (spell & glyph same geometry) */
 .slot{
-  width: var(--card-w);
-  height: var(--card-h);
+  width: var(--card-w); height: var(--card-h);
   border-radius: var(--card-radius);
   background: linear-gradient(180deg,#2b231b,#1a1511);
   border: 1px solid #5a4b37;
   box-shadow: inset 0 0 18px rgba(0,0,0,.6), 0 8px 18px rgba(0,0,0,.35);
   display:grid; place-items:center; color:var(--muted); text-shadow:0 2px 10px #000; position:relative;
-  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
 }
 .slot::after{content:""; position:absolute; inset:10px; border-radius:calc(var(--card-radius) - 6px); border:1px solid #4a3d2f33;}
 .slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite }
@@ -101,12 +103,8 @@ html,body{height:100%}
   border:1px solid #5a4b37; color:var(--ink);
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
-  user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
-  touch-action:none; /* prevent iOS long-press select/scroll during drag */
+  touch-action:none; /* stop iOS scrolling/selection during press+drag */
 }
-.card *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-.card .actions .btn{ touch-action:manipulation; } /* keep taps snappy */
-
 .card.dragging{ opacity:.98; box-shadow:0 0 26px var(--aether), 0 16px 40px #000; }
 .card:hover, .card:focus{
   z-index:9999 !important;
@@ -115,39 +113,36 @@ html,body{height:100%}
 }
 .card.market{ position:relative; transform:none; left:0; top:0; }
 
-/* Content inside each card */
+/* Card content */
 .card .title{padding:10px 10px 0 10px; font-weight:600;}
 .card .type{opacity:.75; padding:0 10px 6px 10px; font-size:.9rem}
 .card .textbox{flex:1}
 .card .actions{display:flex; gap:8px; padding:10px}
 
-/* ===== Preview / Zoom (center-safe) ===== */
-#preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
+/* ===== Preview / Zoom (always centered) ===== */
+#preview-layer{ position:fixed; inset:0; z-index:60; pointer-events:none; }
 
 #peek-card.card.peek{
   position:fixed;
-  left:50%; top:18vh; transform:translate(-50%,0) scale(1.28);
+  left:50%; top:50%; transform:translate(-50%,-50%) scale(1.18);
   width:var(--card-w); height:var(--card-h);
   display:none; opacity:0; transition:opacity .12s ease;
   box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35);
 }
 #peek-card.show{ display:block; opacity:1; }
-@media (max-width: 980px){
-  #peek-card.card.peek{ top:14vh; transform:translate(-50%,0) scale(1.18); }
-}
 
 #zoom-overlay{
   position:fixed; inset:0; display:none;
   background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px);
-  place-items:center; pointer-events:auto; z-index:60;
+  place-items:center; pointer-events:auto; z-index:70;
 }
 #zoom-overlay[data-open="true"]{ display:grid; }
 #zoom-card.card.zoom{ position:relative; transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2); border-radius:22px; }
 
-/* Simple toast for illegal plays */
+/* Simple toast */
 .toast{
   position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
   background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px;
-  box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70;
+  box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:80;
 }
 .toast.show{ opacity:1; }
