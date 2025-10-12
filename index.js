@@ -6,14 +6,12 @@ const set  = (el, fn) => { if (el) fn(el); };
 
 const startBtn       = $("btn-start-turn");
 const endBtn         = $("btn-end-turn");
-const endBtnBig      = $("btn-end-turn-big");
 const aiSlotsEl      = $("ai-slots");
 const playerSlotsEl  = $("player-slots");
 const flowRowEl      = $("flow-row");
 const handEl         = $("hand");
 const turnIndicator  = $("turn-indicator");
 const aetherReadout  = $("aether-readout");
-
 const playerPortrait = $("player-portrait");
 const aiPortrait     = $("ai-portrait");
 const playerName     = $("player-name");
@@ -21,16 +19,17 @@ const aiName         = $("ai-name");
 const playerHearts   = $("player-hearts");
 const aiHearts       = $("ai-hearts");
 
-const countDeck      = $("count-deck");
-const countDiscard   = $("count-discard");
-
 const peekEl         = $("peek-card");
 const zoomOverlayEl  = $("zoom-overlay");
 const zoomCardEl     = $("zoom-card");
 
+const deckCountEl    = $("deck-count");
+const discardCountEl = $("discard-count");
+const endTurnHud     = $("btn-endturn-hud");
+
 let state = initState({});
 
-/* ------- toast ------- */
+/* ------- tiny toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -47,10 +46,10 @@ function toast(msg, ms=1200){
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-  const MAX_ANGLE = 26, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.92, LIFT_BASE = 42;
+  const MAX_ANGLE = 26, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.92, LIFT_BASE = 38;
   const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*3.1, MIN_ANGLE, MAX_ANGLE);
   const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
-  const spread = Math.min(MAX_SPREAD_PX, 880);
+  const spread = Math.min(MAX_SPREAD_PX, 900);
   const stepX = (N===1) ? 0 : spread/(N-1), startX = -spread/2;
 
   cards.forEach((el,i)=>{
@@ -67,40 +66,18 @@ function layoutHand(container, cards) {
 }
 
 /* ------- hearts ------- */
-function renderHearts(el, value, max=5){
-  if (!el) return;
-  el.replaceChildren();
-  const n = Math.max(0, Math.min(max, value|0));
-  for(let i=0;i<max;i++){
-    const d=document.createElement("div");
-    d.className = "heart"+(i < n ? " on" : "");
-    el.appendChild(d);
-  }
-}
-
-/* ------- card face helpers ------- */
-function cardHTML(c, opts={}){
-  const price = (typeof c.price === "number") ? c.price : 0;
-  const showBuy = !!opts.showBuy;
-  const showButtons = !!opts.showButtons;
-  return `
-    <div class="title">${c.name}</div>
-    <div class="type">${c.type}</div>
-    <div class="textbox"></div>
-    <div class="actions">
-      ${showButtons ? `
-        <button class="btn" data-play="1">Play</button>
-        <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
-      `:``}
-      ${showBuy ? `<button class="btn" data-buy="1">Buy (Æ ${price})</button>`:``}
-    </div>`;
-}
+function hearts(n){ return "●".repeat(Math.max(0,n)); }
 
 /* ------- preview / zoom ------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
 function fillCardShell(div, data){
   if (!div) return;
-  div.innerHTML = cardHTML(data, { showBuy:false, showButtons:false });
+  div.innerHTML = `
+    <div class="title">${data.name}</div>
+    <div class="type">${data.type}${data.price!=null?` — Cost Æ ${data.price}`:""}</div>
+    <div class="textbox"></div>
+    <div class="actions" style="opacity:.6"><span>Preview</span></div>
+  `;
 }
 let longPressTimer = null;
 let pressStart = {x:0, y:0};
@@ -136,20 +113,15 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- hardened mobile/Pointer drag shim ------- */
+/* ------- mobile-friendly drag ghost (also desktop) ------- */
 function installTouchDrag(cardEl, cardData){
-  let active = false;         // <-- NEW: only move when true
-  let activeId = null;        // pointer id
   let dragging = false;
   let ghost = null;
   let start = {x:0,y:0};
   let last = {x:0,y:0};
   let tickPending = false;
 
-  function pt(e){
-    const t = e?.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0});
-    return {x:t.clientX, y:t.clientY};
-  }
+  function pt(e){ const t = e.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0}); return {x:t.clientX, y:t.clientY}; }
 
   const rAFMove = ()=>{
     tickPending = false;
@@ -157,18 +129,12 @@ function installTouchDrag(cardEl, cardData){
   };
 
   const DOWN = (e)=>{
-    active = true;
-    activeId = e.pointerId ?? 'mouse';
     start = last = pt(e);
     dragging = false;
-    try{ cardEl.setPointerCapture?.(e.pointerId); }catch{}
+    cardEl.setPointerCapture?.(e.pointerId || 0);
   };
 
   const MOVE = (e)=>{
-    // Ignore moves unless we've seen a DOWN first
-    if (!active) return;
-    if (e.pointerId !== undefined && activeId !== null && e.pointerId !== activeId) return;
-
     const p = pt(e);
     if (dragging) e.preventDefault();
 
@@ -196,11 +162,7 @@ function installTouchDrag(cardEl, cardData){
     }
   };
 
-  const UP = (e)=>{
-    if (!active) return;
-    active = false;
-    activeId = null;
-
+  const UP = ()=>{
     document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
     if (dragging && ghost){
       const el = document.elementFromPoint(last.x, last.y);
@@ -217,10 +179,17 @@ function installTouchDrag(cardEl, cardData){
   cardEl.addEventListener("pointerdown", DOWN);
   window.addEventListener("pointermove", MOVE, {passive:false});
   window.addEventListener("pointerup",   UP,   {passive:true});
-  window.addEventListener("pointercancel", UP, {passive:true});
 }
 
-/* ------- slots ------- */
+/* ------- slots render ------- */
+function cardHTML(c){
+  const price = (typeof c.price === "number") ? c.price : null;
+  return `<div class="title">${c.name}</div>
+          <div class="type">${c.type}${price!=null?` — Cost Æ ${price}`:""}</div>
+          <div class="textbox"></div>
+          <div class="actions"></div>`;
+}
+
 function renderSlots(container, slotSnapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -231,13 +200,20 @@ function renderSlots(container, slotSnapshot, isPlayer){
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
 
-    const has = !!(slotSnapshot?.[i]?.hasCard);
-    const cardData = has ? (slotSnapshot[i].card || {name:"Spell", type:"SPELL"}) : null;
-
-    d.textContent = has ? "" : "Spell Slot";
-    if (has){
-      d.classList.add("has-card");
-      attachPeekAndZoom(d, cardData);
+    const has = slotSnapshot?.[i]?.hasCard;
+    if (has && slotSnapshot[i].card){
+      const mini = document.createElement("article");
+      mini.className = "card slot-card";
+      mini.innerHTML = cardHTML(slotSnapshot[i].card);
+      attachPeekAndZoom(mini, slotSnapshot[i].card);
+      // anchor in top-left of slot
+      mini.style.position = "absolute";
+      mini.style.left = "0";
+      mini.style.top = "0";
+      mini.style.transform = "none";
+      d.appendChild(mini);
+    }else{
+      d.textContent = "Spell Slot";
     }
 
     if (isPlayer){
@@ -257,19 +233,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
   // glyph bay
   const g = document.createElement("div");
   g.className = "slot glyph";
-  const gHas = !!(slotSnapshot?.[3]?.hasCard);
-  const gCard = gHas ? (slotSnapshot[3].card || {name:"Glyph", type:"GLYPH"}) : null;
-  g.textContent = gHas ? "" : "Glyph Slot";
-  if (gHas){ g.classList.add("has-card"); attachPeekAndZoom(g, gCard); }
-
-  if (isPlayer){
-    g.addEventListener("dragover", (ev)=> {
-      const t = ev.dataTransfer?.getData("text/card-type");
-      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
-    });
-    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", ()=> { g.classList.remove("drag-over"); toast("Set Glyph: not implemented yet"); });
-  }
+  g.textContent = "Glyph Slot";
   container.appendChild(g);
 }
 
@@ -280,13 +244,12 @@ function renderFlow(flowArray){
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li");
     li.className = "flow-card";
-
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c, { showBuy:true });
-
-    // Buy
+    card.innerHTML = `
+      ${cardHTML(c)}
+      <div class="actions"><button class="btn" data-buy="1">Buy (Æ ${c.price ?? 0})</button></div>`;
     card.querySelector("[data-buy]")?.addEventListener("click", ()=>{
       try{
         state = reducer(state, { type:'BUY_FROM_FLOW', player:'player', flowIndex: idx });
@@ -294,9 +257,7 @@ function renderFlow(flowArray){
       }catch(err){ toast(err?.message || "Cannot buy"); }
     });
 
-    // Preview on flow card
     attachPeekAndZoom(card, c);
-
     li.appendChild(card);
     flowRowEl.appendChild(li);
   });
@@ -310,7 +271,7 @@ function playSpellIfPossible(cardId, slotIndex){
   }catch(err){ toast(err?.message || "Can't play there"); }
 }
 
-/* ------- render ------- */
+/* ------- main render ------- */
 function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
@@ -320,16 +281,15 @@ function render(){
   set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
   set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
 
-  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "./weaver_aria.jpg");
-  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait      || el.src || "./weaver_morr.jpg");
+  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "");
+  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait || el.src || "");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
+  set(playerHearts,   el=> el.textContent = hearts(s.player?.vitality ?? 0));
+  set(aiHearts,       el=> el.textContent = hearts(s.ai?.vitality ?? 0));
 
-  renderHearts(playerHearts, s.player?.vitality ?? 5, 5);
-  renderHearts(aiHearts,     s.ai?.vitality ?? 5, 5);
-
-  set(countDeck,    el => el.textContent = s.player?.deckCount ?? 0);
-  set(countDiscard, el => el.textContent = s.player?.discardCount ?? 0);
+  set(deckCountEl,    el=> el.textContent = String(s.player?.deckCount ?? 0));
+  set(discardCountEl, el=> el.textContent = String(s.player?.discardCount ?? 0));
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
@@ -344,9 +304,14 @@ function render(){
       const el = document.createElement("article");
       el.className = "card"; el.tabIndex = 0; el.draggable = true;
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-      el.innerHTML = cardHTML(c, { showButtons:true });
+      el.innerHTML = `
+        ${cardHTML(c)}
+        <div class="actions">
+          <button class="btn" data-play="1">Play</button>
+          <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
+        </div>`;
 
-      // Native DnD
+      // drag API for desktop
       el.addEventListener("dragstart", (ev)=>{
         el.classList.add("dragging");
         ev.dataTransfer?.setData("text/card-id", c.id);
@@ -355,15 +320,13 @@ function render(){
       });
       el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 
-      // Pointer drag shim (now safe)
+      // touch/desktop pointer drag
       installTouchDrag(el, c);
 
-      // Preview
       attachPeekAndZoom(el, c);
 
-      // Quick buttons
       el.querySelector("[data-play]")?.addEventListener("click", ()=>{
-        const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
+        const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard);
         if (idx < 0){ toast("No empty spell slot"); return; }
         playSpellIfPossible(c.id, idx);
       });
@@ -381,13 +344,11 @@ function render(){
 }
 
 /* wiring */
-function doEndTurn(){
-  state = reducer(state, {type:'END_TURN', player:'player'});
-  render();
-}
-startBtn?.addEventListener("click", ()=>{ state = reducer(state, {type:'START_TURN', player:'player'}); render(); });
+const doEndTurn = ()=>{ state = reducer(state, {type:'END_TURN'}); render(); };
+
+startBtn?.addEventListener("click", ()=>{ state = reducer(state, {type:'START_TURN'}); render(); });
 endBtn?.addEventListener("click",   doEndTurn);
-endBtnBig?.addEventListener("click", doEndTurn);
+endTurnHud?.addEventListener("click", doEndTurn);
 
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
