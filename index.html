@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.5 board</title>
+  <title>The Grey — v2.6 board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -50,10 +50,10 @@
     </section>
   </main>
 
-  <!-- Peek + Zoom layers (state-driven; cannot get “stuck”) -->
+  <!-- Peek + Zoom -->
   <div id="preview-layer" aria-hidden="true">
-    <div id="peek-card" class="card peek"></div>
-    <div id="zoom-overlay" data-open="false">
+    <div id="peek-card" class="card peek" role="presentation"></div>
+    <div id="zoom-overlay" data-open="false" role="dialog" aria-modal="true">
       <div id="zoom-card" class="card zoom"></div>
     </div>
   </div>
