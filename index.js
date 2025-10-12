@@ -30,7 +30,7 @@ const zoomCardEl     = $("zoom-card");
 
 let state = initState({});
 
-/* ------- tiny toast ------- */
+/* ------- toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -78,7 +78,7 @@ function renderHearts(el, value, max=5){
   }
 }
 
-/* ------- helpers for building a simple card face ------- */
+/* ------- card face helpers ------- */
 function cardHTML(c, opts={}){
   const price = (typeof c.price === "number") ? c.price : 0;
   const showBuy = !!opts.showBuy;
@@ -136,15 +136,20 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- mobile-friendly drag ghost ------- */
+/* ------- hardened mobile/Pointer drag shim ------- */
 function installTouchDrag(cardEl, cardData){
+  let active = false;         // <-- NEW: only move when true
+  let activeId = null;        // pointer id
   let dragging = false;
   let ghost = null;
   let start = {x:0,y:0};
   let last = {x:0,y:0};
   let tickPending = false;
 
-  function pt(e){ const t = e.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0}); return {x:t.clientX, y:t.clientY}; }
+  function pt(e){
+    const t = e?.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0});
+    return {x:t.clientX, y:t.clientY};
+  }
 
   const rAFMove = ()=>{
     tickPending = false;
@@ -152,12 +157,18 @@ function installTouchDrag(cardEl, cardData){
   };
 
   const DOWN = (e)=>{
+    active = true;
+    activeId = e.pointerId ?? 'mouse';
     start = last = pt(e);
     dragging = false;
-    cardEl.setPointerCapture?.(e.pointerId || 0);
+    try{ cardEl.setPointerCapture?.(e.pointerId); }catch{}
   };
 
   const MOVE = (e)=>{
+    // Ignore moves unless we've seen a DOWN first
+    if (!active) return;
+    if (e.pointerId !== undefined && activeId !== null && e.pointerId !== activeId) return;
+
     const p = pt(e);
     if (dragging) e.preventDefault();
 
@@ -185,7 +196,11 @@ function installTouchDrag(cardEl, cardData){
     }
   };
 
-  const UP = ()=>{
+  const UP = (e)=>{
+    if (!active) return;
+    active = false;
+    activeId = null;
+
     document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
     if (dragging && ghost){
       const el = document.elementFromPoint(last.x, last.y);
@@ -202,6 +217,7 @@ function installTouchDrag(cardEl, cardData){
   cardEl.addEventListener("pointerdown", DOWN);
   window.addEventListener("pointermove", MOVE, {passive:false});
   window.addEventListener("pointerup",   UP,   {passive:true});
+  window.addEventListener("pointercancel", UP, {passive:true});
 }
 
 /* ------- slots ------- */
@@ -221,7 +237,6 @@ function renderSlots(container, slotSnapshot, isPlayer){
     d.textContent = has ? "" : "Spell Slot";
     if (has){
       d.classList.add("has-card");
-      // Allow peek on slot card
       attachPeekAndZoom(d, cardData);
     }
 
@@ -295,7 +310,7 @@ function playSpellIfPossible(cardId, slotIndex){
   }catch(err){ toast(err?.message || "Can't play there"); }
 }
 
-/* ------- main render ------- */
+/* ------- render ------- */
 function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
@@ -305,7 +320,6 @@ function render(){
   set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
   set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
 
-  // portraits & names (fallbacks kept if engine doesn't supply)
   set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "./weaver_aria.jpg");
   set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait      || el.src || "./weaver_morr.jpg");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
@@ -320,9 +334,7 @@ function render(){
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
 
-  // Flow
-  const flow = Array.isArray(s.flow) ? s.flow : [];
-  renderFlow(flow);
+  renderFlow(Array.isArray(s.flow) ? s.flow : []);
 
   // Hand
   if (handEl){
@@ -334,7 +346,7 @@ function render(){
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
       el.innerHTML = cardHTML(c, { showButtons:true });
 
-      // DnD
+      // Native DnD
       el.addEventListener("dragstart", (ev)=>{
         el.classList.add("dragging");
         ev.dataTransfer?.setData("text/card-id", c.id);
@@ -343,16 +355,18 @@ function render(){
       });
       el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 
+      // Pointer drag shim (now safe)
       installTouchDrag(el, c);
+
+      // Preview
       attachPeekAndZoom(el, c);
 
-      // Quick play to first free spell slot
+      // Quick buttons
       el.querySelector("[data-play]")?.addEventListener("click", ()=>{
         const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
         if (idx < 0){ toast("No empty spell slot"); return; }
         playSpellIfPossible(c.id, idx);
       });
-      // Discard for Æ
       el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
         try{
           state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
