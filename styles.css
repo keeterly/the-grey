@@ -75,14 +75,21 @@ html,body{height:100%}
 /* ===== Flow row: five full-size cards ===== */
 .section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 6px}
 #flow-row.flow-row{
-  list-style:none;margin:0 auto;padding:12px;
+  list-style:none; margin:0 auto; padding:12px;
   width: calc(var(--card-w)*5 + 14px*4 + 24px) !important;
+  min-height: calc(var(--card-h) + 24px); /* ensure cards visible */
   display:grid !important; grid-template-columns: repeat(5, var(--card-w)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f);
   border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
 .flow-card{ display:block; width:var(--card-w); height:var(--card-h); }
-.flow-card .card{ position:relative; left:0; top:0; transform:none; }
+
+/* prevent absolute positioning on market cards */
+.flow-card > .card.market{
+  position:relative !important;
+  transform:none !important;
+  left:0 !important; top:0 !important;
+}
 
 /* ===== Hand (fanned) ===== */
 .hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:28vh; pointer-events:none; z-index:20; }
@@ -102,10 +109,10 @@ html,body{height:100%}
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
   user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
-  touch-action:none; /* prevent iOS long-press select/scroll during drag */
+  touch-action:none; /* avoid iOS text-select / scroll during drag */
 }
 .card *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-.card .actions .btn{ touch-action:manipulation; } /* keep taps snappy */
+.card .actions .btn{ touch-action:manipulation; } /* snappy taps */
 
 .card.dragging{ opacity:.98; box-shadow:0 0 26px var(--aether), 0 16px 40px #000; }
 .card:hover, .card:focus{
@@ -113,7 +120,6 @@ html,body{height:100%}
   transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-26px) scale(1.08);
   box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
 }
-.card.market{ position:relative; transform:none; left:0; top:0; }
 
 /* Content inside each card */
 .card .title{padding:10px 10px 0 10px; font-weight:600;}
@@ -132,7 +138,7 @@ html,body{height:100%}
   box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35);
 }
 #peek-card.show{ display:block; opacity:1; }
-@media (hover:hover) and (min-width: 900px){
+@media (hover:hover) and (min-width: 900px)){
   #peek-card.card.peek{ top:18vh; transform:translate(-50%,0) scale(1.28); }
 }
 
