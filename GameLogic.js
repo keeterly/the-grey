@@ -1,19 +1,23 @@
-// Minimal engine for v2.5 UI. Extend/replace freely.
+// Minimal engine for v2.5 UI with turn, draw, discard, and simple river buying
 
 const FLOW_COSTS = [4,3,2,2,2];
+const HAND_SIZE = 5;
 const STARTING_VITALITY = 5;
 
 function mkCard(id, name, type, price) {
   return { id, name, type, price };
 }
+function mkSpell(id, name, aetherValue = 0) {
+  return { id, name, type: "SPELL", aetherValue };
+}
 
 function starterHand() {
   return [
-    { id:"h1", name:"Pulse of the Grey", type:"SPELL",   aetherValue:0 },
-    { id:"h2", name:"Echoing Reservoir", type:"SPELL",   aetherValue:2 },
-    { id:"h3", name:"Dormant Catalyst",  type:"SPELL",   aetherValue:1 },
-    { id:"h4", name:"Veil of Dust",      type:"INSTANT", aetherValue:0 },
-    { id:"h5", name:"Ashen Focus",       type:"SPELL",   aetherValue:1 },
+    mkSpell("h1","Pulse of the Grey",0),
+    mkSpell("h2","Echoing Reservoir",2),
+    mkSpell("h3","Dormant Catalyst",1),
+    { id:"h4", name:"Veil of Dust", type:"INSTANT", aetherValue:0 },
+    mkSpell("h5","Ashen Focus",1),
   ];
 }
 
@@ -36,12 +40,10 @@ export function initState() {
         hand: starterHand(),
         discardCount: 0,
         slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null, isGlyph:true },
+          { hasCard:false, card:null }, { hasCard:false, card:null }, { hasCard:false, card:null }
         ],
-        weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
+        weaver: { id:"aria", name:"Aria, Runesurge Adept",
+          portrait:"./weaver_aria.jpg" },
       },
       ai: {
         vitality: STARTING_VITALITY,
@@ -50,12 +52,10 @@ export function initState() {
         hand: [],
         discardCount: 0,
         slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null, isGlyph:true },
+          { hasCard:false, card:null }, { hasCard:false, card:null }, { hasCard:false, card:null }
         ],
-        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr.jpg" },
+        weaver: { id:"morr", name:"Morr, Gravecurrent Binder",
+          portrait:"./weaver_morr.jpg" },
       }
     }
   };
@@ -71,7 +71,27 @@ export function serializePublic(state) {
   };
 }
 
-function playCardToSpellSlot(state, playerId, cardId, slotIndex){
+/* ---------- helpers ---------- */
+let uid = 1000;
+function nextId(){ return "c"+(uid++); }
+
+function drawN(state, playerId, n){
+  const P = state.players[playerId];
+  for (let i=0;i<n;i++){
+    if (P.deckCount <= 0 && P.discardCount > 0){
+      // reshuffle
+      P.deckCount = P.discardCount;
+      P.discardCount = 0;
+    }
+    if (P.deckCount <= 0) break;
+    P.deckCount--;
+    P.hand.push(mkSpell(nextId(),"Apprentice Bolt",0));
+  }
+  return state;
+}
+
+/* drag-to-slot: hand SPELL -> player spell slot */
+export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
   if (slotIndex < 0 || slotIndex > 2) throw new Error("spell slot index 0..2");
@@ -89,58 +109,57 @@ function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   return state;
 }
 
-/* ------- simple reducer the UI uses ------- */
+/* ---------- reducer ---------- */
 export function reducer(state, action){
-  state = JSON.parse(JSON.stringify(state)); // immut-ish clone for demo
-  const P = state.players?.[action.player || "player"];
+  const S = state;
 
   switch(action.type){
-    case "START_TURN": {
-      state.activePlayer = action.player || "player";
-      // gain nothing special yet
-      return state;
-    }
-
-    case "END_TURN": {
-      // discard all cards in hand
-      if (P){
-        const n = P.hand.length;
-        P.discardCount += n;
-        P.hand = [];
-        P.aether = 0; // temp aether clears
-      }
-      state.turn += 1;
-      return state;
-    }
+    case "PLAY_CARD_TO_SLOT":
+      return playCardToSpellSlot(S, "player", action.cardId, action.slotIndex);
 
     case "DISCARD_FOR_AETHER": {
-      if (!P) return state;
+      const P = S.players.player;
       const i = P.hand.findIndex(c=>c.id===action.cardId);
-      if (i<0) throw new Error("not in hand");
+      if (i<0) throw new Error("card not in hand");
       const c = P.hand[i];
       P.hand.splice(i,1);
-      P.discardCount += 1;
-      P.aether += (c.aetherValue || 0);
-      return state;
+      P.aether += (c.aetherValue||0);
+      P.discardCount++;
+      return S;
     }
 
     case "BUY_FROM_FLOW": {
-      if (!P) return state;
-      const idx = action.flowIndex|0;
-      const c = state.flow[idx];
-      if (!c) throw new Error("no card there");
-      // cost check (very loose demo)
-      // In your full engine you will also drift the river etc.
-      P.discardCount += 1; // simulate going to discard
-      // Replace bought card with a dummy placeholder (keeps width)
-      state.flow[idx] = {...c, name: c.name+" (Sold)", price:null, type:c.type};
-      return state;
+      const P = S.players.player;
+      const card = S.flow[action.flowIndex];
+      if (!card) throw new Error("no card there");
+      const cost = card.price || 0;
+      if (P.aether < cost) throw new Error("not enough Æ");
+      P.aether -= cost;
+      // Add purchased card to discard
+      P.discardCount++;
+      // River drift: simple rotate (keep same list for now)
+      return S;
     }
 
-    case "PLAY_CARD_TO_SLOT": {
-      return playCardToSpellSlot(state, action.player || "player", action.cardId, action.slotIndex|0);
+    case "START_TURN": {
+      S.activePlayer = "player";
+      return S;
     }
 
-    default: return state;
+    case "END_TURN": {
+      // Discard player's hand
+      const P = S.players.player;
+      P.discardCount += P.hand.length;
+      P.hand = [];
+      // simple AI turn: AI discards nothing, gains 1 Æ (flavor)
+      S.players.ai.aether = (S.players.ai.aether||0) + 1;
+      // new player hand
+      drawN(S, "player", HAND_SIZE);
+      S.turn += 1;
+      S.activePlayer = "player";
+      return S;
+    }
+
+    default: return S;
   }
 }
