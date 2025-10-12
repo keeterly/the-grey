@@ -1,6 +1,6 @@
 :root{
-  /* Responsive card size (desktop → mobile landscape) */
-  --card-w: clamp(140px, 17.5vw, 210px);
+  /* 25% smaller than previous: 140→105, 17.5vw→13.125vw, 210→157.5 */
+  --card-w: clamp(105px, 13.125vw, 157.5px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
 
@@ -42,8 +42,26 @@ html,body{height:100%}
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0}
 
 /* Portraits */
-.portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
-.portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.1)}
+.portrait{
+  position:absolute; width:max-content; margin:0; text-align:center;
+  font-size:.95rem; color:var(--muted); z-index:10; filter:drop-shadow(0 6px 12px #000);
+}
+.portrait img{width:72px;height:72px;object-fit:cover;border-radius:10px;border:1px solid #0006}
+.portrait figcaption{margin-top:6px}
+.portrait .hearts{margin-top:4px; justify-content:center}
+.portrait-ai{ top:70px; right:22px; }
+.portrait-player{ bottom:24vh; left:22px; } /* above hand fan */
+
+.hearts{display:flex; gap:4px}
+.hearts .heart{
+  width:14px;height:14px;border-radius:50%;
+  background: radial-gradient(ellipse at 50% 35%, #ffdfd7 0%, #ff9aa1 35%, #b64b52 100%);
+  box-shadow:0 0 8px rgba(255,120,120,.25);
+}
+.hearts .heart.empty{
+  background: radial-gradient(ellipse at 50% 35%, #6b655f 0%, #3e362f 100%);
+  box-shadow:none; opacity:.55;
+}
 
 /* ===== Slot rows (4 across: 3 Spell + 1 Glyph) ===== */
 #ai-slots.slot-row, #player-slots.slot-row{
@@ -71,6 +89,12 @@ html,body{height:100%}
 .slot.has-card{ box-shadow:0 0 22px var(--aether), inset 0 0 18px #000; animation:pulse 1.4s ease-in-out infinite }
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .slot.drag-over{ outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45)); }
+
+/* A card object mounted inside a slot (previewable) */
+.slot .placed{
+  position:relative; width:calc(var(--card-w) - 10px); height:calc(var(--card-h) - 10px);
+  transform:none; left:auto; top:auto; margin:0;
+}
 
 /* ===== Flow row: five full-size cards ===== */
 .section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 6px}
@@ -102,10 +126,10 @@ html,body{height:100%}
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
   user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
-  touch-action:none; /* prevent iOS long-press select/scroll during drag */
+  touch-action:none;
 }
 .card *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
-.card .actions .btn{ touch-action:manipulation; } /* keep taps snappy */
+.card .actions .btn{ touch-action:manipulation; }
 
 .card.dragging{ opacity:.98; box-shadow:0 0 26px var(--aether), 0 16px 40px #000; }
 .card:hover, .card:focus{
@@ -113,9 +137,12 @@ html,body{height:100%}
   transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-26px) scale(1.08);
   box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
 }
-.card.market{ position:relative; left:auto; top:auto; }
+.card.market, .card.board{
+  position:relative; left:auto; top:auto; transform:none;
+}
+.card.board{ width:calc(var(--card-w) - 10px); height:calc(var(--card-h) - 10px); }
 
-/* Content inside each card */
+/* Content */
 .card .title{padding:10px 10px 0 10px; font-weight:600;}
 .card .type{opacity:.75; padding:0 10px 6px 10px; font-size:.9rem}
 .card .textbox{flex:1}
@@ -123,10 +150,8 @@ html,body{height:100%}
 
 /* ===== Preview / Zoom ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
-
 #peek-card.card.peek{
-  position:fixed;
-  left:50%; top:50%; transform:translate(-50%,-50%) scale(1.18);
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%) scale(1.18);
   width:var(--card-w); height:var(--card-h);
   display:none; opacity:0; transition:opacity .12s ease;
   box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35);
@@ -135,20 +160,15 @@ html,body{height:100%}
 @media (hover:hover) and (min-width: 900px){
   #peek-card.card.peek{ top:18vh; transform:translate(-50%,0) scale(1.28); }
 }
-
 #zoom-overlay{
   position:fixed; inset:0; display:none;
   background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px);
   place-items:center; pointer-events:auto; z-index:60;
 }
 #zoom-overlay[data-open="true"]{ display:grid; }
-#zoom-card.card.zoom{
-  position:relative; left:auto; top:auto; /* override base */
-  transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2);
-  border-radius:22px; margin:0;
-}
+#zoom-card.card.zoom{ position:relative; left:auto; top:auto; transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2); border-radius:22px; }
 
-/* Simple toast for illegal plays */
+/* Simple toast */
 .toast{
   position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
   background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px;
