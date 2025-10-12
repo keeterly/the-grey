@@ -1,5 +1,7 @@
 import { initState, serializePublic, reducer } from "./GameLogic.js";
 
+const __DEV = false; // set true to log snapshot/flow lengths in console
+
 /* ------- safe getters (avoid null errors) ------- */
 const $    = (id) => document.getElementById(id);
 const set  = (el, fn) => { if (el) fn(el); };
