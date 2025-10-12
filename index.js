@@ -29,7 +29,7 @@ const endTurnHud     = $("btn-endturn-hud");
 
 let state = initState({});
 
-/* ------- tiny toast ------- */
+/* ------- toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -113,9 +113,9 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- improved drag (prevents “stuck to cursor”) ------- */
+/* ------- improved drag (no “stuck to cursor”) ------- */
 function installTouchDrag(cardEl, cardData){
-  let armed   = false;   // <— only true after pointerdown on this card
+  let armed   = false;
   let dragging = false;
   let ghost   = null;
   let start   = {x:0,y:0};
@@ -133,7 +133,6 @@ function installTouchDrag(cardEl, cardData){
   };
 
   const DOWN = (e)=>{
-    // Only primary button for mouse drags
     if (e.pointerType === "mouse" && (e.button !== 0 || e.buttons !== 1)) return;
     armed = true;
     start = last = pt(e);
@@ -142,7 +141,7 @@ function installTouchDrag(cardEl, cardData){
   };
 
   const MOVE = (e)=>{
-    if (!armed) return;               // <— ignore stray moves when no DOWN
+    if (!armed) return;
     const p = pt(e);
     if (dragging) e.preventDefault();
 
@@ -200,20 +199,19 @@ function installTouchDrag(cardEl, cardData){
   window.addEventListener("scroll", cleanupGhost, {passive:true});
 }
 
-/* ------- slots render ------- */
+/* ------- card HTML helper ------- */
 function cardHTML(c){
   const price = (typeof c.price === "number") ? c.price : null;
   return `<div class="title">${c.name}</div>
           <div class="type">${c.type}${price!=null?` — Cost Æ ${price}`:""}</div>
-          <div class="textbox"></div>
-          <div class="actions"></div>`;
+          <div class="textbox"></div>`;
 }
 
+/* ------- slots ------- */
 function renderSlots(container, slotSnapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
 
-  // three spell bays
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -223,12 +221,8 @@ function renderSlots(container, slotSnapshot, isPlayer){
     if (has && slotSnapshot[i].card){
       const mini = document.createElement("article");
       mini.className = "card slot-card";
-      mini.innerHTML = cardHTML(slotSnapshot[i].card);
+      mini.innerHTML = `${cardHTML(slotSnapshot[i].card)}<div class="actions"></div>`;
       attachPeekAndZoom(mini, slotSnapshot[i].card);
-      mini.style.position = "absolute";
-      mini.style.left = "0";
-      mini.style.top = "0";
-      mini.style.transform = "none";
       d.appendChild(mini);
     }else{
       d.textContent = "Spell Slot";
@@ -248,7 +242,6 @@ function renderSlots(container, slotSnapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // glyph bay
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
