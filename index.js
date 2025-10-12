@@ -12,19 +12,17 @@ const flowRowEl      = $("flow-row");
 const handEl         = $("hand");
 const turnIndicator  = $("turn-indicator");
 const aetherReadout  = $("aether-readout");
-
 const playerPortrait = $("player-portrait");
 const aiPortrait     = $("ai-portrait");
 const playerName     = $("player-name");
 const aiName         = $("ai-name");
-
 const peekEl         = $("peek-card");
 const zoomOverlayEl  = $("zoom-overlay");
 const zoomCardEl     = $("zoom-card");
 
 let state = initState({});
 
-/* ------- toast ------- */
+/* ------- tiny toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -37,7 +35,7 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ------- hand fan ------- */
+/* ------- hand fanning ------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
@@ -60,12 +58,12 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ------- slot rendering ------- */
+/* ------- slots ------- */
 function renderSlots(container, slotSnapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
 
-  // three spell bays
+  // three rectangular spell bays
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -73,17 +71,28 @@ function renderSlots(container, slotSnapshot, isPlayer){
     const has = slotSnapshot?.[i]?.hasCard;
     d.textContent = has ? (slotSnapshot[i].card?.name || "Spell") : "Spell Slot";
     if (has) d.classList.add("has-card");
+
+    if (isPlayer){
+      // pointer-based landing highlight
+      d.addEventListener("pointerenter", ()=> d.classList.add("drag-over"));
+      d.addEventListener("pointerleave", ()=> d.classList.remove("drag-over"));
+    }
     container.appendChild(d);
   }
 
-  // glyph bay
+  // one rectangular glyph bay (format matches spell)
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
+  if (isPlayer){
+    g.addEventListener("pointerenter", ()=> g.classList.add("drag-over"));
+    g.addEventListener("pointerleave", ()=> g.classList.remove("drag-over"));
+  }
   container.appendChild(g);
 }
 
 /* ------- flow row ------- */
+const DEFAULT_FLOW_COSTS = [4,3,2,2,2];
 function cardHTML(c){
   const price = (typeof c.price === "number") ? c.price : 0;
   return `<div class="title">${c.name}</div>
@@ -107,7 +116,6 @@ function renderFlow(flowArray){
         render();
       }catch(err){ toast(err?.message || "Cannot buy"); }
     });
-    attachPeekAndZoom(card, c);
     li.appendChild(card);
     flowRowEl.appendChild(li);
   });
@@ -130,19 +138,14 @@ const LONG_PRESS_MS = 350;
 const MOVE_CANCEL_PX = 8;
 
 function attachPeekAndZoom(el, data){
-  // Hover peek (desktop)
-  el.addEventListener("mouseenter", ()=>{
-    if (!peekEl) return;
-    fillCardShell(peekEl, data);
-    peekEl.classList.add("show");
-  });
-  el.addEventListener("mouseleave", ()=> peekEl?.classList.remove("show"));
-
-  // Long-press zoom (mobile + desktop)
+  if (peekEl){
+    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
+    el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
+  }
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
-    const t = ("clientX" in ev) ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
-    pressStart = { x: t.clientX, y: t.clientY };
+    const touch = ev.clientX !== undefined ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
+    pressStart = { x: touch.clientX, y: touch.clientY };
     longPressTimer = setTimeout(()=>{
       if (zoomOverlayEl && zoomCardEl){
         fillCardShell(zoomCardEl, data);
@@ -152,10 +155,9 @@ function attachPeekAndZoom(el, data){
   };
   const clearLP = ()=> { if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
   const onMove = (ev)=>{
-    const t = ("clientX" in ev) ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
+    const t = ev.clientX !== undefined ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
     if (Math.hypot(t.clientX - pressStart.x, t.clientY - pressStart.y) > MOVE_CANCEL_PX) clearLP();
   };
-
   el.addEventListener("pointerdown", onDown, {passive:true});
   el.addEventListener("pointerup", clearLP, {passive:true});
   el.addEventListener("pointerleave", clearLP, {passive:true});
@@ -163,89 +165,98 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("pointermove", onMove, {passive:true});
 }
 
-/* ====== High-quality custom drag (no native HTML5 drag) ======
-   - Works smoothly on mobile & desktop
-   - Snap to spell slots; highlights target slot
-================================================================ */
-let slotRects = [];
-function updateSlotRects(){
-  slotRects = Array.from(document.querySelectorAll(".row.player .slot.spell")).map((el,i)=>{
-    const r = el.getBoundingClientRect();
-    return { i, el, r };
-  });
-}
-function pointerPt(e){
-  const t = ("clientX" in e) ? e : (e.touches?.[0] ?? {clientX:0,clientY:0});
-  return { x:t.clientX, y:t.clientY };
-}
+/* ------- pointer-based drag (mobile & desktop) ------- */
+function installPointerDrag(cardEl, cardData){
+  let active = false;
+  let dragging = false;
+  let ghost = null;
+  let start = {x:0,y:0};
+  let last = {x:0,y:0};
+  let rafPending = false;
+  let activeId = null;
 
-function installCardDrag(cardEl, card){
-  // ensure no native selection or drag image
-  cardEl.style.userSelect = "none";
-  cardEl.addEventListener("dragstart", e => e.preventDefault());
+  const pt = (e)=> {
+    const t = (e.touches && e.touches[0]) || e;
+    return { x: t.clientX, y: t.clientY };
+  };
 
-  let ghost=null, dragging=false, last={x:0,y:0}, start={x:0,y:0}, rafPending=false;
-
-  const moveRAF = ()=>{
+  const moveRaf = ()=>{
     rafPending = false;
     if (ghost) ghost.style.transform = `translate(${last.x - ghost.clientWidth/2}px, ${last.y - ghost.clientHeight*0.9}px)`;
-
-    // hover target highlight
-    document.querySelectorAll(".slot.drag-over").forEach(s=>s.classList.remove("drag-over"));
-    const target = slotRects.find(s =>
-      last.x >= s.r.left && last.x <= s.r.right && last.y >= s.r.top && last.y <= s.r.bottom
-    );
-    if (target) target.el.classList.add("drag-over");
   };
 
-  const onDown = (e)=>{
-    const p = pointerPt(e);
-    start = last = p;
+  const DOWN = (e)=>{
+    active = true;
     dragging = false;
-    cardEl.setPointerCapture?.(e.pointerId || 0);
-    updateSlotRects();
+    activeId = e.pointerId ?? null;
+    start = last = pt(e);
+    // ensure this element alone receives subsequent events
+    cardEl.setPointerCapture?.(activeId);
   };
 
-  const onMove = (e)=>{
-    const p = pointerPt(e);
+  const MOVE = (e)=>{
+    if (!active) return;
+    if (activeId !== null && e.pointerId !== activeId) return;
 
-    // If moving significantly, start drag
-    if (!dragging && Math.hypot(p.x-start.x, p.y-start.y) > 10){
-      dragging = true;
-      if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; }
-      ghost = cardEl.cloneNode(true);
-      ghost.classList.add("dragging");
-      ghost.style.position = "fixed";
-      ghost.style.left = "0"; ghost.style.top = "0";
-      ghost.style.transform = `translate(${p.x - cardEl.clientWidth/2}px, ${p.y - cardEl.clientHeight*0.9}px)`;
-      ghost.style.zIndex = "100000";
-      ghost.style.pointerEvents = "none";
-      document.body.appendChild(ghost);
-    }
+    const p = pt(e);
+    if (dragging) e.preventDefault();
 
-    if (dragging){
-      e.preventDefault();
-      last = p;
-      if (!rafPending){ rafPending = true; requestAnimationFrame(moveRAF); }
-    }
-  };
-
-  const onUp = ()=>{
-    document.querySelectorAll(".slot.drag-over").forEach(s=>s.classList.remove("drag-over"));
-    if (dragging && ghost){
-      const target = slotRects.find(s =>
-        last.x >= s.r.left && last.x <= s.r.right && last.y >= s.r.top && last.y <= s.r.bottom
-      );
-      if (target){
-        playSpellIfPossible(card.id, target.i);
+    if (!dragging){
+      if (Math.hypot(p.x - start.x, p.y - start.y) > 10){
+        dragging = true;
+        // build ghost
+        ghost = cardEl.cloneNode(true);
+        ghost.classList.add("dragging");
+        ghost.style.position = "fixed";
+        ghost.style.left = "0"; ghost.style.top = "0";
+        ghost.style.transform = `translate(${p.x - ghost.clientWidth/2}px, ${p.y - ghost.clientHeight*0.9}px)`;
+        ghost.style.zIndex = "99999";
+        // remove buttons inside the ghost to avoid accidental taps
+        ghost.querySelectorAll("button").forEach(b=> b.remove());
+        document.body.appendChild(ghost);
       }
-      ghost.remove(); ghost=null; dragging=false;
+    }else{
+      last = p;
+      if (!rafPending){ rafPending = true; requestAnimationFrame(moveRaf); }
+
+      document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
+      const el = document.elementFromPoint(p.x, p.y);
+      const slot = el?.closest?.(".slot");
+      if (slot){
+        // only highlight valid target: spell slot for SPELL, glyph for GLYPH
+        const valid = (cardData.type === "SPELL" && slot.classList.contains("spell")) ||
+                      (cardData.type === "GLYPH" && slot.classList.contains("glyph"));
+        if (valid) slot.classList.add("drag-over");
+      }
     }
   };
 
-  cardEl.addEventListener("pointerdown", onDown, {passive:true});
-  window.addEventListener("pointermove", onMove, {passive:false});
-  window.addEventListener("pointerup",   onUp,   {passive:true});
+  const END = ()=>{
+    if (!active) return;
+    active = false;
+
+    // drop resolution
+    document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
+    if (dragging && ghost){
+      const el = document.elementFromPoint(last.x, last.y);
+      const spellSlot = el?.closest?.(".slot.spell");
+      const glyphSlot = el?.closest?.(".slot.glyph");
+
+      if (cardData.type === "SPELL" && spellSlot){
+        const idx = Number(spellSlot.dataset.slotIndex || 0);
+        playSpellIfPossible(cardData.id, idx);
+      }else if (cardData.type === "GLYPH" && glyphSlot){
+        toast("Set Glyph: not implemented yet");
+      }
+    }
+    ghost?.remove(); ghost=null;
+    dragging=false;
+  };
+
+  cardEl.addEventListener("pointerdown", DOWN);
+  cardEl.addEventListener("pointermove", MOVE, {passive:false});
+  cardEl.addEventListener("pointerup",   END,  {passive:true});
+  cardEl.addEventListener("pointercancel", END, {passive:true});
 }
 
 /* ------- actions ------- */
@@ -273,9 +284,15 @@ function render(){
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-  updateSlotRects();
 
-  renderFlow(s.flow || []);
+  // Flow fallback if GameLogic.serializePublic doesn't return s.flow
+  let flow = Array.isArray(s.flow) ? s.flow : [];
+  if (!flow.length && Array.isArray(state.flowRow)){
+    flow = state.flowRow.map((c,i)=> ({
+      id: c.id, name: c.name, type: c.type, price: DEFAULT_FLOW_COSTS[i] ?? 0,
+    }));
+  }
+  renderFlow(flow);
 
   // Hand
   if (handEl){
@@ -283,7 +300,13 @@ function render(){
     const els = [];
     (s.player?.hand || []).forEach(c=>{
       const el = document.createElement("article");
-      el.className = "card"; el.tabIndex = 0;
+      el.className = "card";
+      el.tabIndex = 0;
+
+      // IMPORTANT: disable native HTML5 drag to avoid ghost collisions
+      el.setAttribute("draggable", "false");
+
+      el.dataset.cardId = c.id; el.dataset.cardType = c.type;
       el.innerHTML = `
         <div class="title">${c.name}</div>
         <div class="type">${c.type}</div>
@@ -293,8 +316,7 @@ function render(){
           <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
         </div>`;
 
-      // smooth pointer-based drag
-      installCardDrag(el, c);
+      installPointerDrag(el, c);
       attachPeekAndZoom(el, c);
 
       el.querySelector("[data-play]")?.addEventListener("click", ()=>{
@@ -318,7 +340,7 @@ function render(){
 /* wiring */
 startBtn?.addEventListener("click", ()=>{ state = reducer(state, {type:'START_TURN', player:'player'}); render(); });
 endBtn?.addEventListener("click",   ()=>{ state = reducer(state, {type:'END_TURN',   player:'player'}); render(); });
-window.addEventListener("resize", ()=> { layoutHand(handEl, Array.from(handEl?.children || [])); updateSlotRects(); });
+window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 zoomOverlayEl?.addEventListener("click", closeZoom);
 document.addEventListener("DOMContentLoaded", render);
