@@ -1,4 +1,4 @@
-// Minimal engine for v2.5 UI (pure data; easy to swap later)
+// Minimal engine for v2.5 UI (data only)
 
 const FLOW_COSTS = [4,3,2,2,2];
 const STARTING_VITALITY = 5;
@@ -69,19 +69,18 @@ export function serializePublic(state) {
     activePlayer: state.activePlayer,
     flow: state.flow,
     player: {
-      aether: P.aether, channeled: P.channeled,
-      hand: P.hand, slots: [...P.slots, {isGlyph:true, ...P.glyph}],
+      aether: P.aether, channeled: P.channeled, vitality: P.vitality,
+      hand: P.hand,
+      slots: [...P.slots, {isGlyph:true, ...P.glyph}],
       weaver: P.weaver
     },
     ai: {
-      aether: AI.aether, channeled: AI.channeled,
+      aether: AI.aether, channeled: AI.channeled, vitality: AI.vitality,
       slots: [...AI.slots, {isGlyph:true, ...AI.glyph}],
       weaver: AI.weaver
     }
   };
 }
-
-/* ------- core moves ------- */
 
 function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
@@ -118,43 +117,26 @@ function buyFromFlow(state, playerId, flowIndex){
   const cost = card.price || 0;
   if (P.aether + P.channeled < cost) throw new Error("not enough Æ to buy");
 
-  // spend channeled first
   let pay = cost;
   const spentCh = Math.min(P.channeled, pay);
   P.channeled -= spentCh; pay -= spentCh;
   P.aether -= pay;
 
-  // move to discard
   P.discard.push({...card, id:`b_${card.id}_${Date.now()}`});
   return state;
 }
 
-function startTurn(state){
-  state.turn += 0; // (your engine would tick here)
-  return state;
-}
-function endTurn(state){
-  state.turn += 1;
-  state.activePlayer = (state.activePlayer === 'player') ? 'ai' : 'player';
-  return state;
-}
+function startTurn(state){ return state; }
+function endTurn(state){ state.turn += 1; state.activePlayer = (state.activePlayer === 'player') ? 'ai' : 'player'; return state; }
 
 export function reducer(state, action){
-  // mutate a shallow cloned tree to keep things simple here
   const S = JSON.parse(JSON.stringify(state));
-
   switch(action.type){
-    case 'PLAY_CARD_TO_SLOT':
-      return playCardToSpellSlot(S, action.player, action.cardId, action.slotIndex);
-    case 'DISCARD_FOR_AETHER':
-      return discardForAether(S, action.player, action.cardId);
-    case 'BUY_FROM_FLOW':
-      return buyFromFlow(S, action.player, action.flowIndex);
-    case 'START_TURN':
-      return startTurn(S);
-    case 'END_TURN':
-      return endTurn(S);
-    default:
-      return state;
+    case 'PLAY_CARD_TO_SLOT': return playCardToSpellSlot(S, action.player, action.cardId, action.slotIndex);
+    case 'DISCARD_FOR_AETHER': return discardForAether(S, action.player, action.cardId);
+    case 'BUY_FROM_FLOW': return buyFromFlow(S, action.player, action.flowIndex);
+    case 'START_TURN': return startTurn(S);
+    case 'END_TURN': return endTurn(S);
+    default: return state;
   }
 }
