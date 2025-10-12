@@ -1,4 +1,4 @@
-import { initState, serializePublic, playCardToSpellSlot } from "./GameLogic.js";
+import { initState, serializePublic, reducer } from "./GameLogic.js";
 
 const startBtn       = document.getElementById("btn-start-turn");
 const endBtn         = document.getElementById("btn-end-turn");
@@ -13,17 +13,29 @@ const peekEl         = document.getElementById("peek-card");
 const zoomOverlayEl  = document.getElementById("zoom-overlay");
 const zoomCardEl     = document.getElementById("zoom-card");
 
-let state = initState({});
+let state = initState({}); // same seed as before if you want determinism
 
-/* ---------- Hand fanning ---------- */
+/* ---------- Small toast for errors ---------- */
+let toastEl;
+function toast(msg, ms=1200){
+  if (!toastEl){
+    toastEl = document.createElement("div");
+    toastEl.className = "toast";
+    document.body.appendChild(toastEl);
+  }
+  toastEl.textContent = msg;
+  toastEl.classList.add("show");
+  setTimeout(()=> toastEl.classList.remove("show"), ms);
+}
+
+/* ---------- Hand fanning (responsive) ---------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N) return;
-  const MAX_ANGLE = 28, MIN_ANGLE = 8, MAX_SPREAD_PX = 800, LIFT_BASE = 48;
-  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*3.2, MIN_ANGLE, MAX_ANGLE);
+  const MAX_ANGLE = 26, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.92, LIFT_BASE = 42;
+  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*3.1, MIN_ANGLE, MAX_ANGLE);
   const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
-  const rect = container.getBoundingClientRect();
-  const spread = Math.min(MAX_SPREAD_PX, rect.width*0.92);
+  const spread = Math.min(MAX_SPREAD_PX, 900);
   const stepX = (N===1) ? 0 : spread/(N-1), startX = -spread/2;
 
   cards.forEach((el,i)=>{
@@ -53,7 +65,6 @@ function renderSlots(container, slotSnapshot, isPlayer){
     if (has) d.classList.add("has-card");
 
     if (isPlayer){
-      // Desktop DnD
       d.addEventListener("dragover", (ev)=> { ev.preventDefault(); d.classList.add("drag-over"); });
       d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
       d.addEventListener("drop", (ev)=>{
@@ -61,13 +72,13 @@ function renderSlots(container, slotSnapshot, isPlayer){
         const cardId = ev.dataTransfer?.getData("text/card-id");
         const cardType = ev.dataTransfer?.getData("text/card-type");
         if (!cardId || cardType !== "SPELL") return;
-        try{ playCardToSpellSlot(state, "player", cardId, i); render(); }catch(e){ console.warn(e?.message || e); }
+        playSpellIfPossible(cardId, i);
       });
     }
     container.appendChild(d);
   }
 
-  // 1 rectangular Glyph bay (accepts GLYPH only; hook engine later)
+  // 1 rectangular Glyph bay (accepts GLYPH only – engine hook later)
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
@@ -77,7 +88,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
       if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
     });
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", (ev)=>{ g.classList.remove("drag-over"); /* TODO */ });
+    g.addEventListener("drop", ()=> { g.classList.remove("drag-over"); toast("Set Glyph: not implemented yet"); });
   }
   container.appendChild(g);
 }
@@ -87,7 +98,7 @@ function cardHTML(c){
   return `<div class="title">${c.name}</div>
           <div class="type">${c.type}</div>
           <div class="textbox"></div>
-          <div class="actions"><button class="btn">Buy (Æ ${c.price ?? 0})</button></div>`;
+          <div class="actions"><button class="btn" data-buy="1" data-id="${c.id}">Buy (Æ ${c.price ?? 0})</button></div>`;
 }
 function renderFlow(nextFlow){
   flowRowEl.replaceChildren();
@@ -96,9 +107,24 @@ function renderFlow(nextFlow){
     li.className = "flow-card";
     const card = document.createElement("article");
     card.className = "card market";
+    // shim price so UI can show cost consistently with GameLogic FLOW_COSTS
+    card.dataset.flowIndex = String(nextFlow.indexOf(c));
     card.innerHTML = cardHTML(c);
     li.appendChild(card);
     flowRowEl.appendChild(li);
+  });
+
+  // Buy buttons
+  flowRowEl.querySelectorAll("[data-buy]").forEach(btn=>{
+    btn.addEventListener("click", (e)=>{
+      const el = e.currentTarget;
+      const parentCard = el.closest(".card");
+      const idx = [...flowRowEl.querySelectorAll(".card")].indexOf(parentCard);
+      try{
+        state = reducer(state, { type:'BUY_FROM_FLOW', player:'player', flowIndex: idx });
+        render();
+      }catch(err){ toast(err?.message || "Cannot buy"); }
+    });
   });
 }
 
@@ -147,28 +173,41 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ---------- Touch drag polyfill (iOS/Android) ---------- */
+/* ---------- Mobile drag: rAF-ticked ghost (smooth & crash-safe) ---------- */
 function installTouchDrag(cardEl, cardData){
   let dragging = false;
   let ghost = null;
   let start = {x:0,y:0};
   let last = {x:0,y:0};
+  let tickPending = false;
 
   function pointer(e){ return { x: e.clientX ?? (e.touches?.[0]?.clientX ?? 0),
                                 y: e.clientY ?? (e.touches?.[0]?.clientY ?? 0) }; }
 
+  const rAFMove = ()=>{
+    tickPending = false;
+    if (!ghost) return;
+    ghost.style.transform = `translate(${last.x - ghost.clientWidth/2}px, ${last.y - ghost.clientHeight*0.9}px)`;
+  };
+
   const DOWN = (e)=>{
-    // Don’t start if zoom long-press is planned; we’ll cancel long press on move
-    start = last = pointer(e); dragging = false;
+    start = last = pointer(e);
+    dragging = false;
     cardEl.setPointerCapture?.(e.pointerId || 0);
   };
 
   const MOVE = (e)=>{
     const p = pointer(e);
+    // Prevent page scroll while dragging (important on iOS).
+    if (dragging) e.preventDefault();
+
     if (!dragging){
       if (Math.hypot(p.x - start.x, p.y - start.y) > 10){
         dragging = true;
-        // build ghost
+        // cancel any long-press zoom
+        if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; }
+
+        // build ghost (use computed size once to avoid layout thrash)
         ghost = cardEl.cloneNode(true);
         ghost.classList.add("dragging");
         ghost.style.position = "fixed";
@@ -178,35 +217,45 @@ function installTouchDrag(cardEl, cardData){
         document.body.appendChild(ghost);
       }
     }else{
-      ghost.style.transform = `translate(${p.x - ghost.clientWidth/2}px, ${p.y - ghost.clientHeight*0.9}px)`;
+      last = p;
+      if (!tickPending){ tickPending = true; requestAnimationFrame(rAFMove); }
+
       // slot highlight
       document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
       const el = document.elementFromPoint(p.x, p.y);
       const slot = el?.closest?.(".slot.spell");
       if (slot) slot.classList.add("drag-over");
     }
-    last = p;
   };
 
   const UP = ()=>{
+    document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
     if (dragging && ghost){
-      // drop check
       const el = document.elementFromPoint(last.x, last.y);
       const slot = el?.closest?.(".slot.spell");
-      document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
       if (slot){
         const idx = Number(slot.dataset.slotIndex || 0);
-        try{ playCardToSpellSlot(state, "player", cardData.id, idx); }catch(e){ console.warn(e?.message||e); }
+        playSpellIfPossible(cardData.id, idx);
       }
       ghost.remove(); ghost=null;
-      render();
+      dragging=false;
     }
-    dragging=false;
   };
 
+  // NB: pointermove must be non-passive to allow preventDefault scrolling while dragging.
   cardEl.addEventListener("pointerdown", DOWN);
-  window.addEventListener("pointermove", MOVE, {passive:true});
+  window.addEventListener("pointermove", MOVE, {passive:false});
   window.addEventListener("pointerup",   UP,   {passive:true});
+}
+
+/* ---------- Actions ---------- */
+function playSpellIfPossible(cardId, slotIndex){
+  try{
+    state = reducer(state, { type:'PLAY_CARD_TO_SLOT', player:'player', cardId, slotIndex });
+    render(); // re-fan hand after successful play
+  }catch(err){
+    toast(err?.message || "Can't play there");
+  }
 }
 
 /* ---------- Main render ---------- */
@@ -240,8 +289,8 @@ function render(){
       <div class="type">${c.type}</div>
       <div class="textbox"></div>
       <div class="actions">
-        <button class="btn">Play</button>
-        <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
+        <button class="btn" data-play="1">Play</button>
+        <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
       </div>`;
 
     // Desktop HTML5 drag
@@ -257,14 +306,28 @@ function render(){
     installTouchDrag(el, c);
     attachPeekAndZoom(el, c);
 
+    // Buttons
+    el.querySelector("[data-play]")?.addEventListener("click", ()=>{
+      // default to first open spell slot
+      const idx = s.player.slots.findIndex(x=>!x.hasCard && !x.isGlyph);
+      if (idx < 0){ toast("No empty spell slot"); return; }
+      playSpellIfPossible(c.id, idx);
+    });
+    el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
+      try{
+        state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
+        render();
+      }catch(err){ toast(err?.message || "Can't discard"); }
+    });
+
     handEl.appendChild(el); els.push(el);
   });
   layoutHand(handEl, els);
 }
 
 /* Wire-up */
-startBtn.addEventListener("click", render);
-endBtn.addEventListener("click", render);
+startBtn.addEventListener("click", ()=>{ state = reducer(state, {type:'START_TURN', player:'player'}); render(); });
+endBtn.addEventListener("click",   ()=>{ state = reducer(state, {type:'END_TURN',   player:'player'}); render(); });
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl.children)));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 zoomOverlayEl.addEventListener("click", closeZoom);
