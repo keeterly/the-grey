@@ -1,8 +1,13 @@
 :root{
+  /* Responsive card size scales with viewport (desktop→mobile landscape) */
+  --card-w: clamp(140px, 17.5vw, 210px);
+  --card-h: calc(var(--card-w) * 1.38);
+  --card-radius: 16px;
+
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
-  --card-w: 210px; --card-h: 290px; --card-radius: 16px;
 }
+
 *{box-sizing:border-box}
 html,body{height:100%}
 #board.theme-dark.parchment{
@@ -26,26 +31,32 @@ html,body{height:100%}
   grid-template-rows: 1fr auto 1fr !important;
   gap:18px;
   height:calc(100% - 48px);
-  padding:12px 16px 36vh; /* space for hand overlay */
+  padding:12px 16px calc(28vh + 12px); /* space for hand overlay */
 }
+
+/* Mobile landscape: slightly tighter rows and hand space */
+@media (max-height: 540px){
+  #board-grid.grid{ grid-template-rows: .9fr auto .9fr; padding-bottom: 24vh; }
+}
+
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0}
 
 /* Portraits */
 .portrait{margin:0;text-align:center;font-size:.95rem;color:var(--muted)}
 .portrait img{width:86px;height:86px;object-fit:cover;border-radius:10px;border:1px solid #0006;box-shadow:0 6px 16px #000;filter:grayscale(.1)}
 
-/* ===== Slot rows (4 across) ===== */
+/* ===== Slot rows (4 across: 3 Spell + 1 Glyph) ===== */
 #ai-slots.slot-row, #player-slots.slot-row{
   display:grid !important;
   grid-auto-flow: column !important;
   grid-template-columns: repeat(4, var(--card-w)) !important;
-  gap:18px !important;
-  width: calc(var(--card-w)*4 + 18px*3) !important;
-  max-width: 92vw;
+  gap:16px !important;
+  width: calc(var(--card-w)*4 + 16px*3) !important;
+  max-width: 96vw;
   place-items:center;
 }
 
-/* ===== Rectangular slots (spell & glyph share geometry) ===== */
+/* ===== Rectangular slots (spell & glyph same geometry) ===== */
 .slot{
   width: var(--card-w);
   height: var(--card-h);
@@ -62,7 +73,7 @@ html,body{height:100%}
 .slot.drag-over{ outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45)); }
 
 /* ===== Flow row: five full-size cards ===== */
-.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 10px}
+.section-title{font-family:"Crimson Text", serif;letter-spacing:.3em;text-align:center;color:var(--muted);margin:6px 0 6px}
 #flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
   width: calc(var(--card-w)*5 + 14px*4 + 24px) !important;
@@ -74,10 +85,12 @@ html,body{height:100%}
 .flow-card .card{ position:relative; left:0; top:0; transform:none; }
 
 /* ===== Hand (fanned) ===== */
-.hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:32vh; pointer-events:none; z-index:20; }
+.hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:28vh; pointer-events:none; z-index:20; }
+@media (max-height: 540px){ .hand-wrap{ height:22vh; } }
+
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
-  width:min(1200px, 96vw); height:30vh; pointer-events:none; perspective:1200px;
+  width:min(1200px, 96vw); height:26vh; pointer-events:none; perspective:1200px;
 }
 
 /* CARD base */
@@ -89,12 +102,12 @@ html,body{height:100%}
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
   user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
-  touch-action:none; /* prevent iOS long-press text selection + scroll during drag */
+  touch-action:none; /* prevent iOS long-press select/scroll during drag */
 }
 .card *{ user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
 .card .actions .btn{ touch-action:manipulation; } /* keep taps snappy */
 
-.card.dragging{ opacity:.95; box-shadow:0 0 26px var(--aether), 0 16px 40px #000; }
+.card.dragging{ opacity:.98; box-shadow:0 0 26px var(--aether), 0 16px 40px #000; }
 .card:hover, .card:focus{
   z-index:9999 !important;
   transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-26px) scale(1.08);
@@ -108,18 +121,17 @@ html,body{height:100%}
 .card .textbox{flex:1}
 .card .actions{display:flex; gap:8px; padding:10px}
 
-/* ===== Preview / Zoom (robust on iOS) ===== */
+/* ===== Preview / Zoom (robust & centered) ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
 
 #peek-card.card.peek{
-  position:fixed; /* view-port locked */
+  position:fixed;
   left:50%; top:50%; transform:translate(-50%,-50%) scale(1.18);
   width:var(--card-w); height:var(--card-h);
   display:none; opacity:0; transition:opacity .12s ease;
   box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35);
 }
 #peek-card.show{ display:block; opacity:1; }
-/* Desktop: peek nearer top for more context */
 @media (hover:hover) and (min-width: 900px){
   #peek-card.card.peek{ top:18vh; transform:translate(-50%,0) scale(1.28); }
 }
@@ -127,11 +139,15 @@ html,body{height:100%}
 #zoom-overlay{
   position:fixed; inset:0; display:none;
   background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px);
-  place-items:center; pointer-events:auto;
+  place-items:center; pointer-events:auto; z-index:60;
 }
 #zoom-overlay[data-open="true"]{ display:grid; }
 #zoom-card.card.zoom{ position:relative; transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2); border-radius:22px; }
 
-@media (hover:none){
-  .card:active{ transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-22px) scale(1.05); }
+/* Simple toast for illegal plays */
+.toast{
+  position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
+  background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px;
+  box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70;
 }
+.toast.show{ opacity:1; }
