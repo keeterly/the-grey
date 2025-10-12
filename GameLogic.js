@@ -69,6 +69,55 @@ export function serializePublic(state) {
   };
 }
 
+// Reducer with a few actions needed for UI demo
+export function reducer(state, action){
+  switch (action.type) {
+    case 'START_TURN': {
+      state.activePlayer = action.player;
+      return state;
+    }
+    case 'END_TURN': {
+      state.activePlayer = (action.player === 'player') ? 'ai' : 'player';
+      if (state.activePlayer === 'player') state.turn += 1;
+      return state;
+    }
+    case 'DISCARD_FOR_AETHER': {
+      const P = state.players[action.player];
+      const i = P.hand.findIndex(c => c.id === action.cardId);
+      if (i < 0) throw new Error('Card not in hand');
+      const [c] = P.hand.splice(i,1);
+      P.aether += (c.aetherValue || 0);
+      P.discardCount += 1;
+      return state;
+    }
+    case 'BUY_FROM_FLOW': {
+      const P = state.players[action.player];
+      const idx = action.flowIndex ?? 0;
+      const card = state.flow[idx];
+      if (!card) throw new Error('Invalid market index');
+      const cost = card.price ?? FLOW_COSTS[idx] ?? 0;
+      if (P.aether < cost) throw new Error('Cannot afford');
+      P.aether -= cost;
+      P.discardCount += 1;
+      // simple river shift + dummy refill
+      state.flow.splice(idx,1);
+      const all = [
+        mkCard("f6","Mirror Cascade","SPELL",2),
+        mkCard("f7","Sanguine Flow","SPELL",2),
+        mkCard("f8","Aether Impel","INSTANT",4),
+        mkCard("f9","Surge of Cinders","INSTANT",2),
+        mkCard("f10","Pulse Feedback","INSTANT",3),
+      ];
+      if (state.flow.length < 5) state.flow.push(all[(Math.random()*all.length)|0]);
+      return state;
+    }
+    case 'PLAY_CARD_TO_SLOT': {
+      return playCardToSpellSlot(state, action.player, action.cardId, action.slotIndex);
+    }
+    default: return state;
+  }
+}
+
 // drag-to-slot: hand SPELL -> player spell slot
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
