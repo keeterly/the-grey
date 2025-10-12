@@ -19,31 +19,53 @@
     </div>
   </header>
 
+  <!-- Portrait HUD -->
+  <aside class="hud-portrait hud-portrait--player">
+    <figure>
+      <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
+      <figcaption>
+        <div id="player-name">Aria, Runesurge Adept</div>
+        <div id="player-hearts" class="hearts"></div>
+      </figcaption>
+    </figure>
+  </aside>
+
+  <aside class="hud-portrait hud-portrait--opponent">
+    <figure>
+      <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
+      <figcaption>
+        <div id="ai-name">Morr, Gravecurrent Binder</div>
+        <div id="ai-hearts" class="hearts"></div>
+      </figcaption>
+    </figure>
+  </aside>
+
+  <!-- Right-side HUD: deck / discard counters + end turn -->
+  <aside class="hud-right">
+    <button class="pill" id="btn-end-turn-big" title="End Turn (discard hand)">⏭</button>
+    <div class="pill muted" title="Discard pile"><span>♻️</span><b id="count-discard">0</b></div>
+    <div class="pill muted" title="Deck"><span>🃏</span><b id="count-deck">0</b></div>
+  </aside>
+
   <main id="board-grid" class="grid">
-    <!-- AI (top) -->
+    <!-- AI row (slots only) -->
     <section class="row ai">
-      <figure class="portrait portrait-ai">
-        <img id="ai-portrait" alt="Opponent">
-        <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
-        <div id="ai-hearts" class="hearts" aria-label="Opponent vitality"></div>
-      </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
     <!-- FLOW (center) -->
     <section class="row flow">
-      <h2 class="section-title">AETHER FLOW</h2>
-      <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
+      <div class="flow-wrap">
+        <div class="flow-area">
+          <div class="flow-title-vert">AETHER FLOW</div>
+          <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
+        </div>
+      </div>
     </section>
 
-    <!-- PLAYER (bottom) -->
+    <!-- PLAYER row -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-      <figure class="portrait portrait-player">
-        <img id="player-portrait" alt="Player">
-        <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
-        <div id="player-hearts" class="hearts" aria-label="Player vitality"></div>
-      </figure>
     </section>
 
     <!-- HAND -->
@@ -54,9 +76,9 @@
 
   <!-- Peek + Zoom layers -->
   <div id="preview-layer" aria-hidden="true">
-    <div id="peek-card" class="card peek" role="presentation"></div>
-    <div id="zoom-overlay" data-open="false" aria-modal="true" role="dialog">
-      <div id="zoom-card" class="card zoom" role="presentation"></div>
+    <div id="peek-card" class="card peek"></div>
+    <div id="zoom-overlay" data-open="false">
+      <div id="zoom-card" class="card zoom"></div>
     </div>
   </div>
 
