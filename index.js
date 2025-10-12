@@ -14,17 +14,19 @@ const handEl         = $("hand");
 const turnIndicator  = $("turn-indicator");
 const aetherReadout  = $("aether-readout");
 
-/* optional (may not exist) */
 const playerPortrait = $("player-portrait");
 const aiPortrait     = $("ai-portrait");
 const playerName     = $("player-name");
 const aiName         = $("ai-name");
+const playerHearts   = $("player-hearts");
+const aiHearts       = $("ai-hearts");
 
 const peekEl         = $("peek-card");
 const zoomOverlayEl  = $("zoom-overlay");
 const zoomCardEl     = $("zoom-card");
 
 let state = initState({});
+let handEls = new Map(); // id -> element (for smooth re-fan)
 
 /* ------- tiny toast ------- */
 let toastEl;
@@ -37,6 +39,41 @@ function toast(msg, ms=1200){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
   setTimeout(()=> toastEl.classList.remove("show"), ms);
+}
+
+/* ------- builders ------- */
+function buildCardInner(c, opts={}){
+  const { actions="none" } = opts; // "hand" | "flow" | "none"
+  const actionHTML = (()=>{
+    if (actions === "hand"){
+      return `<div class="actions">
+                <button class="btn" data-play="1">Play</button>
+                <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
+              </div>`;
+    }
+    if (actions === "flow"){
+      const price = (typeof c.price === "number") ? c.price : 0;
+      return `<div class="actions"><button class="btn" data-buy="1">Buy (Æ ${price})</button></div>`;
+    }
+    return `<div class="actions" style="opacity:.6"><span>Preview</span></div>`;
+  })();
+
+  return `
+    <div class="title">${c.name}</div>
+    <div class="type">${c.type}</div>
+    <div class="textbox"></div>
+    ${actionHTML}
+  `;
+}
+
+function renderHearts(el, n){
+  if (!el) return;
+  const total = 5;
+  let html = "";
+  for (let i=0;i<total;i++){
+    html += `<span class="heart${i < n ? "" : " empty"}" aria-hidden="true"></span>`;
+  }
+  el.innerHTML = html;
 }
 
 /* ------- hand fanning ------- */
@@ -62,88 +99,11 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ------- slots ------- */
-function renderSlots(container, slotSnapshot, isPlayer){
-  if (!container) return;
-  container.replaceChildren();
-
-  // three rectangular spell bays
-  for (let i=0;i<3;i++){
-    const d = document.createElement("div");
-    d.className = "slot spell";
-    d.dataset.slotIndex = String(i);
-    const has = slotSnapshot?.[i]?.hasCard;
-    d.textContent = has ? (slotSnapshot[i].card?.name || "Spell") : "Spell Slot";
-    if (has) d.classList.add("has-card");
-
-    if (isPlayer){
-      d.addEventListener("dragover", (ev)=> { ev.preventDefault(); d.classList.add("drag-over"); });
-      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
-      d.addEventListener("drop", (ev)=>{
-        ev.preventDefault(); d.classList.remove("drag-over");
-        const cardId   = ev.dataTransfer?.getData("text/card-id");
-        const cardType = ev.dataTransfer?.getData("text/card-type");
-        if (!cardId || cardType !== "SPELL") return;
-        playSpellIfPossible(cardId, i);
-      });
-    }
-    container.appendChild(d);
-  }
-
-  // one rectangular glyph bay
-  const g = document.createElement("div");
-  g.className = "slot glyph";
-  g.textContent = "Glyph Slot";
-  if (isPlayer){
-    g.addEventListener("dragover", (ev)=> {
-      const t = ev.dataTransfer?.getData("text/card-type");
-      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
-    });
-    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", ()=> { g.classList.remove("drag-over"); toast("Set Glyph: not implemented yet"); });
-  }
-  container.appendChild(g);
-}
-
-/* ------- flow row ------- */
-function cardHTML(c){
-  const price = (typeof c.price === "number") ? c.price : 0;
-  return `<div class="title">${c.name}</div>
-          <div class="type">${c.type}</div>
-          <div class="textbox"></div>
-          <div class="actions"><button class="btn" data-buy="1">Buy (Æ ${price})</button></div>`;
-}
-function renderFlow(flowArray){
-  if (!flowRowEl) return;
-  flowRowEl.replaceChildren();
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li");
-    li.className = "flow-card";
-    const card = document.createElement("article");
-    card.className = "card market";
-    card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
-    card.querySelector("[data-buy]")?.addEventListener("click", ()=>{
-      try{
-        state = reducer(state, { type:'BUY_FROM_FLOW', player:'player', flowIndex: idx });
-        render();
-      }catch(err){ toast(err?.message || "Cannot buy"); }
-    });
-    li.appendChild(card);
-    flowRowEl.appendChild(li);
-  });
-}
-
 /* ------- preview / zoom ------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
-function fillCardShell(div, data){
+function fillCardShell(div, data, actions="none"){
   if (!div) return;
-  div.innerHTML = `
-    <div class="title">${data.name}</div>
-    <div class="type">${data.type}</div>
-    <div class="textbox"></div>
-    <div class="actions" style="opacity:.6"><span>Preview</span></div>
-  `;
+  div.innerHTML = buildCardInner(data, {actions});
 }
 let longPressTimer = null;
 let pressStart = {x:0, y:0};
@@ -152,7 +112,7 @@ const MOVE_CANCEL_PX = 8;
 
 function attachPeekAndZoom(el, data){
   if (!IS_TOUCH && peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
+    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data, "none"); peekEl.classList.add("show"); });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
   const onDown = (ev)=>{
@@ -161,7 +121,7 @@ function attachPeekAndZoom(el, data){
     pressStart = { x: touch.clientX, y: touch.clientY };
     longPressTimer = setTimeout(()=>{
       if (zoomOverlayEl && zoomCardEl){
-        fillCardShell(zoomCardEl, data);
+        fillCardShell(zoomCardEl, data, "none");
         zoomOverlayEl.setAttribute("data-open","true");
       }
     }, LONG_PRESS_MS);
@@ -181,7 +141,7 @@ function attachPeekAndZoom(el, data){
 
 /* ------- touch-only ghost drag ------- */
 function installTouchDrag(cardEl, cardData){
-  if (!IS_TOUCH) return; // prevent desktop stutter & false starts
+  if (!IS_TOUCH) return;
 
   let dragging = false;
   let ghost = null;
@@ -253,11 +213,99 @@ function installTouchDrag(cardEl, cardData){
 function playSpellIfPossible(cardId, slotIndex){
   try{
     state = reducer(state, { type:'PLAY_CARD_TO_SLOT', player:'player', cardId, slotIndex });
-    render(); // re-fans hand
+    render(); // natural re-fan (elements are reused)
   }catch(err){ toast(err?.message || "Can't play there"); }
 }
 
-/* ------- main render ------- */
+/* ------- slots (with preview on placed cards) ------- */
+function renderSlots(container, slotSnapshot, isPlayer){
+  if (!container) return;
+  container.replaceChildren();
+
+  // three spell bays
+  for (let i=0;i<3;i++){
+    const d = document.createElement("div");
+    d.className = "slot spell";
+    d.dataset.slotIndex = String(i);
+
+    const has = slotSnapshot?.[i]?.hasCard;
+    if (!has){
+      d.textContent = "Spell Slot";
+    } else {
+      const c = slotSnapshot[i].card;
+      const face = document.createElement("article");
+      face.className = "card board placed";
+      face.innerHTML = buildCardInner(c, {actions:"none"});
+      attachPeekAndZoom(face, c);
+      d.classList.add("has-card");
+      d.appendChild(face);
+    }
+
+    if (isPlayer){
+      d.addEventListener("dragover", (ev)=> { ev.preventDefault(); d.classList.add("drag-over"); });
+      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
+      d.addEventListener("drop", (ev)=>{
+        ev.preventDefault(); d.classList.remove("drag-over");
+        const cardId   = ev.dataTransfer?.getData("text/card-id");
+        const cardType = ev.dataTransfer?.getData("text/card-type");
+        if (!cardId || cardType !== "SPELL") return;
+        playSpellIfPossible(cardId, i);
+      });
+    }
+    container.appendChild(d);
+  }
+
+  // glyph bay
+  const g = document.createElement("div");
+  g.className = "slot glyph";
+  const glyphSnap = slotSnapshot?.[3];
+  if (glyphSnap?.hasCard){
+    const c = glyphSnap.card;
+    const face = document.createElement("article");
+    face.className = "card board placed";
+    face.innerHTML = buildCardInner(c, {actions:"none"});
+    attachPeekAndZoom(face, c);
+    g.classList.add("has-card");
+    g.appendChild(face);
+  }else{
+    g.textContent = "Glyph Slot";
+  }
+
+  if (isPlayer){
+    g.addEventListener("dragover", (ev)=> {
+      const t = ev.dataTransfer?.getData("text/card-type");
+      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
+    });
+    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
+    g.addEventListener("drop", ()=> { g.classList.remove("drag-over"); toast("Set Glyph: not implemented yet"); });
+  }
+  container.appendChild(g);
+}
+
+/* ------- flow row (full-size cards + preview) ------- */
+function renderFlow(flowArray){
+  if (!flowRowEl) return;
+  flowRowEl.replaceChildren();
+  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+    const li = document.createElement("li");
+    li.className = "flow-card";
+    const card = document.createElement("article");
+    card.className = "card market";
+    card.dataset.flowIndex = String(idx);
+    card.innerHTML = buildCardInner(c, {actions:"flow"});
+    attachPeekAndZoom(card, c);
+    card.querySelector("[data-buy]")?.addEventListener("click", ()=>{
+      try{
+        state = reducer(state, { type:'BUY_FROM_FLOW', player:'player', flowIndex: idx });
+        render();
+      }catch(err){ toast(err?.message || "Cannot buy"); }
+    });
+    li.appendChild(card);
+    flowRowEl.appendChild(li);
+  });
+}
+
+/* ------- main render (reusing hand nodes for smooth fan) ------- */
 function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
@@ -272,27 +320,26 @@ function render(){
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
+  renderHearts(playerHearts, s.player?.vitality ?? 0);
+  renderHearts(aiHearts,     s.ai?.vitality ?? 0);
+
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
   renderFlow(s.flow || []);
 
-  // Hand
-  if (handEl){
-    handEl.replaceChildren();
-    const els = [];
-    (s.player?.hand || []).forEach(c=>{
-      const el = document.createElement("article");
+  // ---- Hand (diff and reuse for natural animation)
+  const next = (s.player?.hand || []);
+  const seen = new Set();
+
+  // create/move in correct order
+  next.forEach(c=>{
+    let el = handEls.get(c.id);
+    if (!el){
+      el = document.createElement("article");
       el.className = "card"; el.tabIndex = 0;
-      el.draggable = !IS_TOUCH;     // use HTML5 DnD for mouse only
+      el.draggable = !IS_TOUCH;
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-      el.innerHTML = `
-        <div class="title">${c.name}</div>
-        <div class="type">${c.type}</div>
-        <div class="textbox"></div>
-        <div class="actions">
-          <button class="btn" data-play="1">Play</button>
-          <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
-        </div>`;
+      el.innerHTML = buildCardInner(c, {actions:"hand"});
 
       if (!IS_TOUCH){
         el.addEventListener("dragstart", (ev)=>{
@@ -320,10 +367,24 @@ function render(){
         }catch(err){ toast(err?.message || "Can't discard"); }
       });
 
-      handEl.appendChild(el); els.push(el);
-    });
-    layoutHand(handEl, els);
+      handEls.set(c.id, el);
+    }else{
+      // update inner content if needed (keeps buttons bound if IDs match)
+      // (for now content is static; keeping as-is to preserve listeners)
+    }
+    handEl.appendChild(el);
+    seen.add(c.id);
+  });
+
+  // remove elements no longer in hand
+  for (const [id, el] of handEls.entries()){
+    if (!seen.has(id)){
+      el.remove();
+      handEls.delete(id);
+    }
   }
+
+  layoutHand(handEl, Array.from(handEl.children));
 }
 
 /* wiring */
