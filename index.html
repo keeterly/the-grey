@@ -19,80 +19,35 @@
     </div>
   </header>
 
-  <!-- Portrait HUD -->
-  <aside class="hud-portrait hud-portrait--player">
-    <figure>
-      <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
-      <figcaption>
-        <div id="player-name">Aria, Runesurge Adept</div>
-        <div id="player-hearts" class="hearts"></div>
-      </figcaption>
-    </figure>
-  </aside>
-
-  <aside class="hud-portrait hud-portrait--opponent">
-    <figure>
-      <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
-      <figcaption>
-        <div id="ai-name">Morr, Gravecurrent Binder</div>
-        <div id="ai-hearts" class="hearts"></div>
-      </figcaption>
-    </figure>
-  </aside>
-
-  <!-- Right-side HUD: deck / discard counters + end turn -->
-  <aside class="hud-right">
-    <!-- End Turn -->
-    <button class="pill" id="btn-end-turn-big" title="End Turn (discard hand)" aria-label="End Turn">
-      <!-- double chevron icon -->
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 6l6 6-6 6" />
-        <path d="M13 6l6 6-6 6" />
-      </svg>
-    </button>
-
-    <!-- Discard -->
-    <div class="pill muted" id="pill-discard" title="Discard pile">
-      <!-- grave/urn icon -->
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M8 8h8" />
-        <path d="M10 3h4" />
-        <path d="M7 8h10v8a4 4 0 0 1-4 4H11a4 4 0 0 1-4-4V8z" />
-      </svg>
-      <b id="count-discard">0</b>
-    </div>
-
-    <!-- Deck -->
-    <div class="pill muted" id="pill-deck" title="Deck">
-      <!-- stacked cards icon -->
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M4 7l8-3 8 3-8 3-8-3z" />
-        <path d="M4 12l8 3 8-3" />
-        <path d="M4 17l8 3 8-3" />
-      </svg>
-      <b id="count-deck">0</b>
-    </div>
-  </aside>
-
   <main id="board-grid" class="grid">
-    <!-- AI row -->
+    <!-- AI (top) -->
     <section class="row ai">
+      <figure class="portrait portrait--ai">
+        <img id="ai-portrait" alt="Opponent">
+        <figcaption class="name">
+          <span id="ai-name">Morr, Gravecurrent Binder</span>
+          <span id="ai-hearts" class="hearts"></span>
+        </figcaption>
+      </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
     <!-- FLOW (center) -->
     <section class="row flow">
-      <div class="flow-wrap">
-        <div class="flow-area">
-          <div class="flow-title-vert">AETHER FLOW</div>
-          <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
-        </div>
-      </div>
+      <aside class="flow-title" aria-hidden="true">AETHER&nbsp;FLOW</aside>
+      <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
     </section>
 
-    <!-- PLAYER row -->
+    <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
+      <figure class="portrait portrait--player">
+        <img id="player-portrait" alt="Player">
+        <figcaption class="name">
+          <span id="player-name">Aria, Runesurge Adept</span>
+          <span id="player-hearts" class="hearts"></span>
+        </figcaption>
+      </figure>
     </section>
 
     <!-- HAND -->
@@ -108,6 +63,19 @@
       <div id="zoom-card" class="card zoom"></div>
     </div>
   </div>
+
+  <!-- HUD (right column) -->
+  <nav class="hud">
+    <button class="hud-btn" id="btn-endturn-hud" title="End Turn">»</button>
+    <div class="hud-stack">
+      <button class="hud-btn" id="btn-discard-info" title="Discard">🜃</button>
+      <span id="discard-count" class="hud-count">0</span>
+    </div>
+    <div class="hud-stack">
+      <button class="hud-btn" id="btn-deck-info" title="Deck">🗄</button>
+      <span id="deck-count" class="hud-count">10</span>
+    </div>
+  </nav>
 
   <script type="module" src="./index.js"></script>
 </body>
