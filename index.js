@@ -1,6 +1,7 @@
 import { initState, serializePublic, reducer } from "./GameLogic.js";
 
-const __DEV = false; // set true to log snapshot/flow lengths in console
+/* Debug switch (optional) */
+const __DEV = false;
 
 /* ------- safe getters (avoid null errors) ------- */
 const $    = (id) => document.getElementById(id);
@@ -38,6 +39,32 @@ function toast(msg, ms=1200){
   toastEl.textContent = msg;
   toastEl.classList.add("show");
   setTimeout(()=> toastEl.classList.remove("show"), ms);
+}
+
+/* ------- helpers to read snapshot robustly ------- */
+function safeSnap() {
+  let s;
+  try { s = serializePublic(state) || {}; }
+  catch (e) { console.warn('serializePublic failed, using raw state', e); s = {}; }
+  return s;
+}
+function getFlowFromAny(s) {
+  if (Array.isArray(s.flow) && s.flow.length) return s.flow;
+  if (Array.isArray(state.flow) && state.flow.length) return state.flow;
+  if (Array.isArray(state.flowRow) && state.flowRow.length) {
+    const COSTS = [4,3,2,2,2];
+    return state.flowRow.slice(0,5).map((c,i)=> ({...c, price: c.price ?? COSTS[i] ?? 0}));
+  }
+  if (Array.isArray(state.flowDeck) && state.flowDeck.length) {
+    const COSTS = [4,3,2,2,2];
+    return state.flowDeck.slice(0,5).map((c,i)=> ({...c, price: c.price ?? COSTS[i] ?? 0}));
+  }
+  return [];
+}
+function getHandFromAny(s) {
+  if (Array.isArray(s.player?.hand)) return s.player.hand;
+  if (Array.isArray(state.players?.player?.hand)) return state.players.player.hand;
+  return [];
 }
 
 /* ------- hand fanning ------- */
@@ -107,7 +134,6 @@ function renderSlots(container, slotSnapshot, isPlayer){
 }
 
 /* ------- flow row ------- */
-const DEFAULT_FLOW_COSTS = [4,3,2,2,2];
 function cardHTML(c){
   const price = (typeof c.price === "number") ? c.price : 0;
   return `<div class="title">${c.name}</div>
@@ -118,7 +144,19 @@ function cardHTML(c){
 function renderFlow(flowArray){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+
+  const arr = (flowArray || []).slice(0,5);
+  if (!arr.length){
+    // Empty placeholder columns keep the strip height correct
+    for (let i=0;i<5;i++){
+      const li = document.createElement("li");
+      li.className = "flow-card";
+      flowRowEl.appendChild(li);
+    }
+    return;
+  }
+
+  arr.forEach((c, idx)=>{
     const li = document.createElement("li");
     li.className = "flow-card";
     const card = document.createElement("article");
@@ -210,6 +248,7 @@ function installTouchDrag(cardEl, cardData){
       if (Math.hypot(p.x - start.x, p.y - start.y) > 10){
         dragging = true;
         if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; }
+        closeZoom(); // never keep zoom open while dragging
 
         ghost = cardEl.cloneNode(true);
         ghost.classList.add("dragging");
@@ -259,74 +298,79 @@ function playSpellIfPossible(cardId, slotIndex){
 
 /* ------- main render ------- */
 function render(){
-  closeZoom();
-  if (peekEl) peekEl.classList.remove("show");
+  try {
+    closeZoom();
+    if (peekEl) peekEl.classList.remove("show");
 
-  const s = serializePublic(state) || {};
+    const s = safeSnap();
+    const flow = getFlowFromAny(s);
+    const hand = getHandFromAny(s);
 
-  set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
-  set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
+    if (__DEV) {
+      console.debug('[render] turn:', s.turn, 'active:', s.activePlayer);
+      console.debug('[render] flow len:', flow.length, 'hand len:', hand.length);
+    }
 
-  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "");
-  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait || el.src || "");
-  set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
-  set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
+    set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
+    set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
 
-  renderSlots(playerSlotsEl, s.player?.slots || [], true);
-  renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
+    set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "");
+    set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait || el.src || "");
+    set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
+    set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-  // Flow fallback if GameLogic.serializePublic doesn't return s.flow
-  let flow = Array.isArray(s.flow) ? s.flow : [];
-  if (!flow.length && Array.isArray(state.flowRow)){
-    flow = state.flowRow.map((c,i)=> ({
-      id: c.id, name: c.name, type: c.type, price: DEFAULT_FLOW_COSTS[i] ?? 0,
-    }));
-  }
-  renderFlow(flow);
+    renderSlots(playerSlotsEl, s.player?.slots || [], true);
+    renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
+    renderFlow(flow);
 
-  // Hand
-  if (handEl){
-    handEl.replaceChildren();
-    const els = [];
-    (s.player?.hand || []).forEach(c=>{
-      const el = document.createElement("article");
-      el.className = "card"; el.tabIndex = 0; el.draggable = true;
-      el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-      el.innerHTML = `
-        <div class="title">${c.name}</div>
-        <div class="type">${c.type}</div>
-        <div class="textbox"></div>
-        <div class="actions">
-          <button class="btn" data-play="1">Play</button>
-          <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
-        </div>`;
+    // Hand
+    if (handEl){
+      handEl.replaceChildren();
+      const els = [];
+      (hand || []).forEach(c=>{
+        const el = document.createElement("article");
+        el.className = "card"; el.tabIndex = 0; el.draggable = true;
+        el.dataset.cardId = c.id; el.dataset.cardType = c.type;
+        el.innerHTML = `
+          <div class="title">${c.name}</div>
+          <div class="type">${c.type}</div>
+          <div class="textbox"></div>
+          <div class="actions">
+            <button class="btn" data-play="1">Play</button>
+            <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
+          </div>`;
 
-      el.addEventListener("dragstart", (ev)=>{
-        el.classList.add("dragging");
-        ev.dataTransfer?.setData("text/card-id", c.id);
-        ev.dataTransfer?.setData("text/card-type", c.type);
-        ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
+        el.addEventListener("dragstart", (ev)=>{
+          closeZoom();
+          el.classList.add("dragging");
+          ev.dataTransfer?.setData("text/card-id", c.id);
+          ev.dataTransfer?.setData("text/card-type", c.type);
+          ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
+        });
+        el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+
+        installTouchDrag(el, c);
+        attachPeekAndZoom(el, c);
+
+        el.querySelector("[data-play]")?.addEventListener("click", ()=>{
+          const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
+          if (idx < 0){ toast("No empty spell slot"); return; }
+          playSpellIfPossible(c.id, idx);
+        });
+        el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
+          try{
+            state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
+            render();
+          }catch(err){ toast(err?.message || "Can't discard"); }
+        });
+
+        handEl.appendChild(el); els.push(el);
       });
-      el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
-
-      installTouchDrag(el, c);
-      attachPeekAndZoom(el, c);
-
-      el.querySelector("[data-play]")?.addEventListener("click", ()=>{
-        const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
-        if (idx < 0){ toast("No empty spell slot"); return; }
-        playSpellIfPossible(c.id, idx);
-      });
-      el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
-        try{
-          state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
-          render();
-        }catch(err){ toast(err?.message || "Can't discard"); }
-      });
-
-      handEl.appendChild(el); els.push(el);
-    });
-    layoutHand(handEl, els);
+      layoutHand(handEl, els);
+    }
+  } catch (err) {
+    console.error('[render] failed, keeping UI visible', err);
+    toast('Render error (see console)', 1600);
   }
 }
 
