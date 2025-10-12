@@ -1,12 +1,12 @@
 import { initState, serializePublic, reducer } from "./GameLogic.js";
 
-/* ------- helpers ------- */
+/* ------- safe getters ------- */
 const $    = (id) => document.getElementById(id);
 const set  = (el, fn) => { if (el) fn(el); };
-const IS_TOUCH = matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints > 0;
 
 const startBtn       = $("btn-start-turn");
 const endBtn         = $("btn-end-turn");
+const endBtnBig      = $("btn-end-turn-big");
 const aiSlotsEl      = $("ai-slots");
 const playerSlotsEl  = $("player-slots");
 const flowRowEl      = $("flow-row");
@@ -21,12 +21,14 @@ const aiName         = $("ai-name");
 const playerHearts   = $("player-hearts");
 const aiHearts       = $("ai-hearts");
 
+const countDeck      = $("count-deck");
+const countDiscard   = $("count-discard");
+
 const peekEl         = $("peek-card");
 const zoomOverlayEl  = $("zoom-overlay");
 const zoomCardEl     = $("zoom-card");
 
 let state = initState({});
-let handEls = new Map(); // id -> element (for smooth re-fan)
 
 /* ------- tiny toast ------- */
 let toastEl;
@@ -41,41 +43,6 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ------- builders ------- */
-function buildCardInner(c, opts={}){
-  const { actions="none" } = opts; // "hand" | "flow" | "none"
-  const actionHTML = (()=>{
-    if (actions === "hand"){
-      return `<div class="actions">
-                <button class="btn" data-play="1">Play</button>
-                <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
-              </div>`;
-    }
-    if (actions === "flow"){
-      const price = (typeof c.price === "number") ? c.price : 0;
-      return `<div class="actions"><button class="btn" data-buy="1">Buy (Æ ${price})</button></div>`;
-    }
-    return `<div class="actions" style="opacity:.6"><span>Preview</span></div>`;
-  })();
-
-  return `
-    <div class="title">${c.name}</div>
-    <div class="type">${c.type}</div>
-    <div class="textbox"></div>
-    ${actionHTML}
-  `;
-}
-
-function renderHearts(el, n){
-  if (!el) return;
-  const total = 5;
-  let html = "";
-  for (let i=0;i<total;i++){
-    html += `<span class="heart${i < n ? "" : " empty"}" aria-hidden="true"></span>`;
-  }
-  el.innerHTML = html;
-}
-
 /* ------- hand fanning ------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
@@ -83,7 +50,7 @@ function layoutHand(container, cards) {
   const MAX_ANGLE = 26, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.92, LIFT_BASE = 42;
   const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*3.1, MIN_ANGLE, MAX_ANGLE);
   const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
-  const spread = Math.min(MAX_SPREAD_PX, 900);
+  const spread = Math.min(MAX_SPREAD_PX, 880);
   const stepX = (N===1) ? 0 : spread/(N-1), startX = -spread/2;
 
   cards.forEach((el,i)=>{
@@ -99,11 +66,41 @@ function layoutHand(container, cards) {
   });
 }
 
+/* ------- hearts ------- */
+function renderHearts(el, value, max=5){
+  if (!el) return;
+  el.replaceChildren();
+  const n = Math.max(0, Math.min(max, value|0));
+  for(let i=0;i<max;i++){
+    const d=document.createElement("div");
+    d.className = "heart"+(i < n ? " on" : "");
+    el.appendChild(d);
+  }
+}
+
+/* ------- helpers for building a simple card face ------- */
+function cardHTML(c, opts={}){
+  const price = (typeof c.price === "number") ? c.price : 0;
+  const showBuy = !!opts.showBuy;
+  const showButtons = !!opts.showButtons;
+  return `
+    <div class="title">${c.name}</div>
+    <div class="type">${c.type}</div>
+    <div class="textbox"></div>
+    <div class="actions">
+      ${showButtons ? `
+        <button class="btn" data-play="1">Play</button>
+        <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
+      `:``}
+      ${showBuy ? `<button class="btn" data-buy="1">Buy (Æ ${price})</button>`:``}
+    </div>`;
+}
+
 /* ------- preview / zoom ------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
-function fillCardShell(div, data, actions="none"){
+function fillCardShell(div, data){
   if (!div) return;
-  div.innerHTML = buildCardInner(data, {actions});
+  div.innerHTML = cardHTML(data, { showBuy:false, showButtons:false });
 }
 let longPressTimer = null;
 let pressStart = {x:0, y:0};
@@ -111,8 +108,8 @@ const LONG_PRESS_MS = 350;
 const MOVE_CANCEL_PX = 8;
 
 function attachPeekAndZoom(el, data){
-  if (!IS_TOUCH && peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data, "none"); peekEl.classList.add("show"); });
+  if (peekEl){
+    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
   const onDown = (ev)=>{
@@ -121,7 +118,7 @@ function attachPeekAndZoom(el, data){
     pressStart = { x: touch.clientX, y: touch.clientY };
     longPressTimer = setTimeout(()=>{
       if (zoomOverlayEl && zoomCardEl){
-        fillCardShell(zoomCardEl, data, "none");
+        fillCardShell(zoomCardEl, data);
         zoomOverlayEl.setAttribute("data-open","true");
       }
     }, LONG_PRESS_MS);
@@ -139,10 +136,8 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- touch-only ghost drag ------- */
+/* ------- mobile-friendly drag ghost ------- */
 function installTouchDrag(cardEl, cardData){
-  if (!IS_TOUCH) return;
-
   let dragging = false;
   let ghost = null;
   let start = {x:0,y:0};
@@ -209,15 +204,7 @@ function installTouchDrag(cardEl, cardData){
   window.addEventListener("pointerup",   UP,   {passive:true});
 }
 
-/* ------- actions ------- */
-function playSpellIfPossible(cardId, slotIndex){
-  try{
-    state = reducer(state, { type:'PLAY_CARD_TO_SLOT', player:'player', cardId, slotIndex });
-    render(); // natural re-fan (elements are reused)
-  }catch(err){ toast(err?.message || "Can't play there"); }
-}
-
-/* ------- slots (with preview on placed cards) ------- */
+/* ------- slots ------- */
 function renderSlots(container, slotSnapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -228,17 +215,14 @@ function renderSlots(container, slotSnapshot, isPlayer){
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
 
-    const has = slotSnapshot?.[i]?.hasCard;
-    if (!has){
-      d.textContent = "Spell Slot";
-    } else {
-      const c = slotSnapshot[i].card;
-      const face = document.createElement("article");
-      face.className = "card board placed";
-      face.innerHTML = buildCardInner(c, {actions:"none"});
-      attachPeekAndZoom(face, c);
+    const has = !!(slotSnapshot?.[i]?.hasCard);
+    const cardData = has ? (slotSnapshot[i].card || {name:"Spell", type:"SPELL"}) : null;
+
+    d.textContent = has ? "" : "Spell Slot";
+    if (has){
       d.classList.add("has-card");
-      d.appendChild(face);
+      // Allow peek on slot card
+      attachPeekAndZoom(d, cardData);
     }
 
     if (isPlayer){
@@ -258,18 +242,10 @@ function renderSlots(container, slotSnapshot, isPlayer){
   // glyph bay
   const g = document.createElement("div");
   g.className = "slot glyph";
-  const glyphSnap = slotSnapshot?.[3];
-  if (glyphSnap?.hasCard){
-    const c = glyphSnap.card;
-    const face = document.createElement("article");
-    face.className = "card board placed";
-    face.innerHTML = buildCardInner(c, {actions:"none"});
-    attachPeekAndZoom(face, c);
-    g.classList.add("has-card");
-    g.appendChild(face);
-  }else{
-    g.textContent = "Glyph Slot";
-  }
+  const gHas = !!(slotSnapshot?.[3]?.hasCard);
+  const gCard = gHas ? (slotSnapshot[3].card || {name:"Glyph", type:"GLYPH"}) : null;
+  g.textContent = gHas ? "" : "Glyph Slot";
+  if (gHas){ g.classList.add("has-card"); attachPeekAndZoom(g, gCard); }
 
   if (isPlayer){
     g.addEventListener("dragover", (ev)=> {
@@ -282,30 +258,44 @@ function renderSlots(container, slotSnapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* ------- flow row (full-size cards + preview) ------- */
+/* ------- flow row ------- */
 function renderFlow(flowArray){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li");
     li.className = "flow-card";
+
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-    card.innerHTML = buildCardInner(c, {actions:"flow"});
-    attachPeekAndZoom(card, c);
+    card.innerHTML = cardHTML(c, { showBuy:true });
+
+    // Buy
     card.querySelector("[data-buy]")?.addEventListener("click", ()=>{
       try{
         state = reducer(state, { type:'BUY_FROM_FLOW', player:'player', flowIndex: idx });
         render();
       }catch(err){ toast(err?.message || "Cannot buy"); }
     });
+
+    // Preview on flow card
+    attachPeekAndZoom(card, c);
+
     li.appendChild(card);
     flowRowEl.appendChild(li);
   });
 }
 
-/* ------- main render (reusing hand nodes for smooth fan) ------- */
+/* ------- actions ------- */
+function playSpellIfPossible(cardId, slotIndex){
+  try{
+    state = reducer(state, { type:'PLAY_CARD_TO_SLOT', player:'player', cardId, slotIndex });
+    render();
+  }catch(err){ toast(err?.message || "Can't play there"); }
+}
+
+/* ------- main render ------- */
 function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
@@ -315,51 +305,54 @@ function render(){
   set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
   set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
 
-  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "");
-  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait || el.src || "");
+  // portraits & names (fallbacks kept if engine doesn't supply)
+  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "./weaver_aria.jpg");
+  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait      || el.src || "./weaver_morr.jpg");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-  renderHearts(playerHearts, s.player?.vitality ?? 0);
-  renderHearts(aiHearts,     s.ai?.vitality ?? 0);
+  renderHearts(playerHearts, s.player?.vitality ?? 5, 5);
+  renderHearts(aiHearts,     s.ai?.vitality ?? 5, 5);
+
+  set(countDeck,    el => el.textContent = s.player?.deckCount ?? 0);
+  set(countDiscard, el => el.textContent = s.player?.discardCount ?? 0);
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-  renderFlow(s.flow || []);
 
-  // ---- Hand (diff and reuse for natural animation)
-  const next = (s.player?.hand || []);
-  const seen = new Set();
+  // Flow
+  const flow = Array.isArray(s.flow) ? s.flow : [];
+  renderFlow(flow);
 
-  // create/move in correct order
-  next.forEach(c=>{
-    let el = handEls.get(c.id);
-    if (!el){
-      el = document.createElement("article");
-      el.className = "card"; el.tabIndex = 0;
-      el.draggable = !IS_TOUCH;
+  // Hand
+  if (handEl){
+    handEl.replaceChildren();
+    const els = [];
+    (s.player?.hand || []).forEach(c=>{
+      const el = document.createElement("article");
+      el.className = "card"; el.tabIndex = 0; el.draggable = true;
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-      el.innerHTML = buildCardInner(c, {actions:"hand"});
+      el.innerHTML = cardHTML(c, { showButtons:true });
 
-      if (!IS_TOUCH){
-        el.addEventListener("dragstart", (ev)=>{
-          el.classList.add("dragging");
-          ev.dataTransfer?.setData("text/card-id", c.id);
-          ev.dataTransfer?.setData("text/card-type", c.type);
-          ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
-        });
-        el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
-      }else{
-        installTouchDrag(el, c);
-      }
+      // DnD
+      el.addEventListener("dragstart", (ev)=>{
+        el.classList.add("dragging");
+        ev.dataTransfer?.setData("text/card-id", c.id);
+        ev.dataTransfer?.setData("text/card-type", c.type);
+        ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
+      });
+      el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 
+      installTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
+      // Quick play to first free spell slot
       el.querySelector("[data-play]")?.addEventListener("click", ()=>{
         const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
         if (idx < 0){ toast("No empty spell slot"); return; }
         playSpellIfPossible(c.id, idx);
       });
+      // Discard for Æ
       el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
         try{
           state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
@@ -367,29 +360,21 @@ function render(){
         }catch(err){ toast(err?.message || "Can't discard"); }
       });
 
-      handEls.set(c.id, el);
-    }else{
-      // update inner content if needed (keeps buttons bound if IDs match)
-      // (for now content is static; keeping as-is to preserve listeners)
-    }
-    handEl.appendChild(el);
-    seen.add(c.id);
-  });
-
-  // remove elements no longer in hand
-  for (const [id, el] of handEls.entries()){
-    if (!seen.has(id)){
-      el.remove();
-      handEls.delete(id);
-    }
+      handEl.appendChild(el); els.push(el);
+    });
+    layoutHand(handEl, els);
   }
-
-  layoutHand(handEl, Array.from(handEl.children));
 }
 
 /* wiring */
+function doEndTurn(){
+  state = reducer(state, {type:'END_TURN', player:'player'});
+  render();
+}
 startBtn?.addEventListener("click", ()=>{ state = reducer(state, {type:'START_TURN', player:'player'}); render(); });
-endBtn?.addEventListener("click",   ()=>{ state = reducer(state, {type:'END_TURN',   player:'player'}); render(); });
+endBtn?.addEventListener("click",   doEndTurn);
+endBtnBig?.addEventListener("click", doEndTurn);
+
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 zoomOverlayEl?.addEventListener("click", closeZoom);
