@@ -53,20 +53,15 @@ function renderSlots(container, slotSnapshot, isPlayer){
     if (has) d.classList.add("has-card");
 
     if (isPlayer){
-      d.addEventListener("dragover", (ev)=> {
-        ev.preventDefault(); d.classList.add("drag-over");
-      });
+      // Desktop DnD
+      d.addEventListener("dragover", (ev)=> { ev.preventDefault(); d.classList.add("drag-over"); });
       d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
       d.addEventListener("drop", (ev)=>{
-        ev.preventDefault();
-        d.classList.remove("drag-over");
+        ev.preventDefault(); d.classList.remove("drag-over");
         const cardId = ev.dataTransfer?.getData("text/card-id");
         const cardType = ev.dataTransfer?.getData("text/card-type");
         if (!cardId || cardType !== "SPELL") return;
-        try{
-          playCardToSpellSlot(state, "player", cardId, i);
-          render(); // re-render → hand redistributes
-        }catch(e){ console.warn(e?.message || e); }
+        try{ playCardToSpellSlot(state, "player", cardId, i); render(); }catch(e){ console.warn(e?.message || e); }
       });
     }
     container.appendChild(d);
@@ -82,12 +77,7 @@ function renderSlots(container, slotSnapshot, isPlayer){
       if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
     });
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", (ev)=>{
-      ev.preventDefault(); g.classList.remove("drag-over");
-      const t = ev.dataTransfer?.getData("text/card-type");
-      if (t !== "GLYPH") return;
-      // TODO: playGlyphToSlot(state, "player", cardId)
-    });
+    g.addEventListener("drop", (ev)=>{ g.classList.remove("drag-over"); /* TODO */ });
   }
   container.appendChild(g);
 }
@@ -112,10 +102,8 @@ function renderFlow(nextFlow){
   });
 }
 
-/* ---------- Preview / Zoom helpers (cannot stick) ---------- */
-function closeZoom(){
-  zoomOverlayEl.setAttribute("data-open","false");
-}
+/* ---------- Preview / Zoom helpers ---------- */
+function closeZoom(){ zoomOverlayEl.setAttribute("data-open","false"); }
 function fillCardShell(div, data){
   div.innerHTML = `
     <div class="title">${data.name}</div>
@@ -130,16 +118,11 @@ const LONG_PRESS_MS = 350;
 const MOVE_CANCEL_PX = 8;
 
 function attachPeekAndZoom(el, data){
-  // Hover peek
-  el.addEventListener("mouseenter", ()=>{
-    fillCardShell(peekEl, data);
-    peekEl.classList.add("show");
-  });
-  el.addEventListener("mouseleave", ()=>{
-    peekEl.classList.remove("show");
-  });
+  // Hover peek (desktop)
+  el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
+  el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
 
-  // Long-press 2x
+  // Long-press for zoom
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     pressStart = { x: ev.clientX ?? (ev.touches?.[0]?.clientX ?? 0),
@@ -164,14 +147,74 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
+/* ---------- Touch drag polyfill (iOS/Android) ---------- */
+function installTouchDrag(cardEl, cardData){
+  let dragging = false;
+  let ghost = null;
+  let start = {x:0,y:0};
+  let last = {x:0,y:0};
+
+  function pointer(e){ return { x: e.clientX ?? (e.touches?.[0]?.clientX ?? 0),
+                                y: e.clientY ?? (e.touches?.[0]?.clientY ?? 0) }; }
+
+  const DOWN = (e)=>{
+    // Don’t start if zoom long-press is planned; we’ll cancel long press on move
+    start = last = pointer(e); dragging = false;
+    cardEl.setPointerCapture?.(e.pointerId || 0);
+  };
+
+  const MOVE = (e)=>{
+    const p = pointer(e);
+    if (!dragging){
+      if (Math.hypot(p.x - start.x, p.y - start.y) > 10){
+        dragging = true;
+        // build ghost
+        ghost = cardEl.cloneNode(true);
+        ghost.classList.add("dragging");
+        ghost.style.position = "fixed";
+        ghost.style.left = "0"; ghost.style.top = "0";
+        ghost.style.transform = `translate(${p.x - ghost.clientWidth/2}px, ${p.y - ghost.clientHeight*0.9}px)`;
+        ghost.style.zIndex = "99999";
+        document.body.appendChild(ghost);
+      }
+    }else{
+      ghost.style.transform = `translate(${p.x - ghost.clientWidth/2}px, ${p.y - ghost.clientHeight*0.9}px)`;
+      // slot highlight
+      document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
+      const el = document.elementFromPoint(p.x, p.y);
+      const slot = el?.closest?.(".slot.spell");
+      if (slot) slot.classList.add("drag-over");
+    }
+    last = p;
+  };
+
+  const UP = ()=>{
+    if (dragging && ghost){
+      // drop check
+      const el = document.elementFromPoint(last.x, last.y);
+      const slot = el?.closest?.(".slot.spell");
+      document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
+      if (slot){
+        const idx = Number(slot.dataset.slotIndex || 0);
+        try{ playCardToSpellSlot(state, "player", cardData.id, idx); }catch(e){ console.warn(e?.message||e); }
+      }
+      ghost.remove(); ghost=null;
+      render();
+    }
+    dragging=false;
+  };
+
+  cardEl.addEventListener("pointerdown", DOWN);
+  window.addEventListener("pointermove", MOVE, {passive:true});
+  window.addEventListener("pointerup",   UP,   {passive:true});
+}
+
 /* ---------- Main render ---------- */
 function render(){
-  // Hard close any overlays to prevent stuck dim/blur
-  closeZoom();
-  peekEl.classList.remove("show");
+  // Close overlays so nothing “sticks”
+  closeZoom(); peekEl.classList.remove("show");
 
   const s = serializePublic(state);
-
   turnIndicator.textContent = `Turn ${s.turn} — ${s.activePlayer}`;
   aetherReadout.textContent  = `Æ ${s.player.aether}  ◇ ${s.player.channeled}`;
 
@@ -192,7 +235,6 @@ function render(){
     el.className = "card"; el.tabIndex = 0; el.draggable = true;
     el.dataset.cardId = c.id;
     el.dataset.cardType = c.type;
-
     el.innerHTML = `
       <div class="title">${c.name}</div>
       <div class="type">${c.type}</div>
@@ -202,7 +244,7 @@ function render(){
         <button class="btn">Discard for Æ ${c.aetherValue ?? 0}</button>
       </div>`;
 
-    // drag source
+    // Desktop HTML5 drag
     el.addEventListener("dragstart", (ev)=>{
       el.classList.add("dragging");
       ev.dataTransfer?.setData("text/card-id", c.id);
@@ -211,7 +253,8 @@ function render(){
     });
     el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 
-    // peek + long-press zoom
+    // Touch drag polyfill + peek/zoom
+    installTouchDrag(el, c);
     attachPeekAndZoom(el, c);
 
     handEl.appendChild(el); els.push(el);
@@ -225,5 +268,4 @@ endBtn.addEventListener("click", render);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl.children)));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 zoomOverlayEl.addEventListener("click", closeZoom);
-
 document.addEventListener("DOMContentLoaded", render);
