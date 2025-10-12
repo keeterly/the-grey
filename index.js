@@ -1,9 +1,6 @@
 import { initState, serializePublic, reducer } from "./GameLogic.js";
 
-/* Debug switch (optional) */
-const __DEV = false;
-
-/* ------- safe getters (avoid null errors) ------- */
+/* ------- helpers ------- */
 const $    = (id) => document.getElementById(id);
 const set  = (el, fn) => { if (el) fn(el); };
 
@@ -16,7 +13,6 @@ const handEl         = $("hand");
 const turnIndicator  = $("turn-indicator");
 const aetherReadout  = $("aether-readout");
 
-/* optional (may not exist in your HTML) */
 const playerPortrait = $("player-portrait");
 const aiPortrait     = $("ai-portrait");
 const playerName     = $("player-name");
@@ -28,7 +24,7 @@ const zoomCardEl     = $("zoom-card");
 
 let state = initState({});
 
-/* ------- tiny toast ------- */
+/* ------- toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -41,33 +37,7 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ------- helpers to read snapshot robustly ------- */
-function safeSnap() {
-  let s;
-  try { s = serializePublic(state) || {}; }
-  catch (e) { console.warn('serializePublic failed, using raw state', e); s = {}; }
-  return s;
-}
-function getFlowFromAny(s) {
-  if (Array.isArray(s.flow) && s.flow.length) return s.flow;
-  if (Array.isArray(state.flow) && state.flow.length) return state.flow;
-  if (Array.isArray(state.flowRow) && state.flowRow.length) {
-    const COSTS = [4,3,2,2,2];
-    return state.flowRow.slice(0,5).map((c,i)=> ({...c, price: c.price ?? COSTS[i] ?? 0}));
-  }
-  if (Array.isArray(state.flowDeck) && state.flowDeck.length) {
-    const COSTS = [4,3,2,2,2];
-    return state.flowDeck.slice(0,5).map((c,i)=> ({...c, price: c.price ?? COSTS[i] ?? 0}));
-  }
-  return [];
-}
-function getHandFromAny(s) {
-  if (Array.isArray(s.player?.hand)) return s.player.hand;
-  if (Array.isArray(state.players?.player?.hand)) return state.players.player.hand;
-  return [];
-}
-
-/* ------- hand fanning ------- */
+/* ------- hand fan ------- */
 function clamp(v,min,max){ return Math.max(min, Math.min(max, v)); }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
@@ -90,12 +60,12 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ------- slots ------- */
+/* ------- slot rendering ------- */
 function renderSlots(container, slotSnapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
 
-  // three rectangular spell bays
+  // three spell bays
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -103,33 +73,13 @@ function renderSlots(container, slotSnapshot, isPlayer){
     const has = slotSnapshot?.[i]?.hasCard;
     d.textContent = has ? (slotSnapshot[i].card?.name || "Spell") : "Spell Slot";
     if (has) d.classList.add("has-card");
-
-    if (isPlayer){
-      d.addEventListener("dragover", (ev)=> { ev.preventDefault(); d.classList.add("drag-over"); });
-      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
-      d.addEventListener("drop", (ev)=>{
-        ev.preventDefault(); d.classList.remove("drag-over");
-        const cardId   = ev.dataTransfer?.getData("text/card-id");
-        const cardType = ev.dataTransfer?.getData("text/card-type");
-        if (!cardId || cardType !== "SPELL") return;
-        playSpellIfPossible(cardId, i);
-      });
-    }
     container.appendChild(d);
   }
 
-  // one rectangular glyph bay (format matches spell)
+  // glyph bay
   const g = document.createElement("div");
   g.className = "slot glyph";
   g.textContent = "Glyph Slot";
-  if (isPlayer){
-    g.addEventListener("dragover", (ev)=> {
-      const t = ev.dataTransfer?.getData("text/card-type");
-      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
-    });
-    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", ()=> { g.classList.remove("drag-over"); toast("Set Glyph: not implemented yet"); });
-  }
   container.appendChild(g);
 }
 
@@ -144,19 +94,7 @@ function cardHTML(c){
 function renderFlow(flowArray){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
-
-  const arr = (flowArray || []).slice(0,5);
-  if (!arr.length){
-    // Empty placeholder columns keep the strip height correct
-    for (let i=0;i<5;i++){
-      const li = document.createElement("li");
-      li.className = "flow-card";
-      flowRowEl.appendChild(li);
-    }
-    return;
-  }
-
-  arr.forEach((c, idx)=>{
+  (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li");
     li.className = "flow-card";
     const card = document.createElement("article");
@@ -169,6 +107,7 @@ function renderFlow(flowArray){
         render();
       }catch(err){ toast(err?.message || "Cannot buy"); }
     });
+    attachPeekAndZoom(card, c);
     li.appendChild(card);
     flowRowEl.appendChild(li);
   });
@@ -191,14 +130,19 @@ const LONG_PRESS_MS = 350;
 const MOVE_CANCEL_PX = 8;
 
 function attachPeekAndZoom(el, data){
-  if (peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
-    el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
-  }
+  // Hover peek (desktop)
+  el.addEventListener("mouseenter", ()=>{
+    if (!peekEl) return;
+    fillCardShell(peekEl, data);
+    peekEl.classList.add("show");
+  });
+  el.addEventListener("mouseleave", ()=> peekEl?.classList.remove("show"));
+
+  // Long-press zoom (mobile + desktop)
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
-    const touch = ev.clientX !== undefined ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
-    pressStart = { x: touch.clientX, y: touch.clientY };
+    const t = ("clientX" in ev) ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
+    pressStart = { x: t.clientX, y: t.clientY };
     longPressTimer = setTimeout(()=>{
       if (zoomOverlayEl && zoomCardEl){
         fillCardShell(zoomCardEl, data);
@@ -208,84 +152,100 @@ function attachPeekAndZoom(el, data){
   };
   const clearLP = ()=> { if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
   const onMove = (ev)=>{
-    const t = ev.clientX !== undefined ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
+    const t = ("clientX" in ev) ? ev : (ev.touches?.[0] ?? {clientX:0,clientY:0});
     if (Math.hypot(t.clientX - pressStart.x, t.clientY - pressStart.y) > MOVE_CANCEL_PX) clearLP();
   };
+
   el.addEventListener("pointerdown", onDown, {passive:true});
   el.addEventListener("pointerup", clearLP, {passive:true});
   el.addEventListener("pointerleave", clearLP, {passive:true});
   el.addEventListener("pointercancel", clearLP, {passive:true});
   el.addEventListener("pointermove", onMove, {passive:true});
-  el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- mobile-friendly drag ghost ------- */
-function installTouchDrag(cardEl, cardData){
-  let dragging = false;
-  let ghost = null;
-  let start = {x:0,y:0};
-  let last = {x:0,y:0};
-  let tickPending = false;
+/* ====== High-quality custom drag (no native HTML5 drag) ======
+   - Works smoothly on mobile & desktop
+   - Snap to spell slots; highlights target slot
+================================================================ */
+let slotRects = [];
+function updateSlotRects(){
+  slotRects = Array.from(document.querySelectorAll(".row.player .slot.spell")).map((el,i)=>{
+    const r = el.getBoundingClientRect();
+    return { i, el, r };
+  });
+}
+function pointerPt(e){
+  const t = ("clientX" in e) ? e : (e.touches?.[0] ?? {clientX:0,clientY:0});
+  return { x:t.clientX, y:t.clientY };
+}
 
-  function pt(e){ const t = e.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0}); return {x:t.clientX, y:t.clientY}; }
+function installCardDrag(cardEl, card){
+  // ensure no native selection or drag image
+  cardEl.style.userSelect = "none";
+  cardEl.addEventListener("dragstart", e => e.preventDefault());
 
-  const rAFMove = ()=>{
-    tickPending = false;
+  let ghost=null, dragging=false, last={x:0,y:0}, start={x:0,y:0}, rafPending=false;
+
+  const moveRAF = ()=>{
+    rafPending = false;
     if (ghost) ghost.style.transform = `translate(${last.x - ghost.clientWidth/2}px, ${last.y - ghost.clientHeight*0.9}px)`;
+
+    // hover target highlight
+    document.querySelectorAll(".slot.drag-over").forEach(s=>s.classList.remove("drag-over"));
+    const target = slotRects.find(s =>
+      last.x >= s.r.left && last.x <= s.r.right && last.y >= s.r.top && last.y <= s.r.bottom
+    );
+    if (target) target.el.classList.add("drag-over");
   };
 
-  const DOWN = (e)=>{
-    start = last = pt(e);
+  const onDown = (e)=>{
+    const p = pointerPt(e);
+    start = last = p;
     dragging = false;
     cardEl.setPointerCapture?.(e.pointerId || 0);
+    updateSlotRects();
   };
 
-  const MOVE = (e)=>{
-    const p = pt(e);
-    if (dragging) e.preventDefault();
+  const onMove = (e)=>{
+    const p = pointerPt(e);
 
-    if (!dragging){
-      if (Math.hypot(p.x - start.x, p.y - start.y) > 10){
-        dragging = true;
-        if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; }
-        closeZoom(); // never keep zoom open while dragging
+    // If moving significantly, start drag
+    if (!dragging && Math.hypot(p.x-start.x, p.y-start.y) > 10){
+      dragging = true;
+      if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; }
+      ghost = cardEl.cloneNode(true);
+      ghost.classList.add("dragging");
+      ghost.style.position = "fixed";
+      ghost.style.left = "0"; ghost.style.top = "0";
+      ghost.style.transform = `translate(${p.x - cardEl.clientWidth/2}px, ${p.y - cardEl.clientHeight*0.9}px)`;
+      ghost.style.zIndex = "100000";
+      ghost.style.pointerEvents = "none";
+      document.body.appendChild(ghost);
+    }
 
-        ghost = cardEl.cloneNode(true);
-        ghost.classList.add("dragging");
-        ghost.style.position = "fixed";
-        ghost.style.left = "0"; ghost.style.top = "0";
-        ghost.style.transform = `translate(${p.x - ghost.clientWidth/2}px, ${p.y - ghost.clientHeight*0.9}px)`;
-        ghost.style.zIndex = "99999";
-        document.body.appendChild(ghost);
-      }
-    }else{
+    if (dragging){
+      e.preventDefault();
       last = p;
-      if (!tickPending){ tickPending = true; requestAnimationFrame(rAFMove); }
-
-      document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
-      const el = document.elementFromPoint(p.x, p.y);
-      const slot = el?.closest?.(".slot.spell");
-      if (slot) slot.classList.add("drag-over");
+      if (!rafPending){ rafPending = true; requestAnimationFrame(moveRAF); }
     }
   };
 
-  const UP = ()=>{
-    document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
+  const onUp = ()=>{
+    document.querySelectorAll(".slot.drag-over").forEach(s=>s.classList.remove("drag-over"));
     if (dragging && ghost){
-      const el = document.elementFromPoint(last.x, last.y);
-      const slot = el?.closest?.(".slot.spell");
-      if (slot){
-        const idx = Number(slot.dataset.slotIndex || 0);
-        playSpellIfPossible(cardData.id, idx);
+      const target = slotRects.find(s =>
+        last.x >= s.r.left && last.x <= s.r.right && last.y >= s.r.top && last.y <= s.r.bottom
+      );
+      if (target){
+        playSpellIfPossible(card.id, target.i);
       }
-      ghost.remove(); ghost=null;
-      dragging=false;
+      ghost.remove(); ghost=null; dragging=false;
     }
   };
 
-  cardEl.addEventListener("pointerdown", DOWN);
-  window.addEventListener("pointermove", MOVE, {passive:false});
-  window.addEventListener("pointerup",   UP,   {passive:true});
+  cardEl.addEventListener("pointerdown", onDown, {passive:true});
+  window.addEventListener("pointermove", onMove, {passive:false});
+  window.addEventListener("pointerup",   onUp,   {passive:true});
 }
 
 /* ------- actions ------- */
@@ -298,86 +258,67 @@ function playSpellIfPossible(cardId, slotIndex){
 
 /* ------- main render ------- */
 function render(){
-  try {
-    closeZoom();
-    if (peekEl) peekEl.classList.remove("show");
+  closeZoom();
+  if (peekEl) peekEl.classList.remove("show");
 
-    const s = safeSnap();
-    const flow = getFlowFromAny(s);
-    const hand = getHandFromAny(s);
+  const s = serializePublic(state) || {};
 
-    if (__DEV) {
-      console.debug('[render] turn:', s.turn, 'active:', s.activePlayer);
-      console.debug('[render] flow len:', flow.length, 'hand len:', hand.length);
-    }
+  set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
+  set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
 
-    set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
-    set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
+  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "");
+  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait || el.src || "");
+  set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
+  set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-    set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || el.src || "");
-    set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait || el.src || "");
-    set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
-    set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
+  renderSlots(playerSlotsEl, s.player?.slots || [], true);
+  renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
+  updateSlotRects();
 
-    renderSlots(playerSlotsEl, s.player?.slots || [], true);
-    renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-    renderFlow(flow);
+  renderFlow(s.flow || []);
 
-    // Hand
-    if (handEl){
-      handEl.replaceChildren();
-      const els = [];
-      (hand || []).forEach(c=>{
-        const el = document.createElement("article");
-        el.className = "card"; el.tabIndex = 0; el.draggable = true;
-        el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-        el.innerHTML = `
-          <div class="title">${c.name}</div>
-          <div class="type">${c.type}</div>
-          <div class="textbox"></div>
-          <div class="actions">
-            <button class="btn" data-play="1">Play</button>
-            <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
-          </div>`;
+  // Hand
+  if (handEl){
+    handEl.replaceChildren();
+    const els = [];
+    (s.player?.hand || []).forEach(c=>{
+      const el = document.createElement("article");
+      el.className = "card"; el.tabIndex = 0;
+      el.innerHTML = `
+        <div class="title">${c.name}</div>
+        <div class="type">${c.type}</div>
+        <div class="textbox"></div>
+        <div class="actions">
+          <button class="btn" data-play="1">Play</button>
+          <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
+        </div>`;
 
-        el.addEventListener("dragstart", (ev)=>{
-          closeZoom();
-          el.classList.add("dragging");
-          ev.dataTransfer?.setData("text/card-id", c.id);
-          ev.dataTransfer?.setData("text/card-type", c.type);
-          ev.dataTransfer?.setDragImage(el, el.clientWidth/2, el.clientHeight*0.9);
-        });
-        el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+      // smooth pointer-based drag
+      installCardDrag(el, c);
+      attachPeekAndZoom(el, c);
 
-        installTouchDrag(el, c);
-        attachPeekAndZoom(el, c);
-
-        el.querySelector("[data-play]")?.addEventListener("click", ()=>{
-          const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
-          if (idx < 0){ toast("No empty spell slot"); return; }
-          playSpellIfPossible(c.id, idx);
-        });
-        el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
-          try{
-            state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
-            render();
-          }catch(err){ toast(err?.message || "Can't discard"); }
-        });
-
-        handEl.appendChild(el); els.push(el);
+      el.querySelector("[data-play]")?.addEventListener("click", ()=>{
+        const idx = (s.player?.slots || []).findIndex(x=>!x.hasCard && !x.isGlyph);
+        if (idx < 0){ toast("No empty spell slot"); return; }
+        playSpellIfPossible(c.id, idx);
       });
-      layoutHand(handEl, els);
-    }
-  } catch (err) {
-    console.error('[render] failed, keeping UI visible', err);
-    toast('Render error (see console)', 1600);
+      el.querySelector("[data-discard]")?.addEventListener("click", ()=>{
+        try{
+          state = reducer(state, { type:'DISCARD_FOR_AETHER', player:'player', cardId: c.id });
+          render();
+        }catch(err){ toast(err?.message || "Can't discard"); }
+      });
+
+      handEl.appendChild(el); els.push(el);
+    });
+    layoutHand(handEl, els);
   }
 }
 
 /* wiring */
 startBtn?.addEventListener("click", ()=>{ state = reducer(state, {type:'START_TURN', player:'player'}); render(); });
 endBtn?.addEventListener("click",   ()=>{ state = reducer(state, {type:'END_TURN',   player:'player'}); render(); });
-window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
+window.addEventListener("resize", ()=> { layoutHand(handEl, Array.from(handEl?.children || [])); updateSlotRects(); });
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 zoomOverlayEl?.addEventListener("click", closeZoom);
 document.addEventListener("DOMContentLoaded", render);
