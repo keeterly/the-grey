@@ -22,9 +22,10 @@
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
     <section class="row ai">
-      <figure class="portrait">
+      <figure class="portrait portrait-ai">
         <img id="ai-portrait" alt="Opponent">
         <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
+        <div id="ai-hearts" class="hearts" aria-label="Opponent vitality"></div>
       </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
@@ -38,9 +39,10 @@
     <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-      <figure class="portrait">
+      <figure class="portrait portrait-player">
         <img id="player-portrait" alt="Player">
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
+        <div id="player-hearts" class="hearts" aria-label="Player vitality"></div>
       </figure>
     </section>
 
@@ -53,7 +55,6 @@
   <!-- Peek + Zoom layers -->
   <div id="preview-layer" aria-hidden="true">
     <div id="peek-card" class="card peek" role="presentation"></div>
-
     <div id="zoom-overlay" data-open="false" aria-modal="true" role="dialog">
       <div id="zoom-card" class="card zoom" role="presentation"></div>
     </div>
