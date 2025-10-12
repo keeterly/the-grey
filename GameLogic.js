@@ -1,4 +1,4 @@
-// Minimal engine for v2.6 UI. Keep these exports stable if you swap to your full engine.
+// Minimal engine for v2.5 UI (pure data; easy to swap later)
 
 const FLOW_COSTS = [4,3,2,2,2];
 const STARTING_VITALITY = 5;
@@ -17,7 +17,7 @@ function starterHand() {
   ];
 }
 
-export function initState(opts = {}) {
+export function initState() {
   return {
     turn: 1,
     activePlayer: "player",
@@ -34,13 +34,13 @@ export function initState(opts = {}) {
         aether: 0, channeled: 0,
         deckCount: 10,
         hand: starterHand(),
-        discardCount: 0,
+        discard: [],
         slots: [
-          { hasCard:false, card:null, isGlyph:false },
-          { hasCard:false, card:null, isGlyph:false },
-          { hasCard:false, card:null, isGlyph:false },
-          { hasCard:false, card:null, isGlyph:true  }, // glyph bay
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
         ],
+        glyph: { hasCard:false, card:null },
         weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"" },
       },
       ai: {
@@ -48,13 +48,13 @@ export function initState(opts = {}) {
         aether: 0, channeled: 0,
         deckCount: 10,
         hand: [],
-        discardCount: 0,
+        discard: [],
         slots: [
-          { hasCard:false, card:null, isGlyph:false },
-          { hasCard:false, card:null, isGlyph:false },
-          { hasCard:false, card:null, isGlyph:false },
-          { hasCard:false, card:null, isGlyph:true  },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
         ],
+        glyph: { hasCard:false, card:null },
         weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"" },
       }
     }
@@ -62,59 +62,28 @@ export function initState(opts = {}) {
 }
 
 export function serializePublic(state) {
+  const P = state.players.player;
+  const AI = state.players.ai;
   return {
     turn: state.turn,
     activePlayer: state.activePlayer,
     flow: state.flow,
-    player: state.players.player,
-    ai: state.players.ai,
+    player: {
+      aether: P.aether, channeled: P.channeled,
+      hand: P.hand, slots: [...P.slots, {isGlyph:true, ...P.glyph}],
+      weaver: P.weaver
+    },
+    ai: {
+      aether: AI.aether, channeled: AI.channeled,
+      slots: [...AI.slots, {isGlyph:true, ...AI.glyph}],
+      weaver: AI.weaver
+    }
   };
 }
 
-export function reducer(state, action){
-  switch(action.type){
-    case "START_TURN":
-      state.activePlayer = action.player || "player";
-      // River advance etc could happen here in the full engine
-      return state;
-    case "END_TURN":
-      state.activePlayer = state.activePlayer === "player" ? "ai" : "player";
-      if (state.activePlayer === "player") state.turn += 1;
-      return state;
+/* ------- core moves ------- */
 
-    case "DISCARD_FOR_AETHER": {
-      const P = state.players[action.player];
-      const i = P.hand.findIndex(c=>c.id===action.cardId);
-      if (i<0) throw new Error("card not in hand");
-      const c = P.hand[i];
-      P.hand.splice(i,1);
-      P.aether += (c.aetherValue||0);
-      return state;
-    }
-
-    case "BUY_FROM_FLOW": {
-      const P = state.players[action.player];
-      const card = state.flow[action.flowIndex];
-      if (!card) throw new Error("invalid market index");
-      const cost = card.price||0;
-      if (P.aether + P.channeled < cost) throw new Error("Cannot afford");
-      let pay = cost;
-      if (P.aether >= pay) P.aether -= pay;
-      else { pay -= P.aether; P.aether = 0; P.channeled -= pay; }
-      // add to discard in a real engine; here we just replace with a dummy
-      state.flow[action.flowIndex] = mkCard("f"+Math.random().toString(36).slice(2,7),"New Draw","INSTANT", 2);
-      return state;
-    }
-
-    case "PLAY_CARD_TO_SLOT":
-      return playCardToSpellSlot(state, action.player, action.cardId, action.slotIndex);
-
-    default: return state;
-  }
-}
-
-// drag-to-slot: hand SPELL -> player spell slot (0..2)
-export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
+function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
   if (slotIndex < 0 || slotIndex > 2) throw new Error("spell slot index 0..2");
@@ -130,4 +99,62 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   slot.card = card;
   slot.hasCard = true;
   return state;
+}
+
+function discardForAether(state, playerId, cardId){
+  const P = state.players[playerId];
+  const i = P.hand.findIndex(c => c.id === cardId);
+  if (i < 0) throw new Error("card not in hand");
+  const card = P.hand.splice(i,1)[0];
+  P.aether += (card.aetherValue || 0);
+  P.discard.push(card);
+  return state;
+}
+
+function buyFromFlow(state, playerId, flowIndex){
+  const P = state.players[playerId];
+  const card = state.flow[flowIndex];
+  if (!card) throw new Error("no card in that flow slot");
+  const cost = card.price || 0;
+  if (P.aether + P.channeled < cost) throw new Error("not enough Æ to buy");
+
+  // spend channeled first
+  let pay = cost;
+  const spentCh = Math.min(P.channeled, pay);
+  P.channeled -= spentCh; pay -= spentCh;
+  P.aether -= pay;
+
+  // move to discard
+  P.discard.push({...card, id:`b_${card.id}_${Date.now()}`});
+  return state;
+}
+
+function startTurn(state){
+  state.turn += 0; // (your engine would tick here)
+  return state;
+}
+function endTurn(state){
+  state.turn += 1;
+  state.activePlayer = (state.activePlayer === 'player') ? 'ai' : 'player';
+  return state;
+}
+
+export function reducer(state, action){
+  // mutate a shallow cloned tree to keep things simple here
+  const S = JSON.parse(JSON.stringify(state));
+
+  switch(action.type){
+    case 'PLAY_CARD_TO_SLOT':
+      return playCardToSpellSlot(S, action.player, action.cardId, action.slotIndex);
+    case 'DISCARD_FOR_AETHER':
+      return discardForAether(S, action.player, action.cardId);
+    case 'BUY_FROM_FLOW':
+      return buyFromFlow(S, action.player, action.flowIndex);
+    case 'START_TURN':
+      return startTurn(S);
+    case 'END_TURN':
+      return endTurn(S);
+    default:
+      return state;
+  }
 }
