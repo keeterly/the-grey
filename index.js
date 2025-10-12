@@ -113,15 +113,19 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- mobile-friendly drag ghost (also desktop) ------- */
+/* ------- improved drag (prevents “stuck to cursor”) ------- */
 function installTouchDrag(cardEl, cardData){
+  let armed   = false;   // <— only true after pointerdown on this card
   let dragging = false;
-  let ghost = null;
-  let start = {x:0,y:0};
-  let last = {x:0,y:0};
+  let ghost   = null;
+  let start   = {x:0,y:0};
+  let last    = {x:0,y:0};
   let tickPending = false;
 
-  function pt(e){ const t = e.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0}); return {x:t.clientX, y:t.clientY}; }
+  function pt(e){
+    const t = e.clientX !== undefined ? e : (e.touches?.[0] ?? {clientX:0,clientY:0});
+    return {x:t.clientX, y:t.clientY};
+  }
 
   const rAFMove = ()=>{
     tickPending = false;
@@ -129,12 +133,16 @@ function installTouchDrag(cardEl, cardData){
   };
 
   const DOWN = (e)=>{
+    // Only primary button for mouse drags
+    if (e.pointerType === "mouse" && (e.button !== 0 || e.buttons !== 1)) return;
+    armed = true;
     start = last = pt(e);
     dragging = false;
-    cardEl.setPointerCapture?.(e.pointerId || 0);
+    try { cardEl.setPointerCapture?.(e.pointerId || 0); } catch {}
   };
 
   const MOVE = (e)=>{
+    if (!armed) return;               // <— ignore stray moves when no DOWN
     const p = pt(e);
     if (dragging) e.preventDefault();
 
@@ -162,23 +170,34 @@ function installTouchDrag(cardEl, cardData){
     }
   };
 
-  const UP = ()=>{
+  const cleanupGhost = ()=>{
     document.querySelectorAll(".slot.drag-over").forEach(s => s.classList.remove("drag-over"));
+    if (ghost){ ghost.remove(); ghost=null; }
+    dragging = false;
+    armed = false;
+  };
+
+  const UP = (e)=>{
+    if (!armed) return cleanupGhost();
+    const p = last;
     if (dragging && ghost){
-      const el = document.elementFromPoint(last.x, last.y);
+      const el = document.elementFromPoint(p.x, p.y);
       const slot = el?.closest?.(".slot.spell");
       if (slot){
         const idx = Number(slot.dataset.slotIndex || 0);
         playSpellIfPossible(cardData.id, idx);
       }
-      ghost.remove(); ghost=null;
-      dragging=false;
     }
+    try { cardEl.releasePointerCapture?.(e.pointerId || 0); } catch {}
+    cleanupGhost();
   };
 
   cardEl.addEventListener("pointerdown", DOWN);
   window.addEventListener("pointermove", MOVE, {passive:false});
   window.addEventListener("pointerup",   UP,   {passive:true});
+  window.addEventListener("pointercancel", UP, {passive:true});
+  window.addEventListener("blur", cleanupGhost);
+  window.addEventListener("scroll", cleanupGhost, {passive:true});
 }
 
 /* ------- slots render ------- */
@@ -206,7 +225,6 @@ function renderSlots(container, slotSnapshot, isPlayer){
       mini.className = "card slot-card";
       mini.innerHTML = cardHTML(slotSnapshot[i].card);
       attachPeekAndZoom(mini, slotSnapshot[i].card);
-      // anchor in top-left of slot
       mini.style.position = "absolute";
       mini.style.left = "0";
       mini.style.top = "0";
@@ -256,7 +274,6 @@ function renderFlow(flowArray){
         render();
       }catch(err){ toast(err?.message || "Cannot buy"); }
     });
-
     attachPeekAndZoom(card, c);
     li.appendChild(card);
     flowRowEl.appendChild(li);
@@ -293,7 +310,6 @@ function render(){
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-
   renderFlow(Array.isArray(s.flow) ? s.flow : []);
 
   // Hand
@@ -311,7 +327,6 @@ function render(){
           <button class="btn" data-discard="1">Discard for Æ ${c.aetherValue ?? 0}</button>
         </div>`;
 
-      // drag API for desktop
       el.addEventListener("dragstart", (ev)=>{
         el.classList.add("dragging");
         ev.dataTransfer?.setData("text/card-id", c.id);
@@ -320,9 +335,7 @@ function render(){
       });
       el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 
-      // touch/desktop pointer drag
       installTouchDrag(el, c);
-
       attachPeekAndZoom(el, c);
 
       el.querySelector("[data-play]")?.addEventListener("click", ()=>{
