@@ -1,4 +1,5 @@
 Base Deck Card List:
+
 Shared starting deck for all Spellweavers. Focuses on tension between playing for effect or discarding for Aether.
 
 Name: Pulse of the Grey
