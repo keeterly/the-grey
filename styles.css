@@ -4,9 +4,10 @@
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
 
-  /* Board-only card size (slots & aetherflow). Defaults to base on desktop. */
+  /* Board-only sizes (slots & aetherflow). Defaults to base on desktop. */
   --card-w-board: var(--card-w);
   --card-h-board: var(--card-h);
+  --card-radius-board: var(--card-radius);
 
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
@@ -57,7 +58,7 @@ html,body{height:100%}
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
 
-/* ===== Slot rows ===== */
+/* ===== Slot rows (use board-only size) ===== */
 #ai-slots.slot-row, #player-slots.slot-row{
   display:grid !important;
   grid-auto-flow:column !important;
@@ -67,24 +68,26 @@ html,body{height:100%}
   max-width:96vw; place-items:center; margin-inline:auto;
 }
 
-/* Slots */
+/* Slots (use board-only size) */
 .slot{
-  width:var(--card-w-board); height:var(--card-h-board); border-radius:var(--card-radius);
+  width:var(--card-w-board); height:var(--card-h-board);
+  border-radius:var(--card-radius-board);
   background:linear-gradient(180deg,#2b231b,#1a1511); border:1px solid #5a4b37;
   box-shadow:inset 0 0 18px rgba(0,0,0,.6), 0 8px 18px rgba(0,0,0,.35);
   display:grid;place-items:center;color:var(--muted);text-shadow:0 2px 10px #000; position:relative;
   user-select:none; -webkit-user-select:none; -webkit-touch-callout:none;
 }
-.slot::after{content:"";position:absolute;inset:10px;border-radius:calc(var(--card-radius) - 6px);border:1px solid #4a3d2f33}
+.slot::after{content:"";position:absolute;inset:10px;border-radius:calc(var(--card-radius-board) - 6px);border:1px solid #4a3d2f33}
 .slot.drag-over{outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45))}
 
-/* ===== Flow ===== */
+/* ===== Flow (use board-only size) ===== */
 .flow-wrap{display:flex; align-items:flex-start; gap:18px;}
 .flow-title-rail{width:36px; display:flex; justify-content:center;}
 .flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; margin-top:6px; user-select:none}
 #flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
   width:calc(var(--card-w-board)*5 + 14px*4 + 24px) !important;
+  max-width:98vw; /* safety clamp on small screens */
   display:grid !important; grid-template-columns:repeat(5, var(--card-w-board)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
@@ -92,6 +95,7 @@ html,body{height:100%}
 .flow-card .card{
   position:relative;left:0;top:0;transform:none;
   width:var(--card-w-board); height:var(--card-h-board);
+  border-radius:var(--card-radius-board);
 }
 .flow-card .price-label{display:block;text-align:center;margin-top:6px;font-weight:600;opacity:.92}
 
@@ -102,7 +106,7 @@ html,body{height:100%}
   width:min(1200px, 96vw); height:24vh; perspective:1200px;
   pointer-events:auto; /* drag start */
 }
-/* while dragging: let events pass through to slots below (mobile + desktop) */
+/* while dragging: let events pass to slots */
 .dragging-mode .hand{ pointer-events:none; }
 
 /* ===== Card (base size for hand & general .card UI) ===== */
@@ -117,7 +121,7 @@ html,body{height:100%}
 }
 .card *{user-select:none; -webkit-user-select:none; -webkit-touch-callout:none}
 
-/* Uniform drag glow (desktop & touch) */
+/* Uniform drag glow */
 .card.dragging,
 .card.touch-dragging{
   opacity:.98;
@@ -184,39 +188,47 @@ html,body{height:100%}
 .toast.show{opacity:1}
 
 /* ======= PHONE LANDSCAPE TUNING =======
-   Shrink BOARD (opponent/flow/player) by ~50% (hand stays full),
-   tighten text, gaps, portraits, HUD, and hide vertical rail.       */
+   Make boards a bit bigger (~60%), reduce corner radius,
+   tighten gaps, avoid overlap, keep hand readable.        */
 @media (orientation: landscape) and (max-height: 480px) {
   :root{
-    --card-w-board: calc(var(--card-w) * 0.5);
-    --card-h-board: calc(var(--card-h) * 0.5);
+    /* Slightly larger than before (0.6 instead of 0.5) */
+    --card-w-board: calc(var(--card-w) * 0.6);
+    --card-h-board: calc(var(--card-h) * 0.6);
+    /* Less curvy corners on scaled-down board cards */
+    --card-radius-board: calc(var(--card-radius) * 0.6);
   }
 
-  /* Tighter overall grid and more room for the hand */
+  /* Overall grid uses a bit less bottom padding to free room
+     for slightly larger boards without colliding with the hand */
   #board-grid.grid{
-    row-gap:16px;
-    padding:8px 10px calc(24vh + 8px);
+    row-gap:14px;
+    padding:8px 10px calc(22vh + 8px);
   }
 
-  /* Hide the vertical "AETHER FLOW" rail to free width */
+  /* Hide the vertical "AETHER FLOW" rail to reclaim width */
   .flow-title-rail{ display:none; }
 
-  /* Slot rows & flow: smaller gaps/padding */
-  #ai-slots.slot-row, #player-slots.slot-row{ gap:10px !important; }
-  #flow-row.flow-row{ gap:8px !important; padding:8px; }
+  /* Slot rows & flow tighter spacing so the larger cards still fit */
+  #ai-slots.slot-row, #player-slots.slot-row{ gap:8px !important; }
+  #flow-row.flow-row{
+    gap:8px !important; padding:8px;
+    /* cap total width so it won't spill under the HUD */
+    max-width:96vw;
+  }
 
   /* Board text scaling (slots & flow cards only) */
-  .slot{ font-size:0.78rem; }
-  .slot .title{ padding:6px 6px 0 6px; font-size:0.88rem; }
-  .slot .type{ padding:0 6px 3px 6px; font-size:0.72rem; opacity:.78; }
-  .slot .textbox{ padding:0 6px 6px 6px; font-size:0.78rem; line-height:1.14; }
+  .slot{ font-size:0.82rem; }
+  .slot .title{ padding:7px 7px 0 7px; font-size:0.92rem; }
+  .slot .type{ padding:0 7px 3px 7px; font-size:0.76rem; opacity:.78; }
+  .slot .textbox{ padding:0 7px 7px 7px; font-size:0.84rem; line-height:1.16; }
 
-  .flow-card .card .title{ padding:8px 8px 0 8px; font-size:0.88rem; }
-  .flow-card .card .type{ padding:0 8px 3px 8px; font-size:0.72rem; }
-  .flow-card .card .textbox{ padding:0 8px 8px 8px; font-size:0.78rem; line-height:1.14; }
+  .flow-card .card .title{ padding:7px 7px 0 7px; font-size:0.92rem; }
+  .flow-card .card .type{ padding:0 7px 3px 7px; font-size:0.76rem; }
+  .flow-card .card .textbox{ padding:0 7px 7px 7px; font-size:0.84rem; line-height:1.16; }
   .flow-card .price-label{ font-size:0.86rem; margin-top:4px; }
 
-  /* Chips & pips smaller on BOARD only */
+  /* Chips & pips slightly smaller on BOARD only */
   .slot .pip{ width:7px; height:7px; }
   .slot .pip-track{ bottom:6px; gap:5px; }
   .slot .aether-chip svg{ width:14px; height:14px; }
@@ -226,18 +238,18 @@ html,body{height:100%}
   .flow-card .card .aether-chip svg{ width:14px; height:14px; }
   .flow-card .card .aether-chip .val{ font-size:11px; }
 
-  /* Portraits smaller + tucked into corners */
-  .portrait img{ width:64px; height:64px; }
-  .row.player .portrait{ left:10px; bottom:10px; }
-  .row.ai     .portrait{ right:10px; top:10px; }
-  .portrait{ font-size:.95rem; }
+  /* Portraits smaller + tucked further into corners */
+  .portrait img{ width:60px; height:60px; }
+  .row.player .portrait{ left:8px; bottom:8px; }
+  .row.ai     .portrait{ right:8px; top:8px; }
+  .portrait{ font-size:.92rem; }
 
-  /* HUD smaller & nudged to edge so it doesn’t overlap flow */
-  .hud{ right:8px; bottom:12vh; gap:10px; }
-  .hud-btn{ width:56px; height:56px; border-radius:10px; }
+  /* HUD smaller & nudged to the edge to avoid overlap */
+  .hud{ right:6px; bottom:12vh; gap:8px; }
+  .hud-btn{ width:54px; height:54px; border-radius:10px; }
   .badge{ right:5px; bottom:5px; min-width:18px; height:18px; font-size:11px; line-height:16px; }
 
-  /* Keep the hand readable but slightly tighter vertically */
-  .hand-wrap{ height:24vh; }
-  .hand{ bottom:1vh; height:22vh; }
+  /* Keep the hand readable but a bit tighter vertically */
+  .hand-wrap{ height:22vh; }
+  .hand{ bottom:1vh; height:21vh; }
 }
