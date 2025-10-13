@@ -9,11 +9,12 @@ const aiSlotsEl     = $("ai-slots");
 const playerSlotsEl = $("player-slots");
 const flowRowEl     = $("flow-row");
 const handEl        = $("hand");
+const aetherReadout = $("aether-readout");
 const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
-const aetherReadout = $("aether-readout");
+
 const endHudBtn     = $("btn-endturn-hud");
 const btnZoom       = $("btn-board-zoom");
 const btnLayout     = $("btn-layout-toggle");
@@ -65,9 +66,8 @@ function fillCardShell(div, data){
   if (!div) return;
   div.innerHTML = `
     <div class="title">${data.name}</div>
-    <div class="type">${data.type}${data.price?` — Cost Æ ${data.price}`:""}</div>
+    <div class="type">${data.type}</div>
     <div class="textbox">${data.text||""}</div>
-    ${data.costGems ? `<div class="cost">${data.costGems}</div>` : ""}
   `;
 }
 let longPressTimer=null, pressStart={x:0,y:0};
@@ -179,17 +179,28 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* ------- flow ------- */
-function cardHTML(c){
-  const price = (typeof c.price === "number") ? c.price : 0;
-  const gems = "🜂".repeat(price);
+/* ------- Flow rendering ------- */
+function gemChipHTML(val){
   return `
-    <div class="title">${c.name}</div>
-    <div class="type">${c.type}${price?` — Cost Æ ${price}`:""}</div>
-    <div class="textbox">${c.text||""}</div>
-    <div class="cost">${gems}</div>
+    <div class="aether-chip" aria-label="Aether cost">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/>
+      </svg>
+      <span class="val">${val|0}</span>
+    </div>
   `;
 }
+
+function flowCardHTML(c){
+  const price = (typeof c.price === "number") ? c.price : 0;
+  return `
+    <div class="title">${c.name}</div>
+    <div class="type">${c.type}</div>
+    <div class="textbox">${c.text||""}</div>
+    ${gemChipHTML(price)}
+  `;
+}
+
 function renderFlow(flowArray){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
@@ -198,13 +209,20 @@ function renderFlow(flowArray){
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
-    card.setAttribute("data-price-label", `Æ ${c.price || 0} to buy`);
-    attachPeekAndZoom(card, {...c, costGems:"🜂".repeat(c.price||0) });
+    card.innerHTML = flowCardHTML(c);
+    attachPeekAndZoom(card, {...c });
 
+    // click/tap to buy if enough Æ
     card.addEventListener("click", ()=>{
-      try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
-      catch(err){ toast(err?.message || "Cannot buy"); }
+      try{
+        const before = state.players.player.aether;
+        state = buyFromFlow(state, "player", idx);
+        const after  = state.players.player.aether;
+        render();
+        toast(after < before ? `Bought for Æ${(before-after)}` : "Bought");
+      }catch(err){
+        toast(err?.message || "Cannot buy");
+      }
     });
 
     li.appendChild(card);
@@ -275,7 +293,7 @@ function render(){
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
       const intrinsicCost = (c.name==="Greyfire Bloom" || c.name==="Surge of Ash" || c.name==="Veil of Dust") ? 1 : 0;
-      const costGems = "🜂".repeat(intrinsicCost);
+      const costGems = "🜂".repeat(intrinsicCost); // retained for now (hand visual)
 
       el.innerHTML = `
         <div class="title">${c.name}</div>
