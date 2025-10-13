@@ -3,13 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.5 board (classic aesthetic + discard drag)</title>
+  <title>The Grey — classic aesthetic + drag + badges</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
-  <!-- topbar removed -->
-
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
     <section class="row ai">
@@ -40,7 +38,7 @@
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
         <div class="hearts" id="player-hearts"></div>
         <div class="trance" id="player-trance">Trance 0</div>
-        <div class="aether-display" aria-label="Aether">
+        <div id="player-aether" class="aether-display" aria-label="Aether">
           <svg class="gem" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z" />
           </svg>
@@ -76,6 +74,7 @@
         <rect x="12" y="8" width="28" height="36" rx="3"></rect>
         <rect x="16" y="10" width="28" height="36" rx="3"></rect>
       </svg>
+      <span id="deck-count" class="badge" aria-label="Deck count">0</span>
     </button>
   </aside>
 
