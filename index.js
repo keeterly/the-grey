@@ -13,12 +13,14 @@ const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
-const playerHearts  = $("player-hearts");
-const aiHearts      = $("ai-hearts");
+const playerAetherVal = $("player-aether-val");
 
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
+
+const hudDiscard    = $("btn-discard-hud");
+const hudEnd        = $("btn-endturn-hud");
 
 let state = initState({});
 
@@ -65,7 +67,6 @@ function fillCardShell(div, data){
     <div class="title">${data.name}</div>
     <div class="type">${data.type}${data.price?` — Cost Æ ${data.price}`:""}</div>
     <div class="textbox">${data.text||""}</div>
-    ${data.costGems ? `<div class="cost">${data.costGems}</div>` : ""}
     ${aetherChipHTML(getAetherValue(data))}
     ${pipTrackHTML(getPipRequirement(data), data.currentPips || 0)}
   `;
@@ -103,9 +104,8 @@ function attachPeekAndZoom(el, data){
 }
 
 /* ------- adornments ------- */
-function getAetherValue(card){
-  return (typeof card?.aetherValue === "number") ? card.aetherValue : 0;
-}
+function gemSVG(){ return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z"/></svg>`; }
+function getAetherValue(card){ return (typeof card?.aetherValue === "number") ? card.aetherValue : 0; }
 function getPipRequirement(card){
   const t = (card?.text || "").toString();
   const m = t.match(/Advance\s+(\d+)/i);
@@ -124,9 +124,26 @@ function pipTrackHTML(req, cur=0){
 }
 function aetherChipHTML(val){
   if (!val || val < 1) return "";
-  return `<div class="aether-chip" title="Aether gained when discarded">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3L22 21H2L12 3Z" fill="currentColor"/></svg>
-    <span class="val">${val}</span></div>`;
+  return `<div class="aether-chip" title="Aether gained when discarded">${gemSVG()}<span class="val">${val}</span></div>`;
+}
+
+/* ------- robust drag helpers (Safari/Firefox friendly) ------- */
+function makeDraggableCard(el, data){
+  el.draggable = true;
+  el.addEventListener("dragstart", (ev)=>{
+    el.classList.add("dragging");
+    // browsers expect at least one 'text/plain' payload to enable DnD
+    ev.dataTransfer?.setData("text/plain", `card:${data.id}:${data.type}`);
+    ev.dataTransfer?.setData("text/card-id", data.id);
+    ev.dataTransfer?.setData("text/card-type", data.type);
+    if (ev.dataTransfer){ ev.dataTransfer.effectAllowed = "move"; ev.dataTransfer.dropEffect = "move"; }
+    const ghost = el.cloneNode(true); // nicer ghost
+    ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
+    document.body.appendChild(ghost);
+    ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
+    setTimeout(()=> ghost.remove(), 0);
+  });
+  el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
 }
 
 /* ------- slots (with glyph support) ------- */
@@ -134,12 +151,14 @@ function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
+
   // 3 spell + 1 glyph
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
     const slot = safe[i] || {hasCard:false, card:null};
+
     if (slot.hasCard && slot.card){
       d.innerHTML = `
         <div class="title">${slot.card.name}</div>
@@ -149,20 +168,22 @@ function renderSlots(container, snapshot, isPlayer){
         ${pipTrackHTML(getPipRequirement(slot.card), slot.card.currentPips || 0)}
       `;
       attachPeekAndZoom(d, slot.card);
-    }else{
+    } else {
       d.textContent = "Spell Slot";
     }
 
     if (isPlayer){
-      d.addEventListener("dragover", (ev)=> { 
-        const t = ev.dataTransfer?.getData("text/card-type");
-        if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }
+      d.addEventListener("dragover", (ev)=>{
+        const plain = ev.dataTransfer?.getData("text/plain") || "";
+        const t = ev.dataTransfer?.getData("text/card-type") || (plain.startsWith("card:") ? plain.split(":")[2] : "");
+        if (t === "SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }
       });
       d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
       d.addEventListener("drop", (ev)=>{
         ev.preventDefault(); d.classList.remove("drag-over");
-        const cardId   = ev.dataTransfer?.getData("text/card-id");
-        const cardType = ev.dataTransfer?.getData("text/card-type");
+        const plain = ev.dataTransfer?.getData("text/plain") || "";
+        const cardId   = ev.dataTransfer?.getData("text/card-id") || (plain.startsWith("card:") ? plain.split(":")[1] : "");
+        const cardType = ev.dataTransfer?.getData("text/card-type") || (plain.startsWith("card:") ? plain.split(":")[2] : "");
         if (!cardId || cardType !== "SPELL") return;
         try { state = playCardToSpellSlot(state, "player", cardId, i); render(); }
         catch(err){ toast(err?.message || "Can't play"); }
@@ -170,6 +191,7 @@ function renderSlots(container, snapshot, isPlayer){
     }
     container.appendChild(d);
   }
+
   // glyph
   const g = document.createElement("div");
   g.className = "slot glyph";
@@ -180,21 +202,23 @@ function renderSlots(container, snapshot, isPlayer){
       <div class="type">${glyphSlot.card.type}</div>
       <div class="textbox">${glyphSlot.card.text||""}</div>`;
     attachPeekAndZoom(g, glyphSlot.card);
-  }else{
+  } else {
     g.textContent = "Glyph Slot";
   }
 
   if (isPlayer){
-    g.addEventListener("dragover", (ev)=> {
-      const t = ev.dataTransfer?.getData("text/card-type");
+    g.addEventListener("dragover", (ev)=>{
+      const plain = ev.dataTransfer?.getData("text/plain") || "";
+      const t = ev.dataTransfer?.getData("text/card-type") || (plain.startsWith("card:") ? plain.split(":")[2] : "");
       if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
     });
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", (ev)=>{ 
-      ev.preventDefault(); g.classList.remove("drag-over"); 
-      const cardId = ev.dataTransfer?.getData("text/card-id");
-      const t = ev.dataTransfer?.getData("text/card-type");
-      if (t!=="GLYPH") return;
+    g.addEventListener("drop", (ev)=>{
+      ev.preventDefault(); g.classList.remove("drag-over");
+      const plain = ev.dataTransfer?.getData("text/plain") || "";
+      const cardId = ev.dataTransfer?.getData("text/card-id") || (plain.startsWith("card:") ? plain.split(":")[1] : "");
+      const t = ev.dataTransfer?.getData("text/card-type") || (plain.startsWith("card:") ? plain.split(":")[2] : "");
+      if (t !== "GLYPH") return;
       try { state = setGlyphFromHand(state, "player", cardId); render(); }
       catch(err){ toast(err?.message || "Can't set glyph"); }
     });
@@ -202,7 +226,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* ------- flow ------- */
+/* ------- flow (market) ------- */
 function cardHTML(c){
   const price = (typeof c.price === "number") ? c.price : 0;
   const gems = "🜂".repeat(price);
@@ -226,22 +250,44 @@ function renderFlow(flowArray){
     card.innerHTML = cardHTML(c);
     attachPeekAndZoom(card, {...c, costGems:"🜂".repeat(c.price||0) });
 
-    // click to buy (still useful)
-    card.addEventListener("click", (e)=>{
-      if ((e.target.closest(".card"))){
-        try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
-        catch(err){ toast(err?.message || "Cannot buy"); }
-      }
+    card.addEventListener("click", ()=>{
+      try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
+      catch(err){ toast(err?.message || "Cannot buy"); }
     });
 
     li.appendChild(card);
-    // numeric cost label beneath each card
     const priceLabel = document.createElement("div");
     priceLabel.className = "price-label";
     priceLabel.textContent = `Æ ${c.price ?? 0} to buy`;
     li.appendChild(priceLabel);
     flowRowEl.appendChild(li);
   });
+}
+
+/* ------- discard drop ------- */
+function handleDiscardDragOver(ev){
+  const plain = ev.dataTransfer?.getData("text/plain") || "";
+  const has = plain.startsWith("card:") || !!ev.dataTransfer?.getData("text/card-id");
+  if (has){ ev.preventDefault(); hudDiscard.classList.add("drop-ready"); }
+}
+function handleDiscardLeave(){ hudDiscard.classList.remove("drop-ready"); }
+function handleDiscardDrop(ev){
+  ev.preventDefault();
+  hudDiscard.classList.remove("drop-ready");
+  const plain = ev.dataTransfer?.getData("text/plain") || "";
+  const cardId = ev.dataTransfer?.getData("text/card-id") || (plain.startsWith("card:") ? plain.split(":")[1] : "");
+  if (!cardId) return;
+
+  const hand = state.players?.player?.hand || [];
+  const i = hand.findIndex(c => c.id === cardId);
+  if (i < 0){ toast("Card not in hand"); return; }
+  const card = hand[i];
+  const gain = getAetherValue(card);
+  hand.splice(i,1);
+  state.players.player.discardCount = (state.players.player.discardCount|0) + 1;
+  state.players.player.aether = (state.players.player.aether|0) + (gain|0);
+  toast(gain ? `Discarded for Æ${gain}` : "Discarded");
+  render();
 }
 
 /* ------- render ------- */
@@ -255,7 +301,7 @@ function ensureSafetyShape(s){
       {id:"f5",name:"Obsidian Vault",type:"SPELL",price:2,text:"Spell"},
     ];
   }
-  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[]};
+  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],weaver:{}};
   if (!Array.isArray(s.player.hand) || s.player.hand.length===0){
     s.player.hand = [
       {id:"h1",name:"Pulse of the Grey",type:"SPELL",aetherValue:0,text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1."},
@@ -284,12 +330,13 @@ function render(){
   set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
+  set(playerAetherVal, el=> el.textContent = String(s.player?.aether ?? 0));
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
   renderFlow(s.flow);
 
-  // hand (show intrinsic costs for Bloom/Instants)
+  // hand
   if (handEl){
     handEl.replaceChildren();
     const els = [];
@@ -298,33 +345,16 @@ function render(){
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
-      const intrinsicCost = (c.name==="Greyfire Bloom" || c.name==="Surge of Ash" || c.name==="Veil of Dust") ? 1 : 0;
-      const costGems = "🜂".repeat(intrinsicCost);
-
       el.innerHTML = `
         <div class="title">${c.name}</div>
         <div class="type">${c.type}</div>
         <div class="textbox">${c.text||""}</div>
-        ${intrinsicCost? `<div class="cost" style="right:10px; left:auto;">${costGems}</div>` : ""}
         ${aetherChipHTML(getAetherValue(c))}
         ${pipTrackHTML(getPipRequirement(c), c.currentPips || 0)}
       `;
 
-      // drag + peek
-      el.draggable = true;
-      el.addEventListener("dragstart", (ev)=>{
-        el.classList.add("dragging");
-        ev.dataTransfer?.setData("text/card-id", c.id);
-        ev.dataTransfer?.setData("text/card-type", c.type);
-        const ghost = el.cloneNode(true);
-        ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
-        document.body.appendChild(ghost);
-        ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
-        setTimeout(()=> ghost.remove(), 0);
-      });
-      el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
-
-      attachPeekAndZoom(el, {...c, costGems});
+      makeDraggableCard(el, c);
+      attachPeekAndZoom(el, c);
       handEl.appendChild(el); els.push(el);
     });
     layoutHand(handEl, els);
@@ -332,6 +362,12 @@ function render(){
 }
 
 /* wiring */
+hudDiscard?.addEventListener("dragenter", handleDiscardDragOver);
+hudDiscard?.addEventListener("dragover", handleDiscardDragOver);
+hudDiscard?.addEventListener("dragleave", handleDiscardLeave);
+hudDiscard?.addEventListener("drop", handleDiscardDrop);
+
+hudEnd?.addEventListener("click", ()=> toast("End turn (stub)"));
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
