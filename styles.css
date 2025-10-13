@@ -1,10 +1,8 @@
 :root{
-  /* Base card size (used by HAND and general card UI) */
   --card-w: clamp(102px, 12.375vw, 150px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
 
-  /* Board-only sizes (slots & flow). Defaults to base on desktop. */
   --card-w-board: var(--card-w);
   --card-h-board: var(--card-h);
   --card-radius-board: var(--card-radius);
@@ -13,9 +11,7 @@
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gem-blue:#7eb6ff;
 
-  /* Layout knobs (used in phone-landscape) */
-  --flow-rail-pad: 8px;                /* padding inside the rail */
-  /* width will be recomputed in media queries from board card size */
+  --flow-rail-pad: 8px;
   --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
 }
 
@@ -30,7 +26,6 @@ html,body{height:100%}
   overflow:hidden;
 }
 
-/* ===== Grid (AI ▸ FLOW ▸ Player) ===== */
 #board-grid.grid{
   display:grid !important;
   grid-template-rows:auto auto auto !important;
@@ -38,14 +33,9 @@ html,body{height:100%}
   height:100%;
   padding:12px 16px calc(26vh + 12px);
   align-content:space-evenly;
-  grid-template-areas:
-    "ai"
-    "flow"
-    "player";
+  grid-template-areas:"ai" "flow" "player";
 }
-#row-ai    { grid-area: ai; }
-#row-flow  { grid-area: flow; }
-#row-player{ grid-area: player; }
+#row-ai{grid-area:ai} #row-flow{grid-area:flow} #row-player{grid-area:player}
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0; position:relative}
 
 /* Portraits */
@@ -55,28 +45,20 @@ html,body{height:100%}
 .hearts::before{content:"\25CF \25CF \25CF \25CF \25CF"; letter-spacing:6px; color:#e8a2a2; text-shadow:0 0 6px #000}
 .trance{margin-top:2px;opacity:.8;font-size:.9rem}
 
-/* Player aether display */
+/* Aether readout */
 .aether-display{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{width:16px;height:16px;filter:drop-shadow(0 0 6px rgba(126,182,255,.45));fill:var(--gem-blue)}
-@keyframes gem-flash{
-  0%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}
-  25%{filter:drop-shadow(0 0 14px rgba(126,182,255,.95)) brightness(1.7); transform:scale(1.18)}
-  55%{filter:drop-shadow(0 0 10px rgba(126,182,255,.65)) brightness(1.35); transform:scale(1.06)}
-  100%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}
-}
+@keyframes gem-flash{0%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}25%{filter:drop-shadow(0 0 14px rgba(126,182,255,.95)) brightness(1.7); transform:scale(1.18)}55%{filter:drop-shadow(0 0 10px rgba(126,182,255,.65)) brightness(1.35); transform:scale(1.06)}100%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}}
 .aether-display.flash{animation:gem-flash 560ms ease-out}
 
-/* Corner placement */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
 
-/* ===== Slot rows (board size) ===== */
-#ai-slots.slot-row, #player-slots.slot-row{
-  display:grid !important;
-  grid-auto-flow:column !important;
-  grid-template-columns:repeat(4, var(--card-w-board)) !important;
-  gap:16px !important;
-  width:calc(var(--card-w-board)*4 + 16px*3) !important;
+/* Board slot rows */
+#ai-slots.slot-row,#player-slots.slot-row{
+  display:grid !important; grid-auto-flow:column !important;
+  grid-template-columns:repeat(4,var(--card-w-board)) !important;
+  gap:16px !important; width:calc(var(--card-w-board)*4 + 16px*3) !important;
   max-width:96vw; place-items:center; margin-inline:auto;
 }
 
@@ -92,10 +74,11 @@ html,body{height:100%}
 .slot::after{content:"";position:absolute;inset:10px;border-radius:calc(var(--card-radius-board) - 6px);border:1px solid #4a3d2f33}
 .slot.drag-over{outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45))}
 
-/* ===== Flow (board size) ===== */
+/* Flow */
 .flow-wrap{display:flex; align-items:flex-start; gap:18px;}
 .flow-title-rail{width:36px; display:flex; justify-content:center;}
 .flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; margin-top:6px; user-select:none}
+
 #flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
   width:calc(var(--card-w-board)*5 + 14px*4 + 24px) !important;
@@ -103,22 +86,18 @@ html,body{height:100%}
   display:grid !important; grid-template-columns:repeat(5, var(--card-w-board)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
+
 .flow-card{display:block;width:var(--card-w-board);height:var(--card-h-board)}
-.flow-card .card{
-  position:relative;left:0;top:0;transform:none;
-  width:var(--card-w-board); height:var(--card-h-board); border-radius:var(--card-radius-board);
-}
-.flow-card .price-label{display:block;text-align:center;margin-top:6px;font-weight:600;opacity:.92}
+.flow-card .card{position:relative;left:0;top:0;transform:none;width:var(--card-w-board);height:var(--card-h-board);border-radius:var(--card-radius-board)}
+/* (no triangles, no under-card labels) */
+.flow-card .price-label{display:none}
 
-/* ===== Hand (full size) ===== */
+/* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
-.hand{
-  position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
-  width:min(1200px, 96vw); height:24vh; perspective:1200px; pointer-events:auto;
-}
-.dragging-mode .hand{ pointer-events:none; }
+.hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px,96vw); height:24vh; perspective:1200px; pointer-events:auto}
+.dragging-mode .hand{pointer-events:none}
 
-/* ===== Card (base) ===== */
+/* Card base */
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
@@ -137,7 +116,7 @@ html,body{height:100%}
 .card .textbox{flex:1; padding:0 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
 .card .cost{position:absolute; right:10px; bottom:10px; font-size:1.05rem; opacity:.9; text-shadow:0 1px 2px #000}
 
-/* Aether chip */
+/* Bottom-left Aether chip (used by Flow now too) */
 .card .aether-chip{ position:absolute; left:10px; bottom:10px; transform:translateY(1px); display:flex; align-items:center; gap:6px; z-index:3; filter:drop-shadow(0 1px 2px #000); user-select:none; pointer-events:none; }
 .aether-chip svg{width:16px;height:16px;display:block;fill:var(--gem-blue)}
 .aether-chip .val{font-weight:800;font-size:12px;letter-spacing:.02em;color:var(--ink);text-shadow:0 1px 0 #000, 0 0 6px #000}
@@ -155,202 +134,116 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
-/* HUD + badges */
+/* HUD + toggles */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
 .hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
 .hud-btn:hover{box-shadow:0 0 10px var(--gold)}
 .drop-target.drop-ready{outline:2px dashed var(--aether); outline-offset:4px; box-shadow:0 0 20px rgba(126,182,255,.45)}
 .badge{ position:absolute; right:6px; bottom:6px; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#1f1712; color:var(--ink); border:1px solid #4a3d2f; font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000; }
 
-/* Toggles */
 .toggles{ position:fixed; left:8px; top:8px; display:flex; gap:8px; z-index:32; }
-.zoom-toggle, .layout-toggle{
-  padding:8px 12px; border-radius:999px; border:1px solid #4a3d2f;
-  background:#2a211a; color:var(--ink); font-weight:700; box-shadow:0 4px 10px #000; display:none;
-}
+.zoom-toggle, .layout-toggle{ padding:8px 12px; border-radius:999px; border:1px solid #4a3d2f; background:#2a211a; color:var(--ink); font-weight:700; box-shadow:0 4px 10px #000; display:none; }
 .zoom-toggle[aria-pressed="true"], .layout-toggle[aria-pressed="true"]{ box-shadow:0 0 10px var(--aether); }
 
-/* Toast */
 .toast{ position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70 }
 .toast.show{opacity:1}
 
-/* ======= PHONE LANDSCAPE BASE ======= */
-@media (orientation: landscape) and (max-height: 480px) {
+/* PHONE LANDSCAPE */
+@media (orientation: landscape) and (max-height: 480px){
   :root{
     --card-w-board: calc(var(--card-w) * 0.64);
     --card-h-board: calc(var(--card-h) * 0.64);
     --card-radius-board: calc(var(--card-radius) * 0.55);
     --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
   }
+  .zoom-toggle,.layout-toggle{display:inline-block}
+  #board-grid.grid{row-gap:14px; padding:8px 8px calc(22vh + 6px)}
+  .flow-title-rail{display:none}
 
-  .zoom-toggle, .layout-toggle{ display:inline-block; }
-
-  #board-grid.grid{
-    row-gap:14px;
-    padding:8px 8px calc(22vh + 6px);
-  }
-
-  .flow-title-rail{ display:none; }
-
-  /* default: horizontal flow carousel */
+  /* horizontal flow (default) */
   #flow-row.flow-row{
     width:auto !important; max-width:96vw;
     display:flex !important; gap:8px !important; padding:8px;
-    overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling: touch;
+    overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+  }
+  #ai-slots.slot-row,#player-slots.slot-row{gap:8px !important}
+
+  .slot{font-size:.84rem}
+  .slot .title{padding:7px 7px 0 7px; font-size:.94rem}
+  .slot .type{padding:0 7px 3px 7px; font-size:.78rem; opacity:.78}
+  .slot .textbox{padding:0 7px 7px 7px; font-size:.85rem; line-height:1.16}
+
+  .flow-card .card .title{padding:7px 7px 0 7px; font-size:.94rem}
+  .flow-card .card .type{padding:0 7px 3px 7px; font-size:.78rem}
+  .flow-card .card .textbox{padding:0 7px 24px 7px; font-size:.85rem; line-height:1.16}
+
+  .portrait img{width:58px;height:58px}
+  .row.player .portrait{left:6px;bottom:6px}
+  .row.ai     .portrait{right:6px;top:6px}
+  .portrait{font-size:.9rem}
+
+  .hud{right:6px; bottom:12vh; gap:8px}
+  .hud-btn{width:54px;height:54px;border-radius:10px}
+  .badge{right:4px;bottom:4px;min-width:18px;height:18px;font-size:11px;line-height:16px}
+
+  .hand-wrap{height:22vh}
+  .hand{bottom:1vh;height:21vh}
+}
+
+/* PHONE LANDSCAPE — ZOOMED */
+@media (orientation: landscape) and (max-height: 480px){
+  body.board-zoom75{
+    --card-w-board: calc(var(--card-w) * 0.52);
+    --card-h-board: calc(var(--card-h) * 0.52);
+    --card-radius-board: calc(var(--card-radius) * 0.45);
+    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
+  }
+  body.board-zoom75 #board-grid.grid{row-gap:8px; padding:4px 6px calc(20vh + 4px)}
+  body.board-zoom75 #flow-row.flow-row{gap:6px !important; padding:6px; max-width:96vw}
+  body.board-zoom75 #ai-slots.slot-row, body.board-zoom75 #player-slots.slot-row{gap:6px !important}
+  body.board-zoom75 .slot{font-size:.76rem}
+  body.board-zoom75 .slot .title{padding:6px 6px 0 6px; font-size:.86rem}
+  body.board-zoom75 .slot .type{padding:0 6px 2px 6px; font-size:.72rem}
+  body.board-zoom75 .slot .textbox{padding:0 6px 6px 6px; font-size:.78rem; line-height:1.14}
+  body.board-zoom75 .flow-card .card .title{padding:6px 6px 0 6px; font-size:.86rem}
+  body.board-zoom75 .flow-card .card .type{padding:0 6px 2px 6px; font-size:.72rem}
+  body.board-zoom75 .flow-card .card .textbox{padding:0 6px 18px 6px; font-size:.78rem; line-height:1.14}
+  body.board-zoom75 .portrait img{width:54px;height:54px}
+  body.board-zoom75 .portrait{font-size:.86rem}
+  body.board-zoom75 .hud-btn{width:50px;height:50px;border-radius:9px}
+  body.board-zoom75 .badge{min-width:16px;height:16px;font-size:10px;line-height:14px}
+}
+
+/* PHONE LANDSCAPE — ALT LAYOUT: VERTICAL FLOW LEFT */
+@media (orientation: landscape) and (max-height: 480px){
+  body.layout-vertflow #board-grid.grid{
+    grid-template-areas:"flow ai" "flow player";
+    grid-template-columns:minmax(0,var(--flow-rail-w)) 1fr;
+    grid-template-rows:1fr 1fr;
+    align-items:center; row-gap:10px; column-gap:12px; padding:8px 8px calc(22vh + 6px);
+  }
+  body.layout-vertflow .flow-wrap{width:100%; height:100%; align-items:stretch; gap:0}
+  body.layout-vertflow #flow-row.flow-row{
+    display:flex !important; flex-direction:column; align-items:center; gap:8px !important;
+    width:100%; height:calc(100% - var(--flow-rail-pad)*2); max-height:calc(100% - var(--flow-rail-pad)*2);
+    padding:var(--flow-rail-pad); margin:0; overflow-y:auto; overflow-x:hidden;
+    scroll-snap-type:y mandatory; -webkit-overflow-scrolling:touch;
     background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
   }
-  #flow-row.flow-row::-webkit-scrollbar{ height:6px; }
-  #flow-row.flow-row::-webkit-scrollbar-thumb{ background:#3b3126; border-radius:6px; }
-  .flow-card{ flex:0 0 var(--card-w-board); height:var(--card-h-board); scroll-snap-align:start; }
-  .flow-card .price-label{ display:none; }
-  .flow-card .card::after{
-    content: attr(data-price-label);
-    position:absolute; left:10px; right:10px; bottom:6px; text-align:center; font-weight:600; opacity:.9; color:var(--muted); font-size:.86rem;
-  }
-
-  #ai-slots.slot-row, #player-slots.slot-row{ gap:8px !important; }
-
-  .slot{ font-size:0.84rem; }
-  .slot .title{ padding:7px 7px 0 7px; font-size:0.94rem; }
-  .slot .type{ padding:0 7px 3px 7px; font-size:0.78rem; opacity:.78; }
-  .slot .textbox{ padding:0 7px 7px 7px; font-size:0.85rem; line-height:1.16; }
-
-  .flow-card .card .title{ padding:7px 7px 0 7px; font-size:0.94rem; }
-  .flow-card .card .type{ padding:0 7px 3px 7px; font-size:0.78rem; }
-  .flow-card .card .textbox{ padding:0 7px 24px 7px; font-size:0.85rem; line-height:1.16; }
-
-  .portrait img{ width:58px; height:58px; }
-  .row.player .portrait{ left:6px; bottom:6px; }
-  .row.ai     .portrait{ right:6px; top:6px; }
-  .portrait{ font-size:.9rem; }
-
-  .hud{ right:6px; bottom:12vh; gap:8px; }
-  .hud-btn{ width:54px; height:54px; border-radius:10px; }
-  .badge{ right:4px; bottom:4px; min-width:18px; height:18px; font-size:11px; line-height:16px; }
-
-  .hand-wrap{ height:22vh; }
-  .hand{ bottom:1vh; height:21vh; }
+  body.layout-vertflow #flow-row.flow-row::-webkit-scrollbar{width:6px}
+  body.layout-vertflow #flow-row.flow-row::-webkit-scrollbar-thumb{background:#3b3126;border-radius:6px}
+  body.layout-vertflow .flow-card{flex:0 0 auto; width:var(--card-w-board); height:var(--card-h-board); scroll-snap-align:start}
+  body.layout-vertflow .flow-card .card{width:var(--card-w-board); height:var(--card-h-board); border-radius:var(--card-radius-board)}
+  body.layout-vertflow #ai-slots.slot-row, body.layout-vertflow #player-slots.slot-row{gap:8px !important; width:calc(var(--card-w-board)*4 + 8px*3) !important}
 }
 
-/* ======= PHONE LANDSCAPE — ZOOMED ======= */
-@media (orientation: landscape) and (max-height: 480px) {
-  body.board-zoom75 {
+/* ALT LAYOUT + ZOOM */
+@media (orientation: landscape) and (max-height: 480px){
+  body.layout-vertflow.board-zoom75{
     --card-w-board: calc(var(--card-w) * 0.52);
     --card-h-board: calc(var(--card-h) * 0.52);
     --card-radius-board: calc(var(--card-radius) * 0.45);
     --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
   }
-  body.board-zoom75 #board-grid.grid{ row-gap:8px; padding:4px 6px calc(20vh + 4px); }
-  body.board-zoom75 #flow-row.flow-row{ gap:6px !important; padding:6px; max-width:96vw; }
-  body.board-zoom75 #ai-slots.slot-row, body.board-zoom75 #player-slots.slot-row{ gap:6px !important; }
-  body.board-zoom75 .slot{ font-size:0.76rem; }
-  body.board-zoom75 .slot .title{ padding:6px 6px 0 6px; font-size:0.86rem; }
-  body.board-zoom75 .slot .type{ padding:0 6px 2px 6px; font-size:0.72rem; }
-  body.board-zoom75 .slot .textbox{ padding:0 6px 6px 6px; font-size:0.78rem; line-height:1.14; }
-  body.board-zoom75 .flow-card .card .title{ padding:6px 6px 0 6px; font-size:0.86rem; }
-  body.board-zoom75 .flow-card .card .type{ padding:0 6px 2px 6px; font-size:0.72rem; }
-  body.board-zoom75 .flow-card .card .textbox{ padding:0 6px 18px 6px; font-size:0.78rem; line-height:1.14; }
-  body.board-zoom75 .flow-card .card::after{ font-size:0.78rem; bottom:5px; }
-  body.board-zoom75 .portrait img{ width:54px; height:54px; }
-  body.board-zoom75 .portrait{ font-size:.86rem; }
-  body.board-zoom75 .hud-btn{ width:50px; height:50px; border-radius:9px; }
-  body.board-zoom75 .badge{ min-width:16px; height:16px; font-size:10px; line-height:14px; }
-}
-
-/* ======= PHONE LANDSCAPE — ALT LAYOUT: VERTICAL FLOW LEFT ======= */
-@media (orientation: landscape) and (max-height: 480px) {
-  body.layout-vertflow #board-grid.grid{
-    grid-template-areas:
-      "flow ai"
-      "flow player";
-    grid-template-columns: minmax(0, var(--flow-rail-w)) 1fr;
-    grid-template-rows: 1fr 1fr;
-    align-items:center;
-    row-gap:10px;
-    column-gap:12px; /* small gutter so rail sits right next */
-    padding:8px 8px calc(22vh + 6px);
-  }
-
-  /* rail container fills column height */
-  body.layout-vertflow .flow-wrap{
-    width:100%;
-    height:100%;
-    align-items:stretch;
-    gap:0;
-  }
-
-  /* the rail: vertical snap list exactly card-sized */
-  body.layout-vertflow #flow-row.flow-row{
-    display:flex !important;
-    flex-direction:column;
-    align-items:center;
-    gap:8px !important;
-
-    width:100%;
-    height:calc(100% - var(--flow-rail-pad)*2);
-    max-height:calc(100% - var(--flow-rail-pad)*2);
-    padding:var(--flow-rail-pad);
-    margin:0;
-
-    overflow-y:auto; overflow-x:hidden;
-    scroll-snap-type: y mandatory;
-    -webkit-overflow-scrolling: touch;
-
-    background:linear-gradient(180deg,#241d15,#1a140f);
-    border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
-  }
-  body.layout-vertflow #flow-row.flow-row::-webkit-scrollbar{ width:6px; }
-  body.layout-vertflow #flow-row.flow-row::-webkit-scrollbar-thumb{ background:#3b3126; border-radius:6px; }
-
-  /* flow cards = same size as board cards */
-  body.layout-vertflow .flow-card{
-    flex:0 0 auto;
-    width:var(--card-w-board);
-    height:var(--card-h-board);
-    scroll-snap-align:start;
-  }
-  body.layout-vertflow .flow-card .card{
-    width:var(--card-w-board); height:var(--card-h-board);
-    border-radius:var(--card-radius-board);
-  }
-
-  /* inline price label inside card */
-  body.layout-vertflow .flow-card .price-label{ display:none; }
-  body.layout-vertflow .flow-card .card::after{
-    content: attr(data-price-label);
-    position:absolute; left:10px; right:10px; bottom:6px;
-    text-align:center; font-weight:600; opacity:.9; color:var(--muted);
-    font-size:.82rem;
-  }
-
-  /* right boards tighter (same card size, smaller gap) */
-  body.layout-vertflow #ai-slots.slot-row,
-  body.layout-vertflow #player-slots.slot-row{
-    gap:8px !important;
-    width:calc(var(--card-w-board)*4 + 8px*3) !important;
-  }
-
-  /* slight text compaction to match tighter layout */
-  body.layout-vertflow .slot{ font-size:0.82rem; }
-  body.layout-vertflow .slot .title{ padding:7px 7px 0 7px; font-size:0.92rem; }
-  body.layout-vertflow .slot .type{ padding:0 7px 3px 7px; font-size:0.76rem; }
-  body.layout-vertflow .slot .textbox{ padding:0 7px 7px 7px; font-size:0.84rem; line-height:1.16; }
-}
-
-/* ALT LAYOUT + ZOOM together (still works; rail width stays glued to card size) */
-@media (orientation: landscape) and (max-height: 480px) {
-  body.layout-vertflow.board-zoom75 {
-    --card-w-board: calc(var(--card-w) * 0.52);
-    --card-h-board: calc(var(--card-h) * 0.52);
-    --card-radius-board: calc(var(--card-radius) * 0.45);
-    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
-  }
-  body.layout-vertflow.board-zoom75 #board-grid.grid{
-    column-gap:10px; row-gap:8px; padding:6px 6px calc(20vh + 4px);
-  }
-  body.layout-vertflow.board-zoom75 .flow-card{
-    width:var(--card-w-board); height:var(--card-h-board);
-  }
-  body.layout-vertflow.board-zoom75 .flow-card .card::after{ font-size:.76rem; }
-  body.layout-vertflow.board-zoom75 .slot{ font-size:0.76rem; }
+  body.layout-vertflow.board-zoom75 #board-grid.grid{column-gap:10px; row-gap:8px; padding:6px 6px calc(20vh + 4px)}
 }
