@@ -170,6 +170,15 @@ html,body{height:100%}
   font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000;
 }
 
+/* Board Zoom toggle (visible only on phone landscape via media query) */
+.zoom-toggle{
+  position:fixed; left:50%; bottom:calc(22vh + 10px); transform:translateX(-50%);
+  padding:8px 12px; border-radius:999px; border:1px solid #4a3d2f;
+  background:#2a211a; color:var(--ink); font-weight:700;
+  box-shadow:0 4px 10px #000; z-index:32; display:none;
+}
+.zoom-toggle[aria-pressed="true"]{ box-shadow:0 0 10px var(--aether); }
+
 /* Toast */
 .toast{
   position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
@@ -178,26 +187,23 @@ html,body{height:100%}
 }
 .toast.show{opacity:1}
 
-/* ======= PHONE LANDSCAPE TUNING ======= */
+/* ======= PHONE LANDSCAPE BASE ======= */
 @media (orientation: landscape) and (max-height: 480px) {
   :root{
-    /* Slightly larger boards that still fit */
+    /* Base phone-landscape board size */
     --card-w-board: calc(var(--card-w) * 0.64);
     --card-h-board: calc(var(--card-h) * 0.64);
-    /* Less round corners when small */
     --card-radius-board: calc(var(--card-radius) * 0.55);
   }
 
-  /* More room for the boards */
   #board-grid.grid{
     row-gap:14px;
     padding:8px 8px calc(22vh + 6px);
   }
 
-  /* Hide the vertical “AETHER FLOW” rail and turn the flow into a snap carousel */
   .flow-title-rail{ display:none; }
+
   #flow-row.flow-row{
-    /* Switch from fixed grid width to scrollable rail */
     width:auto !important;
     max-width:96vw;
     display:flex !important;
@@ -216,7 +222,7 @@ html,body{height:100%}
     scroll-snap-align:start;
   }
 
-  /* Put price inside the card bottom edge to save vertical space */
+  /* Inline price (JS writes data-price-label) */
   .flow-card .price-label{ display:none; }
   .flow-card .card::after{
     content: attr(data-price-label);
@@ -225,10 +231,8 @@ html,body{height:100%}
     font-size:.86rem;
   }
 
-  /* Board rows tighter spacing */
   #ai-slots.slot-row, #player-slots.slot-row{ gap:8px !important; }
 
-  /* Compact board text only (hand remains full) */
   .slot{ font-size:0.84rem; }
   .slot .title{ padding:7px 7px 0 7px; font-size:0.94rem; }
   .slot .type{ padding:0 7px 3px 7px; font-size:0.78rem; opacity:.78; }
@@ -238,7 +242,6 @@ html,body{height:100%}
   .flow-card .card .type{ padding:0 7px 3px 7px; font-size:0.78rem; }
   .flow-card .card .textbox{ padding:0 7px 24px 7px; font-size:0.85rem; line-height:1.16; }
 
-  /* Portraits + HUD smaller and tucked */
   .portrait img{ width:58px; height:58px; }
   .row.player .portrait{ left:6px; bottom:6px; }
   .row.ai     .portrait{ right:6px; top:6px; }
@@ -248,7 +251,32 @@ html,body{height:100%}
   .hud-btn{ width:54px; height:54px; border-radius:10px; }
   .badge{ right:4px; bottom:4px; min-width:18px; height:18px; font-size:11px; line-height:16px; }
 
-  /* Keep hand readable but slightly shallower */
   .hand-wrap{ height:22vh; }
   .hand{ bottom:1vh; height:21vh; }
+
+  /* show zoom toggle in this mode */
+  .zoom-toggle{ display:block; }
+}
+
+/* ======= PHONE LANDSCAPE — ZOOMED (75%) ======= */
+@media (orientation: landscape) and (max-height: 480px) {
+  body.board-zoom75 {
+    --card-w-board: calc(var(--card-w) * 0.75);
+    --card-h-board: calc(var(--card-h) * 0.75);
+    --card-radius-board: calc(var(--card-radius) * 0.5);
+  }
+
+  body.board-zoom75 #board-grid.grid{
+    row-gap:12px;
+    padding:6px 6px calc(21vh + 6px);
+  }
+
+  body.board-zoom75 #flow-row.flow-row{
+    gap:8px !important; padding:8px; max-width:96vw;
+  }
+
+  body.board-zoom75 #ai-slots.slot-row,
+  body.board-zoom75 #player-slots.slot-row{ gap:8px !important; }
+
+  body.board-zoom75 .zoom-toggle{ aria-pressed:true; }
 }
