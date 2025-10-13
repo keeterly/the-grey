@@ -2,59 +2,68 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>The Grey — v2.51 UI Patch</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <title>The Grey — v2.5 board (classic aesthetic + UI updates)</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
-  <!-- Top bar removed by request -->
+  <!-- topbar removed per request -->
 
   <main id="board-grid" class="grid">
-    <!-- Opponent Row -->
-    <section class="row ai" aria-label="Opponent Board">
-      <div class="portrait">
-        <img src="https://picsum.photos/seed/ai-portrait/120/120" alt="Opponent portrait" />
-        <div class="hearts" aria-label="Opponent vitality"></div>
-        <div class="trance" aria-label="Opponent trance"></div>
+    <!-- AI (top) -->
+    <section class="row ai">
+      <figure class="portrait">
+        <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
+        <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
+        <div class="hearts" id="ai-hearts"></div>
+        <div class="trance" id="ai-trance">Trance 0</div>
+      </figure>
+      <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
+    </section>
+
+    <!-- FLOW (center) -->
+    <section class="row flow">
+      <div class="flow-wrap">
+        <div class="flow-title-rail">
+          <span class="flow-title">AETHER FLOW</span>
+        </div>
+        <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
       </div>
-      <div id="ai-slots" class="slot-row" aria-label="Opponent slots"></div>
     </section>
 
-    <!-- Aetherflow Market ("river") -->
-    <section class="row flow" aria-label="Aetherflow">
-      <ul id="flow-row" class="flow-row"></ul>
-    </section>
-
-    <!-- Player Row -->
-    <section class="row player" aria-label="Player Board">
+    <!-- PLAYER (bottom) -->
+    <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-      <div class="portrait">
-        <img src="https://picsum.photos/seed/player-portrait/120/120" alt="Player portrait" />
-        <div class="hearts" aria-label="Player vitality"></div>
-        <div class="trance" aria-label="Player trance"></div>
-      </div>
+      <figure class="portrait">
+        <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
+        <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
+        <div class="hearts" id="player-hearts"></div>
+        <div class="trance" id="player-trance">Trance 0</div>
+      </figure>
+    </section>
+
+    <!-- HAND -->
+    <section class="hand-wrap">
+      <div id="hand" class="hand" aria-label="Player hand"></div>
     </section>
   </main>
 
-  <!-- Right-side HUD -->
-  <aside class="hud" aria-label="Controls">
+  <!-- right HUD -->
+  <aside class="hud">
     <button id="btn-endturn-hud" class="hud-btn" title="End turn">End&nbsp;Turn</button>
-    <button id="btn-discard-hud" class="hud-btn" title="Discard pile">🗂</button>
-    <button id="btn-deck-hud" class="hud-btn" title="Deck">🜃</button>
+    <button id="btn-discard-hud"  class="hud-btn" title="Discard pile">🗂</button>
+    <button id="btn-deck-hud"     class="hud-btn" title="Deck">🜃</button>
   </aside>
 
-  <!-- Hand -->
-  <div class="hand-wrap">
-    <ul id="hand" class="hand" aria-label="Player hand"></ul>
+  <!-- Peek + Zoom layers -->
+  <div id="preview-layer" aria-hidden="true">
+    <div id="peek-card" class="card peek"></div>
+    <div id="zoom-overlay" data-open="false">
+      <div id="zoom-card" class="card zoom"></div>
+    </div>
   </div>
 
-  <!-- Toasts -->
-  <div id="toasts" class="toasts" aria-live="polite"></div>
-
-  <script src="./GameLogic.js"></script>
-  <script src="./index.js"></script>
+  <script type="module" src="./index.js"></script>
 </body>
 </html>
