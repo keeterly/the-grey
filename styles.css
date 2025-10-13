@@ -106,8 +106,12 @@ html,body{height:100%}
 
 /* Card content */
 .card .title{padding:10px 10px 0 10px; font-weight:600;}
-.card .type{opacity:.75; padding:0 10px 4px 10px; font-size:.9rem}
-.card .textbox{flex:1; padding:0 10px 10px 10px; opacity:.9; font-size:.95rem; line-height:1.2}
+.card .type{opacity:.78; padding:0 10px 4px 10px; font-size:.9rem}
+.card .textbox{flex:1; padding:0 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
+.card .cost{
+  position:absolute; left:10px; bottom:10px; font-size:1.05rem; opacity:.9;
+  text-shadow:0 1px 2px #000;
+}
 
 /* ===== Preview / Zoom ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
@@ -132,3 +136,11 @@ html,body{height:100%}
 .hud{ position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:10px; z-index:30; }
 .hud-btn{ width:36px; height:36px; border-radius:10px; border:1px solid #4a3d2f; background:#2a211a; color:var(--ink); box-shadow:0 4px 10px #000;}
 .hud-btn:hover{ box-shadow:0 0 10px var(--gold); }
+
+/* Toast */
+.toast{
+  position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
+  background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px;
+  box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70;
+}
+.toast.show{ opacity:1; }
