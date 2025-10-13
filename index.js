@@ -9,11 +9,14 @@ const aiSlotsEl     = $("ai-slots");
 const playerSlotsEl = $("player-slots");
 const flowRowEl     = $("flow-row");
 const handEl        = $("hand");
+
 const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
+const playerAether  = $("player-aether");
 const playerAetherVal = $("player-aether-val");
+const deckCountEl   = $("deck-count");
 
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
@@ -23,6 +26,7 @@ const hudDiscard    = $("btn-discard-hud");
 const hudEnd        = $("btn-endturn-hud");
 
 let state = initState({});
+let prevAether = 0;
 
 /* ------- tiny toast ------- */
 let toastEl;
@@ -127,17 +131,16 @@ function aetherChipHTML(val){
   return `<div class="aether-chip" title="Aether gained when discarded">${gemSVG()}<span class="val">${val}</span></div>`;
 }
 
-/* ------- robust drag helpers (Safari/Firefox friendly) ------- */
+/* ------- robust drag helpers ------- */
 function makeDraggableCard(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
     el.classList.add("dragging");
-    // browsers expect at least one 'text/plain' payload to enable DnD
     ev.dataTransfer?.setData("text/plain", `card:${data.id}:${data.type}`);
     ev.dataTransfer?.setData("text/card-id", data.id);
     ev.dataTransfer?.setData("text/card-type", data.type);
     if (ev.dataTransfer){ ev.dataTransfer.effectAllowed = "move"; ev.dataTransfer.dropEffect = "move"; }
-    const ghost = el.cloneNode(true); // nicer ghost
+    const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
     ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
@@ -152,7 +155,6 @@ function renderSlots(container, snapshot, isPlayer){
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
 
-  // 3 spell + 1 glyph
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -285,12 +287,23 @@ function handleDiscardDrop(ev){
   const gain = getAetherValue(card);
   hand.splice(i,1);
   state.players.player.discardCount = (state.players.player.discardCount|0) + 1;
-  state.players.player.aether = (state.players.player.aether|0) + (gain|0);
+  const before = state.players.player.aether|0;
+  const after  = before + (gain|0);
+  state.players.player.aether = after;
+  if (after > before){ triggerAetherFlash(); }
   toast(gain ? `Discarded for Æ${gain}` : "Discarded");
   render();
 }
 
-/* ------- render ------- */
+/* ------- flash + render ------- */
+function triggerAetherFlash(){
+  if (!playerAether) return;
+  playerAether.classList.remove("flash");
+  // reflow to restart animation
+  void playerAether.offsetWidth;
+  playerAether.classList.add("flash");
+}
+
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow) || s.flow.length===0){
     s.flow = [
@@ -301,7 +314,7 @@ function ensureSafetyShape(s){
       {id:"f5",name:"Obsidian Vault",type:"SPELL",price:2,text:"Spell"},
     ];
   }
-  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],weaver:{}};
+  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],weaver:{},deckCount:0};
   if (!Array.isArray(s.player.hand) || s.player.hand.length===0){
     s.player.hand = [
       {id:"h1",name:"Pulse of the Grey",type:"SPELL",aetherValue:0,text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1."},
@@ -330,7 +343,14 @@ function render(){
   set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
-  set(playerAetherVal, el=> el.textContent = String(s.player?.aether ?? 0));
+
+  const curAether = s.player?.aether ?? 0;
+  set(playerAetherVal, el=> el.textContent = String(curAether));
+  if (curAether > prevAether){ triggerAetherFlash(); }
+  prevAether = curAether;
+
+  // deck badge
+  set(deckCountEl, el => el.textContent = String(s.player?.deckCount ?? 0));
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
