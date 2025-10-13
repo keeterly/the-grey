@@ -1,11 +1,34 @@
-// v2.5 engine: starter deck with real text, play SPELL to slot, set GLYPH.
-// (Market + buy now checks player Æ; deducts Æ on purchase.)
+// v2.51 — River Flow market
+// - Start of game: reveal 1 card in Aetherflow
+// - Start turn: reveal new card into slot 0 (if empty)
+// - End turn: slide all flow cards to the right by 1 (last drops)
+// - Costs are by slot index: [4,3,3,2,2]
 
-const FLOW_COSTS = [4,3,2,2,2];
+const FLOW_COSTS = [4,3,3,2,2];
 const STARTING_VITALITY = 5;
 
-function mkMarketCard(id, name, type, cost, text="") {
-  return { id, name, type, price: cost, aetherValue:0, text };
+// Simple card factory for market cards
+function mkMarketCard(id, name, type, text="") {
+  return { id, name, type, aetherValue: 0, text };
+}
+
+// A tiny pool for the Aetherflow deck (demo)
+// You can replace this later with a proper randomized supply.
+function buildFlowDeck() {
+  const proto = [
+    mkMarketCard("m_res_chorus","Resonant Chorus","SPELL","Market spell."),
+    mkMarketCard("m_pulse_fb","Pulse Feedback","INSTANT","Tactical instant."),
+    mkMarketCard("m_refract","Refracted Will","GLYPH","Set a glyph."),
+    mkMarketCard("m_cascade","Cascade Insight","INSTANT","Instant."),
+    mkMarketCard("m_vault","Obsidian Vault","SPELL","Spell."),
+  ];
+  // Make ~20 cards by cycling names/types
+  const out = [];
+  for (let i=0;i<20;i++){
+    const b = proto[i % proto.length];
+    out.push(mkMarketCard(`${b.id}_${i+1}`, b.name, b.type, b.text));
+  }
+  return out;
 }
 
 /* ----- Starter Base Set (for both players) ----- */
@@ -26,13 +49,12 @@ function starterDeck() {
     { id:"c_veil",  name:"Veil of Dust",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Prevent 1 or cancel an instant." },
 
     // Glyphs (x2)
-    { id:"g_light", name:"Glyph of Remnant Light", type:"GLYPH", aetherValue:0, text:"When a spell resolves: gain Æ1." },
+    { id:"g_light", name:"Glyph of Remnant Light",  type:"GLYPH", aetherValue:0, text:"When a spell resolves: gain Æ1." },
     { id:"g_echo",  name:"Glyph of Returning Echo", type:"GLYPH", aetherValue:0, text:"When you channel Aether: draw 1." },
   ];
 }
 
 export function initState() {
-  // simple split: first 5 in hand, rest in deckCount for display only
   const deck = starterDeck();
   const hand = deck.slice(0,5);
   const remaining = deck.slice(5);
@@ -40,19 +62,17 @@ export function initState() {
   return {
     turn: 1,
     activePlayer: "player",
-    flow: [
-      mkMarketCard("f1","Resonant Chorus","SPELL",  FLOW_COSTS[0], "Market spell."),
-      mkMarketCard("f2","Pulse Feedback","INSTANT", FLOW_COSTS[1], "Tactical instant."),
-      mkMarketCard("f3","Refracted Will","GLYPH",   FLOW_COSTS[2], "Set a glyph."),
-      mkMarketCard("f4","Cascade Insight","INSTANT",FLOW_COSTS[3], "Instant."),
-      mkMarketCard("f5","Obsidian Vault","SPELL",   FLOW_COSTS[4], "Spell."),
-    ],
+
+    // River market
+    flowSlots: [null, null, null, null, null], // left→right
+    flowDeck: buildFlowDeck(),                 // face-down river supply
+
     players: {
       player: {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deckCount: remaining.length,
-        hand: hand,
+        hand,
         discardCount: 0,
         slots: [
           { hasCard:false, card:null }, // spell
@@ -66,7 +86,7 @@ export function initState() {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deckCount: 10,
-        hand: starterDeck().slice(0,0), // hidden
+        hand: starterDeck().slice(0,0),
         discardCount: 0,
         slots: [
           { hasCard:false, card:null },
@@ -84,14 +104,17 @@ export function serializePublic(state) {
   return {
     turn: state.turn,
     activePlayer: state.activePlayer,
-    flow: state.flow,
+    flowSlots: state.flowSlots,
+    flowDeckCount: state.flowDeck?.length ?? 0,
     player: state.players?.player,
     ai: state.players?.ai,
   };
 }
 
-/* ----- Actions ----- */
-// Play SPELL from hand into a spell slot (0..2)
+/* ----- Flow helpers ----- */
+function slotCost(index){ return FLOW_COSTS[index] ?? 0; }
+
+/* ----- Actions: board play ----- */
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -110,7 +133,6 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   return state;
 }
 
-// Set GLYPH from hand into glyph slot (index 3)
 export function setGlyphFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -129,21 +151,45 @@ export function setGlyphFromHand(state, playerId, cardId){
   return state;
 }
 
-// Market buy → now requires Æ and deducts on success (still a visual stub for moving cards)
+/* ----- Actions: Flow buy (uses slot cost) ----- */
 export function buyFromFlow(state, playerId, flowIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
-  const card = state.flow?.[flowIndex];
-  if (!card) throw new Error("no card at flow index");
+  if (flowIndex < 0 || flowIndex > 4) throw new Error("flow index 0..4");
 
-  const price = Number(card.price || 0);
+  const card = state.flowSlots?.[flowIndex];
+  if (!card) throw new Error("No card in that slot");
+
+  const price = slotCost(flowIndex);
   if ((P.aether || 0) < price) throw new Error("Not enough Æ");
 
-  // Deduct Æ and increment discard (visual stub for gaining the bought card)
   P.aether -= price;
   if (P.aether < 0) P.aether = 0;
   P.discardCount += 1;
 
-  // Optional: in a future pass, you can replace card from a deck. For now it remains.
+  // Remove purchased card; leave a hole until next start-turn reveal
+  state.flowSlots[flowIndex] = null;
+  return state;
+}
+
+/* ----- Turn flow ----- */
+export function startTurn(state){
+  // Reveal one card into slot 0 if empty
+  if (!state.flowSlots[0] && state.flowDeck.length > 0){
+    state.flowSlots[0] = state.flowDeck.shift();
+  }
+  return state;
+}
+
+export function endTurn(state){
+  // Slide right by one (4 drops)
+  for (let i=4;i>=1;i--){
+    state.flowSlots[i] = state.flowSlots[i-1] || null;
+  }
+  state.flowSlots[0] = null;
+
+  // Advance turn counter and (optionally) active player
+  state.turn += 1;
+  state.activePlayer = "player"; // single-player demo
   return state;
 }
