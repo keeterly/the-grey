@@ -3,10 +3,12 @@
 A Dark Fantasy Deck-Crafting Experience
 Designed and Developed by Keeter Ly
 
+
 🕯 Overview
 
 The Grey is a web-based card game blending deck-building, resource tension, and spellcraft progression.
 Each player begins as a Spellweaver, wielding a base deck where every choice—casting or discarding—shapes your control of Aether, the essence of the Grey itself.
+
 
 ⚙️ How to Play
 
@@ -14,6 +16,7 @@ Open the latest build directly in your browser:
 ➡️ versions/v2.4/index.html
 
 (No build tools or dependencies required.)
+
 
 📦 Version Structure
 
@@ -24,6 +27,7 @@ Open the latest build directly in your browser:
 /versions/v2.4 — Includes Trance Cinematic, sound hooks, and skip functionality
 
 README
+
 
 🜸 Base Deck — Shared Starting Deck
 
@@ -44,6 +48,7 @@ Each Spellweaver begins with the same core: 10 cards focused on the push-and-pul
 
 
 Total: 10 cards — 6 Spells, 2 Instants, 2 Glyphs
+
 
 🌫 Aetherflow — Shared Market
 
