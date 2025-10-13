@@ -9,24 +9,20 @@ const aiSlotsEl     = $("ai-slots");
 const playerSlotsEl = $("player-slots");
 const flowRowEl     = $("flow-row");
 const handEl        = $("hand");
-
 const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
-const playerAether  = $("player-aether");
-const playerAetherVal = $("player-aether-val");
-const deckCountEl   = $("deck-count");
+const aetherReadout = $("aether-readout");
+const endHudBtn     = $("btn-endturn-hud");
+const discardBtn    = $("btn-discard-hud");
+const btnZoom       = $("btn-board-zoom");
 
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
 
-const hudDiscard    = $("btn-discard-hud");
-const hudEnd        = $("btn-endturn-hud");
-
 let state = initState({});
-let prevAether = 0;
 
 /* ------- tiny toast ------- */
 let toastEl;
@@ -65,36 +61,13 @@ function layoutHand(container, cards) {
 
 /* ------- preview / zoom ------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
-function gemSVG(){ return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z"/></svg>`; }
-function getAetherValue(card){ return (typeof card?.aetherValue === "number") ? card.aetherValue : 0; }
-function getPipRequirement(card){
-  const t = (card?.text || "").toString();
-  const m = t.match(/Advance\s+(\d+)/i);
-  const n = m ? parseInt(m[1], 10) : 0;
-  return Number.isFinite(n) ? n : 0;
-}
-function pipTrackHTML(req, cur=0){
-  if (!req || req < 1) return "";
-  const safeCur = Math.max(0, Math.min(cur|0, req));
-  let dots = "";
-  for (let i=0;i<req;i++){
-    const filled = i < safeCur ? "filled" : "";
-    dots += `<span class="pip ${filled}"></span>`;
-  }
-  return `<div class="pip-track" aria-label="Pip track (${safeCur}/${req})">${dots}</div>`;
-}
-function aetherChipHTML(val){
-  if (!val || val < 1) return "";
-  return `<div class="aether-chip" title="Aether gained when discarded">${gemSVG()}<span class="val">${val}</span></div>`;
-}
 function fillCardShell(div, data){
   if (!div) return;
   div.innerHTML = `
     <div class="title">${data.name}</div>
     <div class="type">${data.type}${data.price?` — Cost Æ ${data.price}`:""}</div>
     <div class="textbox">${data.text||""}</div>
-    ${aetherChipHTML(getAetherValue(data))}
-    ${pipTrackHTML(getPipRequirement(data), data.currentPips || 0)}
+    ${data.costGems ? `<div class="cost">${data.costGems}</div>` : ""}
   `;
 }
 let longPressTimer=null, pressStart={x:0,y:0};
@@ -129,28 +102,14 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- DnD payload helpers (desktop) ------- */
-function setDragPayload(dt, id, type){
-  if (!dt) return;
-  dt.setData("text/plain", `card:${id}:${type}`);
-  dt.setData("text/card-id", id);
-  dt.setData("text/card-type", type);
-  dt.effectAllowed = "move";
-}
-function getDragPayload(dt){
-  const plain = dt?.getData("text/plain") || "";
-  const id = dt?.getData("text/card-id") || (plain.startsWith("card:") ? plain.split(":")[1] : "");
-  const type = dt?.getData("text/card-type") || (plain.startsWith("card:") ? plain.split(":")[2] : "");
-  return { id, type };
-}
-
-/* ------- Desktop draggable ------- */
-function makeDesktopDraggable(el, data){
+/* ------- safe desktop drag ------- */
+function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
     document.body.classList.add("dragging-mode");
     el.classList.add("dragging");
-    setDragPayload(ev.dataTransfer, data.id, data.type);
+    ev.dataTransfer?.setData("text/card-id", data.id);
+    ev.dataTransfer?.setData("text/card-type", data.type);
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
@@ -158,205 +117,74 @@ function makeDesktopDraggable(el, data){
     setTimeout(()=> ghost.remove(), 0);
   });
   el.addEventListener("dragend", ()=>{
-    document.body.classList.remove("dragging-mode");
     el.classList.remove("dragging");
+    document.body.classList.remove("dragging-mode");
   });
 }
 
-/* ------- Touch/mobile drag (custom) ------- */
-function makeTouchDraggable(el, data){
-  let dragging = false, ghost = null, curTarget = null;
-
-  function clearTargetGlow(){
-    document.querySelectorAll(".slot.drag-over").forEach(n=> n.classList.remove("drag-over"));
-    document.querySelectorAll(".drop-target.drop-ready").forEach(n=> n.classList.remove("drop-ready"));
-  }
-
-  el.addEventListener("pointerdown", (ev)=>{
-    if (ev.pointerType !== "touch") return; // desktop uses native DnD
-    ev.preventDefault();
-    const startX = ev.clientX, startY = ev.clientY;
-    let started = false;
-
-    const onMove = (mv)=>{
-      const dx = mv.clientX - startX, dy = mv.clientY - startY;
-      if (!started && Math.hypot(dx,dy) > 6){
-        // start drag
-        started = true; dragging = true;
-        document.body.classList.add("dragging-mode");
-        el.classList.add("touch-dragging");
-        ghost = el.cloneNode(true);
-        ghost.style.position = "fixed";
-        ghost.style.left = "0px";
-        ghost.style.top  = "0px";
-        ghost.style.zIndex = "99999";
-        ghost.style.pointerEvents = "none";
-        ghost.style.transform = "translate(-50%,-50%)";
-        document.body.appendChild(ghost);
-      }
-      if (!dragging) return;
-
-      // move ghost
-      ghost.style.left = `${mv.clientX}px`;
-      ghost.style.top  = `${mv.clientY}px`;
-
-      // find target under finger
-      clearTargetGlow();
-      const elUnder = document.elementFromPoint(mv.clientX, mv.clientY);
-      const slot = elUnder?.closest?.(".slot");
-      const discardBtn = elUnder?.closest?.("#btn-discard-hud");
-      curTarget = null;
-
-      if (slot){
-        const isGlyph = slot.classList.contains("glyph");
-        const can = (data.type === "SPELL" && slot.classList.contains("spell")) ||
-                    (data.type === "GLYPH" && isGlyph);
-        if (can){ slot.classList.add("drag-over"); curTarget = slot; }
-      } else if (discardBtn){
-        discardBtn.classList.add("drop-ready"); curTarget = discardBtn;
-      }
-    };
-
-    const onUp = (up)=>{
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp, true);
-      window.removeEventListener("pointercancel", onUp, true);
-      clearTargetGlow();
-
-      if (ghost) ghost.remove();
-      ghost = null;
-      el.classList.remove("touch-dragging");
-      document.body.classList.remove("dragging-mode");
-
-      if (!dragging) return;
-      dragging = false;
-
-      // drop action
-      if (!curTarget) return;
-
-      if (curTarget.id === "btn-discard-hud"){
-        // discard for Æ
-        discardCardById(data.id);
-        return;
-      }
-
-      if (curTarget.classList.contains("slot")){
-        const idx = Number(curTarget.dataset.slotIndex ?? -1);
-        try{
-          if (curTarget.classList.contains("glyph")){
-            state = setGlyphFromHand(state, "player", data.id);
-          }else{
-            state = playCardToSpellSlot(state, "player", data.id, idx);
-          }
-          render();
-        }catch(err){ toast(err?.message || "Can't play"); }
-      }
-    };
-
-    window.addEventListener("pointermove", onMove, {passive:false});
-    window.addEventListener("pointerup", onUp, true);
-    window.addEventListener("pointercancel", onUp, true);
-  }, {passive:false});
-}
-
-function discardCardById(cardId){
-  const hand = state.players?.player?.hand || [];
-  const i = hand.findIndex(c => c.id === cardId);
-  if (i < 0){ toast("Card not in hand"); return; }
-  const card = hand[i];
-  const gain = getAetherValue(card);
-  hand.splice(i,1);
-  state.players.player.discardCount = (state.players.player.discardCount|0) + 1;
-  const before = state.players.player.aether|0;
-  const after  = before + (gain|0);
-  state.players.player.aether = after;
-  if (after > before){ triggerAetherFlash(); }
-  toast(gain ? `Discarded for Æ${gain}` : "Discarded");
-  render();
-}
-
-/* ------- slots (desktop target listeners; touch uses custom hover) ------- */
+/* ------- slots (with glyph support) ------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
-
+  // 3 spell + 1 glyph
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
     const slot = safe[i] || {hasCard:false, card:null};
+    d.textContent = slot.hasCard ? (slot.card?.name || "Spell") : "Spell Slot";
 
     if (slot.hasCard && slot.card){
-      d.innerHTML = `
-        <div class="title">${slot.card.name}</div>
-        <div class="type">${slot.card.type}</div>
-        <div class="textbox">${slot.card.text||""}</div>
-        ${aetherChipHTML(getAetherValue(slot.card))}
-        ${pipTrackHTML(getPipRequirement(slot.card), slot.card.currentPips || 0)}
-      `;
       attachPeekAndZoom(d, slot.card);
-    } else {
-      d.textContent = "Spell Slot";
     }
 
     if (isPlayer){
-      d.addEventListener("dragenter", (ev)=>{
-        const { type } = getDragPayload(ev.dataTransfer);
-        if (type === "SPELL"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; d.classList.add("drag-over"); }
-      });
-      d.addEventListener("dragover", (ev)=>{
-        const { type } = getDragPayload(ev.dataTransfer);
-        if (type === "SPELL"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; d.classList.add("drag-over"); }
+      d.addEventListener("dragover", (ev)=>{ 
+        const t = ev.dataTransfer?.getData("text/card-type");
+        if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }
       });
       d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
       d.addEventListener("drop", (ev)=>{
         ev.preventDefault(); d.classList.remove("drag-over");
-        const { id, type } = getDragPayload(ev.dataTransfer);
-        if (!id || type !== "SPELL") return;
-        try { state = playCardToSpellSlot(state, "player", id, i); render(); }
+        const cardId   = ev.dataTransfer?.getData("text/card-id");
+        const cardType = ev.dataTransfer?.getData("text/card-type");
+        if (!cardId || cardType !== "SPELL") return;
+        try { state = playCardToSpellSlot(state, "player", cardId, i); render(); }
         catch(err){ toast(err?.message || "Can't play"); }
       });
     }
     container.appendChild(d);
   }
-
   // glyph
   const g = document.createElement("div");
   g.className = "slot glyph";
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
+  g.textContent = glyphSlot.hasCard ? (glyphSlot.card?.name || "Glyph") : "Glyph Slot";
+
   if (glyphSlot.hasCard && glyphSlot.card){
-    g.innerHTML = `
-      <div class="title">${glyphSlot.card.name}</div>
-      <div class="type">${glyphSlot.card.type}</div>
-      <div class="textbox">${glyphSlot.card.text||""}</div>`;
     attachPeekAndZoom(g, glyphSlot.card);
-  } else {
-    g.textContent = "Glyph Slot";
   }
 
   if (isPlayer){
-    g.addEventListener("dragenter", (ev)=>{
-      const { type } = getDragPayload(ev.dataTransfer);
-      if (type === "GLYPH"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; g.classList.add("drag-over"); }
-    });
-    g.addEventListener("dragover", (ev)=>{
-      const { type } = getDragPayload(ev.dataTransfer);
-      if (type === "GLYPH"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; g.classList.add("drag-over"); }
+    g.addEventListener("dragover", (ev)=> {
+      const t = ev.dataTransfer?.getData("text/card-type");
+      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
     });
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", (ev)=>{
-      ev.preventDefault(); g.classList.remove("drag-over");
-      const { id, type } = getDragPayload(ev.dataTransfer);
-      if (type !== "GLYPH") return;
-      try { state = setGlyphFromHand(state, "player", id); render(); }
+    g.addEventListener("drop", (ev)=>{ 
+      ev.preventDefault(); g.classList.remove("drag-over"); 
+      const cardId = ev.dataTransfer?.getData("text/card-id");
+      const t = ev.dataTransfer?.getData("text/card-type");
+      if (t!=="GLYPH") return;
+      try { state = setGlyphFromHand(state, "player", cardId); render(); }
       catch(err){ toast(err?.message || "Can't set glyph"); }
     });
   }
   container.appendChild(g);
 }
 
-/* ------- flow (market) ------- */
+/* ------- flow ------- */
 function cardHTML(c){
   const price = (typeof c.price === "number") ? c.price : 0;
   const gems = "🜂".repeat(price);
@@ -364,9 +192,7 @@ function cardHTML(c){
     <div class="title">${c.name}</div>
     <div class="type">${c.type}${price?` — Cost Æ ${price}`:""}</div>
     <div class="textbox">${c.text||""}</div>
-    <div class="cost" style="right:10px; left:auto;">${gems}</div>
-    ${aetherChipHTML(getAetherValue(c))}
-    ${pipTrackHTML(getPipRequirement(c), c.currentPips || 0)}
+    <div class="cost">${gems}</div>
   `;
 }
 function renderFlow(flowArray){
@@ -378,45 +204,23 @@ function renderFlow(flowArray){
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
     card.innerHTML = cardHTML(c);
+    // inline price label for landscape carousel
     card.setAttribute("data-price-label", `Æ ${c.price || 0} to buy`);
     attachPeekAndZoom(card, {...c, costGems:"🜂".repeat(c.price||0) });
 
-    card.addEventListener("click", ()=>{
-      try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
-      catch(err){ toast(err?.message || "Cannot buy"); }
+    card.addEventListener("click", (e)=>{
+      if ((e.target.closest(".card"))){
+        try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
+        catch(err){ toast(err?.message || "Cannot buy"); }
+      }
     });
 
     li.appendChild(card);
-    const priceLabel = document.createElement("div");
-    priceLabel.className = "price-label";
-    priceLabel.textContent = `Æ ${c.price ?? 0} to buy`;
-    li.appendChild(priceLabel);
     flowRowEl.appendChild(li);
   });
 }
 
-/* ------- discard drop (desktop) ------- */
-function handleDiscardDragOver(ev){
-  const { id } = getDragPayload(ev.dataTransfer);
-  if (id){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; hudDiscard.classList.add("drop-ready"); }
-}
-function handleDiscardLeave(){ hudDiscard.classList.remove("drop-ready"); }
-function handleDiscardDrop(ev){
-  ev.preventDefault();
-  hudDiscard.classList.remove("drop-ready");
-  const { id } = getDragPayload(ev.dataTransfer);
-  if (!id) return;
-  discardCardById(id);
-}
-
-/* ------- flash + render ------- */
-function triggerAetherFlash(){
-  if (!playerAether) return;
-  playerAether.classList.remove("flash");
-  void playerAether.offsetWidth;
-  playerAether.classList.add("flash");
-}
-
+/* ------- render ------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow) || s.flow.length===0){
     s.flow = [
@@ -427,7 +231,7 @@ function ensureSafetyShape(s){
       {id:"f5",name:"Obsidian Vault",type:"SPELL",price:2,text:"Spell"},
     ];
   }
-  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],weaver:{},deckCount:0};
+  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[]};
   if (!Array.isArray(s.player.hand) || s.player.hand.length===0){
     s.player.hand = [
       {id:"h1",name:"Pulse of the Grey",type:"SPELL",aetherValue:0,text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1."},
@@ -451,18 +255,19 @@ function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
 
-  const s = ensureSafetyShape(serializePublic(state) || {});
+  let s = ensureSafetyShape(serializePublic(state) || {});
   set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || "./weaver_aria.jpg");
   set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-  const curAether = s.player?.aether ?? 0;
-  set(playerAetherVal, el=> el.textContent = String(curAether));
-  if (curAether > prevAether){ triggerAetherFlash(); }
-  prevAether = curAether;
-
-  set(deckCountEl, el => el.textContent = String(s.player?.deckCount ?? 0));
+  // Æ display (blue gem)
+  if (aetherReadout){
+    aetherReadout.innerHTML = `
+      <svg class="gem" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/></svg>
+      <span>${s.player?.aether ?? 0}</span>
+    `;
+  }
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
@@ -477,33 +282,35 @@ function render(){
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
+      const intrinsicCost = (c.name==="Greyfire Bloom" || c.name==="Surge of Ash" || c.name==="Veil of Dust") ? 1 : 0;
+      const costGems = "🜂".repeat(intrinsicCost);
+
       el.innerHTML = `
         <div class="title">${c.name}</div>
         <div class="type">${c.type}</div>
         <div class="textbox">${c.text||""}</div>
-        ${aetherChipHTML(getAetherValue(c))}
-        ${pipTrackHTML(getPipRequirement(c), c.currentPips || 0)}
+        ${intrinsicCost? `<div class="cost">${costGems}</div>` : ""}
       `;
 
-      // desktop + touch
-      makeDesktopDraggable(el, c);
-      makeTouchDraggable(el, c);
-
-      attachPeekAndZoom(el, c);
+      wireDesktopDrag(el, c);
+      attachPeekAndZoom(el, {...c, costGems});
       handEl.appendChild(el); els.push(el);
     });
     layoutHand(handEl, els);
   }
 }
 
-/* wiring (desktop DnD targets) */
-hudDiscard?.addEventListener("dragenter", handleDiscardDragOver);
-hudDiscard?.addEventListener("dragover", handleDiscardDragOver);
-hudDiscard?.addEventListener("dragleave", handleDiscardLeave);
-hudDiscard?.addEventListener("drop", handleDiscardDrop);
+/* wiring */
+endHudBtn?.addEventListener("click", ()=> toast("End turn (stub)"));
 
-hudEnd?.addEventListener("click", ()=> toast("End turn (stub)"));
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("DOMContentLoaded", render);
+
+/* Board Zoom toggle (phone landscape) */
+btnZoom?.addEventListener("click", ()=>{
+  const on = document.body.classList.toggle("board-zoom75");
+  btnZoom.setAttribute("aria-pressed", on ? "true" : "false");
+  btnZoom.textContent = on ? "Normal Size" : "Board Zoom";
+});
