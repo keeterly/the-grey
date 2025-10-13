@@ -1,6 +1,6 @@
 import { initState, serializePublic, playCardToSpellSlot, setGlyphFromHand, buyFromFlow } from "./GameLogic.js";
 
-/* ===== helpers ===== */
+/* ------- helpers ------- */
 const $ = id => document.getElementById(id);
 const set = (el, fn) => { if (el) fn(el); };
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
@@ -28,7 +28,7 @@ const hudEnd        = $("btn-endturn-hud");
 let state = initState({});
 let prevAether = 0;
 
-/* ===== toast ===== */
+/* ------- tiny toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -41,7 +41,7 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ===== hand fanning ===== */
+/* ------- hand fanning ------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
   const MAX_ANGLE = 24, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.92, LIFT_BASE = 36;
@@ -63,8 +63,30 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ===== peek / zoom ===== */
-function closeZoom(){ zoomOverlayEl?.setAttribute("data-open","false"); }
+/* ------- preview / zoom ------- */
+function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
+function gemSVG(){ return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z"/></svg>`; }
+function getAetherValue(card){ return (typeof card?.aetherValue === "number") ? card.aetherValue : 0; }
+function getPipRequirement(card){
+  const t = (card?.text || "").toString();
+  const m = t.match(/Advance\s+(\d+)/i);
+  const n = m ? parseInt(m[1], 10) : 0;
+  return Number.isFinite(n) ? n : 0;
+}
+function pipTrackHTML(req, cur=0){
+  if (!req || req < 1) return "";
+  const safeCur = Math.max(0, Math.min(cur|0, req));
+  let dots = "";
+  for (let i=0;i<req;i++){
+    const filled = i < safeCur ? "filled" : "";
+    dots += `<span class="pip ${filled}"></span>`;
+  }
+  return `<div class="pip-track" aria-label="Pip track (${safeCur}/${req})">${dots}</div>`;
+}
+function aetherChipHTML(val){
+  if (!val || val < 1) return "";
+  return `<div class="aether-chip" title="Aether gained when discarded">${gemSVG()}<span class="val">${val}</span></div>`;
+}
 function fillCardShell(div, data){
   if (!div) return;
   div.innerHTML = `
@@ -107,35 +129,11 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ===== adornments ===== */
-function gemSVG(){ return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z"/></svg>`; }
-function getAetherValue(card){ return (typeof card?.aetherValue === "number") ? card.aetherValue : 0; }
-function getPipRequirement(card){
-  const t = (card?.text || "").toString();
-  const m = t.match(/Advance\s+(\d+)/i);
-  const n = m ? parseInt(m[1], 10) : 0;
-  return Number.isFinite(n) ? n : 0;
-}
-function pipTrackHTML(req, cur=0){
-  if (!req || req < 1) return "";
-  const safeCur = Math.max(0, Math.min(cur|0, req));
-  let dots = "";
-  for (let i=0;i<req;i++){
-    const filled = i < safeCur ? "filled" : "";
-    dots += `<span class="pip ${filled}"></span>`;
-  }
-  return `<div class="pip-track" aria-label="Pip track (${safeCur}/${req})">${dots}</div>`;
-}
-function aetherChipHTML(val){
-  if (!val || val < 1) return "";
-  return `<div class="aether-chip" title="Aether gained when discarded">${gemSVG()}<span class="val">${val}</span></div>`;
-}
-
-/* ===== robust DnD payload helpers ===== */
+/* ------- DnD payload helpers (desktop) ------- */
 function setDragPayload(dt, id, type){
   if (!dt) return;
-  dt.setData("text/plain", `card:${id}:${type}`);  // universal
-  dt.setData("text/card-id", id);                  // convenience
+  dt.setData("text/plain", `card:${id}:${type}`);
+  dt.setData("text/card-id", id);
   dt.setData("text/card-type", type);
   dt.effectAllowed = "move";
 }
@@ -146,23 +144,138 @@ function getDragPayload(dt){
   return { id, type };
 }
 
-/* ===== make hand cards draggable (uniform glow) ===== */
-function makeDraggableCard(el, data){
+/* ------- Desktop draggable ------- */
+function makeDesktopDraggable(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
+    document.body.classList.add("dragging-mode");
     el.classList.add("dragging");
     setDragPayload(ev.dataTransfer, data.id, data.type);
-    // unified ghost
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
     ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
     setTimeout(()=> ghost.remove(), 0);
   });
-  el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+  el.addEventListener("dragend", ()=>{
+    document.body.classList.remove("dragging-mode");
+    el.classList.remove("dragging");
+  });
 }
 
-/* ===== slots (3 spell + 1 glyph) ===== */
+/* ------- Touch/mobile drag (custom) ------- */
+function makeTouchDraggable(el, data){
+  let dragging = false, ghost = null, curTarget = null;
+
+  function clearTargetGlow(){
+    document.querySelectorAll(".slot.drag-over").forEach(n=> n.classList.remove("drag-over"));
+    document.querySelectorAll(".drop-target.drop-ready").forEach(n=> n.classList.remove("drop-ready"));
+  }
+
+  el.addEventListener("pointerdown", (ev)=>{
+    if (ev.pointerType !== "touch") return; // desktop uses native DnD
+    ev.preventDefault();
+    const startX = ev.clientX, startY = ev.clientY;
+    let started = false;
+
+    const onMove = (mv)=>{
+      const dx = mv.clientX - startX, dy = mv.clientY - startY;
+      if (!started && Math.hypot(dx,dy) > 6){
+        // start drag
+        started = true; dragging = true;
+        document.body.classList.add("dragging-mode");
+        el.classList.add("touch-dragging");
+        ghost = el.cloneNode(true);
+        ghost.style.position = "fixed";
+        ghost.style.left = "0px";
+        ghost.style.top  = "0px";
+        ghost.style.zIndex = "99999";
+        ghost.style.pointerEvents = "none";
+        ghost.style.transform = "translate(-50%,-50%)";
+        document.body.appendChild(ghost);
+      }
+      if (!dragging) return;
+
+      // move ghost
+      ghost.style.left = `${mv.clientX}px`;
+      ghost.style.top  = `${mv.clientY}px`;
+
+      // find target under finger
+      clearTargetGlow();
+      const elUnder = document.elementFromPoint(mv.clientX, mv.clientY);
+      const slot = elUnder?.closest?.(".slot");
+      const discardBtn = elUnder?.closest?.("#btn-discard-hud");
+      curTarget = null;
+
+      if (slot){
+        const isGlyph = slot.classList.contains("glyph");
+        const can = (data.type === "SPELL" && slot.classList.contains("spell")) ||
+                    (data.type === "GLYPH" && isGlyph);
+        if (can){ slot.classList.add("drag-over"); curTarget = slot; }
+      } else if (discardBtn){
+        discardBtn.classList.add("drop-ready"); curTarget = discardBtn;
+      }
+    };
+
+    const onUp = (up)=>{
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp, true);
+      window.removeEventListener("pointercancel", onUp, true);
+      clearTargetGlow();
+
+      if (ghost) ghost.remove();
+      ghost = null;
+      el.classList.remove("touch-dragging");
+      document.body.classList.remove("dragging-mode");
+
+      if (!dragging) return;
+      dragging = false;
+
+      // drop action
+      if (!curTarget) return;
+
+      if (curTarget.id === "btn-discard-hud"){
+        // discard for Æ
+        discardCardById(data.id);
+        return;
+      }
+
+      if (curTarget.classList.contains("slot")){
+        const idx = Number(curTarget.dataset.slotIndex ?? -1);
+        try{
+          if (curTarget.classList.contains("glyph")){
+            state = setGlyphFromHand(state, "player", data.id);
+          }else{
+            state = playCardToSpellSlot(state, "player", data.id, idx);
+          }
+          render();
+        }catch(err){ toast(err?.message || "Can't play"); }
+      }
+    };
+
+    window.addEventListener("pointermove", onMove, {passive:false});
+    window.addEventListener("pointerup", onUp, true);
+    window.addEventListener("pointercancel", onUp, true);
+  }, {passive:false});
+}
+
+function discardCardById(cardId){
+  const hand = state.players?.player?.hand || [];
+  const i = hand.findIndex(c => c.id === cardId);
+  if (i < 0){ toast("Card not in hand"); return; }
+  const card = hand[i];
+  const gain = getAetherValue(card);
+  hand.splice(i,1);
+  state.players.player.discardCount = (state.players.player.discardCount|0) + 1;
+  const before = state.players.player.aether|0;
+  const after  = before + (gain|0);
+  state.players.player.aether = after;
+  if (after > before){ triggerAetherFlash(); }
+  toast(gain ? `Discarded for Æ${gain}` : "Discarded");
+  render();
+}
+
+/* ------- slots (desktop target listeners; touch uses custom hover) ------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -188,6 +301,10 @@ function renderSlots(container, snapshot, isPlayer){
     }
 
     if (isPlayer){
+      d.addEventListener("dragenter", (ev)=>{
+        const { type } = getDragPayload(ev.dataTransfer);
+        if (type === "SPELL"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; d.classList.add("drag-over"); }
+      });
       d.addEventListener("dragover", (ev)=>{
         const { type } = getDragPayload(ev.dataTransfer);
         if (type === "SPELL"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; d.classList.add("drag-over"); }
@@ -219,6 +336,10 @@ function renderSlots(container, snapshot, isPlayer){
   }
 
   if (isPlayer){
+    g.addEventListener("dragenter", (ev)=>{
+      const { type } = getDragPayload(ev.dataTransfer);
+      if (type === "GLYPH"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; g.classList.add("drag-over"); }
+    });
     g.addEventListener("dragover", (ev)=>{
       const { type } = getDragPayload(ev.dataTransfer);
       if (type === "GLYPH"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; g.classList.add("drag-over"); }
@@ -235,7 +356,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* ===== flow (market) ===== */
+/* ------- flow (market) ------- */
 function cardHTML(c){
   const price = (typeof c.price === "number") ? c.price : 0;
   const gems = "🜂".repeat(price);
@@ -273,7 +394,7 @@ function renderFlow(flowArray){
   });
 }
 
-/* ===== discard drop target ===== */
+/* ------- discard drop (desktop) ------- */
 function handleDiscardDragOver(ev){
   const { id } = getDragPayload(ev.dataTransfer);
   if (id){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; hudDiscard.classList.add("drop-ready"); }
@@ -284,26 +405,15 @@ function handleDiscardDrop(ev){
   hudDiscard.classList.remove("drop-ready");
   const { id } = getDragPayload(ev.dataTransfer);
   if (!id) return;
-
-  const hand = state.players?.player?.hand || [];
-  const i = hand.findIndex(c => c.id === id);
-  if (i < 0){ toast("Card not in hand"); return; }
-  const card = hand[i];
-  const gain = getAetherValue(card);
-  hand.splice(i,1);
-  state.players.player.discardCount = (state.players.player.discardCount|0) + 1;
-  const before = state.players.player.aether|0;
-  const after  = before + (gain|0);
-  state.players.player.aether = after;
-  if (after > before){ triggerAetherFlash(); }
-  toast(gain ? `Discarded for Æ${gain}` : "Discarded");
-  render();
+  discardCardById(id);
 }
 
-/* ===== flash + render ===== */
+/* ------- flash + render ------- */
 function triggerAetherFlash(){
   if (!playerAether) return;
-  playerAether.classList.remove("flash"); void playerAether.offsetWidth; playerAether.classList.add("flash");
+  playerAether.classList.remove("flash");
+  void playerAether.offsetWidth;
+  playerAether.classList.add("flash");
 }
 
 function ensureSafetyShape(s){
@@ -350,6 +460,7 @@ function render(){
   set(playerAetherVal, el=> el.textContent = String(curAether));
   if (curAether > prevAether){ triggerAetherFlash(); }
   prevAether = curAether;
+
   set(deckCountEl, el => el.textContent = String(s.player?.deckCount ?? 0));
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
@@ -373,7 +484,10 @@ function render(){
         ${pipTrackHTML(getPipRequirement(c), c.currentPips || 0)}
       `;
 
-      makeDraggableCard(el, c);
+      // desktop + touch
+      makeDesktopDraggable(el, c);
+      makeTouchDraggable(el, c);
+
       attachPeekAndZoom(el, c);
       handEl.appendChild(el); els.push(el);
     });
@@ -381,7 +495,7 @@ function render(){
   }
 }
 
-/* wiring */
+/* wiring (desktop DnD targets) */
 hudDiscard?.addEventListener("dragenter", handleDiscardDragOver);
 hudDiscard?.addEventListener("dragover", handleDiscardDragOver);
 hudDiscard?.addEventListener("dragleave", handleDiscardLeave);
