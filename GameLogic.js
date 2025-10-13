@@ -1,140 +1,62 @@
-// v2.5 engine: starter deck with real text, play SPELL to slot, set GLYPH.
-// (Market + buy stub remains minimal for now.)
+// GameLogic.js — v2.51 UI Patch
+// Minimal engine stubs to support UI demo. Integrate with your real engine as needed.
 
-const FLOW_COSTS = [4,3,2,2,2];
+const FLOW_COSTS = [4, 3, 3, 2, 2]; // river costs, left->right
 const STARTING_VITALITY = 5;
 
-function mkMarketCard(id, name, type, cost, text="") {
-  return { id, name, type, price: cost, aetherValue:0, text };
-}
-
-/* ----- Starter Base Set (for both players) ----- */
-function starterDeck() {
+function sampleCardPool(){
+  // A tiny pool for demo. Replace with your real card set.
   return [
-    // Spells of Utility (x3)
-    { id:"c_pulse", name:"Pulse of the Grey", type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1." },
-    { id:"c_wisp",  name:"Wispform Surge",   type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Advance another spell 1." },
-    { id:"c_bloom", name:"Greyfire Bloom",   type:"SPELL", aetherValue:0, text:"Cost Æ1. Advance 1 (Æ1). On resolve: Deal 1 damage." },
-
-    // Channelers (x3)
-    { id:"c_echo",  name:"Echoing Reservoir",type:"SPELL", aetherValue:2, text:"Advance 1 (Æ2). On resolve: Channel 1." },
-    { id:"c_catal", name:"Dormant Catalyst", type:"SPELL", aetherValue:1, text:"Advance 1 (Æ1). On resolve: Channel 2." },
-    { id:"c_ashen", name:"Ashen Focus",      type:"SPELL", aetherValue:1, text:"Advance 1 (Æ2). On resolve: Channel 1, draw 1." },
-
-    // Instants (x2)
-    { id:"c_surge", name:"Surge of Ash",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Advance a spell you control by 1 (free)." },
-    { id:"c_veil",  name:"Veil of Dust",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Prevent 1 or cancel an instant." },
-
-    // Glyphs (x2)
-    { id:"g_light", name:"Glyph of Remnant Light", type:"GLYPH", aetherValue:0, text:"When a spell resolves: gain Æ1." },
-    { id:"g_echo",  name:"Glyph of Returning Echo", type:"GLYPH", aetherValue:0, text:"When you channel Aether: draw 1." },
+    { id:"s1", name:"Spark",   type:"SPELL", text:"Advance 1 AE: Deal 1.", aetherValue:1 },
+    { id:"s2", name:"Ember",   type:"SPELL", text:"Advance 1 AE: Heal 1.", aetherValue:1 },
+    { id:"g1", name:"Sigil",   type:"GLYPH", text:"Ongoing: +1 Æ each buy.", aetherValue:0 },
+    { id:"s3", name:"Pulse",   type:"SPELL", text:"Advance 2 AE: Stun.", aetherValue:2 },
+    { id:"s4", name:"Wave",    type:"SPELL", text:"Advance 3 AE: Draw 2.", aetherValue:2 },
+    { id:"s5", name:"Flicker", type:"SPELL", text:"Advance 1 AE: +1 Æ.", aetherValue:1 },
   ];
 }
 
-export function initState() {
-  // simple split: first 5 in hand, rest in deckCount for display only
-  const deck = starterDeck();
-  const hand = deck.slice(0,5);
-  const remaining = deck.slice(5);
+function generateFlow(){
+  const pool = sampleCardPool();
+  // pick first 5 just for demo; price from FLOW_COSTS
+  return Array.from({length:5}, (_,i)=>{
+    const c = pool[(i)%pool.length];
+    return { ...c, price: FLOW_COSTS[i] };
+  });
+}
 
+function initState(){
   return {
     turn: 1,
-    activePlayer: "player",
-    flow: [
-      mkMarketCard("f1","Resonant Chorus","SPELL",  FLOW_COSTS[0], "Market spell."),
-      mkMarketCard("f2","Pulse Feedback","INSTANT", FLOW_COSTS[1], "Tactical instant."),
-      mkMarketCard("f3","Refracted Will","GLYPH",  FLOW_COSTS[2], "Set a glyph."),
-      mkMarketCard("f4","Cascade Insight","INSTANT",FLOW_COSTS[3], "Instant."),
-      mkMarketCard("f5","Obsidian Vault","SPELL",  FLOW_COSTS[4], "Spell."),
-    ],
-    players: {
-      player: {
-        vitality: STARTING_VITALITY,
-        aether: 0, channeled: 0,
-        deckCount: remaining.length,
-        hand: hand,
-        discardCount: 0,
-        slots: [
-          { hasCard:false, card:null }, // spell
-          { hasCard:false, card:null }, // spell
-          { hasCard:false, card:null }, // spell
-          { isGlyph:true, hasCard:false, card:null }, // glyph
-        ],
-        weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
-      },
-      ai: {
-        vitality: STARTING_VITALITY,
-        aether: 0, channeled: 0,
-        deckCount: 10,
-        hand: starterDeck().slice(0,0), // hidden
-        discardCount: 0,
-        slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { isGlyph:true, hasCard:false, card:null },
-        ],
-        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr.jpg" },
-      }
-    }
+    active: "player",
+    player: { aether: 0, vitality: STARTING_VITALITY, trance: 0, hand: [], slots:[null,null,null,null] },
+    ai:     { aether: 0, vitality: STARTING_VITALITY, trance: 0, slots:[null,null,null,null] },
+    flow: generateFlow(),
+    discard: [],
+    deck: [],
   };
 }
 
-export function serializePublic(state) {
-  return {
-    turn: state.turn,
-    activePlayer: state.activePlayer,
-    flow: state.flow,
-    player: state.players?.player,
-    ai: state.players?.ai,
-  };
-}
-
-/* ----- Actions ----- */
-// Play SPELL from hand into a spell slot (0..2)
-export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
-  const P = state.players[playerId];
-  if (!P) throw new Error("bad player");
-  if (slotIndex < 0 || slotIndex > 2) throw new Error("spell slot index 0..2");
-  const slot = P.slots[slotIndex];
-  if (slot.hasCard) throw new Error("slot occupied");
-
-  const i = P.hand.findIndex(c => c.id === cardId);
-  if (i < 0) throw new Error("card not in hand");
-  const card = P.hand[i];
-  if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
-
-  P.hand.splice(i,1);
-  slot.card = card;
-  slot.hasCard = true;
+// Engine stub: buy from flow -> move to discard
+function buyFromFlow(state, who, index){
+  if (index < 0 || index >= state.flow.length) throw new Error("Invalid pick");
+  const buyer = state[who];
+  const card = state.flow[index];
+  const cost = card.price || 0;
+  if ((buyer.aether|0) < cost) throw new Error("Not enough Æ");
+  buyer.aether -= cost;
+  state.discard.push(card);
+  // Replace bought card with a new one (same cost position)
+  const pool = sampleCardPool();
+  const fresh = { ...pool[Math.floor(Math.random()*pool.length)], price: FLOW_COSTS[index] };
+  state.flow[index] = fresh;
   return state;
 }
 
-// Set GLYPH from hand into glyph slot (index 3)
-export function setGlyphFromHand(state, playerId, cardId){
-  const P = state.players[playerId];
-  if (!P) throw new Error("bad player");
-  const slot = P.slots[3];
-  if (!slot?.isGlyph) throw new Error("no glyph slot");
-  if (slot.hasCard) throw new Error("glyph slot occupied");
-
-  const i = P.hand.findIndex(c => c.id === cardId);
-  if (i < 0) throw new Error("card not in hand");
-  const card = P.hand[i];
-  if (card.type !== "GLYPH") throw new Error("only GLYPH may be set");
-
-  P.hand.splice(i,1);
-  slot.card = card;
-  slot.hasCard = true;
-  return state;
-}
-
-// Market buy → increase discardCount (visual stub)
-export function buyFromFlow(state, playerId, flowIndex){
-  const P = state.players[playerId];
-  if (!P) throw new Error("bad player");
-  const card = state.flow?.[flowIndex];
-  if (!card) throw new Error("no card at flow index");
-  P.discardCount += 1;
-  return state;
-}
+// Export to global (non-module setup)
+window.GameLogic = {
+  FLOW_COSTS,
+  STARTING_VITALITY,
+  initState,
+  buyFromFlow,
+};
