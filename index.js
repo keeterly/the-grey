@@ -378,6 +378,7 @@ function renderFlow(flowArray){
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
     card.innerHTML = cardHTML(c);
+    card.setAttribute("data-price-label", `Æ ${c.price || 0} to buy`);
     attachPeekAndZoom(card, {...c, costGems:"🜂".repeat(c.price||0) });
 
     card.addEventListener("click", ()=>{
