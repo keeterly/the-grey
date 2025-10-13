@@ -1,31 +1,62 @@
-// Minimal engine for v2.5 UI. Safe, predictable actions the UI calls.
+// Minimal engine for v2.5 UI with basic draw/discard/end-turn loop.
 
 const FLOW_COSTS = [4,3,2,2,2];
 const STARTING_VITALITY = 5;
 const HAND_SIZE = 5;
 
-function mkCard(id, name, type, price=0, aetherValue=0) {
-  return { id, name, type, price, aetherValue };
+function mkCard(id, name, type, price, aetherValue=0) {
+  return { id, name, type, price, aetherValue, cost: price };
 }
 
-function starterHand() {
+function starterDeck() {
+  // super simple 10-card deck
   return [
-    mkCard("h1","Pulse of the Grey","SPELL", 0, 0),
-    mkCard("h2","Echoing Reservoir","SPELL", 0, 2),
-    mkCard("h3","Dormant Catalyst","SPELL", 0, 1),
-    mkCard("h4","Veil of Dust","INSTANT", 0, 0),
-    mkCard("h5","Ashen Focus","SPELL", 0, 1),
+    mkCard("d1","Apprentice Bolt","SPELL", 0, 0),
+    mkCard("d2","Apprentice Bolt","SPELL", 0, 0),
+    mkCard("d3","Apprentice Bolt","SPELL", 0, 0),
+    mkCard("d4","Apprentice Bolt","SPELL", 0, 0),
+    mkCard("d5","Apprentice Bolt","SPELL", 0, 0),
+    mkCard("d6","Ashen Focus","SPELL", 1, 1),
+    mkCard("d7","Dormant Catalyst","SPELL", 1, 1),
+    mkCard("d8","Echoing Reservoir","SPELL", 2, 2),
+    mkCard("d9","Veil of Dust","INSTANT", 0, 0),
+    mkCard("d10","Pulse of the Grey","SPELL", 0, 0),
   ];
 }
-
-function starterDeck(){
-  // simple filler deck so draw works
-  const cards = [];
-  for(let i=0;i<12;i++) cards.push(mkCard("d"+i, "Apprentice Bolt", "SPELL", 0, 0));
-  return cards;
+function starterHand() {
+  // draw handled by initState; this fallback is unused
+  return [];
 }
 
 export function initState(opts = {}) {
+  const deck = starterDeck();
+  const player = {
+    vitality: STARTING_VITALITY,
+    aether: 0, channeled: 0,
+    deck, discard: [], hand: [],
+    slots: [
+      { hasCard:false, card:null },
+      { hasCard:false, card:null },
+      { hasCard:false, card:null },
+      glyph: { hasCard:false, card:null, isGlyph:true }
+    ],
+    weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
+  };
+  drawUpTo(player, HAND_SIZE);
+
+  const ai = {
+    vitality: STARTING_VITALITY,
+    aether: 0, channeled: 0,
+    deck: starterDeck(), discard: [], hand: [],
+    slots: [
+      { hasCard:false, card:null },
+      { hasCard:false, card:null },
+      { hasCard:false, card:null },
+      glyph: { hasCard:false, card:null, isGlyph:true }
+    ],
+    weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr.jpg" },
+  };
+
   return {
     turn: 1,
     activePlayer: "player",
@@ -36,107 +67,81 @@ export function initState(opts = {}) {
       mkCard("f4","Cascade Insight","INSTANT",FLOW_COSTS[3]),
       mkCard("f5","Obsidian Vault","SPELL",  FLOW_COSTS[4]),
     ],
-    players: {
-      player: {
-        vitality: STARTING_VITALITY,
-        aether: 0, channeled: 0,
-        deck: starterDeck(),
-        hand: starterHand(),
-        discard: [],
-        slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null, isGlyph:true }, // glyph bay
-        ],
-        weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"" },
-      },
-      ai: {
-        vitality: STARTING_VITALITY,
-        aether: 0, channeled: 0,
-        deck: starterDeck(),
-        hand: [],
-        discard: [],
-        slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null, isGlyph:true },
-        ],
-        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"" },
-      }
-    }
+    players: { player, ai }
   };
 }
 
+function draw(p, n=1){
+  for (let i=0;i<n;i++){
+    if (!p.deck.length){
+      if (!p.discard.length) break;
+      // shuffle discard into deck
+      p.deck = shuffle(p.discard);
+      p.discard = [];
+    }
+    p.hand.push(p.deck.shift());
+  }
+}
+function drawUpTo(p, size){
+  const need = Math.max(0, size - p.hand.length);
+  draw(p, need);
+}
+function shuffle(a){
+  const arr = a.slice();
+  for (let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+
 export function serializePublic(state) {
+  const P = state.players.player;
+  const A = state.players.ai;
   return {
     turn: state.turn,
     activePlayer: state.activePlayer,
     flow: state.flow,
-    player: state.players.player,
-    ai: state.players.ai,
+    player: {
+      ...P,
+      deckCount: P.deck.length,
+      discardCount: P.discard.length,
+    },
+    ai: {
+      ...A,
+      deckCount: A.deck.length,
+      discardCount: A.discard.length,
+    },
   };
 }
 
-/* helpers */
-function drawUpTo(player, n){
-  while(player.hand.length < n){
-    if (player.deck.length === 0){
-      if (player.discard.length === 0) break;
-      // reshuffle (simple)
-      player.deck = player.discard.splice(0);
-    }
-    player.hand.push(player.deck.shift());
-  }
-}
-function findCardInHand(player, id){
-  const i = player.hand.findIndex(c => c.id === id);
-  if (i < 0) throw new Error("card not in hand");
-  return i;
-}
-
-/* reducer */
+/* -------- Actions -------- */
 export function reducer(state, action){
-  const S = state;
-  const P = S.players[action.player || "player"];
-
+  const S = structuredClone(state);
   switch(action.type){
-
-    case "START_TURN":{
-      S.activePlayer = "player";
-      // could add start-of-turn effects here
+    case "START_TURN":
+      S.activePlayer = action.player || "player";
       return S;
-    }
-
-    case "END_TURN":{
-      // discard hand
-      while(P.hand.length) P.discard.push(P.hand.pop());
-      // dummy AI turn (no-op)…
-      // draw new hand
-      drawUpTo(P, HAND_SIZE);
-      S.turn += 1;
-      return S;
-    }
 
     case "DISCARD_FOR_AETHER":{
-      const i = findCardInHand(P, action.cardId);
-      const card = P.hand.splice(i,1)[0];
-      P.aether += (card.aetherValue || 0);
-      P.discard.push(card);
+      const P = S.players[action.player];
+      const i = P.hand.findIndex(c=>c.id===action.cardId);
+      if (i<0) throw new Error("not in hand");
+      const [c] = P.hand.splice(i,1);
+      P.aether += c.aetherValue ?? 0;
+      P.discard.push(c);
       return S;
     }
 
     case "PLAY_CARD_TO_SLOT":{
-      const slotIndex = action.slotIndex|0;
-      if (slotIndex < 0 || slotIndex > 2) throw new Error("spell slot index 0..2");
-      const slot = P.slots[slotIndex];
+      const P = S.players[action.player];
+      if (action.slotIndex<0 || action.slotIndex>2) throw new Error("slot 0..2");
+      const slot = P.slots[action.slotIndex];
       if (slot.hasCard) throw new Error("slot occupied");
-
-      const i = findCardInHand(P, action.cardId);
+      const i = P.hand.findIndex(c=>c.id===action.cardId);
+      if (i < 0) throw new Error("card not in hand");
       const card = P.hand[i];
       if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
-
       P.hand.splice(i,1);
       slot.card = card;
       slot.hasCard = true;
@@ -144,17 +149,35 @@ export function reducer(state, action){
     }
 
     case "BUY_FROM_FLOW":{
-      const idx = action.flowIndex|0;
-      const flowCard = S.flow[idx];
-      if (!flowCard) throw new Error("no card there");
-      const cost = flowCard.price|0;
-      if ((P.aether|0) < cost) throw new Error("not enough Æther");
+      const P = S.players[action.player];
+      const c = S.flow[action.flowIndex];
+      if (!c) throw new Error("no card");
+      const cost = c.price ?? c.cost ?? 0;
+      if ((P.aether|0) < cost) throw new Error("not enough Æ");
       P.aether -= cost;
-      // put into discard (deck-builder feel)
-      P.discard.push({...flowCard, price:0});
+      // bought cards go to discard (deck-builder feel)
+      P.discard.push({...c, id:`b-${Date.now()}-${Math.random().toString(16).slice(2)}`});
       return S;
     }
 
-    default: return S;
+    case "END_TURN":{
+      // player discards hand, draws new; very simple AI turn (mirror)
+      const P = S.players.player;
+      // move hand to discard
+      while (P.hand.length) P.discard.push(P.hand.pop());
+      drawUpTo(P, HAND_SIZE);
+
+      // AI stub: discard and draw
+      const A = S.players.ai;
+      while (A.hand.length) A.discard.push(A.hand.pop());
+      drawUpTo(A, HAND_SIZE);
+
+      S.turn += 1;
+      S.activePlayer = "player";
+      return S;
+    }
+
+    default:
+      return S;
   }
 }
