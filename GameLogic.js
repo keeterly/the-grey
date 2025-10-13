@@ -1,98 +1,103 @@
-// Minimal engine for v2.5 UI with basic draw/discard/end-turn loop.
+// Clean GameLogic.js (browser-safe, no structuredClone, no spread bugs)
 
-const FLOW_COSTS = [4,3,2,2,2];
+const FLOW_COSTS = [4, 3, 2, 2, 2];
 const STARTING_VITALITY = 5;
 const HAND_SIZE = 5;
 
-function mkCard(id, name, type, price, aetherValue=0) {
+function mkCard(id, name, type, price, aetherValue = 0) {
   return { id, name, type, price, aetherValue, cost: price };
 }
 
 function starterDeck() {
-  // super simple 10-card deck
   return [
-    mkCard("d1","Apprentice Bolt","SPELL", 0, 0),
-    mkCard("d2","Apprentice Bolt","SPELL", 0, 0),
-    mkCard("d3","Apprentice Bolt","SPELL", 0, 0),
-    mkCard("d4","Apprentice Bolt","SPELL", 0, 0),
-    mkCard("d5","Apprentice Bolt","SPELL", 0, 0),
-    mkCard("d6","Ashen Focus","SPELL", 1, 1),
-    mkCard("d7","Dormant Catalyst","SPELL", 1, 1),
-    mkCard("d8","Echoing Reservoir","SPELL", 2, 2),
-    mkCard("d9","Veil of Dust","INSTANT", 0, 0),
-    mkCard("d10","Pulse of the Grey","SPELL", 0, 0),
+    mkCard("d1", "Apprentice Bolt", "SPELL", 0, 0),
+    mkCard("d2", "Apprentice Bolt", "SPELL", 0, 0),
+    mkCard("d3", "Apprentice Bolt", "SPELL", 0, 0),
+    mkCard("d4", "Apprentice Bolt", "SPELL", 0, 0),
+    mkCard("d5", "Apprentice Bolt", "SPELL", 0, 0),
+    mkCard("d6", "Ashen Focus", "SPELL", 1, 1),
+    mkCard("d7", "Dormant Catalyst", "SPELL", 1, 1),
+    mkCard("d8", "Echoing Reservoir", "SPELL", 2, 2),
+    mkCard("d9", "Veil of Dust", "INSTANT", 0, 0),
+    mkCard("d10", "Pulse of the Grey", "SPELL", 0, 0),
   ];
 }
-function starterHand() {
-  // draw handled by initState; this fallback is unused
-  return [];
+
+function shuffle(arr) {
+  const copy = arr.slice();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = copy[i];
+    copy[i] = copy[j];
+    copy[j] = temp;
+  }
+  return copy;
 }
 
-export function initState(opts = {}) {
+function draw(p, n = 1) {
+  for (let i = 0; i < n; i++) {
+    if (!p.deck.length) {
+      if (!p.discard.length) break;
+      p.deck = shuffle(p.discard);
+      p.discard = [];
+    }
+    const card = p.deck.shift();
+    if (card) p.hand.push(card);
+  }
+}
+
+function drawUpTo(p, size) {
+  const need = Math.max(0, size - p.hand.length);
+  draw(p, need);
+}
+
+export function initState() {
   const deck = starterDeck();
   const player = {
     vitality: STARTING_VITALITY,
-    aether: 0, channeled: 0,
-    deck, discard: [], hand: [],
+    aether: 0,
+    channeled: 0,
+    deck: deck,
+    discard: [],
+    hand: [],
     slots: [
-      { hasCard:false, card:null },
-      { hasCard:false, card:null },
-      { hasCard:false, card:null },
-      glyph: { hasCard:false, card:null, isGlyph:true }
+      { hasCard: false, card: null },
+      { hasCard: false, card: null },
+      { hasCard: false, card: null },
     ],
-    weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
+    glyph: { hasCard: false, card: null, isGlyph: true },
+    weaver: { id: "aria", name: "Aria, Runesurge Adept", stage: 0, portrait: "./weaver_aria.jpg" },
   };
   drawUpTo(player, HAND_SIZE);
 
   const ai = {
     vitality: STARTING_VITALITY,
-    aether: 0, channeled: 0,
-    deck: starterDeck(), discard: [], hand: [],
+    aether: 0,
+    channeled: 0,
+    deck: starterDeck(),
+    discard: [],
+    hand: [],
     slots: [
-      { hasCard:false, card:null },
-      { hasCard:false, card:null },
-      { hasCard:false, card:null },
-      glyph: { hasCard:false, card:null, isGlyph:true }
+      { hasCard: false, card: null },
+      { hasCard: false, card: null },
+      { hasCard: false, card: null },
     ],
-    weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr.jpg" },
+    glyph: { hasCard: false, card: null, isGlyph: true },
+    weaver: { id: "morr", name: "Morr, Gravecurrent Binder", stage: 0, portrait: "./weaver_morr.jpg" },
   };
 
   return {
     turn: 1,
     activePlayer: "player",
     flow: [
-      mkCard("f1","Resonant Chorus","SPELL",  FLOW_COSTS[0]),
-      mkCard("f2","Pulse Feedback","INSTANT", FLOW_COSTS[1]),
-      mkCard("f3","Refracted Will","GLYPH",  FLOW_COSTS[2]),
-      mkCard("f4","Cascade Insight","INSTANT",FLOW_COSTS[3]),
-      mkCard("f5","Obsidian Vault","SPELL",  FLOW_COSTS[4]),
+      mkCard("f1", "Resonant Chorus", "SPELL", FLOW_COSTS[0]),
+      mkCard("f2", "Pulse Feedback", "INSTANT", FLOW_COSTS[1]),
+      mkCard("f3", "Refracted Will", "GLYPH", FLOW_COSTS[2]),
+      mkCard("f4", "Cascade Insight", "INSTANT", FLOW_COSTS[3]),
+      mkCard("f5", "Obsidian Vault", "SPELL", FLOW_COSTS[4]),
     ],
-    players: { player, ai }
+    players: { player, ai },
   };
-}
-
-function draw(p, n=1){
-  for (let i=0;i<n;i++){
-    if (!p.deck.length){
-      if (!p.discard.length) break;
-      // shuffle discard into deck
-      p.deck = shuffle(p.discard);
-      p.discard = [];
-    }
-    p.hand.push(p.deck.shift());
-  }
-}
-function drawUpTo(p, size){
-  const need = Math.max(0, size - p.hand.length);
-  draw(p, need);
-}
-function shuffle(a){
-  const arr = a.slice();
-  for (let i=arr.length-1;i>0;i--){
-    const j = Math.floor(Math.random()*(i+1));
-    [arr[i],arr[j]] = [arr[j],arr[i]];
-  }
-  return arr;
 }
 
 export function serializePublic(state) {
@@ -103,76 +108,87 @@ export function serializePublic(state) {
     activePlayer: state.activePlayer,
     flow: state.flow,
     player: {
-      ...P,
+      vitality: P.vitality,
+      aether: P.aether,
+      channeled: P.channeled,
       deckCount: P.deck.length,
       discardCount: P.discard.length,
+      hand: P.hand,
+      slots: P.slots,
+      glyph: P.glyph,
+      weaver: P.weaver,
     },
     ai: {
-      ...A,
+      vitality: A.vitality,
+      aether: A.aether,
+      channeled: A.channeled,
       deckCount: A.deck.length,
       discardCount: A.discard.length,
+      slots: A.slots,
+      glyph: A.glyph,
+      weaver: A.weaver,
     },
   };
 }
 
-/* -------- Actions -------- */
-export function reducer(state, action){
-  const S = structuredClone(state);
-  switch(action.type){
-    case "START_TURN":
+export function reducer(state, action) {
+  // Deep copy without structuredClone
+  const S = JSON.parse(JSON.stringify(state));
+
+  switch (action.type) {
+    case "START_TURN": {
       S.activePlayer = action.player || "player";
       return S;
+    }
 
-    case "DISCARD_FOR_AETHER":{
+    case "DISCARD_FOR_AETHER": {
       const P = S.players[action.player];
-      const i = P.hand.findIndex(c=>c.id===action.cardId);
-      if (i<0) throw new Error("not in hand");
-      const [c] = P.hand.splice(i,1);
-      P.aether += c.aetherValue ?? 0;
+      const i = P.hand.findIndex((c) => c.id === action.cardId);
+      if (i < 0) throw new Error("Card not found in hand");
+      const [c] = P.hand.splice(i, 1);
+      P.aether += c.aetherValue || 0;
       P.discard.push(c);
       return S;
     }
 
-    case "PLAY_CARD_TO_SLOT":{
+    case "PLAY_CARD_TO_SLOT": {
       const P = S.players[action.player];
-      if (action.slotIndex<0 || action.slotIndex>2) throw new Error("slot 0..2");
-      const slot = P.slots[action.slotIndex];
-      if (slot.hasCard) throw new Error("slot occupied");
-      const i = P.hand.findIndex(c=>c.id===action.cardId);
-      if (i < 0) throw new Error("card not in hand");
-      const card = P.hand[i];
-      if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
-      P.hand.splice(i,1);
+      const slotIndex = action.slotIndex;
+      if (slotIndex < 0 || slotIndex > 2) throw new Error("Invalid slot index");
+      const slot = P.slots[slotIndex];
+      if (slot.hasCard) throw new Error("Slot occupied");
+      const i = P.hand.findIndex((c) => c.id === action.cardId);
+      if (i < 0) throw new Error("Card not found in hand");
+      const card = P.hand.splice(i, 1)[0];
+      if (card.type !== "SPELL") throw new Error("Only SPELL cards can be played");
       slot.card = card;
       slot.hasCard = true;
       return S;
     }
 
-    case "BUY_FROM_FLOW":{
+    case "BUY_FROM_FLOW": {
       const P = S.players[action.player];
-      const c = S.flow[action.flowIndex];
-      if (!c) throw new Error("no card");
+      const idx = action.flowIndex;
+      const c = S.flow[idx];
+      if (!c) throw new Error("No card in flow");
       const cost = c.price ?? c.cost ?? 0;
-      if ((P.aether|0) < cost) throw new Error("not enough Æ");
+      if (P.aether < cost) throw new Error("Not enough Æther");
       P.aether -= cost;
-      // bought cards go to discard (deck-builder feel)
-      P.discard.push({...c, id:`b-${Date.now()}-${Math.random().toString(16).slice(2)}`});
+      const bought = { ...c, id: "b" + Date.now() };
+      P.discard.push(bought);
       return S;
     }
 
-    case "END_TURN":{
-      // player discards hand, draws new; very simple AI turn (mirror)
+    case "END_TURN": {
       const P = S.players.player;
-      // move hand to discard
       while (P.hand.length) P.discard.push(P.hand.pop());
       drawUpTo(P, HAND_SIZE);
 
-      // AI stub: discard and draw
       const A = S.players.ai;
       while (A.hand.length) A.discard.push(A.hand.pop());
       drawUpTo(A, HAND_SIZE);
 
-      S.turn += 1;
+      S.turn++;
       S.activePlayer = "player";
       return S;
     }
