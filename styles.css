@@ -26,7 +26,7 @@ html,body{height:100%}
   row-gap:24px;
   height:100%;
   padding:12px 16px calc(26vh + 12px);
-  align-content:space-evenly; /* even vertical spacing */
+  align-content:space-evenly;
 }
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0; position:relative}
 
@@ -36,8 +36,18 @@ html,body{height:100%}
 .hearts{display:flex;gap:6px;justify-content:center;margin-top:4px}
 .hearts::before{content:"\25CF \25CF \25CF \25CF \25CF"; letter-spacing:6px; color:#e8a2a2; text-shadow:0 0 6px #000}
 .trance{margin-top:2px;opacity:.8;font-size:.9rem}
+
+/* Player aether display */
 .aether-display{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{width:16px;height:16px;filter:drop-shadow(0 0 6px rgba(126,182,255,.45));fill:var(--gem-blue)}
+/* Bright flash animation when Æ increases */
+@keyframes gem-flash {
+  0%   { filter: drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1); }
+  25%  { filter: drop-shadow(0 0 14px rgba(126,182,255,.95)) brightness(1.7); transform:scale(1.18); }
+  55%  { filter: drop-shadow(0 0 10px rgba(126,182,255,.65)) brightness(1.35); transform:scale(1.06); }
+  100% { filter: drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1); }
+}
+.aether-display.flash { animation: gem-flash 560ms ease-out; }
 
 /* Corner placement */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
@@ -53,7 +63,7 @@ html,body{height:100%}
   max-width:96vw; place-items:center; margin-inline:auto;
 }
 
-/* Slots (rectangular) */
+/* Slots */
 .slot{
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
   background:linear-gradient(180deg,#2b231b,#1a1511); border:1px solid #5a4b37;
@@ -78,13 +88,12 @@ html,body{height:100%}
 .flow-card .card{position:relative;left:0;top:0;transform:none}
 .flow-card .price-label{display:block;text-align:center;margin-top:6px;font-weight:600;opacity:.92}
 
-/* ===== Hand (fanned) ===== */
+/* ===== Hand ===== */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
   width:min(1200px, 96vw); height:24vh; perspective:1200px;
-  /* CRITICAL: allow interactions for drag */
-  pointer-events:auto;
+  pointer-events:auto; /* critical for drag */
 }
 
 /* ===== Card ===== */
@@ -107,7 +116,7 @@ html,body{height:100%}
 .card .textbox{flex:1; padding:0 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
 .card .cost{position:absolute; right:10px; bottom:10px; font-size:1.05rem; opacity:.9; text-shadow:0 1px 2px #000}
 
-/* Aether discard chip (gem icon) */
+/* Aether chip (gem icon) */
 .card .aether-chip{
   position:absolute; left:10px; bottom:10px; transform:translateY(1px);
   display:flex; align-items:center; gap:6px; z-index:3; filter:drop-shadow(0 1px 2px #000);
@@ -123,19 +132,15 @@ html,body{height:100%}
 
 /* Peek / Zoom */
 #preview-layer{position:fixed; inset:0; z-index:50; pointer-events:none}
-#peek-card.card.peek{
-  position:fixed; left:50%; top:18vh; transform:translate(-50%,0) scale(1.28);
-  width:var(--card-w); height:var(--card-h); display:none; opacity:0; transition:opacity .12s ease;
-  box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35)
-}
+#peek-card.card.peek{position:fixed; left:50%; top:18vh; transform:translate(-50%,0) scale(1.28); width:var(--card-w); height:var(--card-h); display:none; opacity:0; transition:opacity .12s ease; box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35)}
 #peek-card.show{display:block; opacity:1}
 #zoom-overlay{position:fixed; inset:0; display:none; background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px); place-items:center; pointer-events:auto; z-index:60}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
-/* HUD */
+/* HUD and badges */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
-.hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center}
+.hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
 .hud-btn:hover{box-shadow:0 0 10px var(--gold)}
 .hud-btn svg.icon rect{fill:#2e251d; stroke:#5a4b37; stroke-width:1.2}
 .hud-btn svg.icon .arrow{stroke:#8e7a60; stroke-width:2.4; fill:none; stroke-linecap:round; stroke-linejoin:round}
@@ -144,6 +149,13 @@ html,body{height:100%}
 .hud-btn svg.icon.deck rect:nth-child(3){transform:translateX(3px) translateY(-2px)}
 .drop-target{position:relative}
 .drop-target.drop-ready{outline:2px dashed var(--aether); outline-offset:4px; box-shadow:0 0 20px rgba(126,182,255,.45)}
+
+/* Deck badge */
+.badge{
+  position:absolute; right:6px; bottom:6px; min-width:20px; height:20px; padding:0 6px;
+  border-radius:999px; background:#1f1712; color:var(--ink); border:1px solid #4a3d2f;
+  font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000;
+}
 
 /* Toast */
 .toast{
