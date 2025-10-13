@@ -1,5 +1,5 @@
 // v2.5 engine: starter deck with real text, play SPELL to slot, set GLYPH.
-// (Market + buy stub remains minimal for now.)
+// Market buy is a visual stub.
 
 export const FLOW_COSTS = [4,3,3,2,2];
 const STARTING_VITALITY = 5;
@@ -8,24 +8,16 @@ function mkMarketCard(id, name, type, cost, text="") {
   return { id, name, type, price: cost, aetherValue:0, text };
 }
 
-/* ----- Starter Base Set (for both players) ----- */
 function starterDeck() {
   return [
-    // Spells of Utility (x3)
     { id:"c_pulse", name:"Pulse of the Grey", type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1." },
     { id:"c_wisp",  name:"Wispform Surge",   type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Advance another spell 1." },
     { id:"c_bloom", name:"Greyfire Bloom",   type:"SPELL", aetherValue:0, text:"Cost Æ1. Advance 1 (Æ1). On resolve: Deal 1 damage." },
-
-    // Channelers (x3)
     { id:"c_echo",  name:"Echoing Reservoir",type:"SPELL", aetherValue:2, text:"Advance 1 (Æ2). On resolve: Channel 1." },
     { id:"c_catal", name:"Dormant Catalyst", type:"SPELL", aetherValue:1, text:"Advance 1 (Æ1). On resolve: Channel 2." },
     { id:"c_ashen", name:"Ashen Focus",      type:"SPELL", aetherValue:1, text:"Advance 1 (Æ2). On resolve: Channel 1, draw 1." },
-
-    // Instants (x2)
     { id:"c_surge", name:"Surge of Ash",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Advance a spell you control by 1 (free)." },
     { id:"c_veil",  name:"Veil of Dust",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Prevent 1 or cancel an instant." },
-
-    // Glyphs (x2)
     { id:"g_light", name:"Glyph of Remnant Light", type:"GLYPH", aetherValue:0, text:"When a spell resolves: gain Æ1." },
     { id:"g_echo",  name:"Glyph of Returning Echo", type:"GLYPH", aetherValue:0, text:"When you channel Aether: draw 1." },
   ];
