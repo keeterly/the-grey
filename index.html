@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — board</title>
+  <title>The Grey — v2.5 board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -15,7 +15,7 @@
         <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
         <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
         <div class="hearts" id="ai-hearts"></div>
-        <div class="trance" id="ai-trance">Trance 0</div>
+        <div class="trance">Trance <span id="ai-trance">0</span></div>
       </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
@@ -37,12 +37,9 @@
         <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
         <div class="hearts" id="player-hearts"></div>
-        <div class="trance" id="player-trance">Trance 0</div>
-        <div id="player-aether" class="aether-display" aria-label="Aether">
-          <svg class="gem" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z" />
-          </svg>
-          <span id="player-aether-val">0</span>
+        <div class="trance">Trance <span id="player-trance">0</span></div>
+        <div class="aether-display" id="aether-readout">
+          <!-- gem added from JS -->
         </div>
       </figure>
     </section>
@@ -55,28 +52,13 @@
 
   <!-- right HUD -->
   <aside class="hud">
-    <button id="btn-endturn-hud" class="hud-btn" title="End turn">End&nbsp;Turn</button>
-
-    <button id="btn-discard-hud" class="hud-btn drop-target" title="Discard pile" aria-label="Discard">
-      <!-- Discard icon (card stack with arrow) -->
-      <svg class="icon discard" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="10" y="10" width="26" height="36" rx="3"></rect>
-        <rect x="14" y="6"  width="26" height="36" rx="3"></rect>
-        <rect x="18" y="2"  width="26" height="36" rx="3"></rect>
-        <path d="M35 26l6 6-6 6" class="arrow"></path>
-      </svg>
-    </button>
-
-    <button id="btn-deck-hud" class="hud-btn" title="Deck" aria-label="Deck">
-      <!-- Deck icon (fanned stack) -->
-      <svg class="icon deck" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="8" y="6"  width="28" height="36" rx="3"></rect>
-        <rect x="12" y="8" width="28" height="36" rx="3"></rect>
-        <rect x="16" y="10" width="28" height="36" rx="3"></rect>
-      </svg>
-      <span id="deck-count" class="badge" aria-label="Deck count">0</span>
-    </button>
+    <button id="btn-endturn-hud" class="hud-btn" title="End turn">End Turn</button>
+    <button id="btn-discard-hud"  class="hud-btn drop-target" title="Discard pile"></button>
+    <button id="btn-deck-hud"     class="hud-btn" title="Deck"></button>
   </aside>
+
+  <!-- phone-landscape board zoom toggle -->
+  <button id="btn-board-zoom" class="zoom-toggle" aria-pressed="false" aria-label="Zoom board">Board Zoom</button>
 
   <!-- Peek + Zoom layers -->
   <div id="preview-layer" aria-hidden="true">
