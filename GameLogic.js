@@ -1,7 +1,7 @@
 // v2.5 engine: starter deck with real text, play SPELL to slot, set GLYPH.
-// (Market + buy stub remains minimal for now.)
+// (Market + buy now checks player Æ; deducts Æ on purchase.)
 
-export const FLOW_COSTS = [4,3,3,2,2];
+const FLOW_COSTS = [4,3,2,2,2];
 const STARTING_VITALITY = 5;
 
 function mkMarketCard(id, name, type, cost, text="") {
@@ -32,6 +32,7 @@ function starterDeck() {
 }
 
 export function initState() {
+  // simple split: first 5 in hand, rest in deckCount for display only
   const deck = starterDeck();
   const hand = deck.slice(0,5);
   const remaining = deck.slice(5);
@@ -51,12 +52,13 @@ export function initState() {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deckCount: remaining.length,
-        hand, discardCount: 0,
+        hand: hand,
+        discardCount: 0,
         slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { isGlyph:true, hasCard:false, card:null },
+          { hasCard:false, card:null }, // spell
+          { hasCard:false, card:null }, // spell
+          { hasCard:false, card:null }, // spell
+          { isGlyph:true, hasCard:false, card:null }, // glyph
         ],
         weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
       },
@@ -64,7 +66,7 @@ export function initState() {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deckCount: 10,
-        hand: starterDeck().slice(0,0),
+        hand: starterDeck().slice(0,0), // hidden
         discardCount: 0,
         slots: [
           { hasCard:false, card:null },
@@ -89,6 +91,7 @@ export function serializePublic(state) {
 }
 
 /* ----- Actions ----- */
+// Play SPELL from hand into a spell slot (0..2)
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -107,6 +110,7 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   return state;
 }
 
+// Set GLYPH from hand into glyph slot (index 3)
 export function setGlyphFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -125,11 +129,21 @@ export function setGlyphFromHand(state, playerId, cardId){
   return state;
 }
 
+// Market buy → now requires Æ and deducts on success (still a visual stub for moving cards)
 export function buyFromFlow(state, playerId, flowIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
   const card = state.flow?.[flowIndex];
   if (!card) throw new Error("no card at flow index");
+
+  const price = Number(card.price || 0);
+  if ((P.aether || 0) < price) throw new Error("Not enough Æ");
+
+  // Deduct Æ and increment discard (visual stub for gaining the bought card)
+  P.aether -= price;
+  if (P.aether < 0) P.aether = 0;
   P.discardCount += 1;
+
+  // Optional: in a future pass, you can replace card from a deck. For now it remains.
   return state;
 }
