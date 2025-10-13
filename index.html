@@ -11,7 +11,7 @@
   <header class="topbar">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
-      <button id="btn-end-turn" class="btn">End Turn</button>
+      <button id="btn-end-turn"   class="btn">End Turn</button>
       <span id="turn-indicator" class="turn">Turn 1 — player</span>
     </div>
     <div class="right">
@@ -22,30 +22,34 @@
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
     <section class="row ai">
-      <figure class="portrait">
-        <img id="ai-portrait" alt="Opponent">
+      <figure class="portrait ai">
+        <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
         <figcaption>
-          <div id="ai-name" class="name">Opponent</div>
-          <div id="ai-hearts" class="hearts">●●●●●</div>
+          <div id="ai-name">Morr, Gravecurrent Binder</div>
+          <div id="ai-hearts" class="hearts"></div>
         </figcaption>
       </figure>
+
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
     <!-- FLOW (center) -->
     <section class="row flow">
-      <h2 class="section-title">AETHER FLOW</h2>
-      <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
+      <div class="flow-section">
+        <div class="flow-title" aria-hidden="true">AETHER FLOW</div>
+        <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
+      </div>
     </section>
 
     <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-      <figure class="portrait">
-        <img id="player-portrait" alt="Player">
+
+      <figure class="portrait player">
+        <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
         <figcaption>
-          <div id="player-name" class="name">Player</div>
-          <div id="player-hearts" class="hearts">●●●●●</div>
+          <div id="player-name">Aria, Runesurge Adept</div>
+          <div id="player-hearts" class="hearts"></div>
         </figcaption>
       </figure>
     </section>
@@ -56,19 +60,11 @@
     </section>
   </main>
 
-  <!-- Right-side HUD: End turn, Discard, Deck -->
-  <aside class="hud-stack" aria-label="HUD">
-    <button id="hud-end" class="hud-btn" title="End Turn">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8h12l-3-4m3 4-3 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
-    </button>
-    <button class="hud-btn" title="Discard Pile">
-      <svg viewBox="0 0 24 24"><path d="M6 7h12v10H6zM8 5h8" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
-      <span id="hud-discard" class="hud-count">0</span>
-    </button>
-    <button class="hud-btn" title="Draw Pile">
-      <svg viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="14" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M8 9h8M8 13h8" stroke="currentColor" stroke-width="1.2"/></svg>
-      <span id="hud-deck" class="hud-count">0</span>
-    </button>
+  <!-- Side toolbar -->
+  <aside class="side-toolbar">
+    <button id="btn-end-turn-side" class="pill" title="End Turn">»</button>
+    <button id="btn-discard-count" class="pill" title="Discard pile"><span class="icon">🗃</span><span id="discard-count">0</span></button>
+    <button id="btn-deck-count" class="pill" title="Deck"><span class="icon">🂠</span><span id="deck-count">0</span></button>
   </aside>
 
   <!-- Peek + Zoom layers -->
