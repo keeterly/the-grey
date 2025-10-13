@@ -1,5 +1,5 @@
 :root{
-  /* Responsive card size scales with viewport */
+  /* Responsive card size */
   --card-w: clamp(140px, 17.5vw, 210px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
@@ -28,42 +28,38 @@ html,body{height:100%}
 .turn{opacity:.75;font-weight:600}
 .aether{font-family:"Crimson Text", serif;letter-spacing:.06em}
 
-/* ===== Board grid (AI ▸ FLOW ▸ Player) ===== */
+/* ===== Board grid ===== */
 #board-grid.grid{
-  display:grid !important;
-  grid-template-rows: 1fr auto 1fr !important;
-  justify-items:center;                 /* center rows horizontally */
+  display:grid;
+  grid-template-rows: 1fr auto 1fr;
+  justify-items:center;
   gap:18px;
   height:calc(100% - 48px);
-  padding:12px 16px calc(28vh + 12px);  /* space for hand overlay */
+  padding:12px 16px calc(28vh + 12px);
 }
-
-/* Mobile landscape */
 @media (max-height: 540px){
   #board-grid.grid{ grid-template-rows: .9fr auto .9fr; padding-bottom: 24vh; }
 }
-
-#board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0}
+#board-grid .row{display:flex; flex-direction:column; align-items:center; gap:10px; min-height:0}
 
 /* ===== Portraits (bigger & pinned) ===== */
 .portrait{margin:0;text-align:left;color:var(--muted)}
 .portrait img{width:120px;height:120px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 8px 20px #000}
 .portrait .name{font-size:1.05rem;font-weight:600}
 .portrait .hearts{font-size:18px; letter-spacing:4px}
-
 .row.ai .portrait{ position:fixed; top:64px; right:48px; text-align:right }
 .row.player .portrait{ position:fixed; bottom:96px; left:48px }
 
 /* ===== Slot rows ===== */
 #ai-slots.slot-row, #player-slots.slot-row{
-  display:grid !important;
-  grid-template-columns: repeat(4, var(--card-w)) !important;
-  gap:16px !important;
-  width: calc(var(--card-w)*4 + 16px*3) !important;
+  display:grid;
+  grid-template-columns: repeat(4, var(--card-w));
+  gap:16px;
+  width: calc(var(--card-w)*4 + 16px*3);
   place-items:center;
 }
 
-/* ===== Rectangular slots (spell & glyph same geometry) ===== */
+/* ===== Slots ===== */
 .slot{
   width: var(--card-w);
   height: var(--card-h);
@@ -79,28 +75,32 @@ html,body{height:100%}
 @keyframes pulse{0%,100%{opacity:.55}50%{opacity:1}}
 .slot.drag-over{ outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45)); }
 
-/* ===== Flow row + vertical title ===== */
-.row.flow{ position:relative; align-items:center; }
+/* ===== Flow row + left vertical title (robust alignment) ===== */
+.row.flow{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:24px;
+  width:100%;
+}
 .row.flow .section-title{
-  position:absolute;
-  left: calc(50% - var(--flow-w)/2 - 56px);
-  top: 50%;
-  transform: translateY(-50%) rotate(-90deg);
-  transform-origin: left top;
+  margin:0;
   letter-spacing:.28em;
+  transform:rotate(-90deg);
+  transform-origin:center;
   opacity:.85;
 }
 #flow-row.flow-row{
-  list-style:none;margin:0 auto;padding:12px;
-  width: var(--flow-w) !important;
-  display:grid !important; grid-template-columns: repeat(5, var(--card-w)) !important; gap:var(--gap) !important;
+  list-style:none;margin:0;padding:12px;
+  width: var(--flow-w);
+  display:grid; grid-template-columns: repeat(5, var(--card-w)); gap:var(--gap);
   background:linear-gradient(180deg,#241d15,#1a140f);
   border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
 .flow-card{ display:block; width:var(--card-w); height:var(--card-h); }
 .flow-card .card{ position:relative; left:0; top:0; transform:none; }
 
-/* ===== Hand (fanned) ===== */
+/* ===== Hand ===== */
 .hand-wrap{ position:fixed; left:0; right:0; bottom:0; height:28vh; pointer-events:none; z-index:20; }
 @media (max-height: 540px){ .hand-wrap{ height:22vh; } }
 .hand{
@@ -128,14 +128,12 @@ html,body{height:100%}
   box-shadow:0 0 26px var(--aether), 0 16px 40px #000;
 }
 .card.market{ position:relative; transform:none; left:0; top:0; }
-
-/* Content inside each card */
 .card .title{padding:10px 10px 0 10px; font-weight:600;}
 .card .type{opacity:.75; padding:0 10px 6px 10px; font-size:.9rem}
 .card .textbox{flex:1}
 .card .actions{display:flex; gap:8px; padding:10px}
 
-/* ===== Preview / Zoom (always centered) ===== */
+/* ===== Preview / Zoom (centered) ===== */
 #preview-layer{ position:fixed; inset:0; z-index:50; pointer-events:none; }
 #peek-card.card.peek{
   position:fixed !important;
@@ -154,7 +152,29 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{ display:grid; }
 #zoom-card.card.zoom{ position:relative; transform:none; width: calc(var(--card-w)*2); height: calc(var(--card-h)*2); border-radius:22px; }
 
-/* Simple toast */
+/* ===== HUD stack ===== */
+.hud-stack{
+  position:fixed; right:16px; bottom:88px;
+  display:flex; flex-direction:column; gap:10px; z-index:30;
+}
+.hud-btn{
+  position:relative;
+  width:44px;height:44px;border-radius:12px;
+  display:grid;place-items:center;
+  color:var(--muted);
+  border:1px solid #4a3d2f; background:linear-gradient(180deg,#2f2921,#1f1a14);
+  box-shadow:0 6px 12px #000; cursor:pointer;
+}
+.hud-btn:hover{ color:var(--ink); box-shadow:0 0 14px var(--gold); transform:translateY(-1px) }
+.hud-btn svg{ width:22px;height:22px }
+.hud-count{
+  position:absolute; right:-6px; bottom:-6px;
+  min-width:22px;height:18px;padding:0 6px;border-radius:999px;
+  display:grid;place-items:center;font-size:.8rem;
+  color:#0e0b08;background:#3a3125;border:1px solid #4a3d2f;
+}
+
+/* ===== Toast ===== */
 .toast{
   position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
   background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px;
