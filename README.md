@@ -2,14 +2,29 @@ Base Deck Card List:
 
 Shared starting deck for all Spellweavers. Focuses on tension between playing for effect or discarding for Aether.
 
-Name: Pulse of the Grey
-Type: Spell
-Cost to play: 0
-Pip: 1
-Cost to Advance Pip: 1
-Effect: On Resolve: Draw 1, Gain 1 Aether
-Aether Value: 0
-Qty: 3
+Name: 
+Pulse of the Grey
+
+Type:
+Spell
+
+Cost to play:
+0
+
+Pip:
+1
+
+Cost to Advance Pip: 
+1
+
+Effect: 
+On Resolve: Draw 1, Gain 1 Aether
+
+Aether Value: 
+0
+
+Qty: 
+3
 
 Name: Wispform Surge
 Type: Spell
