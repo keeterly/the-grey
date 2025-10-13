@@ -15,8 +15,8 @@ const playerName    = $("player-name");
 const aiName        = $("ai-name");
 const aetherReadout = $("aether-readout");
 const endHudBtn     = $("btn-endturn-hud");
-const discardBtn    = $("btn-discard-hud");
 const btnZoom       = $("btn-board-zoom");
+const btnLayout     = $("btn-layout-toggle");
 
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
@@ -102,7 +102,7 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ------- safe desktop drag ------- */
+/* ------- desktop drag ------- */
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
@@ -122,12 +122,11 @@ function wireDesktopDrag(el, data){
   });
 }
 
-/* ------- slots (with glyph support) ------- */
+/* ------- slots ------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
-  // 3 spell + 1 glyph
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -135,9 +134,7 @@ function renderSlots(container, snapshot, isPlayer){
     const slot = safe[i] || {hasCard:false, card:null};
     d.textContent = slot.hasCard ? (slot.card?.name || "Spell") : "Spell Slot";
 
-    if (slot.hasCard && slot.card){
-      attachPeekAndZoom(d, slot.card);
-    }
+    if (slot.hasCard && slot.card){ attachPeekAndZoom(d, slot.card); }
 
     if (isPlayer){
       d.addEventListener("dragover", (ev)=>{ 
@@ -162,9 +159,7 @@ function renderSlots(container, snapshot, isPlayer){
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
   g.textContent = glyphSlot.hasCard ? (glyphSlot.card?.name || "Glyph") : "Glyph Slot";
 
-  if (glyphSlot.hasCard && glyphSlot.card){
-    attachPeekAndZoom(g, glyphSlot.card);
-  }
+  if (glyphSlot.hasCard && glyphSlot.card){ attachPeekAndZoom(g, glyphSlot.card); }
 
   if (isPlayer){
     g.addEventListener("dragover", (ev)=> {
@@ -204,15 +199,12 @@ function renderFlow(flowArray){
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
     card.innerHTML = cardHTML(c);
-    // inline price label for landscape carousel
     card.setAttribute("data-price-label", `Æ ${c.price || 0} to buy`);
     attachPeekAndZoom(card, {...c, costGems:"🜂".repeat(c.price||0) });
 
-    card.addEventListener("click", (e)=>{
-      if ((e.target.closest(".card"))){
-        try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
-        catch(err){ toast(err?.message || "Cannot buy"); }
-      }
+    card.addEventListener("click", ()=>{
+      try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
+      catch(err){ toast(err?.message || "Cannot buy"); }
     });
 
     li.appendChild(card);
@@ -301,16 +293,21 @@ function render(){
 }
 
 /* wiring */
-endHudBtn?.addEventListener("click", ()=> toast("End turn (stub)"));
-
+$("btn-endturn-hud")?.addEventListener("click", ()=> toast("End turn (stub)"));
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("DOMContentLoaded", render);
 
-/* Board Zoom toggle (phone landscape) */
+/* Toggles */
 btnZoom?.addEventListener("click", ()=>{
   const on = document.body.classList.toggle("board-zoom75");
   btnZoom.setAttribute("aria-pressed", on ? "true" : "false");
   btnZoom.textContent = on ? "Normal Size" : "Board Zoom";
+});
+
+btnLayout?.addEventListener("click", ()=>{
+  const on = document.body.classList.toggle("layout-vertflow");
+  btnLayout.setAttribute("aria-pressed", on ? "true" : "false");
+  btnLayout.textContent = on ? "Flow Bottom" : "Flow Left";
 });
