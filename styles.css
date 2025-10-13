@@ -14,8 +14,9 @@
   --gem-blue:#7eb6ff;
 
   /* Layout knobs (used in phone-landscape) */
-  --flow-rail-w: 30vw;                 /* width of left vertical flow rail */
   --flow-rail-pad: 8px;                /* padding inside the rail */
+  /* width will be recomputed in media queries from board card size */
+  --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
 }
 
 *{box-sizing:border-box}
@@ -45,7 +46,6 @@ html,body{height:100%}
 #row-ai    { grid-area: ai; }
 #row-flow  { grid-area: flow; }
 #row-player{ grid-area: player; }
-
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0; position:relative}
 
 /* Portraits */
@@ -66,7 +66,7 @@ html,body{height:100%}
 }
 .aether-display.flash{animation:gem-flash 560ms ease-out}
 
-/* Corners */
+/* Corner placement */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
 
@@ -162,7 +162,7 @@ html,body{height:100%}
 .drop-target.drop-ready{outline:2px dashed var(--aether); outline-offset:4px; box-shadow:0 0 20px rgba(126,182,255,.45)}
 .badge{ position:absolute; right:6px; bottom:6px; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#1f1712; color:var(--ink); border:1px solid #4a3d2f; font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000; }
 
-/* Toggles container (phone-landscape only) */
+/* Toggles */
 .toggles{ position:fixed; left:8px; top:8px; display:flex; gap:8px; z-index:32; }
 .zoom-toggle, .layout-toggle{
   padding:8px 12px; border-radius:999px; border:1px solid #4a3d2f;
@@ -180,9 +180,9 @@ html,body{height:100%}
     --card-w-board: calc(var(--card-w) * 0.64);
     --card-h-board: calc(var(--card-h) * 0.64);
     --card-radius-board: calc(var(--card-radius) * 0.55);
+    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
   }
 
-  /* show toggles in this mode */
   .zoom-toggle, .layout-toggle{ display:inline-block; }
 
   #board-grid.grid{
@@ -192,7 +192,7 @@ html,body{height:100%}
 
   .flow-title-rail{ display:none; }
 
-  /* default: horizontal flow carousel (no layout class) */
+  /* default: horizontal flow carousel */
   #flow-row.flow-row{
     width:auto !important; max-width:96vw;
     display:flex !important; gap:8px !important; padding:8px;
@@ -232,12 +232,13 @@ html,body{height:100%}
   .hand{ bottom:1vh; height:21vh; }
 }
 
-/* ======= PHONE LANDSCAPE — ZOOMED (smaller, minimal padding) ======= */
+/* ======= PHONE LANDSCAPE — ZOOMED ======= */
 @media (orientation: landscape) and (max-height: 480px) {
   body.board-zoom75 {
     --card-w-board: calc(var(--card-w) * 0.52);
     --card-h-board: calc(var(--card-h) * 0.52);
     --card-radius-board: calc(var(--card-radius) * 0.45);
+    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
   }
   body.board-zoom75 #board-grid.grid{ row-gap:8px; padding:4px 6px calc(20vh + 4px); }
   body.board-zoom75 #flow-row.flow-row{ gap:6px !important; padding:6px; max-width:96vw; }
@@ -258,23 +259,19 @@ html,body{height:100%}
 
 /* ======= PHONE LANDSCAPE — ALT LAYOUT: VERTICAL FLOW LEFT ======= */
 @media (orientation: landscape) and (max-height: 480px) {
-  body.layout-vertflow {
-    /* grid: left column is the rail, right is boards (two rows) */
-    /* we keep the DOM order but place areas via CSS grid */
-  }
   body.layout-vertflow #board-grid.grid{
     grid-template-areas:
       "flow ai"
       "flow player";
-    grid-template-columns: minmax(200px, var(--flow-rail-w)) 1fr;
+    grid-template-columns: minmax(0, var(--flow-rail-w)) 1fr;
     grid-template-rows: 1fr 1fr;
     align-items:center;
     row-gap:10px;
-    column-gap:10px;
+    column-gap:12px; /* small gutter so rail sits right next */
     padding:8px 8px calc(22vh + 6px);
   }
 
-  /* rail container */
+  /* rail container fills column height */
   body.layout-vertflow .flow-wrap{
     width:100%;
     height:100%;
@@ -282,17 +279,19 @@ html,body{height:100%}
     gap:0;
   }
 
-  /* the rail: vertical scroll-snap list */
+  /* the rail: vertical snap list exactly card-sized */
   body.layout-vertflow #flow-row.flow-row{
     display:flex !important;
     flex-direction:column;
     align-items:center;
     gap:8px !important;
+
     width:100%;
     height:calc(100% - var(--flow-rail-pad)*2);
     max-height:calc(100% - var(--flow-rail-pad)*2);
     padding:var(--flow-rail-pad);
     margin:0;
+
     overflow-y:auto; overflow-x:hidden;
     scroll-snap-type: y mandatory;
     -webkit-overflow-scrolling: touch;
@@ -303,18 +302,19 @@ html,body{height:100%}
   body.layout-vertflow #flow-row.flow-row::-webkit-scrollbar{ width:6px; }
   body.layout-vertflow #flow-row.flow-row::-webkit-scrollbar-thumb{ background:#3b3126; border-radius:6px; }
 
-  /* card size inside the rail (a touch smaller than board size) */
+  /* flow cards = same size as board cards */
   body.layout-vertflow .flow-card{
     flex:0 0 auto;
-    width:calc(var(--flow-rail-w) - var(--flow-rail-pad)*2 - 6px);
-    height:calc((var(--flow-rail-w) - var(--flow-rail-pad)*2 - 6px) * 1.38);
+    width:var(--card-w-board);
+    height:var(--card-h-board);
     scroll-snap-align:start;
   }
   body.layout-vertflow .flow-card .card{
-    width:100%; height:100%; border-radius:calc(var(--card-radius-board) * .95);
+    width:var(--card-w-board); height:var(--card-h-board);
+    border-radius:var(--card-radius-board);
   }
 
-  /* inline price label still inside card */
+  /* inline price label inside card */
   body.layout-vertflow .flow-card .price-label{ display:none; }
   body.layout-vertflow .flow-card .card::after{
     content: attr(data-price-label);
@@ -323,28 +323,34 @@ html,body{height:100%}
     font-size:.82rem;
   }
 
-  /* right-side boards tighter so they fit next to the rail */
+  /* right boards tighter (same card size, smaller gap) */
   body.layout-vertflow #ai-slots.slot-row,
   body.layout-vertflow #player-slots.slot-row{
     gap:8px !important;
     width:calc(var(--card-w-board)*4 + 8px*3) !important;
   }
 
-  /* text compaction (board cards on right) */
+  /* slight text compaction to match tighter layout */
   body.layout-vertflow .slot{ font-size:0.82rem; }
   body.layout-vertflow .slot .title{ padding:7px 7px 0 7px; font-size:0.92rem; }
   body.layout-vertflow .slot .type{ padding:0 7px 3px 7px; font-size:0.76rem; }
   body.layout-vertflow .slot .textbox{ padding:0 7px 7px 7px; font-size:0.84rem; line-height:1.16; }
 }
 
-/* ALT LAYOUT + ZOOM together (still works) */
+/* ALT LAYOUT + ZOOM together (still works; rail width stays glued to card size) */
 @media (orientation: landscape) and (max-height: 480px) {
-  body.layout-vertflow.board-zoom75{
+  body.layout-vertflow.board-zoom75 {
     --card-w-board: calc(var(--card-w) * 0.52);
     --card-h-board: calc(var(--card-h) * 0.52);
+    --card-radius-board: calc(var(--card-radius) * 0.45);
+    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
   }
-  body.layout-vertflow.board-zoom75 #board-grid.grid{ column-gap:8px; row-gap:8px; padding:6px 6px calc(20vh + 4px); }
-  body.layout-vertflow.board-zoom75 .flow-card{ width:calc(var(--flow-rail-w) - var(--flow-rail-pad)*2 - 6px); height:calc((var(--flow-rail-w) - var(--flow-rail-pad)*2 - 6px) * 1.38); }
+  body.layout-vertflow.board-zoom75 #board-grid.grid{
+    column-gap:10px; row-gap:8px; padding:6px 6px calc(20vh + 4px);
+  }
+  body.layout-vertflow.board-zoom75 .flow-card{
+    width:var(--card-w-board); height:var(--card-h-board);
+  }
   body.layout-vertflow.board-zoom75 .flow-card .card::after{ font-size:.76rem; }
   body.layout-vertflow.board-zoom75 .slot{ font-size:0.76rem; }
 }
