@@ -1,211 +1,111 @@
-Base Deck Card List:
+🜂 The Grey
 
-Shared starting deck for all Spellweavers. Focuses on tension between playing for effect or discarding for Aether.
+A Dark Fantasy Deck-Crafting Experience
+Designed and Developed by Keeter Ly
 
-Name: 
-Pulse of the Grey
+🕯 Overview
 
-Type:
-Spell
+The Grey is a web-based card game blending deck-building, resource tension, and spellcraft progression.
+Each player begins as a Spellweaver, wielding a base deck where every choice—casting or discarding—shapes your control of Aether, the essence of the Grey itself.
 
-Cost to play:
-0
+⚙️ How to Play
 
-Pip:
-1
+Open the latest build directly in your browser:
+➡️ versions/v2.4/index.html
 
-Cost to Advance Pip: 
-1
+(No build tools or dependencies required.)
 
-Effect: 
-On Resolve: Draw 1, Gain 1 Aether
+📦 Version Structure
 
-Aether Value: 
-0
+/versions/v2.2 — Legacy placeholder and migration notes
 
-Qty: 
-3
+/versions/v2.3 — Full playable base game
 
-Name: Wispform Surge
-Type: Spell
-Cost to play: 0
-Pip: 1
-Cost to Advance Pip: 1
-Effect: On Resolve: Advance another Spell for free.
-Aether Value: 0
-Qty: 1
+/versions/v2.4 — Includes Trance Cinematic, sound hooks, and skip functionality
 
-Name: Greyfire Bloom
-Type: Spell
-Cost to play: 1
-Pip: 1
-Cost to Advance Pip: 1
-Effect: On Resolve: Advance another Spell for free.
-Aether Value: 0
-Qty: 1
+README
 
-Name: Echoing Reservoir
-Type: Spell
-Cost to play: 0
-Pip: 1
-Cost to Advance Pip: 2
-Effect: On Resolve: Channel 1
-Aether Value: 2
-Qty: 2
+🜸 Base Deck — Shared Starting Deck
 
-Name: Dormant Catalyst
-Type: Spell
-Cost to play: 0
-Pip: 1
-Cost to Advance Pip: 1
-Effect: On Resolve: Channel 2
-Aether Value: 1
-Qty: 1
+Each Spellweaver begins with the same core: 10 cards focused on the push-and-pull between casting for power or discarding for Aether.
 
-Name: Ashen Focus
-Type: Spell
-Cost to play: 0
-Pip: 1
-Cost to Advance Pip: 2
-Effect: On Resolve: Channel 1 and Draw 1
-Aether Value: 1
-Qty: 1
+| Name                    | Type    | Cost | Pip | Effect                                       | Aether | Qty |
+| ----------------------- | ------- | ---- | --- | -------------------------------------------- | ------ | --- |
+| Pulse of the Grey       | Spell   | 0    | 1   | On Resolve: Draw 1, Gain 1 Aether            | 0      | 3   |
+| Wispform Surge          | Spell   | 0    | 1   | On Resolve: Advance another Spell for free   | 0      | 1   |
+| Greyfire Bloom          | Spell   | 1    | 1   | On Resolve: Advance another Spell for free   | 0      | 1   |
+| Echoing Reservoir       | Spell   | 0    | 1   | On Resolve: Channel 1                        | 2      | 2   |
+| Dormant Catalyst        | Spell   | 0    | 1   | On Resolve: Channel 2                        | 1      | 1   |
+| Ashen Focus             | Spell   | 0    | 1   | On Resolve: Channel 1 and Draw 1             | 1      | 1   |
+| Surge of Ash            | Instant | 1    | —   | Target Spell advances 1 step free            | 0      | 1   |
+| Veil of Dust            | Instant | 1    | —   | Prevent 1 damage or negate a hostile Instant | 0      | 1   |
+| Glyph of Remnant Light  | Glyph   | 0    | —   | When a Spell resolves → Gain 1 Aether        | 0      | 1   |
+| Glyph of Returning Echo | Glyph   | 0    | —   | When you Channel Aether → Draw 1 card        | 0      | 1   |
 
-Name: Surge of Ash
-Type: Instant
-Cost to play: 1
-Pip: 0
-Cost to Advance Pip: 0
-Effect: Target Spell advances 1 step free
-Aether Value: 0
-Qty: 1
+Total: 10 cards — 6 Spells, 2 Instants, 2 Glyphs
 
-Name: Veil of Dust
-Type: Instant
-Cost to play: 1
-Pip: 0
-Cost to Advance Pip: 0
-Effect: Prevent 1 damage or negate a hostile Instant
-Aether Value: 0
-Qty: 1
+🌫 Aetherflow — Shared Market
 
-Name: Glyph of Remnant Light
-Type: Glyph
-Cost to play: 0
-Pip: 0
-Cost to Advance Pip: 0
-Trigger: When a Spell resolves
-Effect: Gain 1 Aether
-Aether Value: 0
-Qty: 1
-
-Name: Glyph of Returning Echo
-Type: Glyph
-Cost to play: 0
-Pip: 0
-Cost to Advance Pip: 0
-Trigger: When you Channel Aether
-Effect: Draw 1 card
-Aether Value: 0
-Qty: 1
-
-Total: 10 cards (Spells ×6, Instants ×2, Glyphs ×2)
-
-
-Aetherflow Card List:
-Generic shared market. Cards drift left each turn; new cards enter at right. Costs follow the pattern (4, 3, 2, 2, 2).
+The Aetherflow is a dynamic shared market. Cards drift left each turn, and new cards enter from the right.
+Costs follow the pattern (4, 3, 2, 2, 2) — creating natural tension between seizing early value or waiting for lower prices.
 
 Instants (5)
-
-1. Surge of Cinders – Cost 2 Aether  • Deal 2 damage to any target.
-
-Direct damage for early aggression.
-
-2. Pulse Feedback – Cost 3 Aether  • Advance all Spells you control by 1.
-
-Mid‑turn momentum burst.
-
-3. Refracted Will – Cost 2 Aether  • Counter an Instant or negate a Glyph trigger.
-
-Simple defensive answer; Glyph counterplay.
-
-4. Aether Impel – Cost 4 Aether  • Gain 3 Aether this turn.
-
-Temporary boost; combos with Advance chains.
-
-5. Cascade Insight – Cost 3 Aether  • Draw 2 cards, then discard 1.
-
-Hand filter for precision builds.
+| Name             | Cost     | Effect                                       | Role             |
+| ---------------- | -------- | -------------------------------------------- | ---------------- |
+| Surge of Cinders | 2 Aether | Deal 2 damage to any target                  | Early aggression |
+| Pulse Feedback   | 3 Aether | Advance all Spells you control by 1          | Momentum burst   |
+| Refracted Will   | 2 Aether | Counter an Instant or negate a Glyph trigger | Defensive answer |
+| Aether Impel     | 4 Aether | Gain 3 Aether this turn                      | Temporary boost  |
+| Cascade Insight  | 3 Aether | Draw 2 cards, then discard 1                 | Hand filter      |
 
 Spells (6)
-
-6. Resonant Chorus – Cost 0 • Advance 1 (1 per step)** • On Resolve:** Gain 2 Aether and Channel 1. Aether Value +1.
-
-Hybrid economy bridge card.
-
-7. Emberline Pulse – Cost 1 • Advance 1 (1)** • On Resolve:** Deal 2 damage and draw 1.
-
-Core tempo upgrade from starter.
-
-8. Fractured Memory – Cost 0 • Advance 2 (1 each)** • On Resolve:** Draw 2 cards. Aether Value 0.
-
-Card advantage option.
-
-9. Obsidian Vault – Cost 0 • Advance 1 (2)** • On Resolve:** Channel 2 and gain 1 Aether. Aether Value +1.
-
-Long‑term economy investment.
-
-10. Mirror Cascade – Cost 1 • Advance 1 (2)** • On Resolve:** Copy the next Instant you play this turn.
-
-Synergistic combo tool.
-
-11. Sanguine Flow – Cost 2 • Advance 1 (1)** • On Resolve:** Lose 1 Vitality, Gain 3 Aether. Aether Value 0.
-
-Risk‑reward Aether burst effect.
+| Name             | Cost | Advance        | Effect                                               | Aether Value | Role                  |
+| ---------------- | ---- | -------------- | ---------------------------------------------------- | ------------ | --------------------- |
+| Resonant Chorus  | 0    | 1 (1 per step) | On Resolve: Gain 2 Aether and Channel 1              | +1           | Hybrid economy bridge |
+| Emberline Pulse  | 1    | 1 (1)          | On Resolve: Deal 2 damage and draw 1                 | 0            | Core tempo upgrade    |
+| Fractured Memory | 0    | 2 (1 each)     | On Resolve: Draw 2 cards                             | 0            | Card advantage tool   |
+| Obsidian Vault   | 0    | 1 (2)          | On Resolve: Channel 2 and gain 1 Aether              | +1           | Long-term economy     |
+| Mirror Cascade   | 1    | 1 (2)          | On Resolve: Copy the next Instant you play this turn | 0            | Combo enabler         |
+| Sanguine Flow    | 2    | 1 (1)          | On Resolve: Lose 1 Vitality, Gain 3 Aether           | 0            | Risk-reward burst     |
 
 Glyphs (4)
+| Name                     | Cost | Condition                            | Effect              | Role             |
+| ------------------------ | ---- | ------------------------------------ | ------------------- | ---------------- |
+| Glyph of Withering Light | 0    | When an opponent plays a Spell       | They lose 1 Aether  | Tempo tax        |
+| Glyph of Vigilant Echo   | 0    | At end of your turn                  | Channel 1           | Slow engine      |
+| Glyph of Buried Heat     | 0    | When you discard a card for Aether   | Gain 1 extra Aether | Economy reward   |
+| Glyph of Soulglass       | 0    | When you buy a card from Aether Flow | Draw 1 card         | Deck-growth loop |
 
-12. Glyph of Withering Light – Cost 0 • Condition:** When an opponent plays a Spell → They lose 1 Aether.**
+📊 Aetherflow Summary
+| Type     | Count | Theme                                   |
+| -------- | ----- | --------------------------------------- |
+| Instants | 5     | Tempo, damage, draw, reaction           |
+| Spells   | 6     | Hybrid economy and engine tools         |
+| Glyphs   | 4     | Passive synergy and resource automation |
 
-Soft tempo tax tool.
-
-13. Glyph of Vigilant Echo – Cost 0 • Condition:** At end of your turn → Channel 1.**
-
-Slow engine for long games.
-
-14. Glyph of Buried Heat – Cost 0 • Condition:** When you discard a card for Aether → Gain 1 extra Aether.**
-
-Rewards economy‑focused play.
-
-15. Glyph of Soulglass – Cost 0 • Condition:** When you buy a card from Aether Flow → Draw 1 card.**
-
-Supports deck‑builder growth loops.
-
-
-Aether Flow Summary
-
-Type	Count	Theme
-Instants	5	Tempo, damage, draw, reaction
-Spells	6	Hybrid economy and engine tools
-Glyphs	4	Passive synergy and resource automation
-
-The Aether Flow acts as a living market—cards shift left each turn, introducing natural tempo and scarcity. Prices: (4, 3, 2, 2, 2). Players must decide whether to seize high‑value cards early or let the current carry them to lower cost.
+The Aetherflow acts as a living market — a current of shifting value and scarcity that forces players to balance greed against timing.
 
 
+🜍 Glossary
 
+Vitality (HP): Life total, base 5
 
-Glossary
+Trance: Staged power triggered by HP thresholds
 
-Vitality (HP): Your life total; default 5.
+Advance: Pay Aether to progress a Spell
 
-Trance: Unique staged power activated at defined HP thresholds.
+Channel: Convert Aether → Channeled
 
-Advance: Pay Aether to progress a Spell.
+Set: Place a Glyph
 
-Channel: Convert Aether → Channeled.
+Aether Flow: Shared market row for purchases
 
-Set: Place a Glyph.
+Discard Loop: Bought cards cycle back into play after the first reshuffle
 
-Aether Flow: Shared market row for card purchases.
+🧩 Version
 
-Discard Loop: Bought cards cycle back into play after first reshuffle.
+Current: v2.4 (2025-10-11)
+
+README
+
+No dependencies. Launch directly in browser.
