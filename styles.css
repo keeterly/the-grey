@@ -170,9 +170,9 @@ html,body{height:100%}
   font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000;
 }
 
-/* Board Zoom toggle (visible only on phone landscape via media query) */
+/* Board Zoom toggle — now top-left */
 .zoom-toggle{
-  position:fixed; left:50%; bottom:calc(22vh + 10px); transform:translateX(-50%);
+  position:fixed; left:8px; top:8px; transform:none;
   padding:8px 12px; border-radius:999px; border:1px solid #4a3d2f;
   background:#2a211a; color:var(--ink); font-weight:700;
   box-shadow:0 4px 10px #000; z-index:32; display:none;
@@ -258,25 +258,42 @@ html,body{height:100%}
   .zoom-toggle{ display:block; }
 }
 
-/* ======= PHONE LANDSCAPE — ZOOMED (75%) ======= */
+/* ======= PHONE LANDSCAPE — ZOOMED (smaller, minimal padding) ======= */
 @media (orientation: landscape) and (max-height: 480px) {
+  /* We keep the class name from your JS */
   body.board-zoom75 {
-    --card-w-board: calc(var(--card-w) * 0.75);
-    --card-h-board: calc(var(--card-h) * 0.75);
-    --card-radius-board: calc(var(--card-radius) * 0.5);
+    /* Even smaller boards */
+    --card-w-board: calc(var(--card-w) * 0.52);
+    --card-h-board: calc(var(--card-h) * 0.52);
+    --card-radius-board: calc(var(--card-radius) * 0.45);
   }
 
   body.board-zoom75 #board-grid.grid{
-    row-gap:12px;
-    padding:6px 6px calc(21vh + 6px);
+    row-gap:8px;
+    padding:4px 6px calc(20vh + 4px); /* minimal vertical padding */
   }
 
   body.board-zoom75 #flow-row.flow-row{
-    gap:8px !important; padding:8px; max-width:96vw;
+    gap:6px !important; padding:6px; max-width:96vw;
   }
 
   body.board-zoom75 #ai-slots.slot-row,
-  body.board-zoom75 #player-slots.slot-row{ gap:8px !important; }
+  body.board-zoom75 #player-slots.slot-row{ gap:6px !important; }
 
-  body.board-zoom75 .zoom-toggle{ aria-pressed:true; }
+  /* Smaller board text in zoom mode */
+  body.board-zoom75 .slot{ font-size:0.76rem; }
+  body.board-zoom75 .slot .title{ padding:6px 6px 0 6px; font-size:0.86rem; }
+  body.board-zoom75 .slot .type{ padding:0 6px 2px 6px; font-size:0.72rem; }
+  body.board-zoom75 .slot .textbox{ padding:0 6px 6px 6px; font-size:0.78rem; line-height:1.14; }
+
+  body.board-zoom75 .flow-card .card .title{ padding:6px 6px 0 6px; font-size:0.86rem; }
+  body.board-zoom75 .flow-card .card .type{ padding:0 6px 2px 6px; font-size:0.72rem; }
+  body.board-zoom75 .flow-card .card .textbox{ padding:0 6px 18px 6px; font-size:0.78rem; line-height:1.14; }
+  body.board-zoom75 .flow-card .card::after{ font-size:0.78rem; bottom:5px; }
+
+  /* portraits/hud a touch smaller to avoid crowding */
+  body.board-zoom75 .portrait img{ width:54px; height:54px; }
+  body.board-zoom75 .portrait{ font-size:.86rem; }
+  body.board-zoom75 .hud-btn{ width:50px; height:50px; border-radius:9px; }
+  body.board-zoom75 .badge{ min-width:16px; height:16px; font-size:10px; line-height:14px; }
 }
