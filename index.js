@@ -1,4 +1,8 @@
-import { initState, serializePublic, playCardToSpellSlot, setGlyphFromHand, buyFromFlow } from "./GameLogic.js";
+import {
+  initState, serializePublic,
+  playCardToSpellSlot, setGlyphFromHand,
+  buyFromFlow, startTurn, endTurn
+} from "./GameLogic.js";
 
 /* ------- helpers ------- */
 const $ = id => document.getElementById(id);
@@ -110,6 +114,7 @@ function wireDesktopDrag(el, data){
     el.classList.add("dragging");
     ev.dataTransfer?.setData("text/card-id", data.id);
     ev.dataTransfer?.setData("text/card-type", data.type);
+    // hidden drag image
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
@@ -122,7 +127,7 @@ function wireDesktopDrag(el, data){
   });
 }
 
-/* ------- slots ------- */
+/* ------- slots (with glyph) ------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -190,9 +195,10 @@ function gemChipHTML(val){
     </div>
   `;
 }
+const FLOW_COSTS = [4,3,3,2,2];
+const slotCost = (i)=> FLOW_COSTS[i] ?? 0;
 
-function flowCardHTML(c){
-  const price = (typeof c.price === "number") ? c.price : 0;
+function flowCardHTML(c, price){
   return `
     <div class="title">${c.name}</div>
     <div class="type">${c.type}</div>
@@ -201,29 +207,39 @@ function flowCardHTML(c){
   `;
 }
 
-function renderFlow(flowArray){
+function renderFlow(flowSlots){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+  (flowSlots || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li"); li.className = "flow-card";
+    const price = slotCost(idx);
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-    card.innerHTML = flowCardHTML(c);
-    attachPeekAndZoom(card, {...c });
 
-    // click/tap to buy if enough Æ
-    card.addEventListener("click", ()=>{
-      try{
-        const before = state.players.player.aether;
-        state = buyFromFlow(state, "player", idx);
-        const after  = state.players.player.aether;
-        render();
-        toast(after < before ? `Bought for Æ${(before-after)}` : "Bought");
-      }catch(err){
-        toast(err?.message || "Cannot buy");
-      }
-    });
+    if (c){
+      card.innerHTML = flowCardHTML(c, price);
+      attachPeekAndZoom(card, {...c});
+      // click to buy if enough Æ
+      card.addEventListener("click", ()=>{
+        try{
+          const before = state.players.player.aether;
+          state = buyFromFlow(state, "player", idx);
+          const after  = state.players.player.aether;
+          render();
+          toast(after < before ? `Bought for Æ${(before-after)}` : "Bought");
+        }catch(err){ toast(err?.message || "Cannot buy"); }
+      });
+    } else {
+      // empty slot placeholder for spacing
+      card.innerHTML = `
+        <div class="title" style="opacity:.5">Empty</div>
+        <div class="type" style="opacity:.5">—</div>
+        <div class="textbox"></div>
+      `;
+      card.style.opacity = .25;
+      card.style.pointerEvents = "none";
+    }
 
     li.appendChild(card);
     flowRowEl.appendChild(li);
@@ -232,14 +248,8 @@ function renderFlow(flowArray){
 
 /* ------- render ------- */
 function ensureSafetyShape(s){
-  if (!Array.isArray(s.flow) || s.flow.length===0){
-    s.flow = [
-      {id:"f1",name:"Resonant Chorus",type:"SPELL",price:4,text:"Market spell"},
-      {id:"f2",name:"Pulse Feedback",type:"INSTANT",price:3,text:"Instant"},
-      {id:"f3",name:"Refracted Will",type:"GLYPH",price:2,text:"Glyph"},
-      {id:"f4",name:"Cascade Insight",type:"INSTANT",price:2,text:"Instant"},
-      {id:"f5",name:"Obsidian Vault",type:"SPELL",price:2,text:"Spell"},
-    ];
+  if (!Array.isArray(s.flowSlots) || s.flowSlots.length!==5){
+    s.flowSlots = [null,null,null,null,null];
   }
   if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[]};
   if (!Array.isArray(s.player.hand) || s.player.hand.length===0){
@@ -281,7 +291,7 @@ function render(){
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-  renderFlow(s.flow);
+  renderFlow(s.flowSlots);
 
   // hand
   if (handEl){
@@ -292,8 +302,9 @@ function render(){
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
+      // Show small intrinsic costs in hand if you want (kept as-is)
       const intrinsicCost = (c.name==="Greyfire Bloom" || c.name==="Surge of Ash" || c.name==="Veil of Dust") ? 1 : 0;
-      const costGems = "🜂".repeat(intrinsicCost); // retained for now (hand visual)
+      const costGems = "🜂".repeat(intrinsicCost);
 
       el.innerHTML = `
         <div class="title">${c.name}</div>
@@ -303,7 +314,7 @@ function render(){
       `;
 
       wireDesktopDrag(el, c);
-      attachPeekAndZoom(el, {...c, costGems});
+      attachPeekAndZoom(el, {...c});
       handEl.appendChild(el); els.push(el);
     });
     layoutHand(handEl, els);
@@ -311,21 +322,31 @@ function render(){
 }
 
 /* wiring */
-$("btn-endturn-hud")?.addEventListener("click", ()=> toast("End turn (stub)"));
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
-document.addEventListener("DOMContentLoaded", render);
 
-/* Toggles */
+/* End Turn => slide, then start-turn reveal, then render */
+$("btn-endturn-hud")?.addEventListener("click", ()=>{
+  state = endTurn(state);
+  state = startTurn(state);
+  render();
+});
+
+/* Toggles (already in your HTML) */
 btnZoom?.addEventListener("click", ()=>{
   const on = document.body.classList.toggle("board-zoom75");
   btnZoom.setAttribute("aria-pressed", on ? "true" : "false");
   btnZoom.textContent = on ? "Normal Size" : "Board Zoom";
 });
-
 btnLayout?.addEventListener("click", ()=>{
   const on = document.body.classList.toggle("layout-vertflow");
   btnLayout.setAttribute("aria-pressed", on ? "true" : "false");
   btnLayout.textContent = on ? "Flow Bottom" : "Flow Left";
+});
+
+/* Boot: immediately do the first start-turn reveal so game begins with 1 Flow card */
+document.addEventListener("DOMContentLoaded", ()=>{
+  state = startTurn(state); // reveals first card only
+  render();
 });
