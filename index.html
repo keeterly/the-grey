@@ -11,7 +11,7 @@
   <header class="topbar">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
-      <button id="btn-end-turn"   class="btn">End Turn</button>
+      <button id="btn-end-turn" class="btn">End Turn</button>
       <span id="turn-indicator" class="turn">Turn 1 — player</span>
     </div>
     <div class="right">
@@ -22,21 +22,20 @@
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
     <section class="row ai">
-      <figure class="portrait ai">
+      <figure class="portrait">
         <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
-        <figcaption>
-          <div id="ai-name">Morr, Gravecurrent Binder</div>
-          <div id="ai-hearts" class="hearts"></div>
-        </figcaption>
+        <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
+        <div class="hearts" id="ai-hearts"></div>
       </figure>
-
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
     <!-- FLOW (center) -->
     <section class="row flow">
-      <div class="flow-section">
-        <div class="flow-title" aria-hidden="true">AETHER FLOW</div>
+      <div class="flow-wrap">
+        <div class="flow-title-rail">
+          <span class="flow-title">AETHER FLOW</span>
+        </div>
         <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
       </div>
     </section>
@@ -44,27 +43,24 @@
     <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-
-      <figure class="portrait player">
+      <figure class="portrait">
         <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
-        <figcaption>
-          <div id="player-name">Aria, Runesurge Adept</div>
-          <div id="player-hearts" class="hearts"></div>
-        </figcaption>
+        <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
+        <div class="hearts" id="player-hearts"></div>
       </figure>
     </section>
 
     <!-- HAND -->
     <section class="hand-wrap">
-      <div id="hand" class="hand"></div>
+      <div id="hand" class="hand" aria-label="Player hand"></div>
     </section>
   </main>
 
-  <!-- Side toolbar -->
-  <aside class="side-toolbar">
-    <button id="btn-end-turn-side" class="pill" title="End Turn">»</button>
-    <button id="btn-discard-count" class="pill" title="Discard pile"><span class="icon">🗃</span><span id="discard-count">0</span></button>
-    <button id="btn-deck-count" class="pill" title="Deck"><span class="icon">🂠</span><span id="deck-count">0</span></button>
+  <!-- right HUD -->
+  <aside class="hud">
+    <button id="btn-endturn-hud" class="hud-btn" title="End turn">»</button>
+    <button id="btn-discard-hud"  class="hud-btn" title="Discard pile">🗂</button>
+    <button id="btn-deck-hud"     class="hud-btn" title="Deck">🜃</button>
   </aside>
 
   <!-- Peek + Zoom layers -->
