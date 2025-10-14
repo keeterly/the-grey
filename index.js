@@ -106,3 +106,41 @@ async function boot() {
 document.addEventListener('DOMContentLoaded', () => {
   boot().catch(err => console.error('[boot]', err));
 });
+
+/* ============================================================
+   Animations bridge (safe + optional) — v2.57 add-on
+   - Keeps your existing boot sequence untouched
+   - Loads ./animations.js only if it exists (no errors if missing)
+   - Exposes a tiny event bus (Grey) for animations to listen to
+   ============================================================ */
+
+// Tiny event bus for animations / effects (global, but minimal)
+const Grey = window.Grey ?? (window.Grey = {
+  on(type, fn, opts) { document.addEventListener(type, fn, opts); },
+  off(type, fn, opts) { document.removeEventListener(type, fn, opts); },
+  emit(type, detail = {}) {
+    document.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
+  }
+});
+
+// Optional, non-blocking animations import
+async function loadAnimations() {
+  try {
+    await import('./animations.js?v=257'); // cache-bust for iOS caching
+  } catch (_) {
+    // animations.js not present yet — totally fine
+  }
+}
+
+// Run AFTER your existing boot has queued its own startup
+document.addEventListener('DOMContentLoaded', () => {
+  queueMicrotask(loadAnimations);
+});
+
+/* ===== Suggested signals you can emit from your game logic =====
+Grey.emit('cards:drawn',   { nodes: [el1, el2, ...] });
+Grey.emit('cards:discard', { nodes: [el1, el2, ...], to: 'discard' });
+Grey.emit('flow:reveal',   { node: revealedFlowCardEl });
+Grey.emit('flow:falloff',  { node: rightMostFlowCardEl });
+Grey.emit('flow:purchase', { node: boughtCardEl, to: 'discard' });
+*/
