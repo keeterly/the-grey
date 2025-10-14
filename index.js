@@ -1,7 +1,7 @@
 import {
   initState, serializePublic,
   playCardToSpellSlot, setGlyphFromHand, buyFromFlow,
-  startTurn, endTurn
+  startTurn, endTurn, drawNewHand, discardHand
 } from "./GameLogic.js";
 
 /* ------- helpers ------- */
@@ -57,22 +57,19 @@ function layoutHand(container, cards) {
 
   cards.forEach((el,i)=>{
     const a = startAng + stepAng*i;
-    const rad = a*Math.PI/180;
     const x = startX + stepX*i;
-    // slightly raise middle cards more; edges lower
     const mid = (N-1)/2;
     const d = Math.abs(i - mid);
-    const y = 36 - (1 - d/mid) * 18; // center raised
+    const y = 36 - (1 - (mid? d/mid : 1)) * 18;
     el.style.setProperty("--tx", `${x}px`);
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
-    // position for initial render; animations may override transform
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
 
-/* ------- preview / zoom ------- */
+/* ------- preview / zoom (restored) ------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
 function fillCardShell(div, data){
   if (!div) return;
@@ -116,9 +113,7 @@ function attachPeekAndZoom(el, data){
 let pulseTargets=[];
 function armPulseForType(type){
   clearPulse();
-  // discard always pulsing
-  discardBtn.classList.add("pulse-ok");
-  pulseTargets.push(discardBtn);
+  discardBtn.classList.add("pulse-ok"); pulseTargets.push(discardBtn);
   if (type==="SPELL"){
     document.querySelectorAll("#player-slots .slot.spell").forEach(el=>{
       if (!el.dataset.occupied){ el.classList.add("pulse-ok"); pulseTargets.push(el); }
@@ -129,10 +124,7 @@ function armPulseForType(type){
     if (g && !g.dataset.occupied){ g.classList.add("pulse-ok"); pulseTargets.push(g); }
   }
 }
-function clearPulse(){
-  pulseTargets.forEach(el=> el.classList.remove("pulse-ok"));
-  pulseTargets=[];
-}
+function clearPulse(){ pulseTargets.forEach(el=> el.classList.remove("pulse-ok")); pulseTargets=[]; }
 
 function wireDesktopDrag(el, data){
   el.draggable = true;
@@ -153,10 +145,7 @@ function wireDesktopDrag(el, data){
 
 /* ------- hearts (runic red) ------- */
 const heartSVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-6.7-4.2-9.3-8C.6 9 .9 6.1 3 4.6 5.1 3.1 7.9 3.6 9.5 5.5L12 8.3l2.5-2.8C16.1 3.6 18.9 3.1 21 4.6c2.1 1.5 2.4 4.4.3 7.4-2.6 3.8-9.3 8-9.3 8z"/></svg>`;
-function renderHearts(el, n){
-  if (!el) return;
-  el.innerHTML = new Array(n).fill(0).map(()=>heartSVG).join("");
-}
+function renderHearts(el, n){ if (el) el.innerHTML = new Array(n).fill(0).map(()=>heartSVG).join(""); }
 
 /* ------- slots (with glyph) ------- */
 function renderCardInto(el, card){
@@ -207,8 +196,7 @@ function renderSlots(container, snapshot, isPlayer){
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
   g.dataset.occupied = glyphSlot.hasCard ? "1" : "";
   if (glyphSlot.hasCard && glyphSlot.card){
-    renderCardInto(g, glyphSlot.card);
-    attachPeekAndZoom(g, glyphSlot.card);
+    renderCardInto(g, glyphSlot.card); attachPeekAndZoom(g, glyphSlot.card);
   }else{
     g.textContent = "Glyph Slot";
   }
@@ -218,8 +206,8 @@ function renderSlots(container, snapshot, isPlayer){
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
     g.addEventListener("drop", (ev)=>{
       ev.preventDefault(); g.classList.remove("drag-over");
-      const cardId   = ev.dataTransfer?.getData("text/card-id");
-      const t        = ev.dataTransfer?.getData("text/card-type");
+      const cardId = ev.dataTransfer?.getData("text/card-id");
+      const t = ev.dataTransfer?.getData("text/card-type");
       if (t!=="GLYPH") return;
       try { state = setGlyphFromHand(state, "player", cardId); render(); }
       catch(err){ toast(err?.message || "Can't set glyph"); }
@@ -255,20 +243,66 @@ function renderFlow(flowSlots){
         ${chip(price)}
       `;
       attachPeekAndZoom(card, {...c});
-      card.addEventListener("click", ()=>{
-        try{
-          state = buyFromFlow(state, "player", idx);
-          aetherReadout.classList.remove("flash"); void aetherReadout.offsetWidth; aetherReadout.classList.add("flash");
-          render();
-        }catch(err){ toast(err?.message || "Cannot buy"); }
-      });
+      card.addEventListener("click", ()=> handleBuy(idx, c, card));
     }else{
       card.style.opacity = .18;
       card.innerHTML = `<div class="title">Empty</div><div class="type">—</div><div class="textbox"></div>`;
       card.style.pointerEvents = "none";
     }
+
+    // cost hint label under each slot
+    const costLbl = document.createElement("div");
+    costLbl.className = "flow-cost-label";
+    costLbl.innerHTML = chip(price);
+
     li.appendChild(card);
+    li.appendChild(costLbl);
     flowRowEl.appendChild(li);
+  });
+}
+
+/* ------- Spotlight buy -> fly to discard ------- */
+function rectOf(el){
+  const r = el.getBoundingClientRect();
+  return {x:r.left + r.width/2, y:r.top + r.height/2, w:r.width, h:r.height};
+}
+function handleBuy(idx, cardData, cardEl){
+  try{
+    state = buyFromFlow(state, "player", idx);
+  }catch(err){
+    toast(err?.message || "Cannot buy"); return;
+  }
+
+  // spotlight clone
+  const r = rectOf(cardEl);
+  const clone = cardEl.cloneNode(true);
+  clone.style.position="fixed";
+  clone.style.left = `${r.x - r.w/2}px`;
+  clone.style.top  = `${r.y - r.h/2}px`;
+  clone.style.width = `${r.w}px`;
+  clone.style.height= `${r.h}px`;
+  clone.style.zIndex = 5000;
+  clone.classList.add("spotlight");
+
+  document.body.appendChild(clone);
+
+  // pose center
+  const cx = window.innerWidth/2, cy = window.innerHeight/2;
+  requestAnimationFrame(()=>{
+    clone.style.transform = `translate(${cx - r.x}px, ${cy - r.y}px) scale(1.2)`;
+    clone.style.opacity = "1";
+    setTimeout(()=>{
+      // fly to discard HUD
+      const t = rectOf(discardBtn);
+      clone.style.transform = `translate(${t.x - r.x}px, ${t.y - r.y}px) scale(.6)`;
+      clone.style.opacity = ".0";
+      setTimeout(()=>{
+        clone.remove();
+        // numbers/flash
+        aetherReadout.classList.remove("flash"); void aetherReadout.offsetWidth; aetherReadout.classList.add("flash");
+        render(); // reflect new flow and counts
+      }, 420);
+    }, 360);
   });
 }
 
@@ -307,6 +341,26 @@ function render(dealNew=false){
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
   renderFlow(s.flowSlots);
 
+  // Drop-to-void animation if present
+  if (s.lastFlowDrop){
+    const ghost = document.createElement("article");
+    ghost.className = "card drop-void";
+    ghost.innerHTML = `
+      <div class="title">${s.lastFlowDrop.name}</div>
+      <div class="type">${s.lastFlowDrop.type}</div>
+      <div class="textbox">${s.lastFlowDrop.text||""}</div>
+    `;
+    document.body.appendChild(ghost);
+    // start roughly above far-right flow slot
+    const rightSlot = flowRowEl?.children?.[4]?.querySelector(".card") || flowRowEl;
+    const r = rightSlot.getBoundingClientRect();
+    ghost.style.left = `${r.left}px`; ghost.style.top = `${r.top}px`;
+    requestAnimationFrame(()=>{
+      ghost.classList.add("run");
+      setTimeout(()=> ghost.remove(), 600);
+    });
+  }
+
   if (handEl){
     handEl.replaceChildren();
     const els = [];
@@ -314,7 +368,6 @@ function render(dealNew=false){
       const el = document.createElement("article");
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-
       el.innerHTML = `
         <div class="title">${c.name}</div>
         <div class="type">${c.type}</div>
@@ -324,10 +377,8 @@ function render(dealNew=false){
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/>
             </svg><span class="val">${c.aetherValue}</span>
-          </div>
-        `:""}
+          </div>`:""}
       `;
-
       wireDesktopDrag(el, c);
       attachPeekAndZoom(el, {...c});
       if (dealNew){ el.style.setProperty("--deal-delay", `${60*idx}ms`); el.classList.add("deal-in"); }
@@ -355,37 +406,44 @@ discardBtn.addEventListener("drop", (ev)=>{
   state.players.player.aether = (state.players.player.aether || 0) + gain;
   state.players.player.discardCount += 1;
   aetherReadout.classList.remove("flash"); void aetherReadout.offsetWidth; aetherReadout.classList.add("flash");
-  clearPulse();
-  render();
+  clearPulse(); render();
 });
 
-/* ------- Turn flow (river + animations) ------- */
+/* ------- Turn flow: player -> AI -> player ------- */
 function doStartTurn(){
   state = startTurn(state);
-  render(true); // deal animation for initial hand render
+  // draw fresh hand
+  state = drawNewHand(state, 5);
+  render(true);
 }
+
+function aiTurnStub(cb){
+  // very light: AI “thinks” and maybe gains 1 Æ
+  setTimeout(()=>{
+    state.players.ai.aether = (state.players.ai.aether||0) + 1;
+    cb && cb();
+  }, 500);
+}
+
 function animateDiscardThen(fn){
-  // add class to current hand cards
   const cards = Array.from(handEl?.children || []);
   cards.forEach((el,i)=>{ el.classList.add("discarding"); el.style.animationDelay = `${i*40}ms`; });
-  setTimeout(fn, 360); // after animation
+  setTimeout(fn, 360);
 }
 
 endHudBtn?.addEventListener("click", ()=>{
-  // discard hand animation (visual)
+  // player end: discard hand, shift river, AI turn, then back to player and draw
   animateDiscardThen(()=>{
-    // move all to discard (visual stub for now)
-    const H = state.players.player.hand;
-    state.players.player.discardCount += H.length;
-    H.length = 0;
+    state = discardHand(state);
+    state = endTurn(state);     // shift; marks lastFlowDrop for animation
+    render();                   // show shift + drop animation this frame
 
-    // river shift
-    state = endTurn(state);
-    render();           // show shifted river
-    setTimeout(()=>{    // reveal one at start of next turn
-      state = startTurn(state);
-      render();
-    }, 80);
+    aiTurnStub(()=>{
+      // back to player
+      state = startTurn(state); // reveal one
+      state = drawNewHand(state, 5);
+      render(true);
+    });
   });
 });
 
@@ -394,7 +452,7 @@ zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("DOMContentLoaded", ()=>{
-  // first render + reveal first flow card
   state = startTurn(state);
+  state = drawNewHand(state, 5);
   render(true);
 });
