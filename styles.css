@@ -192,3 +192,11 @@ html,body{height:100%}
   box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70
 }
 .toast.show{opacity:1}
+
+/* v2.571 — animations foundation: harmless defaults */
+.fx-shadow { will-change: transform, opacity, filter; }
+.fx-spotlight { will-change: transform, opacity, filter; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-shadow, .fx-spotlight { transition: none !important; animation: none !important; }
+}
