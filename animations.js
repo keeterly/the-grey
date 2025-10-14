@@ -2,12 +2,13 @@
  * animations.js — v2.571+
  * Event-driven animations for The Grey
  *
- * Emits handled:
- *  - 'cards:drawn'        { nodes:[HTMLElement,...] }
- *  - 'cards:discard'      { nodes:[HTMLElement,...] }  // fly to discard
+ * Handled events:
+ *  - 'cards:drawn'        { nodes:[HTMLElement,...] }                 // pop reveal
+ *  - 'cards:deal'         { nodes:[HTMLElement,...], stagger?:120 }   // fly from deck to each hand node
+ *  - 'cards:discard'      { nodes:[HTMLElement,...] }                 // fly to discard (curve + spin)
  *  - 'aetherflow:reveal'  { node:HTMLElement }
  *  - 'aetherflow:falloff' { node:HTMLElement }
- *  - 'aetherflow:bought'  { node:HTMLElement }         // spotlight + fly to discard
+ *  - 'aetherflow:bought'  { node:HTMLElement }                        // spotlight + fly to discard
  */
 
 (() => {
@@ -59,12 +60,15 @@
   100% { transform: scale(1); opacity:1; }
 }
 
+/* class helpers */
 .grey-anim-draw   { animation: grey-draw-pop 340ms cubic-bezier(.2,.7,.2,1) both; will-change: transform, opacity, filter; }
 .grey-anim-spot   { animation: grey-spotlight 620ms ease-out both; }
 .grey-anim-fall   { animation: grey-falloff-right 480ms ease-out both; will-change: transform, opacity; }
 .grey-anim-reveal { animation: grey-reveal 340ms ease-out both; will-change: transform, opacity; }
+.grey-fly-clone   { position: fixed; z-index: 9999; pointer-events: none; transform-origin: center; }
 
-.grey-fly-clone { position: fixed; z-index: 9999; pointer-events: none; transform-origin: center; }
+/* optional hide marker to avoid ghosting */
+.grey-hide-during-flight { opacity: 0 !important; }
 `;
     const style = document.createElement('style');
     style.id = id;
@@ -102,7 +106,14 @@
     node.addEventListener('animationend', () => node.classList.remove('grey-anim-fall'), { once: true });
   }
 
-  function getDiscardTargetRect() {
+  function getDeckRect() {
+    const hud = document.getElementById('btn-deck-hud');
+    if (hud) return hud.getBoundingClientRect();
+    const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+    const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
+    return { left: vw - 80, top: vh - 140, width: 1, height: 1 };
+  }
+  function getDiscardRect() {
     const hud = document.getElementById('btn-discard-hud') || document.querySelector('[data-drop=discard]');
     if (hud) return hud.getBoundingClientRect();
     const vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
@@ -110,27 +121,45 @@
     return { left: vw - 80, top: vh - 80, width: 1, height: 1 };
   }
 
-  function flyTo(node, targetRect, { duration = 540 } = {}) {
-    if (!isEl(node) || !targetRect) return Promise.resolve();
-    const src = node.getBoundingClientRect();
-    const clone = node.cloneNode(true);
+  function makeCloneFrom(srcRect, nodeLike) {
+    const clone = (nodeLike?.cloneNode ? nodeLike.cloneNode(true) : document.createElement('div'));
     clone.classList.add('grey-fly-clone');
-    clone.style.width = `${src.width}px`;
-    clone.style.height = `${src.height}px`;
-    clone.style.left = `${src.left}px`;
-    clone.style.top = `${src.top}px`;
-    clone.style.transform = `translate(0,0)`;
-    clone.style.transition = `transform ${duration}ms cubic-bezier(.2,.7,.2,1), opacity ${duration}ms ease-out`;
+    clone.style.width = `${srcRect.width}px`;
+    clone.style.height = `${srcRect.height}px`;
+    clone.style.left = `${srcRect.left}px`;
+    clone.style.top = `${srcRect.top}px`;
+    clone.style.transform = `translate(0,0) rotate(0deg)`;
+    clone.style.transition = `transform 540ms cubic-bezier(.2,.7,.2,1), opacity 540ms ease-out`;
     document.body.appendChild(clone);
+    return clone;
+  }
+
+  function flyTo(node, targetRect, { duration = 540, curve = true, spin = true } = {}) {
+    if (!targetRect) return Promise.resolve();
+    const src = node.getBoundingClientRect();
+    const clone = makeCloneFrom(src, node);
+    // start hidden original to avoid ghosting
+    node.classList?.add('grey-hide-during-flight');
 
     const dx = targetRect.left - src.left;
     const dy = targetRect.top  - src.top;
+    const bend = curve ? (Math.random() * 40 + 30) * (Math.random() < .5 ? -1 : 1) : 0;
+    const rot  = spin ? (Math.random() * 14 - 7) : 0;
 
-    requestAnimationFrame(() => {
-      clone.style.transform = `translate(${dx}px, ${dy}px) scale(.82)`;
-      clone.style.opacity = '0.85';
+    // Use a 2-step transform to fake a slight curve (midpoint offset)
+    clone.animate([
+      { transform: `translate(0px,0px) rotate(0deg)`, opacity: 1 },
+      { transform: `translate(${dx*0.6}px, ${dy*0.6 + bend}px) rotate(${rot/2}deg)`, opacity: .95 },
+      { transform: `translate(${dx}px, ${dy}px) rotate(${rot}deg)`, opacity: .85 }
+    ], { duration, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
+
+    return new Promise(res => {
+      setTimeout(() => {
+        clone.remove();
+        node.classList?.remove('grey-hide-during-flight');
+        res();
+      }, duration + 40);
     });
-    return new Promise(res => setTimeout(() => { clone.remove(); res(); }, duration + 40));
   }
 
   // -------- Event bindings --------
@@ -139,17 +168,40 @@
   Grey.on('aetherflow:falloff', ({ node } = {})  => falloffRight(node));
   Grey.on('aetherflow:bought',  async ({ node } = {}) => {
     if (!isEl(node)) return;
+    const rect = getDiscardRect();
     spotlight(node, 600);
-    await flyTo(node, getDiscardTargetRect(), { duration: 540 });
+    await flyTo(node, rect, { duration: 540, curve: true, spin: false });
   });
 
   // NEW: discard entire hand (or subset) animation
   Grey.on('cards:discard', async ({ nodes } = {}) => {
-    const rect = getDiscardTargetRect();
+    const rect = getDiscardRect();
     const arr = asArray(nodes).filter(isEl);
-    await Promise.all(arr.map(n => flyTo(n, rect, { duration: 520 })));
+    await Promise.all(arr.map(n => flyTo(n, rect, { duration: 560, curve: true, spin: true })));
+  });
+
+  // NEW: “deal from deck” to each hand target, with stagger
+  Grey.on('cards:deal', async ({ nodes, stagger = 120 } = {}) => {
+    const arr = asArray(nodes).filter(isEl);
+    const deckRect = getDeckRect();
+    for (let i = 0; i < arr.length; i++) {
+      const target = arr[i];
+      // create a clone at deck and fly to target rect
+      const tRect = target.getBoundingClientRect();
+      const fake = makeCloneFrom(deckRect, target);
+      await new Promise(r => requestAnimationFrame(r));
+      fake.animate([
+        { transform: `translate(0px,0px) rotate(0deg)`, opacity: .95 },
+        { transform: `translate(${(tRect.left-deckRect.left)*0.6}px, ${(tRect.top-deckRect.top)*0.6 + 30}px) rotate(-4deg)`, opacity: .92 },
+        { transform: `translate(${tRect.left-deckRect.left}px, ${tRect.top-deckRect.top}px) rotate(0deg)`, opacity: .9 }
+      ], { duration: 520, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' });
+      await new Promise(res => setTimeout(res, 520));
+      fake.remove();
+      // small stagger before next card
+      if (i < arr.length - 1) await new Promise(res => setTimeout(res, stagger));
+    }
   });
 
   // expose helpers for console tests
-  window.GreyAnimations = { spotlight, drawPop, falloffRight, reveal };
+  window.GreyAnimations = { spotlight, flyTo };
 })();
