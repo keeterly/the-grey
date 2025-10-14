@@ -1,17 +1,20 @@
 /**
- * index.js — v2.57 bootstrap
- * -------------------------------------------
- * - Loads animations lazily (inside the module) to avoid double-loads.
- * - Wires a tiny event bus (Grey.on / Grey.emit) for decoupled animations.
- * - Boots whatever your GameLogic.js exposes (init/render/turn handlers).
- * - Never throws if a helper is missing — everything is feature-detected.
+ * index.js — v2.57 safe boot
+ * - Keep HTML unchanged (only this module tag).
+ * - Lazily import animations (optional); if missing, nothing breaks.
+ * - No dependency on GameLogic.js.
+ *
+ * NOTE: This file assumes your v2.57 game logic is already in here
+ * (the same way your working build was). If you previously split
+ * logic into modules, keep it here or import it WITHIN this module.
  */
 
-const qs  = (sel, root = document) => root.querySelector(sel);
-const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
+/* ---------------- Utilities ---------------- */
+const qs  = (s, r = document) => r.querySelector(s);
+const qsa = (s, r = document) => [...r.querySelectorAll(s)];
 
-/* ---------- Tiny event bus (DOM CustomEvents under the hood) ---------- */
-const Grey = {
+/* ---------------- Event bus (for animations) ---------------- */
+export const Grey = {
   on(type, handler, options) {
     document.addEventListener(type, handler, options);
     return () => document.removeEventListener(type, handler, options);
@@ -20,204 +23,86 @@ const Grey = {
     document.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
   }
 };
-// Expose for GameLogic.js (optional usage)
-window.Grey = Grey;
+window.Grey = Grey; // optional global for other code in this file
 
-/* ---------- Optional animations (lazy) ---------- */
-let Anims = null;
-
+/* ---------------- OPTIONAL animations (non-blocking) ---------------- */
 async function loadAnimations() {
   try {
-    // Cache-busted import so GH Pages doesn't serve an old copy
     const mod = await import('./animations.js?v=257');
-    Anims = mod?.default ?? mod;
-    // Give the module a chance to hook once, if it exports an install() helper
-    if (Anims && typeof Anims.install === 'function') {
-      Anims.install({ Grey, root: document });
-    }
-    // If the animation module wants to subscribe by itself
-    if (Anims && typeof Anims.autowire === 'function') {
-      Anims.autowire({ Grey });
-    }
-  } catch (err) {
-    // Animations are optional; never block the game if missing
-    console.warn('[Animations] not loaded (optional):', err?.message || err);
+    const Anims = mod?.default ?? mod;
+
+    if (Anims?.install) Anims.install({ Grey, root: document });
+    if (Anims?.autowire) Anims.autowire({ Grey });
+  } catch (e) {
+    // Fine if it's not there yet — animations are optional
+    // console.info('[animations] not present (optional)');
   }
 }
 
-/* ---------- Safely read exported helpers from GameLogic.js ---------- */
-function getGameAPI() {
-  // Common patterns we’ve used across versions — feature detect them
-  const api = {
-    // init/boot
-    init:
-      window.initGame ||
-      window.setupGame ||
-      window.startGame ||
-      window.Game?.init ||
-      null,
+/* ---------------- The original v2.57 boot logic ----------------
+   REPLACE the stubs below with your existing v2.57 functions if needed.
+   If your current file already contains all of this logic, keep it as-is;
+   these are just guards to ensure the board comes up.
+------------------------------------------------------------------*/
 
-    // renderers
-    renderAll:
-      window.renderAll ||
-      window.renderBoard ||
-      window.Game?.render ||
-      null,
+/** initBoard: ensures static DOM regions render (slots, flow, etc.) */
+function initBoard() {
+  // If your v2.57 already renders all these, keep your code.
+  // Below is a minimal guard to ensure the flow row exists & is empty.
 
-    // turn helpers
-    startTurn:
-      window.startTurn ||
-      window.Game?.startTurn ||
-      null,
-
-    endTurn:
-      window.endTurn ||
-      window.Game?.endTurn ||
-      null,
-
-    // drag & drop (optional in some builds)
-    enableDnD:
-      window.enableDragAndDrop ||
-      window.Game?.enableDragAndDrop ||
-      null
-  };
-
-  return api;
+  const flowRow = qs('#flow-row');
+  if (flowRow && !flowRow.children.length) {
+    // Create 6 empty flow positions so the bar is visible
+    for (let i = 0; i < 6; i++) {
+      const li = document.createElement('li');
+      li.className = 'flow-card slot';
+      li.dataset.index = i;
+      li.textContent = ''; // your styling shows frame anyway
+      flowRow.appendChild(li);
+    }
+  }
 }
 
-/* ---------- HUD wiring (safe) ---------- */
-function wireHUD(api) {
+/** renderAll: draw both boards + hand using your existing logic */
+async function renderAll() {
+  // Call your actual v2.57 render functions here.
+  // These stubs keep the layout alive if render is split elsewhere.
+  initBoard();
+}
+
+/** startTurn: draw + any start-of-turn effects, then animate (optional) */
+async function startTurn() {
+  // Example: if your draw returns the drawn DOM nodes,
+  // you can emit Grey.emit('cards:drawn', { cards });
+}
+
+/** endTurn: discard hand, pass priority, then animate (optional) */
+async function endTurn() {
+  // Emit discard animation event if your logic supports it.
+  // Grey.emit('cards:discarded', { cards, target: 'discard' });
+}
+
+/* ---------------- Wire HUD (end turn) ---------------- */
+function wireHUD() {
   const endBtn = qs('#btn-endturn-hud');
   if (endBtn) {
     endBtn.addEventListener('click', async () => {
-      // Let game logic handle end turn if provided
-      if (typeof api.endTurn === 'function') {
-        // You can dispatch “cards:discarded” *before* the actual state change if you want the animation to run while resolving.
-        Grey.emit('turn:ending');
-        await api.endTurn();
-        Grey.emit('turn:ended');
-      } else {
-        Grey.emit('turn:ended');
-      }
+      await endTurn();
+      // If you auto-start AI and then your turn:
+      // await aiTurn(); await startTurn();
     });
   }
-
-  const discardBtn = qs('#btn-discard-hud');
-  if (discardBtn) {
-    // Example drop target marking (your DnD may already do this)
-    discardBtn.dataset.dropTarget = 'discard';
-  }
-  const deckBtn = qs('#btn-deck-hud');
-  if (deckBtn) {
-    deckBtn.dataset.dropTarget = 'deck';
-  }
 }
 
-/* ---------- Portrait aether readouts (safe/optional) ---------- */
-function updateAetherDisplays() {
-  // If your logic exposes values on window/state, reflect them here.
-  // These calls are no-ops if you haven’t wired them yet.
-  try {
-    const player = window.Game?.state?.player ?? window.playerState;
-    const ai     = window.Game?.state?.ai     ?? window.aiState;
-
-    const p = qs('#player-aether');
-    const a = qs('#ai-aether');
-    if (p && player && typeof player.aether === 'number') {
-      p.textContent = `${player.aether}`;
-    }
-    if (a && ai && typeof ai.aether === 'number') {
-      a.textContent = `${ai.aether}`;
-    }
-  } catch (_) {
-    // silent — best effort UI refresh
-  }
-}
-
-/* ---------- Animation hooks (events you can emit from GameLogic) ---------- */
-/*
-  Fire these from your game logic whenever appropriate:
-
-  Grey.emit('cards:drawn',   { cards, source: 'deck' });
-  Grey.emit('cards:discarded',{ cards, target: 'discard' });
-  Grey.emit('flow:reveal',   { cardEl, index });        // leftmost/new reveal
-  Grey.emit('flow:falloff',  { cardEl, index });        // rightmost leaving
-  Grey.emit('market:buy',    { cardEl });               // spotlight then flyTo discard
-*/
-function wireAnimationListeners() {
-  if (!Anims) return; // optional
-
-  // Draw
-  Grey.on('cards:drawn', e => {
-    if (typeof Anims.animateDraw === 'function') {
-      Anims.animateDraw(e.detail);
-    }
-  });
-
-  // Discard
-  Grey.on('cards:discarded', e => {
-    if (typeof Anims.animateDiscard === 'function') {
-      Anims.animateDiscard(e.detail);
-    }
-  });
-
-  // Flow reveal (leftmost or new card)
-  Grey.on('flow:reveal', e => {
-    if (typeof Anims.animateFlowReveal === 'function') {
-      Anims.animateFlowReveal(e.detail);
-    }
-  });
-
-  // Flow falloff (rightmost)
-  Grey.on('flow:falloff', e => {
-    if (typeof Anims.animateFlowFalloff === 'function') {
-      Anims.animateFlowFalloff(e.detail);
-    }
-  });
-
-  // Market buy spotlight then fly
-  Grey.on('market:buy', e => {
-    if (typeof Anims.animateMarketBuy === 'function') {
-      Anims.animateMarketBuy(e.detail);
-    }
-  });
-}
-
-/* ---------- Boot sequence ---------- */
+/* ---------------- Boot ---------------- */
 async function boot() {
-  await loadAnimations();           // optional, non-blocking
-  const api = getGameAPI();
-
-  // Initialize game logic if provided
-  if (typeof api.init === 'function') {
-    await api.init({ Grey });       // pass bus (optional)
-  }
-
-  // Render once
-  if (typeof api.renderAll === 'function') {
-    await api.renderAll();
-  }
-
-  wireHUD(api);
-  if (typeof api.enableDnD === 'function') {
-    api.enableDnD();
-  }
-
-  // Hook animation listeners after DOM is in place
-  wireAnimationListeners();
-
-  // First frame UI sync
-  updateAetherDisplays();
-
-  // If your logic exposes a startTurn, kick off the opener
-  if (typeof api.startTurn === 'function') {
-    await api.startTurn();
-  }
+  await renderAll();     // draw the static board
+  wireHUD();             // buttons
+  await loadAnimations();// optional, safe
+  await startTurn();     // begin
 }
 
-/* ---------- Start on DOM ready ---------- */
+/* ---------------- Start ---------------- */
 document.addEventListener('DOMContentLoaded', () => {
-  boot().catch(err => {
-    console.error('[Boot] Fatal error:', err);
-  });
+  boot().catch(err => console.error('[boot]', err));
 });
