@@ -114,7 +114,6 @@ function wireDesktopDrag(el, data){
     el.classList.add("dragging");
     ev.dataTransfer?.setData("text/card-id", data.id);
     ev.dataTransfer?.setData("text/card-type", data.type);
-    // hidden drag image
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
@@ -125,6 +124,83 @@ function wireDesktopDrag(el, data){
     el.classList.remove("dragging");
     document.body.classList.remove("dragging-mode");
   });
+}
+
+/* ------- touch drag (mobile fallback) ------- */
+function wireTouchDrag(el, data){
+  let dragging = false;
+  let startX=0, startY=0, curX=0, curY=0;
+  let lastHoverSlot=null;
+
+  const onDown = (ev)=>{
+    if (ev.pointerType !== "touch") return;
+    ev.preventDefault();
+    dragging = true;
+    const t = ev;
+    startX = t.clientX; startY = t.clientY;
+    curX = startX; curY = startY;
+    el.classList.add("touch-dragging");
+    el.style.transition = "none";
+    el.setPointerCapture(ev.pointerId);
+  };
+
+  const onMove = (ev)=>{
+    if (!dragging) return;
+    ev.preventDefault();
+    curX = ev.clientX; curY = ev.clientY;
+    const dx = curX - startX;
+    const dy = curY - startY;
+    el.style.transform = `translate(calc(var(--tx,0px) + ${dx}px), calc(var(--ty,0px) + ${dy}px)) rotate(var(--rot,0deg)) scale(1.02)`;
+
+    // hover highlight for slots
+    const over = document.elementFromPoint(curX, curY);
+    const slot = over?.closest?.(".slot");
+    if (slot !== lastHoverSlot){
+      lastHoverSlot?.classList.remove("drag-over");
+      if (slot) slot.classList.add("drag-over");
+      lastHoverSlot = slot || null;
+    }
+  };
+
+  const onUp = (ev)=>{
+    if (!dragging) return;
+    dragging = false;
+    el.releasePointerCapture?.(ev.pointerId);
+
+    // drop detection
+    const over = document.elementFromPoint(ev.clientX, ev.clientY);
+    const slot = over?.closest?.(".slot");
+    lastHoverSlot?.classList.remove("drag-over");
+    lastHoverSlot = null;
+
+    const type = data.type;
+    try{
+      if (slot?.classList.contains("glyph") && type === "GLYPH"){
+        // glyph slot index is fixed at 3
+        state = setGlyphFromHand(state, "player", data.id);
+        render();
+        return;
+      }
+      if (slot?.classList.contains("spell") && type === "SPELL"){
+        const idx = Number(slot.dataset.slotIndex || "0");
+        state = playCardToSpellSlot(state, "player", data.id, idx);
+        render();
+        return;
+      }
+    }catch(err){
+      toast(err?.message || "Can't place");
+    }
+
+    // snap back if not placed
+    el.style.transition = "transform .18s ease";
+    el.style.transform = `translate(var(--tx,0px), var(--ty,0px)) rotate(var(--rot,0deg))`;
+    el.classList.remove("touch-dragging");
+  };
+
+  el.addEventListener("pointerdown", onDown, {passive:false});
+  el.addEventListener("pointermove", onMove, {passive:false});
+  el.addEventListener("pointerup", onUp, {passive:false});
+  el.addEventListener("pointercancel", onUp, {passive:false});
 }
 
 /* ------- slots (with glyph) ------- */
@@ -220,7 +296,7 @@ function renderFlow(flowSlots){
     if (c){
       card.innerHTML = flowCardHTML(c, price);
       attachPeekAndZoom(card, {...c});
-      // click to buy if enough Æ
+      // click/tap to buy if enough Æ
       card.addEventListener("click", ()=>{
         try{
           const before = state.players.player.aether;
@@ -302,7 +378,6 @@ function render(){
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
-      // Show small intrinsic costs in hand if you want (kept as-is)
       const intrinsicCost = (c.name==="Greyfire Bloom" || c.name==="Surge of Ash" || c.name==="Veil of Dust") ? 1 : 0;
       const costGems = "🜂".repeat(intrinsicCost);
 
@@ -314,6 +389,7 @@ function render(){
       `;
 
       wireDesktopDrag(el, c);
+      wireTouchDrag(el, c);   // << mobile drag fallback
       attachPeekAndZoom(el, {...c});
       handEl.appendChild(el); els.push(el);
     });
@@ -326,14 +402,12 @@ zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 
-/* End Turn => slide, then start-turn reveal, then render */
 $("btn-endturn-hud")?.addEventListener("click", ()=>{
   state = endTurn(state);
   state = startTurn(state);
   render();
 });
 
-/* Toggles (already in your HTML) */
 btnZoom?.addEventListener("click", ()=>{
   const on = document.body.classList.toggle("board-zoom75");
   btnZoom.setAttribute("aria-pressed", on ? "true" : "false");
@@ -345,8 +419,8 @@ btnLayout?.addEventListener("click", ()=>{
   btnLayout.textContent = on ? "Flow Bottom" : "Flow Left";
 });
 
-/* Boot: immediately do the first start-turn reveal so game begins with 1 Flow card */
+/* Boot: reveal first Flow card so game starts with 1 shown */
 document.addEventListener("DOMContentLoaded", ()=>{
-  state = startTurn(state); // reveals first card only
+  state = startTurn(state);
   render();
 });
