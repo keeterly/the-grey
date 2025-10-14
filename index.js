@@ -29,6 +29,10 @@ const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
 
+/* HUD targets for deck/discard */
+const hudDiscardBtn = $("btn-discard-hud");
+const hudDeckBtn    = $("btn-deck-hud");
+
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
@@ -53,7 +57,6 @@ function toast(msg, ms=1100){
 -------------------------------------------------*/
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-  // tighter arc and closer grouping
   const MAX_ANGLE = 18, MIN_ANGLE = 6;
   const spread = Math.min(container.clientWidth * 0.78, 820);
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*1.8, MIN_ANGLE, MAX_ANGLE);
@@ -87,7 +90,6 @@ function gemSVG(cls=""){
   </svg>`;
 }
 function withAetherText(s=""){
-  // Replace 'Æ' in rules text with an inline gem sized like text
   return (s||"").replace(/Æ/g, () => `<span class="ae-inline">${gemSVG("aegem-txt")}</span>`);
 }
 
@@ -140,7 +142,7 @@ function attachPeekAndZoom(el, data){
 }
 
 /* ------------------------------------------------
-   Drag & Drop (desktop-safe; mobile uses press-to-zoom)
+   Drag & Drop (desktop + mobile touch)
 -------------------------------------------------*/
 function wireDesktopDrag(el, data){
   el.draggable = true;
@@ -148,13 +150,11 @@ function wireDesktopDrag(el, data){
     el.classList.add("dragging");
     ev.dataTransfer?.setData("text/card-id", data.id);
     ev.dataTransfer?.setData("text/card-type", data.type);
-    // hidden ghost to avoid big preview
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
     ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
     setTimeout(()=> ghost.remove(), 0);
-    // mark valid targets
     markDropTargets(data.type, true);
   });
   el.addEventListener("dragend", ()=>{
@@ -163,8 +163,93 @@ function wireDesktopDrag(el, data){
   });
 }
 
+/* ----- touch drag (mobile) ----- */
+function wireTouchDrag(el, data){
+  let dragging = false;
+  let ghost = null;
+  let currentHover = null;
+
+  const start = (ev)=>{
+    const t = ev.touches ? ev.touches[0] : ev;
+    dragging = true;
+    markDropTargets(data.type, true);
+
+    ghost = el.cloneNode(true);
+    ghost.style.position = "fixed";
+    ghost.style.left = "0px"; ghost.style.top = "0px";
+    ghost.style.pointerEvents = "none";
+    ghost.style.transform = "translate(-9999px,-9999px)";
+    ghost.style.zIndex = "99999";
+    ghost.classList.add("dragging");
+    document.body.appendChild(ghost);
+    move(t.clientX, t.clientY);
+    ev.preventDefault();
+  };
+
+  const move = (x, y)=>{
+    if (!dragging || !ghost) return;
+    ghost.style.transform = `translate(${x-ghost.clientWidth/2}px, ${y-ghost.clientHeight*0.9}px) rotate(6deg)`;
+
+    const elUnder = document.elementFromPoint(x, y);
+    const hoverTarget = findValidDropTarget(elUnder, data.type);
+    if (hoverTarget !== currentHover){
+      if (currentHover) currentHover.classList.remove("drag-over");
+      currentHover = hoverTarget;
+      if (currentHover) currentHover.classList.add("drag-over");
+    }
+  };
+
+  const end = (ev)=>{
+    if (!dragging) return;
+    dragging = false;
+
+    const t = ev.changedTouches ? ev.changedTouches[0] : ev;
+    const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+    const target = findValidDropTarget(elUnder, data.type);
+
+    if (currentHover) currentHover.classList.remove("drag-over");
+    markDropTargets(data.type, false);
+
+    if (ghost) { ghost.remove(); ghost = null; }
+
+    // drop behavior
+    if (target){
+      if (target.classList.contains("slot") && target.classList.contains("spell") && data.type==="SPELL"){
+        const slotIndex = Number(target.dataset.slotIndex || 0);
+        try { state = playCardToSpellSlot(state, "player", el.dataset.cardId, slotIndex); render(); }
+        catch(err){ toast(err?.message || "Can't play"); }
+      } else if (target.classList.contains("slot") && target.classList.contains("glyph") && data.type==="GLYPH"){
+        try { state = setGlyphFromHand(state, "player", el.dataset.cardId); render(); }
+        catch(err){ toast(err?.message || "Can't set glyph"); }
+      } else if (target === hudDiscardBtn){
+        // discard for Æ
+        try {
+          state = discardCardForAether(state, "player", el.dataset.cardId);
+          render();
+          toast("Discarded for Æ");
+        } catch(e){ toast(e?.message || "Can't discard"); }
+      }
+    }
+  };
+
+  el.addEventListener("touchstart", start, {passive:false});
+  el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
+  el.addEventListener("touchend", end, {passive:false});
+  el.addEventListener("touchcancel", end, {passive:false});
+}
+
+function findValidDropTarget(node, cardType){
+  if (!node) return null;
+  const slot = node.closest(".slot");
+  if (slot){
+    if (slot.classList.contains("spell") && cardType==="SPELL") return slot;
+    if (slot.classList.contains("glyph") && cardType==="GLYPH") return slot;
+  }
+  if (hudDiscardBtn && node.closest("#btn-discard-hud")) return hudDiscardBtn;
+  return null;
+}
+
 function markDropTargets(cardType, on){
-  // Spell slots (0..2) accept SPELL, glyph (index 3) accepts GLYPH
   document.querySelectorAll(".slot.spell").forEach(s=>{
     if (on && cardType==="SPELL") s.classList.add("drag-over-pulse");
     else s.classList.remove("drag-over-pulse");
@@ -174,7 +259,30 @@ function markDropTargets(cardType, on){
     if (on && cardType==="GLYPH") g.classList.add("drag-over-pulse");
     else g.classList.remove("drag-over-pulse");
   }
-  // Discard / deck targets could be marked here if desired
+  if (hudDiscardBtn){
+    if (on) hudDiscardBtn.classList.add("drop-ready");
+    else hudDiscardBtn.classList.remove("drop-ready");
+  }
+}
+
+/* ------------------------------------------------
+   Simple discard-for-aether (index-local helper)
+-------------------------------------------------*/
+function discardCardForAether(s, playerId, cardId){
+  const P = s.players[playerId];
+  if (!P) throw new Error("bad player");
+  const i = P.hand.findIndex(c=>c.id===cardId);
+  if (i<0) throw new Error("card not in hand");
+  const card = P.hand[i];
+  const gain = card.aetherValue|0;
+  if (gain<=0) throw new Error("This card has no Æ value");
+  P.aether = (P.aether|0) + gain;
+  P.discardCount += 1;
+  P.hand.splice(i,1);
+  // flash Æ readout (optional small CSS hook)
+  const ad = document.querySelector(".aether-display");
+  if (ad){ ad.classList.remove("flash"); void ad.offsetWidth; ad.classList.add("flash"); }
+  return s;
 }
 
 /* ------------------------------------------------
@@ -193,7 +301,6 @@ function renderSlots(container, snapshot, isPlayer){
 
     const slot = safe[i] || {hasCard:false, card:null};
     if (slot.hasCard && slot.card){
-      // show full card content now in the slot
       const art = document.createElement("article");
       art.className = "card";
       art.innerHTML = cardHTML(slot.card);
@@ -221,7 +328,6 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // glyph
   const g = document.createElement("div");
   g.className = "slot glyph";
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
@@ -284,7 +390,6 @@ function renderFlow(flowSlots){
 
     if (c) attachPeekAndZoom(card, c);
 
-    // click to buy (position-based cost)
     card.addEventListener("click", (e)=>{
       if (!c) return;
       if ((e.target.closest(".card"))){
@@ -294,7 +399,6 @@ function renderFlow(flowSlots){
     });
 
     li.appendChild(card);
-    // Cost label under each slot (4,3,3,2,2)
     const costLbl = document.createElement("div");
     costLbl.className = "price-label";
     costLbl.innerHTML = `${withAetherText("Æ")} ${[4,3,3,2,2][idx] || 0} to buy`;
@@ -335,6 +439,10 @@ function render(){
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
+  // ensure HUD targets show as drop-targets
+  if (hudDiscardBtn) hudDiscardBtn.classList.add("drop-target");
+  if (hudDeckBtn)    hudDeckBtn.classList.add("drop-target");
+
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
   renderFlow(s.flowSlots);
@@ -362,6 +470,7 @@ function render(){
       `;
 
       wireDesktopDrag(el, c);
+      wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
       handEl.appendChild(el); els.push(el);
     });
@@ -373,7 +482,6 @@ function render(){
    Wiring
 -------------------------------------------------*/
 startBtn?.addEventListener("click", ()=>{
-  // start of game turn flow: reveal slot 0 if empty & draw a visible hand once
   state = startTurn(state);
   if ((serializePublic(state).player?.hand||[]).length===0){
     state = drawNewHand(state, 5);
@@ -382,10 +490,8 @@ startBtn?.addEventListener("click", ()=>{
 });
 
 endBtn?.addEventListener("click", ()=>{
-  // end turn: drop river, (stub AI), start new player turn
   state = endTurn(state);
-  // AI stub could go here
-  // Draw new hand (demo)
+  // AI stub could go here...
   state = discardHand(state);
   state = startTurn(state);
   state = drawNewHand(state, 5);
