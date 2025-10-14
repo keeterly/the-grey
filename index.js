@@ -1,3 +1,46 @@
+/* ===== Grey Animations bootstrap — ADD THIS BLOCK AT THE VERY TOP (v2.571-safe) ===== */
+(() => {
+  // Idempotent bus (won’t overwrite an existing one)
+  const Grey = (function ensureBus() {
+    if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
+    const listeners = new Map();
+    const on = (name, fn) => {
+      if (!listeners.has(name)) listeners.set(name, new Set());
+      listeners.get(name).add(fn);
+      return () => listeners.get(name)?.delete(fn);
+    };
+    const off = (name, fn) => listeners.get(name)?.delete(fn);
+    const emit = (name, detail) => {
+      (listeners.get(name) || []).forEach(fn => {
+        try { fn(detail); } catch (e) { console.error('[Grey handler]', name, e); }
+      });
+    };
+    const safeEmit = (name, detail) => { try { emit(name, detail); } catch {} };
+    const bus = { on, off, emit, safeEmit };
+    window.Grey = bus;
+    return bus;
+  })();
+
+  // Load animations once, without changing your flow
+  async function loadAnimationsOnce() {
+    if (window.__greyAnimationsLoaded__) return;
+    try {
+      await import('./animations.js');
+    } catch (e) {
+      // Fallback for older loaders – still no-op if it fails
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.src = './animations.js';
+      s.onload = () => {};
+      s.onerror = () => console.warn('[Grey] animations fallback failed');
+      document.head.appendChild(s);
+    }
+  }
+
+  // Start loading ASAP, but don’t block your existing code
+  loadAnimationsOnce();
+})();
+
 import {
   initState,
   serializePublic,
