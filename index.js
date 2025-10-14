@@ -1,297 +1,267 @@
-/* The Grey – restorative build (v2.53 baseline + fixes)
-   – Restores prior look/feel
-   – Aetherflow river: costs [4,3,3,2,2]
-   – Draw & discard animations
-   – Drag/drop with slot pulsing
-   – Spotlight on purchase → fly to discard
-   – Portrait HUD (hearts, big gem, Trance I/II)
-   IMPORTANT: No text substitution; we DO NOT touch your Æ text anymore.
-*/
+/* =========================================================
+   Minimal UI engine that restores:
+   - hand fan
+   - drag/drop with slot gating & pulse
+   - draw/discard animations
+   - preview on long-press
+   - Aether Flow costs + buy/spotlight
+   Works with your existing GameLogic.js-rendered DOM.
+   ========================================================= */
+
 (() => {
-  const $  = (s,r=document)=>r.querySelector(s);
-  const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
-  const wait = (ms)=>new Promise(r=>setTimeout(r,ms));
-  const rand = (n)=>Math.floor(Math.random()*n);
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
 
-  // SVGs (inline)
-  const ICONS = {
-    gem: `<svg viewBox="0 0 24 24" class="gem" aria-hidden="true"><path d="M12 2l5 4-5 16L7 6l5-4zM2 9l5-3 5 16-10-13zm20 0l-5-3-5 16 10-13z"/></svg>`,
-    heart:`<svg viewBox="0 0 24 24"><path d="M12 21s-6.7-4.4-9.3-7C-0.7 11.1 1 6.3 5 6.3c2 0 3.4 1.1 4 2 0.6-0.9 2-2 4-2 4 0 5.7 4.8 2.3 7.7-2.6 2.6-9.3 7-9.3 7z"/></svg>`,
-    dot:`<svg viewBox="0 0 8 8" class="pip"><circle cx="4" cy="4" r="3"/></svg>`
-  };
+  /* ---------- Fan the hand like MTGA ---------- */
+  function fanHand() {
+    const hand = $('.hand');
+    if (!hand) return;
+    const cards = $$('.hand .card', hand);
+    hand.dataset.count = cards.length;
 
-  // ---------- Card Data (exactly as you specified earlier) ----------
-  const BASE = [
-    {n:"Pulse of the Grey",t:"SPELL",c:0,p:1,x:"On Resolve: Draw 1, Gain 1 Aether",av:0,q:3},
-    {n:"Wispform Surge",t:"SPELL",c:0,p:1,x:"On Resolve: Advance another Spell for free",av:0,q:1},
-    {n:"Greyfire Bloom",t:"SPELL",c:1,p:1,x:"On Resolve: Advance another Spell for free",av:0,q:1},
-    {n:"Echoing Reservoir",t:"SPELL",c:0,p:1,x:"On Resolve: Channel 1",av:2,q:2},
-    {n:"Dormant Catalyst",t:"SPELL",c:0,p:1,x:"On Resolve: Channel 2",av:1,q:1},
-    {n:"Ashen Focus",t:"SPELL",c:0,p:1,x:"On Resolve: Channel 1 and Draw 1",av:1,q:1},
-    {n:"Surge of Ash",t:"INSTANT",c:1,p:0,x:"Target Spell advances 1 step free",av:0,q:1},
-    {n:"Veil of Dust",t:"INSTANT",c:1,p:0,x:"Prevent 1 damage or negate a hostile Instant",av:0,q:1},
-    {n:"Glyph of Remnant Light",t:"GLYPH",c:0,p:0,x:"When a Spell resolves → Gain 1 Aether",av:0,q:1},
-    {n:"Glyph of Returning Echo",t:"GLYPH",c:0,p:0,x:"When you Channel Aether → Draw 1 card",av:0,q:1},
-  ];
-  const FLOW = [
-    {n:"Surge of Cinders",t:"INSTANT",c:2,p:0,x:"Deal 2 damage to any target",av:0},
-    {n:"Pulse Feedback",t:"INSTANT",c:3,p:0,x:"Advance all Spells you control by 1",av:0},
-    {n:"Refracted Will",t:"INSTANT",c:2,p:0,x:"Counter an Instant or negate a Glyph trigger",av:0},
-    {n:"Aether Impel",t:"INSTANT",c:4,p:0,x:"Gain 3 Aether this turn",av:0},
-    {n:"Cascade Insight",t:"INSTANT",c:3,p:0,x:"Draw 2 cards, then discard 1",av:0},
-    {n:"Resonant Chorus",t:"SPELL",c:0,p:1,x:"On Resolve: Gain 2 Aether and Channel 1",av:1},
-    {n:"Emberline Pulse",t:"SPELL",c:1,p:1,x:"On Resolve: Deal 2 damage and Draw 1",av:0},
-    {n:"Fractured Memory",t:"SPELL",c:0,p:2,x:"On Resolve: Draw 2 cards",av:0},
-    {n:"Obsidian Vault",t:"SPELL",c:0,p:1,x:"On Resolve: Channel 2 and Gain 1 Aether",av:1},
-    {n:"Mirror Cascade",t:"SPELL",c:1,p:1,x:"On Resolve: Copy the next Instant you play this turn",av:0},
-    {n:"Sanguine Flow",t:"SPELL",c:2,p:1,x:"On Resolve: Lose 1 Vitality, Gain 3 Aether",av:0},
-    {n:"Glyph of Withering Light",t:"GLYPH",c:0,p:0,x:"When an opponent plays a Spell → They lose 1 Aether",av:0},
-    {n:"Glyph of Vigilant Echo",t:"GLYPH",c:0,p:0,x:"At end of your turn → Channel 1",av:0},
-    {n:"Glyph of Buried Heat",t:"GLYPH",c:0,p:0,x:"When you discard a card for Aether → Gain 1 extra Aether",av:0},
-    {n:"Glyph of Soulglass",t:"GLYPH",c:0,p:0,x:"When you buy a card from Aether Flow → Draw 1 card",av:0},
-  ];
+    const N = cards.length;
+    const spread = Math.min(16, Math.max(8, N*1.2));  // degrees total
+    const offset = (i) => (i - (N-1)/2);              // centered index
+    const radius = Math.max(320, 34 * N);             // pixels to arc
+    const lift = 24;                                  // vertical lift for middle
 
-  const expand = (L)=>L.flatMap(o=>Array.from({length:o.q??1},()=>({...o})));
-  const shuffle = (a)=>{for(let i=a.length-1;i>0;i--){const j=rand(i+1);[a[i],a[j]]=[a[j],a[i]]}return a};
+    cards.forEach((card, i) => {
+      const k = offset(i);
+      const rot = (spread/(N||1)) * k;
+      const y  = -Math.max(0, lift - Math.abs(k)*3);
+      const x  = k * 22; // horizontal spacing
+      card.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+      card.style.zIndex = String(1000 + i);
+    });
 
-  const S = {
-    flow:[null,null,null,null,null],
-    flowCosts:[4,3,3,2,2],
-    flowDeck:[],
-    player:{
-      deck:[],hand:[],discard:[],aether:0,hearts:5,trance:0
-    },
-    ai:{
-      deck:[],hand:[],discard:[],aether:0,hearts:5,trance:0
-    },
-    dragging:null
-  };
-
-  // ---------- Setup ----------
-  function init(){
-    S.player.deck = shuffle(expand(BASE));
-    S.ai.deck     = shuffle(expand(BASE));
-    S.flowDeck    = shuffle(FLOW.map(c=>({...c})));
-
-    // Start flow with 1 card revealed
-    revealNextFlow(true);
-    draw(S.player,5,true);
-    renderAll();
-
-    $('#btn-endturn-hud')?.addEventListener('click', endTurn);
-    document.addEventListener('pointerup', ()=>closePeek());
+    hand.classList.add('fan');
   }
 
-  // ---------- Flow (river) ----------
-  function revealNextFlow(initial=false){
-    if(initial){ if(!S.flow[0]) S.flow[0] = drawFrom(S.flowDeck); return; }
-    for(let i=0;i<S.flow.length;i++) if(!S.flow[i]){ S.flow[i] = drawFrom(S.flowDeck); break; }
-  }
-  function slideRiver(){
-    for(let i=0;i<S.flow.length-1;i++) S.flow[i]=S.flow[i+1];
-    S.flow[S.flow.length-1]=null;
-  }
-
-  // ---------- Draw / Discard ----------
-  function drawFrom(deck){ return deck.length?deck.pop():null; }
-  function draw(who,n,animate=false){
-    for(let i=0;i<n;i++){
-      if(!who.deck.length) who.deck=shuffle(who.discard.splice(0));
-      const c = who.deck.pop(); if(!c) break;
-      who.hand.push(c); if(animate) animateDraw(c);
-    }
-  }
-  async function discardHand(who){
-    $$('#hand .card').forEach(el=>el.classList.add('fall-fade'));
-    await wait(280);
-    who.discard.push(...who.hand.splice(0));
-  }
-  function animateDraw(card){
-    const ghost = createCardEl(card,'ghost',0);
-    ghost.classList.add('draw-arc');
-    document.body.appendChild(ghost);
-    setTimeout(()=>ghost.remove(),520);
-  }
-
-  // ---------- Turn flow ----------
-  async function endTurn(){
-    await discardHand(S.player);
-    slideRiver();
-    revealNextFlow();
-    // simple AI tick
-    draw(S.ai,1,false);
-    S.ai.discard.push(...S.ai.hand.splice(0));
-    // back to player
-    draw(S.player,5,true); revealNextFlow();
-    renderAll();
-  }
-
-  // ---------- Render ----------
-  function renderAll(){
-    renderPortraits();
-    renderFlow();
-    renderSlots('#player-slots',false);
-    renderSlots('#ai-slots',true);
-    renderHand();
-  }
-
-  function renderPortraits(){
-    const sew = (row,who)=>{
-      const host = $(`${row} .portrait`);
-      if(!host) return;
-      let hud = host.nextElementSibling;
-      if(!hud || !hud.classList.contains('portrait-hud')){
-        hud = document.createElement('div');
-        hud.className='portrait-hud';
-        host.after(hud);
-      }
-      hud.innerHTML = `
-        <div class="hearts">${ICONS.heart.repeat(who.hearts)}</div>
-        <div class="aether-display"><span class="gem-wrap">${ICONS.gem}</span><span class="val">${who.aether}</span></div>
-        <div class="trance">
-          <div class="tier ${who.trance>=1?'on':''}">I</div>
-          <div class="tier ${who.trance>=2?'on':''}">II</div>
-        </div>
-      `;
+  /* ---------- Long press preview ---------- */
+  let pressTimer = null;
+  function bindPreview(card){
+    const peek = $('#peek-card');
+    const previewOn = () => {
+      if (!peek) return;
+      peek.classList.add('show');
+      // clone content (cheap snapshot)
+      peek.innerHTML = card.outerHTML;
+      const inner = $('.card', peek);
+      if (inner) inner.classList.add('peek');
     };
-    sew('section.row.player', S.player);
-    sew('section.row.ai', S.ai);
-  }
+    const previewOff = () => peek && peek.classList.remove('show');
 
-  function renderSlots(sel,isAI){
-    const row = $(sel); if(!row) return; row.innerHTML='';
-    for(let i=0;i<3;i++) row.appendChild(makeSlot('Spell Slot','spell'));
-    row.appendChild(makeSlot('Glyph Slot','glyph'));
-    function makeSlot(label,kind){
-      const d = document.createElement('div');
-      d.className='slot'; d.dataset.slot=kind;
-      d.innerHTML = `<div class="slot-label">${label}</div>`;
-      d.addEventListener('dragenter',slotDragEnter);
-      d.addEventListener('dragover',slotDragOver);
-      d.addEventListener('dragleave',slotDragLeave);
-      d.addEventListener('drop',slotDrop);
-      return d;
-    }
-  }
-
-  function renderFlow(){
-    const row = $('#flow-row'); if(!row) return; row.innerHTML='';
-    S.flow.forEach((c,i)=>{
-      const wrap = document.createElement('div'); wrap.className='flow-card';
-      if(!c){
-        const e = document.createElement('div'); e.className='flow-empty';
-        e.innerHTML = `<div class="slot-card">Empty<br><span class="muted">— Cost</span></div>`;
-        wrap.appendChild(e);
-      }else{
-        wrap.appendChild(createCardEl(c,'flow',i));
-        const bar = document.createElement('div'); bar.className='price-label';
-        bar.innerHTML = `${ICONS.gem} ${S.flowCosts[i]} to buy`; // no stray characters
-        wrap.appendChild(bar);
-      }
-      row.appendChild(wrap);
+    card.addEventListener('pointerdown', (e)=>{
+      if (e.button===2) return;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(previewOn, 280);
+    });
+    ['pointerup','pointercancel','pointerleave','dragstart'].forEach(ev=>{
+      card.addEventListener(ev, ()=>{ clearTimeout(pressTimer); previewOff(); });
     });
   }
 
-  function renderHand(){
-    const area = $('#hand'); if(!area) return; area.innerHTML='';
-    S.player.hand.forEach((c,idx)=> area.appendChild(createCardEl(c,'hand',idx)));
-    fan(area);
+  /* ---------- Drag & drop ---------- */
+  const state = {
+    dragging: null,
+    ghost: null,
+    fromZone: null,
+  };
+
+  function canDrop(cardEl, slotEl){
+    if (!slotEl) return false;
+    const accepts = slotEl.dataset.accept; // 'spell' | 'glyph' | 'discard'
+    const type = (cardEl.dataset.type||'').toLowerCase();
+    if (accepts === 'discard') return true;
+    if (!type) return false;
+    if (accepts === 'spell' && type==='spell') return true;
+    if (accepts === 'glyph' && type==='glyph') return true;
+    return false;
   }
 
-  // ---------- Cards ----------
-  function createCardEl(card,zone,index){
-    const el = document.createElement('div'); el.className='card';
-    el.dataset.zone=zone; el.dataset.index=index;
+  function nearestSlot(clientX, clientY){
+    const slots = $$('.slot[data-accept]');
+    let best = null, bestD = Infinity;
+    slots.forEach(sl=>{
+      const r = sl.getBoundingClientRect();
+      const cx = Math.max(r.left, Math.min(clientX, r.right));
+      const cy = Math.max(r.top , Math.min(clientY, r.bottom));
+      const dx = clientX - cx, dy = clientY - cy;
+      const d2 = dx*dx + dy*dy;
+      if (d2 < bestD){ bestD = d2; best = sl; }
+    });
+    return best;
+  }
 
-    const pips = (card.p|0)>0 ? `<div class="pip-row">${Array(card.p).fill(ICONS.dot).join('')}</div>` : '';
+  function clearSlotHints(){ $$('.slot.can-drop').forEach(s=>s.classList.remove('can-drop')); }
 
-    const chip = card.av>0 ? `
-      <div class="aether-chip">
-        ${ICONS.gem}<span class="val">${card.av}</span>
-      </div>` : '';
-
-    el.innerHTML = `
-      <div class="title">${card.n}</div>
-      <div class="type">${card.t}${card.c>0?` — Cost ${card.c}`:''}</div>
-      <div class="separator"></div>
-      ${pips}
-      <div class="textbox">${card.x||''}</div>
-      ${chip}
-    `;
-
-    if(zone==='hand'){
-      el.setAttribute('draggable','true');
-      el.addEventListener('dragstart',e=>cardDragStart(e,card,el));
-      el.addEventListener('dragend',cardDragEnd);
-      el.addEventListener('pointerdown',()=>peekTimer=window.setTimeout(()=>openPeek(card),350));
-      el.addEventListener('pointerup',()=>{clearTimeout(peekTimer);closePeek();});
-      el.addEventListener('pointerleave',()=>{clearTimeout(peekTimer);closePeek();});
-    }else if(zone==='flow'){
-      el.classList.add('clickable');
-      el.addEventListener('click',()=>buyFromFlow(index,el,card));
+  function onDragStart(e){
+    const card = e.currentTarget;
+    state.dragging = card;
+    state.fromZone = card.closest('.hand, .slot, .flow-card');
+    card.classList.add('dragging');
+    card.setPointerCapture(e.pointerId);
+  }
+  function onDragMove(e){
+    const {dragging} = state; if (!dragging) return;
+    const dx = e.movementX, dy = e.movementY;
+    const tr = dragging.style.transform || 'translate(0px,0px)';
+    dragging.style.transform = tr.replace(/translate\([^)]*\)/,'') || '';
+    dragging.style.transform = `translate(${dx}px, ${dy}px)`;
+    // Slot pulse hint
+    clearSlotHints();
+    const sl = nearestSlot(e.clientX, e.clientY);
+    if (sl && canDrop(dragging, sl)) sl.classList.add('can-drop');
+  }
+  function onDragEnd(e){
+    const {dragging} = state; if (!dragging) return;
+    clearSlotHints();
+    const sl = nearestSlot(e.clientX, e.clientY);
+    if (sl && canDrop(dragging, sl)){
+      // drop success
+      if (sl.dataset.accept === 'discard') {
+        animateDiscard(dragging, ()=> dragging.remove());
+        // inform game logic:
+        window?.Game?.onDiscardForAether?.(dragging.dataset.cardId);
+      } else {
+        // place to slot — show full card in slot
+        sl.innerHTML = '';
+        sl.appendChild(dragging);
+        dragging.style.position = 'static';
+        dragging.style.transform = 'none';
+        dragging.classList.remove('dragging');
+        // notify:
+        window?.Game?.onPlayToSlot?.(dragging.dataset.cardId, sl.dataset.accept);
+      }
+    } else {
+      // return to hand
+      dragging.classList.remove('dragging');
+      dragging.style.transform = '';
+      if (state.fromZone?.classList.contains('hand')){
+        state.fromZone.appendChild(dragging);
+        fanHand();
+      }
     }
-    return el;
+    state.dragging = null;
+    state.fromZone = null;
   }
 
-  // ---------- Peek ----------
-  let peekTimer=null;
-  function openPeek(card){
-    let z = $('#zoom-overlay');
-    if(!z){ z=document.createElement('div'); z.id='zoom-overlay'; document.body.appendChild(z); }
-    z.innerHTML=''; const c = createCardEl(card,'peek',0); c.classList.add('zoom'); z.appendChild(c);
-    z.dataset.open='true'; z.addEventListener('click',closePeek,{once:true});
-  }
-  function closePeek(){ const z=$('#zoom-overlay'); if(z) z.dataset.open='false'; }
-
-  // ---------- Fan layout ----------
-  function fan(container){
-    const cards = $$('.card[data-zone="hand"]',container); const N=cards.length;
-    if(!N) return;
-    const spread = Math.min(40, 16+N*2), step = spread/Math.max(N-1,1), start=-spread/2;
-    cards.forEach((el,i)=>{ const a=start+step*i; el.style.setProperty('--rot',`${a}deg`); el.style.zIndex=100+i; })
+  function bindCardDrag(card){
+    card.addEventListener('pointerdown', onDragStart);
+    card.addEventListener('pointermove', onDragMove);
+    card.addEventListener('pointerup', onDragEnd);
+    card.addEventListener('pointercancel', onDragEnd);
+    bindPreview(card);
   }
 
-  // ---------- Drag & Drop ----------
-  function cardDragStart(e,card,el){
-    S.dragging={card,el};
-    el.classList.add('dragging');
-    const targets = (card.t==='GLYPH') ? $$('.slot[data-slot="glyph"]') : $$('.slot[data-slot="spell"]');
-    targets.forEach(t=>t.classList.add('drop-ready'));
-    try{ e.dataTransfer.setData('text/plain',card.n); }catch{}
+  /* ---------- Draw / Discard animations ---------- */
+  function animateDraw(cardEl){
+    cardEl.classList.add('anim-draw');
+    setTimeout(()=>cardEl.classList.remove('anim-draw'), 600);
   }
-  function cardDragEnd(){
-    if(S.dragging) S.dragging.el.classList.remove('dragging');
-    $$('.slot.drop-ready').forEach(s=>s.classList.remove('drop-ready'));
-    S.dragging=null;
-  }
-  function slotDragEnter(e){ if(this.classList.contains('drop-ready')){e.preventDefault(); this.classList.add('drag-over');} }
-  function slotDragOver(e){ if(this.classList.contains('drop-ready')) e.preventDefault(); }
-  function slotDragLeave(){ this.classList.remove('drag-over'); }
-  function slotDrop(e){
-    e.preventDefault(); this.classList.remove('drag-over');
-    if(!S.dragging) return;
-    const {card}=S.dragging, kind=this.dataset.slot;
-    if((card.t==='GLYPH' && kind!=='glyph') || (card.t!=='GLYPH' && kind!=='spell')) return;
-    // play = remove from hand
-    const i=S.player.hand.indexOf(card); if(i>=0) S.player.hand.splice(i,1);
-    this.classList.add('slotted'); setTimeout(()=>this.classList.remove('slotted'),600);
-    renderHand();
-    cardDragEnd();
+  function animateDiscard(cardEl, after){
+    cardEl.classList.add('anim-discard');
+    setTimeout(()=>{ cardEl.classList.remove('anim-discard'); after?.(); }, 420);
   }
 
-  // ---------- Buying from Flow ----------
-  async function buyFromFlow(i,el,card){
-    const price=S.flowCosts[i]; if(S.player.aether<price) return;
-    S.player.aether-=price; flashAether();
-    el.classList.add('spotlight'); await wait(420); el.classList.add('fly-to-discard'); await wait(300);
-    S.player.discard.push(card); S.flow[i]=null; renderPortraits(); renderFlow();
+  /* ---------- Flow costs + buy + spotlight ---------- */
+  function renderFlowCosts(){
+    $$('#flow-row .flow-card').forEach((fc,i)=>{
+      let pip = fc.querySelector('.cost-pip');
+      if (!pip){
+        pip = document.createElement('div');
+        pip.className = 'cost-pip';
+        pip.innerHTML = `
+          <span class="gem">${svgGem(14,14)}</span>
+          <span class="v">${flowCostAt(i)}</span> <span class="to">to buy</span>
+        `;
+        fc.appendChild(pip);
+      }else{
+        $('.v',pip).textContent = flowCostAt(i);
+      }
+    });
   }
-  function flashAether(){
-    const wrap=$('section.row.player .aether-display'); if(!wrap) return;
-    wrap.classList.remove('flash'); void wrap.offsetWidth; wrap.classList.add('flash');
+  function flowCostAt(i){
+    // river pattern 4,3,3,2,2
+    return [4,3,3,2,2][i] ?? 2;
+  }
+  function bindFlowPurchases(){
+    $$('#flow-row .flow-card .card').forEach(card=>{
+      card.addEventListener('click', ()=>{
+        const cost = Number(card.closest('.flow-card')?.querySelector('.v')?.textContent || '0');
+        if (window?.Game?.canBuy?.(cost, card.dataset.cardId) === false) return;
+        // spotlight and fly to discard
+        card.classList.add('spotlight');
+        setTimeout(()=>{
+          window?.Game?.onBuyFromFlow?.(card.dataset.cardId, cost);
+          // simple fly-to discard: ask game for discard position?
+          const discard = $('.hud .hud-btn[data-target="discard"]') || $('.slot[data-accept="discard"]');
+          if (discard){
+            const r1 = card.getBoundingClientRect();
+            const r2 = discard.getBoundingClientRect();
+            const dx = r2.left - r1.left, dy = r2.top - r1.top;
+            card.style.transition = 'transform .35s ease-in, opacity .35s ease-in';
+            card.style.transform = `translate(${dx}px, ${dy}px) scale(.72)`;
+            card.style.opacity = '0';
+            setTimeout(()=> card.remove(), 360);
+          } else {
+            card.remove();
+          }
+        }, 560);
+      }, {once:false});
+    });
   }
 
-  // ---------- Boot ----------
-  if(document.readyState!=='loading') init();
-  else document.addEventListener('DOMContentLoaded', init);
+  /* ---------- Portrait meters (hearts / gem sizes kept) ---------- */
+  function svgGem(w=16,h=16){
+    return `<svg viewBox="0 0 24 28" width="${w}" height="${h}" fill="${getComputedStyle(document.documentElement).getPropertyValue('--aether').trim()}"><path d="M12 0l7 7-7 21L5 7l7-7z"/></svg>`;
+  }
+
+  /* ---------- Bootstrapping after initial render ---------- */
+  function wireAll(){
+    // Fan
+    fanHand();
+
+    // Make hand cards draggable and previewable
+    $$('.hand .card').forEach(bindCardDrag);
+
+    // Slot accepts
+    $$('.slot').forEach(sl=>{
+      if (!sl.dataset.accept){ // annotate by label text if needed
+        const label = (sl.textContent||'').toLowerCase();
+        if (label.includes('glyph')) sl.dataset.accept = 'glyph';
+        else if (label.includes('spell')) sl.dataset.accept = 'spell';
+      }
+    });
+
+    // Discard target (your right HUD discard stack should have data-accept="discard")
+    $$('.drop-discard, .slot-discard, .slot[data-discard], .slot-discard-target').forEach(el=>{
+      el.classList.add('slot'); el.dataset.accept='discard';
+    });
+
+    // Flow
+    renderFlowCosts();
+    bindFlowPurchases();
+  }
+
+  /* ---------- Public hooks GameLogic can call ---------- */
+  window.UI = {
+    onRender: wireAll,              // call after you render a turn
+    onHandChanged: ()=>{ fanHand(); $$('.hand .card').forEach(bindCardDrag); },
+    onDrawCard: (cardEl)=>{ animateDraw(cardEl); bindCardDrag(cardEl); fanHand(); },
+    onDiscardCard: (cardEl)=> animateDiscard(cardEl, ()=>cardEl.remove()),
+    pulseSlotsFor: (type)=>{ // 'spell' | 'glyph' | 'discard'
+      $$('.slot').forEach(sl=>{
+        sl.classList.toggle('can-drop', sl.dataset.accept===type || (type && sl.dataset.accept==='discard'));
+      });
+      setTimeout(clearSlotHints, 1200);
+    }
+  };
+
+  /* ---------- Kick once DOM is ready ---------- */
+  if (document.readyState !== 'loading') wireAll();
+  else document.addEventListener('DOMContentLoaded', wireAll);
+
+  /* Redo hand fan on resize (keeps arc nice) */
+  window.addEventListener('resize', ()=>requestAnimationFrame(fanHand));
 })();
