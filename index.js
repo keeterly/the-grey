@@ -293,3 +293,85 @@ function onEndTurn(){
 
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("DOMContentLoaded", render);
+
+
+
+
+
+// --- imports: make sure __dev is imported from GameLogic ---
+import {
+  initState,
+  serializePublic,
+  playCardToSpellSlot,
+  setGlyphFromHand,
+  buyFromFlow,
+  __dev,                   // <-- add this
+} from "./GameLogic.js";
+
+// --- state bootstrap (unchanged) ---
+let STATE = initState();
+render();
+
+// ========== OPTIONAL animation shims (won’t throw if you don’t have them) ==========
+async function animateDiscardAllFromHand() {
+  if (window.animations?.discardAllFromHand) {
+    await window.animations.discardAllFromHand();
+  } else if (window.animations?.discardAll) {
+    await window.animations.discardAll();
+  } else {
+    // tiny pause so the turn change still feels responsive
+    await new Promise(r => setTimeout(r, 120));
+  }
+}
+async function animateDrawToHand() {
+  if (window.animations?.drawToHand) {
+    await window.animations.drawToHand();
+  } else if (window.animations?.draw) {
+    await window.animations.draw(1);
+  } else {
+    await new Promise(r => setTimeout(r, 120));
+  }
+}
+
+// ========== END TURN: real turn logic ==========
+// Try either #endTurn or a [data-action="end-turn"] hook, whichever exists.
+const endTurnBtn =
+  document.getElementById("endTurn") ||
+  document.querySelector('[data-action="end-turn"]');
+
+if (endTurnBtn) {
+  endTurnBtn.addEventListener("click", onEndTurn);
+}
+
+let uiLocked = false;
+async function onEndTurn() {
+  if (uiLocked) return;
+  try {
+    uiLocked = true;
+
+    // 1) Discard the whole player hand (visual)
+    await animateDiscardAllFromHand();
+
+    // 2) Advance the game (river shifts, AI quick turn, player draws 1)
+    //    __dev.endTurn mutates state; return for safety if you prefer immutable
+    __dev.endTurn(STATE);
+
+    // 3) Re-render immediately so river/AI updates show
+    render();
+
+    // 4) Start-of-turn draw animation for player (optional)
+    await animateDrawToHand();
+
+    // 5) Final re-render in case animations altered any temp UI
+    render();
+  } finally {
+    uiLocked = false;
+  }
+}
+
+// ========== render helper (unchanged, keep your existing one) ==========
+function render() {
+  const view = serializePublic(STATE);
+  // ... your existing DOM update code that consumes `view` ...
+}
+
