@@ -3,29 +3,31 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.53 board</title>
+  <title>The Grey — v2.53 baseline</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
   <main id="board-grid" class="grid">
-    <!-- AI (top) -->
+
+    <!-- OPPONENT (top) -->
     <section class="row ai">
-      <figure class="portrait flip">
-        <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
-        <figcaption id="ai-name" style="margin-top:6px">Opponent</figcaption>
-      </figure>
-      <!-- Opponent HUD -->
-      <div id="ai-hud" class="hud-side" style="position:absolute; right:130px; top:8px;">
-        <div class="hearts" id="ai-hearts">
-          <span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span>
-        </div>
-        <div class="hud-gem"><svg class="gem" viewBox="0 0 24 24"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg><span id="ai-aether">0</span></div>
-        <div class="trance-stack">
-          <div class="diamond" id="ai-trance-1"><span>I</span></div>
-          <div class="diamond" id="ai-trance-2"><span>II</span></div>
-        </div>
+      <div class="portrait-area">
+        <figure class="portrait">
+          <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent portrait" />
+          <figcaption id="ai-name" class="name">Opponent</figcaption>
+          <div id="ai-hearts" class="hearts"></div>
+          <div class="portrait-bar">
+            <svg id="ai-gem" class="gem" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg>
+            <span id="ai-gem-count" class="gem-count">0</span>
+          </div>
+          <div class="trance-wrap">
+            <div id="a-trance-I"  class="trance-row"><div class="trance-diamond"></div><span>I</span></div>
+            <div id="a-trance-II" class="trance-row dim"><div class="trance-diamond"></div><span>II</span></div>
+          </div>
+        </figure>
       </div>
+
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
@@ -35,26 +37,27 @@
         <div class="flow-title-rail"><span class="flow-title">AETHER FLOW</span></div>
         <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
       </div>
-      <div id="flow-costs" style="display:flex; gap:14px; margin-top:4px; opacity:.9;"></div>
+      <div id="flow-cost-rail" class="flow-cost-rail"></div>
     </section>
 
     <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-      <figure class="portrait">
-        <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
-        <figcaption id="player-name" style="margin-top:6px">Player</figcaption>
-      </figure>
-      <!-- Player HUD -->
-      <div id="player-hud" class="hud-side" style="position:absolute; left:130px; bottom:8px;">
-        <div class="hearts" id="player-hearts">
-          <span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span><span class="heart"></span>
-        </div>
-        <div class="hud-gem"><svg class="gem" viewBox="0 0 24 24"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg><span id="player-aether">0</span></div>
-        <div class="trance-stack">
-          <div class="diamond" id="player-trance-1"><span>I</span></div>
-          <div class="diamond" id="player-trance-2"><span>II</span></div>
-        </div>
+
+      <div class="portrait-area">
+        <figure class="portrait">
+          <img id="player-portrait" src="./weaver_aria.jpg" alt="Player portrait" />
+          <figcaption id="player-name" class="name">Player</figcaption>
+          <div id="player-hearts" class="hearts"></div>
+          <div class="portrait-bar">
+            <svg id="player-gem" class="gem" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg>
+            <span id="player-gem-count" class="gem-count">0</span>
+          </div>
+          <div class="trance-wrap">
+            <div id="p-trance-I"  class="trance-row"><div class="trance-diamond"></div><span>I</span></div>
+            <div id="p-trance-II" class="trance-row dim"><div class="trance-diamond"></div><span>II</span></div>
+          </div>
+        </figure>
       </div>
     </section>
 
@@ -62,26 +65,31 @@
     <section class="hand-wrap">
       <div id="hand" class="hand" aria-label="Player hand"></div>
     </section>
+
   </main>
 
-  <!-- right HUD -->
+  <!-- HUD right -->
   <aside class="hud">
     <button id="btn-endturn-hud" class="hud-btn" title="End turn">End Turn</button>
-    <button id="btn-discard-hud" class="hud-btn drop-target" title="Discard pile">
-      <!-- discard icon rectangle placeholder -->
-      🗂
+    <button id="btn-discard-hud"  class="hud-btn drop-target" title="Discard pile">
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="2"/></svg>
+      <span id="hud-discard-count" class="badge">0</span>
     </button>
-    <button id="btn-deck-hud" class="hud-btn" title="Deck">🜃</button>
+    <button id="btn-deck-hud"     class="hud-btn" title="Deck">
+      <svg class="icon deck" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5" y="6" width="10" height="14" rx="2"/><rect x="7" y="4" width="10" height="14" rx="2"/><rect x="9" y="2" width="10" height="14" rx="2"/>
+      </svg>
+      <span id="hud-deck-count" class="badge">0</span>
+    </button>
   </aside>
 
-  <!-- Peek + Zoom layers -->
+  <!-- Peek + Zoom -->
   <div id="preview-layer" aria-hidden="true">
     <div id="peek-card" class="card peek"></div>
-    <div id="zoom-overlay" data-open="false">
-      <div id="zoom-card" class="card zoom"></div>
-    </div>
+    <div id="zoom-overlay" data-open="false"><div id="zoom-card" class="card zoom"></div></div>
   </div>
 
+  <script type="module" src="./GameLogic.js"></script>
   <script type="module" src="./index.js"></script>
 </body>
 </html>
