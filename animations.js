@@ -1,19 +1,20 @@
 /**
- * animations.js — v2.571 add-on
- * Safe, opt-in animations wired via a tiny global bus: window.Grey
+ * animations.js — v2.571+
+ * Event-driven animations for The Grey
  *
- * Events supported:
- *  - Grey.emit('cards:drawn',        { nodes:[HTMLElement,...] })
- *  - Grey.emit('aetherflow:reveal',  { node:HTMLElement })
- *  - Grey.emit('aetherflow:falloff', { node:HTMLElement })
- *  - Grey.emit('aetherflow:bought',  { node:HTMLElement })
+ * Emits handled:
+ *  - 'cards:drawn'        { nodes:[HTMLElement,...] }
+ *  - 'cards:discard'      { nodes:[HTMLElement,...] }  // fly to discard
+ *  - 'aetherflow:reveal'  { node:HTMLElement }
+ *  - 'aetherflow:falloff' { node:HTMLElement }
+ *  - 'aetherflow:bought'  { node:HTMLElement }         // spotlight + fly to discard
  */
 
 (() => {
   if (window.__greyAnimationsLoaded__) return;
   window.__greyAnimationsLoaded__ = true;
 
-  // -------- Ensure bus --------
+  // -------- Ensure a tiny event bus --------
   const Grey = (function ensureBus() {
     if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
     const listeners = new Map();
@@ -24,17 +25,15 @@
     };
     const off = (name, fn) => listeners.get(name)?.delete(fn);
     const emit = (name, detail) => {
-      (listeners.get(name) || []).forEach(fn => {
-        try { fn(detail); } catch (e) { console.error('[Grey handler error]', name, e); }
-      });
+      (listeners.get(name) || []).forEach(fn => { try { fn(detail); } catch(e) { console.error('[Grey]', name, e); } });
     };
     const bus = { on, off, emit };
     window.Grey = bus;
     return bus;
   })();
 
-  // -------- Inject keyframes --------
-  (function injectCSS() {
+  // -------- Inject keyframes once --------
+  (function injectCSS(){
     const id = 'grey-anim-css';
     if (document.getElementById(id)) return;
     const css = `
@@ -59,12 +58,14 @@
   60%  { transform: scale(1.03); opacity:1; }
   100% { transform: scale(1); opacity:1; }
 }
+
 .grey-anim-draw   { animation: grey-draw-pop 340ms cubic-bezier(.2,.7,.2,1) both; will-change: transform, opacity, filter; }
 .grey-anim-spot   { animation: grey-spotlight 620ms ease-out both; }
 .grey-anim-fall   { animation: grey-falloff-right 480ms ease-out both; will-change: transform, opacity; }
 .grey-anim-reveal { animation: grey-reveal 340ms ease-out both; will-change: transform, opacity; }
+
 .grey-fly-clone { position: fixed; z-index: 9999; pointer-events: none; transform-origin: center; }
-    `.trim();
+`;
     const style = document.createElement('style');
     style.id = id;
     style.textContent = css;
@@ -108,6 +109,7 @@
     const vh = Math.max(document.documentElement.clientHeight || 0, window.innerHeight || 0);
     return { left: vw - 80, top: vh - 80, width: 1, height: 1 };
   }
+
   function flyTo(node, targetRect, { duration = 540 } = {}) {
     if (!isEl(node) || !targetRect) return Promise.resolve();
     const src = node.getBoundingClientRect();
@@ -141,6 +143,13 @@
     await flyTo(node, getDiscardTargetRect(), { duration: 540 });
   });
 
-  // Optional helpers
+  // NEW: discard entire hand (or subset) animation
+  Grey.on('cards:discard', async ({ nodes } = {}) => {
+    const rect = getDiscardTargetRect();
+    const arr = asArray(nodes).filter(isEl);
+    await Promise.all(arr.map(n => flyTo(n, rect, { duration: 520 })));
+  });
+
+  // expose helpers for console tests
   window.GreyAnimations = { spotlight, drawPop, falloffRight, reveal };
 })();
