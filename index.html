@@ -3,11 +3,24 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.51 board</title>
+  <title>The Grey — board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
+
+  <!-- Top bar (hidden visually if you removed it in CSS; the buttons still exist for desktop testing) -->
+  <header class="topbar" style="display:none">
+    <div class="left">
+      <button id="btn-start-turn" class="btn">Start Turn</button>
+      <button id="btn-end-turn" class="btn">End Turn</button>
+      <span id="turn-indicator" class="turn">Turn 1 — player</span>
+    </div>
+    <div class="right">
+      <span id="aether-readout" class="aether">Æ 0  ◇ 0</span>
+    </div>
+  </header>
+
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
     <section class="row ai">
@@ -16,7 +29,13 @@
         <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
         <div class="hearts" id="ai-hearts"></div>
         <div class="trance">Trance 0</div>
+
+        <!-- Aether readout under AI portrait -->
+        <div class="aether-display" id="ai-aether">
+          <!-- filled from JS with gem + number -->
+        </div>
       </figure>
+
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
@@ -38,11 +57,10 @@
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
         <div class="hearts" id="player-hearts"></div>
         <div class="trance">Trance 0</div>
-        <div class="aether-display" id="aether-readout">
-          <svg class="gem" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/>
-          </svg>
-          <span>0</span>
+
+        <!-- Aether readout under Player portrait -->
+        <div class="aether-display" id="player-aether">
+          <!-- filled from JS with gem + number -->
         </div>
       </figure>
     </section>
@@ -53,27 +71,18 @@
     </section>
   </main>
 
-  <!-- right HUD (Discard above, Deck below) -->
+  <!-- right HUD (discard/deck are drop targets) -->
   <aside class="hud">
-    <button id="btn-endturn-hud" class="hud-btn" title="End turn">End Turn</button>
+    <button id="btn-endturn-hud" class="hud-btn" title="End turn">»</button>
 
-    <!-- DISCARD (drop target) -->
-    <button id="btn-discard-hud" class="hud-btn drop-target" title="Discard">
-      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="4" y="8" width="14" height="10" rx="2" fill="#2e251d" stroke="#5a4b37"/>
-        <rect x="6" y="6" width="14" height="10" rx="2" fill="#2e251d" stroke="#8e7a60" stroke-width="1.5"/>
-      </svg>
-      <span class="badge" id="discard-count">0</span>
+    <!-- Discard (TOP) -->
+    <button id="btn-discard-hud" class="hud-btn" title="Discard pile">
+      <!-- your discard stack icon goes here; left as styled block -->
     </button>
 
-    <!-- DECK (below) -->
+    <!-- Deck (BOTTOM) -->
     <button id="btn-deck-hud" class="hud-btn" title="Deck">
-      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="5" y="3" width="12" height="16" rx="2" fill="#2e251d" stroke="#5a4b37"/>
-        <rect x="7" y="5" width="12" height="16" rx="2" fill="#2e251d" stroke="#5a4b37"/>
-        <rect x="9" y="7" width="12" height="16" rx="2" fill="#2e251d" stroke="#8e7a60" stroke-width="1.5"/>
-      </svg>
-      <span class="badge" id="deck-count">—</span>
+      <!-- your deck stack icon goes here; left as styled block -->
     </button>
   </aside>
 
