@@ -3,46 +3,42 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — classic aesthetic + drag (desktop & mobile)</title>
+  <title>The Grey — v2.51 board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
-    <section class="row ai">
+    <section id="row-ai" class="row ai">
       <figure class="portrait">
         <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
         <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
         <div class="hearts" id="ai-hearts"></div>
-        <div class="trance" id="ai-trance">Trance 0</div>
+        <div class="trance">Trance 0</div>
       </figure>
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
     <!-- FLOW (center) -->
-    <section class="row flow">
+    <section id="row-flow" class="row flow">
       <div class="flow-wrap">
-        <div class="flow-title-rail">
-          <span class="flow-title">AETHER FLOW</span>
-        </div>
+        <div class="flow-title-rail"><span class="flow-title">AETHER FLOW</span></div>
         <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
       </div>
     </section>
 
     <!-- PLAYER (bottom) -->
-    <section class="row player">
+    <section id="row-player" class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
       <figure class="portrait">
         <img id="player-portrait" src="./weaver_aria.jpg" alt="Player">
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
         <div class="hearts" id="player-hearts"></div>
-        <div class="trance" id="player-trance">Trance 0</div>
-        <div id="player-aether" class="aether-display" aria-label="Aether">
-          <svg class="gem" viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z" />
-          </svg>
-          <span id="player-aether-val">0</span>
+        <div class="trance">Trance 0</div>
+        <div class="aether-display" id="aether-readout">
+          <svg class="gem" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/></svg>
+          <span>0</span>
         </div>
       </figure>
     </section>
@@ -55,26 +51,25 @@
 
   <!-- right HUD -->
   <aside class="hud">
-    <button id="btn-endturn-hud" class="hud-btn" title="End turn">End&nbsp;Turn</button>
+    <button id="btn-endturn-hud" class="hud-btn" title="End turn">End Turn</button>
 
-    <button id="btn-discard-hud" class="hud-btn drop-target" title="Discard pile" aria-label="Discard">
-      <!-- Discard icon (card stack with arrow) -->
-      <svg class="icon discard" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="10" y="10" width="26" height="36" rx="3"></rect>
-        <rect x="14" y="6"  width="26" height="36" rx="3"></rect>
-        <rect x="18" y="2"  width="26" height="36" rx="3"></rect>
-        <path d="M35 26l6 6-6 6" class="arrow"></path>
+    <button id="btn-deck-hud" class="hud-btn drop-target" title="Deck">
+      <!-- stacked cards icon -->
+      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="5" y="3" width="12" height="16" rx="2" fill="#2e251d" stroke="#5a4b37"/>
+        <rect x="7" y="5" width="12" height="16" rx="2" fill="#2e251d" stroke="#5a4b37"/>
+        <rect x="9" y="7" width="12" height="16" rx="2" fill="#2e251d" stroke="#8e7a60" stroke-width="1.5"/>
       </svg>
+      <span class="badge" id="deck-count">—</span>
     </button>
 
-    <button id="btn-deck-hud" class="hud-btn" title="Deck" aria-label="Deck">
-      <!-- Deck icon (fanned stack) -->
-      <svg class="icon deck" viewBox="0 0 48 48" aria-hidden="true">
-        <rect x="8" y="6"  width="28" height="36" rx="3"></rect>
-        <rect x="12" y="8" width="28" height="36" rx="3"></rect>
-        <rect x="16" y="10" width="28" height="36" rx="3"></rect>
+    <button id="btn-discard-hud" class="hud-btn drop-target" title="Discard">
+      <!-- face-up pile -->
+      <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+        <rect x="4" y="8" width="14" height="10" rx="2" fill="#2e251d" stroke="#5a4b37"/>
+        <rect x="6" y="6" width="14" height="10" rx="2" fill="#2e251d" stroke="#8e7a60" stroke-width="1.5"/>
       </svg>
-      <span id="deck-count" class="badge" aria-label="Deck count">0</span>
+      <span class="badge" id="discard-count">0</span>
     </button>
   </aside>
 
@@ -84,6 +79,11 @@
     <div id="zoom-overlay" data-open="false">
       <div id="zoom-card" class="card zoom"></div>
     </div>
+  </div>
+
+  <div class="toggles">
+    <button id="btn-board-zoom" class="zoom-toggle" aria-pressed="false">Board Zoom</button>
+    <button id="btn-layout-toggle" class="layout-toggle" aria-pressed="false">Flow Left</button>
   </div>
 
   <script type="module" src="./index.js"></script>
