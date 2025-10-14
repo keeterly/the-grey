@@ -515,3 +515,41 @@ document.addEventListener("DOMContentLoaded", ()=>{
   state = startTurn(state);
   render();
 });
+
+
+/* ============================================================
+   v2.571 — Animations harness (safe / optional)
+   - No visual changes.
+   - Loads animations module only if it exists.
+   - Exposes Grey.emit(...) you can call later.
+   ============================================================ */
+
+const Grey = window.Grey ?? (window.Grey = {
+  on(type, fn, opts)  { document.addEventListener(type, fn, opts); },
+  off(type, fn, opts) { document.removeEventListener(type, fn, opts); },
+  emit(type, detail={}) {
+    document.dispatchEvent(new CustomEvent(type, { detail, bubbles:true }));
+  }
+});
+
+async function loadAnimationsModule() {
+  try {
+    await import('./animations.js?v=2571'); // cache-bust to avoid iOS stale cache
+  } catch (_) {
+    // animations.js not present yet — totally fine, remain no-op
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => queueMicrotask(loadAnimationsModule));
+} else {
+  queueMicrotask(loadAnimationsModule);
+}
+
+/* Example signals you'll wire later (do not add yet):
+Grey.emit('cards:drawn',   { nodes: [/* DOM nodes of drawn cards *\/] });
+Grey.emit('cards:discard', { nodes: [/* DOM nodes discarded *\/] });
+Grey.emit('flow:reveal',   { node: /* newly revealed flow card *\/ });
+Grey.emit('flow:falloff',  { node: /* rightmost flow card *\/ });
+Grey.emit('flow:purchase', { node: /* bought flow card *\/ });
+*/
