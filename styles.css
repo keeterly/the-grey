@@ -175,3 +175,25 @@ html,body{height:100%}
 
 /* Utility to hide overflow during cloned flights (optional) */
 .clipping{overflow:hidden}
+
+/* === Animations add-on (safe defaults) === */
+
+#preview-layer { pointer-events:none; }
+#peek-card.card.peek,
+#zoom-overlay #zoom-card.card.zoom { display:none; }
+
+/* subtle glow & elevated shadow for animation clones */
+.fx-shadow {
+  filter: drop-shadow(0 10px 22px rgba(0,0,0,.45));
+  will-change: transform, opacity, filter;
+}
+
+.fx-spotlight {
+  filter: brightness(1.2) drop-shadow(0 12px 30px rgba(0,0,0,.55));
+  border-radius: inherit;
+}
+
+/* helpful on iOS to keep animations smooth */
+@media (prefers-reduced-motion: no-preference) {
+  .card, .slot, .hud-btn { backface-visibility: hidden; }
+}
