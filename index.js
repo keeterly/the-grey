@@ -1,6 +1,7 @@
 import {
   initState, serializePublic,
-  playCardToSpellSlot, setGlyphFromHand, buyFromFlow
+  playCardToSpellSlot, setGlyphFromHand, buyFromFlow,
+  startTurn, endTurn
 } from "./GameLogic.js";
 
 /* ------- helpers ------- */
@@ -21,6 +22,8 @@ const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
+const playerHearts  = $("player-hearts");
+const aiHearts      = $("ai-hearts");
 
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
@@ -41,27 +44,30 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ------- fan hand: tighter overlap ------- */
+/* ------- MTGA-like hand fan ------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-  const MAX_ANGLE = 20, MIN_ANGLE = 6;
-  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*2.0, MIN_ANGLE, MAX_ANGLE);
-  const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
-
-  const visibleW = container.clientWidth * 0.78;
-  const stepX = (N===1) ? 0 : (visibleW/(N-1));
-  const startX = -visibleW/2;
-  const LIFT_BASE = 36;
+  const W = container.clientWidth;
+  const maxSpread = Math.min(750, W * 0.72);
+  const totalAngle = (N===1) ? 0 : clamp(10 + (N-2)*4.0, 10, 40);
+  const stepAng = (N===1) ? 0 : totalAngle/(N-1);
+  const startAng = -totalAngle/2;
+  const startX = -maxSpread/2;
+  const stepX = (N===1) ? 0 : maxSpread/(N-1);
 
   cards.forEach((el,i)=>{
-    const a = startAngle + step*i;
+    const a = startAng + stepAng*i;
     const rad = a*Math.PI/180;
     const x = startX + stepX*i;
-    const y = LIFT_BASE - Math.cos(rad) * (LIFT_BASE*0.75);
+    // slightly raise middle cards more; edges lower
+    const mid = (N-1)/2;
+    const d = Math.abs(i - mid);
+    const y = 36 - (1 - d/mid) * 18; // center raised
     el.style.setProperty("--tx", `${x}px`);
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
+    // position for initial render; animations may override transform
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
@@ -110,12 +116,11 @@ function attachPeekAndZoom(el, data){
 let pulseTargets=[];
 function armPulseForType(type){
   clearPulse();
-  // discard always valid
+  // discard always pulsing
   discardBtn.classList.add("pulse-ok");
   pulseTargets.push(discardBtn);
   if (type==="SPELL"){
     document.querySelectorAll("#player-slots .slot.spell").forEach(el=>{
-      // only empty spell slots pulse
       if (!el.dataset.occupied){ el.classList.add("pulse-ok"); pulseTargets.push(el); }
     });
   }
@@ -144,6 +149,13 @@ function wireDesktopDrag(el, data){
     setTimeout(()=> ghost.remove(), 0);
   });
   el.addEventListener("dragend", ()=>{ el.classList.remove("dragging"); clearPulse(); });
+}
+
+/* ------- hearts (runic red) ------- */
+const heartSVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-6.7-4.2-9.3-8C.6 9 .9 6.1 3 4.6 5.1 3.1 7.9 3.6 9.5 5.5L12 8.3l2.5-2.8C16.1 3.6 18.9 3.1 21 4.6c2.1 1.5 2.4 4.4.3 7.4-2.6 3.8-9.3 8-9.3 8z"/></svg>`;
+function renderHearts(el, n){
+  if (!el) return;
+  el.innerHTML = new Array(n).fill(0).map(()=>heartSVG).join("");
 }
 
 /* ------- slots (with glyph) ------- */
@@ -245,10 +257,8 @@ function renderFlow(flowSlots){
       attachPeekAndZoom(card, {...c});
       card.addEventListener("click", ()=>{
         try{
-          const before = state.players.player.aether|0;
           state = buyFromFlow(state, "player", idx);
-          const spent = before - (state.players.player.aether|0);
-          toast(`Bought for Æ${spent}`);
+          aetherReadout.classList.remove("flash"); void aetherReadout.offsetWidth; aetherReadout.classList.add("flash");
           render();
         }catch(err){ toast(err?.message || "Cannot buy"); }
       });
@@ -265,18 +275,18 @@ function renderFlow(flowSlots){
 /* ------- render ------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flowSlots) || s.flowSlots.length!==5){ s.flowSlots = [null,null,null,null,null]; }
-  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],discardCount:0,deckCount:0};
+  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],discardCount:0,deckCount:0,vitality:5};
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
     s.player.slots = [
       {hasCard:false,card:null},{hasCard:false,card:null},{hasCard:false,card:null},
       {isGlyph:true,hasCard:false,card:null}
     ];
   }
-  if (!s.ai) s.ai = {weaver:{name:"Opponent"}};
+  if (!s.ai) s.ai = {weaver:{name:"Opponent"}, vitality:5};
   return s;
 }
 
-function render(){
+function render(dealNew=false){
   closeZoom();
   peekEl?.classList.remove("show");
 
@@ -287,8 +297,11 @@ function render(){
   aiName.textContent     = s.ai?.weaver?.name || "Opponent";
 
   aetherReadout.querySelector("span").textContent = String(s.player?.aether ?? 0);
-  deckBadge.textContent    = s.player?.deckCount ?? "—";
-  discardBadge.textContent = s.player?.discardCount ?? 0;
+  deckBadge && (deckBadge.textContent    = s.player?.deckCount ?? "—");
+  discardBadge && (discardBadge.textContent = s.player?.discardCount ?? 0);
+
+  renderHearts(playerHearts, s.player?.vitality ?? 5);
+  renderHearts(aiHearts, s.ai?.vitality ?? 5);
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
@@ -297,7 +310,7 @@ function render(){
   if (handEl){
     handEl.replaceChildren();
     const els = [];
-    (s.player?.hand || []).forEach(c=>{
+    (s.player?.hand || []).forEach((c, idx)=>{
       const el = document.createElement("article");
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
@@ -317,6 +330,7 @@ function render(){
 
       wireDesktopDrag(el, c);
       attachPeekAndZoom(el, {...c});
+      if (dealNew){ el.style.setProperty("--deal-delay", `${60*idx}ms`); el.classList.add("deal-in"); }
       handEl.appendChild(el); els.push(el);
     });
     layoutHand(handEl, els);
@@ -345,11 +359,42 @@ discardBtn.addEventListener("drop", (ev)=>{
   render();
 });
 
-/* ------- End turn (stub) ------- */
-endHudBtn?.addEventListener("click", ()=>{ toast("End turn (stub)"); });
+/* ------- Turn flow (river + animations) ------- */
+function doStartTurn(){
+  state = startTurn(state);
+  render(true); // deal animation for initial hand render
+}
+function animateDiscardThen(fn){
+  // add class to current hand cards
+  const cards = Array.from(handEl?.children || []);
+  cards.forEach((el,i)=>{ el.classList.add("discarding"); el.style.animationDelay = `${i*40}ms`; });
+  setTimeout(fn, 360); // after animation
+}
+
+endHudBtn?.addEventListener("click", ()=>{
+  // discard hand animation (visual)
+  animateDiscardThen(()=>{
+    // move all to discard (visual stub for now)
+    const H = state.players.player.hand;
+    state.players.player.discardCount += H.length;
+    H.length = 0;
+
+    // river shift
+    state = endTurn(state);
+    render();           // show shifted river
+    setTimeout(()=>{    // reveal one at start of next turn
+      state = startTurn(state);
+      render();
+    }, 80);
+  });
+});
 
 /* Misc */
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
-document.addEventListener("DOMContentLoaded", render);
+document.addEventListener("DOMContentLoaded", ()=>{
+  // first render + reveal first flow card
+  state = startTurn(state);
+  render(true);
+});
