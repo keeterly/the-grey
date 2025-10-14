@@ -4,16 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Grey — board</title>
+
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
 
-  <!-- Top bar (hidden visually if you removed it in CSS; the buttons still exist for desktop testing) -->
+  <!-- Top bar (hidden; useful for desktop testing) -->
   <header class="topbar" style="display:none">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
-      <button id="btn-end-turn" class="btn">End Turn</button>
+      <button id="btn-end-turn" class="btn" data-role="end-turn">End Turn</button>
       <span id="turn-indicator" class="turn">Turn 1 — player</span>
     </div>
     <div class="right">
@@ -31,9 +32,7 @@
         <div class="trance">Trance 0</div>
 
         <!-- Aether readout under AI portrait -->
-        <div class="aether-display" id="ai-aether">
-          <!-- filled from JS with gem + number -->
-        </div>
+        <div class="aether-display" id="ai-aether"></div>
       </figure>
 
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
@@ -59,9 +58,7 @@
         <div class="trance">Trance 0</div>
 
         <!-- Aether readout under Player portrait -->
-        <div class="aether-display" id="player-aether">
-          <!-- filled from JS with gem + number -->
-        </div>
+        <div class="aether-display" id="player-aether"></div>
       </figure>
     </section>
 
@@ -73,16 +70,16 @@
 
   <!-- right HUD (discard/deck are drop targets) -->
   <aside class="hud">
-    <button id="btn-endturn-hud" class="hud-btn" title="End turn">»</button>
+    <button id="btn-endturn-hud" class="hud-btn" title="End turn" data-role="end-turn">»</button>
 
     <!-- Discard (TOP) -->
-    <button id="btn-discard-hud" class="hud-btn" title="Discard pile">
-      <!-- your discard stack icon goes here; left as styled block -->
+    <button id="btn-discard-hud" class="hud-btn" title="Discard pile" data-role="discard">
+      <!-- svg/icon rendered by CSS/JS -->
     </button>
 
     <!-- Deck (BOTTOM) -->
-    <button id="btn-deck-hud" class="hud-btn" title="Deck">
-      <!-- your deck stack icon goes here; left as styled block -->
+    <button id="btn-deck-hud" class="hud-btn" title="Deck" data-role="deck">
+      <!-- svg/icon rendered by CSS/JS -->
     </button>
   </aside>
 
@@ -94,6 +91,9 @@
     </div>
   </div>
 
+  <!-- Load order: styles.css (above), then GameLogic, then your index.js (module), then animations -->
+  <script src="./GameLogic.js"></script>
   <script type="module" src="./index.js"></script>
+  <script src="./animations.js"></script>
 </body>
 </html>
