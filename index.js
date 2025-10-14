@@ -12,8 +12,7 @@
     const emit = (name, detail) => {
       (listeners.get(name) || []).forEach(fn => { try { fn(detail); } catch {} });
     };
-    const safeEmit = (name, detail) => { try { emit(name, detail); } catch {} };
-    const bus = { on, off, emit, safeEmit };
+    const bus = { on, off, emit };
     window.Grey = bus;
     return bus;
   })();
@@ -22,7 +21,7 @@
   async function loadAnimationsOnce() {
     if (window.__greyAnimationsLoaded__) return;
     try { await import('./animations.js?v=2571'); }
-    catch { /* no-op */ }
+    catch { /* ok if not present */ }
   }
   loadAnimationsOnce();
 })();
@@ -73,17 +72,21 @@ const zoomCardEl    = $("zoom-card");
 /* ------- state ------- */
 let state = initState();
 
-/* ------- animation emit helpers (safe) ------- */
+/* ------- animation emit helpers (use Grey.emit, not safeEmit) ------- */
+function emitAnim(name, detail){
+  if (window.Grey?.emit) window.Grey.emit(name, detail);
+  else document.dispatchEvent(new CustomEvent(name, { detail, bubbles:true }));
+}
 const A = {
-  drawn(nodes){ window.Grey?.safeEmit?.('cards:drawn', { nodes }); },
-  flowReveal(node){ window.Grey?.safeEmit?.('aetherflow:reveal', { node }); },
-  flowFalloff(node){ window.Grey?.safeEmit?.('aetherflow:falloff', { node }); },
-  flowBought(node){ window.Grey?.safeEmit?.('aetherflow:bought', { node }); }
+  drawn(nodes){ emitAnim('cards:drawn', { nodes }); },
+  flowReveal(node){ emitAnim('aetherflow:reveal', { node }); },
+  flowFalloff(node){ emitAnim('aetherflow:falloff', { node }); },
+  flowBought(node){ emitAnim('aetherflow:bought', { node }); }
 };
 
 /* ------- previous snapshots for diffing ------- */
-let prevHandIds = [];              // array of card ids in hand
-let prevFlowIds = [null,null,null,null,null]; // array of flow ids (or null)
+let prevHandIds = [];
+let prevFlowIds = [null,null,null,null,null];
 
 /* ------- toast ------- */
 let toastEl;
@@ -275,11 +278,8 @@ function wireTouchDrag(el, data){
         try { state = setGlyphFromHand(state, "player", el.dataset.cardId); render(); }
         catch(err){ toast(err?.message || "Can't set glyph"); }
       } else if (target === hudDiscardBtn){
-        try {
-          state = discardForAether(state, "player", el.dataset.cardId);
-          render();
-          toast("Discarded for Æ");
-        } catch(e){ toast(e?.message || "Can't discard"); }
+        try { state = discardForAether(state, "player", el.dataset.cardId); render(); toast("Discarded for Æ"); }
+        catch(e){ toast(e?.message || "Can't discard"); }
       }
     }
   };
@@ -409,16 +409,14 @@ function renderSlots(container, snapshot, isPlayer){
 }
 
 /* ------------------------------------------------
-   Flow (river): uses s.flow; click-to-buy
-   Emits: reveal/falloff/bought
+   Flow (river): reveal/falloff/buy animations
 -------------------------------------------------*/
 function renderFlow(flowArray){
   if (!flowRowEl) return;
 
-  // capture existing nodes (to animate falloff before we remove them)
+  // existing nodes for falloff animation
   const oldCardsByIndex = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
 
-  // compute falloffs by comparing prevFlowIds to incoming flowArray
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
   prevFlowIds.forEach((prevId, idx) => {
     if (!prevId) return;
@@ -429,7 +427,6 @@ function renderFlow(flowArray){
     }
   });
 
-  // now rebuild DOM
   flowRowEl.replaceChildren();
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li"); li.className = "flow-card";
@@ -440,22 +437,16 @@ function renderFlow(flowArray){
     if (c){ card.innerHTML = cardHTML(c); attachPeekAndZoom(card, c); }
     else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div>`; }
 
-    // BUY -> spotlight + fly, then state update + render
     if (c){
       card.addEventListener("click", ()=>{
-        // signal bought on the *current* DOM node before it disappears
-        A.flowBought(card);
-        try{
-          state = buyFromFlow(state, "player", idx);
-          toast("Bought to discard");
-          render();
-        } catch(err){ toast(err?.message || "Cannot buy"); }
+        A.flowBought(card);          // spotlight + fly
+        try { state = buyFromFlow(state, "player", idx); toast("Bought to discard"); render(); }
+        catch(err){ toast(err?.message || "Cannot buy"); }
       });
     }
 
     li.appendChild(card);
 
-    // price rail
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
     const PRICE_BY_POS = [4,3,3,2,2];
@@ -464,18 +455,15 @@ function renderFlow(flowArray){
 
     flowRowEl.appendChild(li);
 
-    // REVEAL: previously empty at this index → now has card
-    if (!prevFlowIds[idx] && c) {
-      A.flowReveal(card);
-    }
+    // REVEAL
+    if (!prevFlowIds[idx] && c) A.flowReveal(card);
   });
 
-  // update snapshot
   prevFlowIds = nextIds;
 }
 
 /* ------------------------------------------------
-   Render root (diffs to trigger animations)
+   Render root
 -------------------------------------------------*/
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
@@ -503,7 +491,6 @@ function render(){
   set(playerName,     el=> el && (el.textContent = s.players?.player?.weaver?.name || "Player"));
   set(aiName,         el=> el && (el.textContent = s.players?.ai?.weaver?.name || "Opponent"));
 
-  // Æ gem readouts under portraits
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
 
@@ -512,13 +499,10 @@ function render(){
 
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
-
-  // ---- Flow (with reveal/falloff emits) ----
   renderFlow(s.flow);
 
-  // ---- Hand (with draw detection) ----
+  // hand
   if (handEl){
-    // record previous -> new diff
     const oldIds = prevHandIds;
     handEl.replaceChildren();
     const els = [];
@@ -550,14 +534,11 @@ function render(){
       newIds.push(c.id);
     });
 
-    // fan
     layoutHand(handEl, els);
 
-    // DRAW ANIMATION: any ids that are in newIds but not in oldIds
     const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length) A.drawn(addedNodes);
 
-    // snapshot
     prevHandIds = newIds;
   }
 }
@@ -567,17 +548,17 @@ function render(){
 -------------------------------------------------*/
 function doStartTurn(){
   state = startTurn(state);
-  // Optional: uncomment to actually draw to hand at start of turn
+  // Optional draw:
   // const need = Math.max(0, 5 - (state.players.player.hand?.length||0));
-  // if (need) { state = drawN(state, "player", need); }
+  // if (need) state = drawN(state, "player", need);
   render();
 }
 
 function doEndTurn(){
-  state = endTurn(state);        // shift river + switch player + reveal for next
+  state = endTurn(state);
   if (state.activePlayer === "ai"){
-    state = aiTakeTurn(state);   // stub; no-ops
-    state = endTurn(state);      // pass back to player and reveal again
+    state = aiTakeTurn(state);
+    state = endTurn(state);
   }
   render();
 }
