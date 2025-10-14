@@ -1,14 +1,4 @@
-import {
-  initState,
-  serializePublic,
-  startTurn,
-  endTurn,
-  drawNewHand,
-  discardHand,
-  playCardToSpellSlot,
-  setGlyphFromHand,
-  buyFromFlow
-} from "./GameLogic.js";
+import { initState, serializePublic, playCardToSpellSlot, setGlyphFromHand, buyFromFlow } from "./GameLogic.js";
 
 /* ------- DOM helpers ------- */
 const $ = id => document.getElementById(id);
@@ -29,7 +19,7 @@ const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
 
-/* HUD targets for deck/discard */
+/* HUD targets for deck/discard (must exist in HTML) */
 const hudDiscardBtn = $("btn-discard-hud");
 const hudDeckBtn    = $("btn-deck-hud");
 
@@ -53,7 +43,7 @@ function toast(msg, ms=1100){
 }
 
 /* ------------------------------------------------
-   Card layout (MTG Arena-style tighter fanning)
+   Card layout (MTG Arena–style tighter fanning)
 -------------------------------------------------*/
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
@@ -102,7 +92,7 @@ function fillCardShell(div, data){
 
   div.innerHTML = `
     <div class="title">${data.name}</div>
-    <div class="type">${data.type}${data.playCost?` — Cost ${withAetherText("Æ")}${data.playCost}`:""}</div>
+    <div class="type">${data.type}${data.price?` — Cost ${withAetherText("Æ")}${data.price}`:""}</div>
     <div class="textbox">${withAetherText(data.text||"")}</div>
     ${pipDots}
     ${aetherChip}
@@ -222,7 +212,6 @@ function wireTouchDrag(el, data){
         try { state = setGlyphFromHand(state, "player", el.dataset.cardId); render(); }
         catch(err){ toast(err?.message || "Can't set glyph"); }
       } else if (target === hudDiscardBtn){
-        // discard for Æ
         try {
           state = discardCardForAether(state, "player", el.dataset.cardId);
           render();
@@ -266,7 +255,7 @@ function markDropTargets(cardType, on){
 }
 
 /* ------------------------------------------------
-   Simple discard-for-aether (index-local helper)
+   Simple discard-for-aether (front-end convenience)
 -------------------------------------------------*/
 function discardCardForAether(s, playerId, cardId){
   const P = s.players[playerId];
@@ -279,9 +268,8 @@ function discardCardForAether(s, playerId, cardId){
   P.aether = (P.aether|0) + gain;
   P.discardCount += 1;
   P.hand.splice(i,1);
-  // flash Æ readout (optional small CSS hook)
-  const ad = document.querySelector(".aether-display");
-  if (ad){ ad.classList.remove("flash"); void ad.offsetWidth; ad.classList.add("flash"); }
+  const readout = document.querySelector(".aether-display");
+  if (readout){ readout.classList.remove("flash"); void readout.offsetWidth; readout.classList.add("flash"); }
   return s;
 }
 
@@ -361,7 +349,7 @@ function renderSlots(container, snapshot, isPlayer){
 }
 
 /* ------------------------------------------------
-   Flow (river) cards
+   Flow (uses state.flow from GameLogic)
 -------------------------------------------------*/
 function cardHTML(c){
   if (!c) return `<div class="title">Empty</div><div class="type">—</div>`;
@@ -371,37 +359,37 @@ function cardHTML(c){
     ? `<div class="aether-chip">${gemSVG()}<span class="val">${c.aetherValue}</span></div>` : "";
   return `
     <div class="title">${c.name}</div>
-    <div class="type">${c.type}${c.playCost?` — Cost ${withAetherText("Æ")}${c.playCost}`:""}</div>
+    <div class="type">${c.type}${c.price?` — Cost ${withAetherText("Æ")}${c.price}`:""}</div>
     <div class="textbox">${withAetherText(c.text||"")}</div>
     ${pipDots}
     ${aetherChip}
   `;
 }
 
-function renderFlow(flowSlots){
+function renderFlow(flowArray){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
-  (flowSlots || []).slice(0,5).forEach((c, idx)=>{
+  (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li"); li.className = "flow-card";
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
+    if (c){ card.innerHTML = cardHTML(c); attachPeekAndZoom(card, c); }
+    else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div>`; }
 
-    if (c) attachPeekAndZoom(card, c);
-
-    card.addEventListener("click", (e)=>{
-      if (!c) return;
-      if ((e.target.closest(".card"))){
+    // click to buy (uses GameLogic buyFromFlow)
+    if (c){
+      card.addEventListener("click", ()=>{
         try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); render(); }
         catch(err){ toast(err?.message || "Cannot buy"); }
-      }
-    });
+      });
+    }
 
     li.appendChild(card);
     const costLbl = document.createElement("div");
     costLbl.className = "price-label";
-    costLbl.innerHTML = `${withAetherText("Æ")} ${[4,3,3,2,2][idx] || 0} to buy`;
+    const cost = [4,3,3,2,2][idx] || 0;
+    costLbl.innerHTML = `${withAetherText("Æ")} ${cost} to buy`;
     li.appendChild(costLbl);
 
     flowRowEl.appendChild(li);
@@ -412,8 +400,8 @@ function renderFlow(flowSlots){
    Render
 -------------------------------------------------*/
 function ensureSafetyShape(s){
-  if (!Array.isArray(s.flowSlots) || s.flowSlots.length!==5){
-    s.flowSlots = [null,null,null,null,null];
+  if (!Array.isArray(s.flow) || s.flow.length===0){
+    s.flow = [null,null,null,null,null];
   }
   if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[]};
   if (!Array.isArray(s.player.hand)) s.player.hand=[];
@@ -439,15 +427,15 @@ function render(){
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-  // ensure HUD targets show as drop-targets
+  // mark HUD as drop-targets
   if (hudDiscardBtn) hudDiscardBtn.classList.add("drop-target");
   if (hudDeckBtn)    hudDeckBtn.classList.add("drop-target");
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-  renderFlow(s.flowSlots);
+  renderFlow(s.flow);
 
-  // Hand
+  // hand
   if (handEl){
     handEl.replaceChildren();
     const els = [];
@@ -463,7 +451,7 @@ function render(){
 
       el.innerHTML = `
         <div class="title">${c.name}</div>
-        <div class="type">${c.type}${c.playCost?` — Cost ${withAetherText("Æ")}${c.playCost}`:""}</div>
+        <div class="type">${c.type}${c.price?` — Cost ${withAetherText("Æ")}${c.price}`:""}</div>
         <div class="textbox">${withAetherText(c.text||"")}</div>
         ${pipDots}
         ${aetherChip}
@@ -481,24 +469,8 @@ function render(){
 /* ------------------------------------------------
    Wiring
 -------------------------------------------------*/
-startBtn?.addEventListener("click", ()=>{
-  state = startTurn(state);
-  if ((serializePublic(state).player?.hand||[]).length===0){
-    state = drawNewHand(state, 5);
-  }
-  render();
-});
-
-endBtn?.addEventListener("click", ()=>{
-  state = endTurn(state);
-  // AI stub could go here...
-  state = discardHand(state);
-  state = startTurn(state);
-  state = drawNewHand(state, 5);
-  toast("New turn");
-  render();
-});
-
+startBtn?.addEventListener("click", ()=>{ render(); });
+endBtn?.addEventListener("click", ()=>{ toast("End turn (stub)"); render(); });
 $("btn-endturn-hud")?.addEventListener("click", ()=> endBtn?.click());
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
