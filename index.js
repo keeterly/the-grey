@@ -116,9 +116,19 @@ function attachPeekAndZoom(el, data){
 }
 zoomOverlayEl?.addEventListener("click", closeZoom);
 
-/* ------- drag (desktop) ------- */
+/* ------- drag + “hold to highlight” ------- */
 function wireDesktopDrag(el, data){
   el.draggable = true;
+
+  // highlight while holding (mobile & desktop)
+  const holdOn = ()=> pulseDropTargets(data.type, true);
+  const holdOff = ()=> pulseDropTargets(data.type, false);
+  el.addEventListener("pointerdown", holdOn, {passive:true});
+  el.addEventListener("pointerup", holdOff, {passive:true});
+  el.addEventListener("pointerleave", holdOff, {passive:true});
+  el.addEventListener("pointercancel", holdOff, {passive:true});
+
+  // classic drag
   el.addEventListener("dragstart", (ev)=>{
     el.classList.add("dragging");
     ev.dataTransfer?.setData("text/card-id", data.id);
@@ -136,12 +146,12 @@ function wireDesktopDrag(el, data){
   });
 }
 function pulseDropTargets(cardType, on){
-  const valid = [];
-  if (cardType==="SPELL") valid.push(...document.querySelectorAll('#player-slots .slot.spell'));
-  if (cardType==="GLYPH") valid.push(...document.querySelectorAll('#player-slots .slot.glyph'));
+  const valids = [];
+  if (cardType==="SPELL") valids.push(...document.querySelectorAll('#player-slots .slot.spell'));
+  if (cardType==="GLYPH") valids.push(...document.querySelectorAll('#player-slots .slot.glyph'));
   const discardBtn = document.querySelector('[data-role="discard"]');
   if (discardBtn) { on ? discardBtn.classList.add('drop-ready') : discardBtn.classList.remove('drop-ready'); }
-  valid.forEach(el=> on ? el.classList.add("drop-ready") : el.classList.remove("drop-ready"));
+  valids.forEach(el=> on ? el.classList.add("drop-ready") : el.classList.remove("drop-ready"));
 }
 
 /* ------- slots ------- */
@@ -222,7 +232,7 @@ function renderFlow(flowArray){
   flowRowEl.replaceChildren();
   const COST_LABELS = [4,3,3,2,2];
   (flowArray || []).slice(0,5).forEach((raw, idx)=>{
-    const c = raw || {}; // guard against null
+    const c = raw || {}; // guard
     const li = document.createElement("li"); li.className = "flow-card";
     const card = document.createElement("article");
     card.className = "card market";
@@ -269,22 +279,16 @@ function spotlightBuy(sourceEl){
   });
 }
 
-/* ------- portrait augments (hearts/gem/trance) ------- */
+/* ------- portrait augments ------- */
 function ensurePortraitAugments(){
   const pFig = playerPortrait?.closest(".portrait");
   const aiFig = aiPortrait?.closest(".portrait");
   [pFig, aiFig].forEach(fig=>{
     if (!fig) return;
-
-    // remove any legacy "Trance 0" text nodes
     Array.from(fig.childNodes).forEach(n=>{
       if (n.nodeType===Node.TEXT_NODE && /trance/i.test(n.textContent||"")) n.remove();
-      if (n.nodeType===Node.ELEMENT_NODE && /trance/i.test(n.textContent||"")) {
-        // hide legacy elements that literally render "Trance 0"
-        n.style.display="none";
-      }
+      if (n.nodeType===Node.ELEMENT_NODE && /trance/i.test(n.textContent||"")) n.style.display="none";
     });
-
     if (!fig.querySelector(".hearts")) {
       const hearts = document.createElement("div"); hearts.className="hearts"; fig.appendChild(hearts);
     }
@@ -332,7 +336,7 @@ function animateDiscardHand(){
 /* ------- safety / render ------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow) || s.flow.length===0){
-    s.flow = [null,null,null,null,null]; // guarded in renderFlow
+    s.flow = [null,null,null,null,null];
   }
   if (!s.player) s.player = {vitality:5,aether:0,channeled:0,hand:[],slots:[]};
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
@@ -342,6 +346,14 @@ function ensureSafetyShape(s){
   return s;
 }
 
+/* robust portrait loader with fallback */
+function setPortrait(imgEl, primary, fallback, flipped=false){
+  if (!imgEl) return;
+  imgEl.onerror = ()=> { imgEl.onerror = null; imgEl.src = fallback; };
+  imgEl.src = primary;
+  imgEl.style.transform = flipped ? "scaleX(-1)" : "";
+}
+
 function render({drawAnimation=false}={}){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
@@ -349,11 +361,12 @@ function render({drawAnimation=false}={}){
   let s = ensureSafetyShape(serializePublic(state) || {});
   ensurePortraitAugments();
 
-  // portraits & names
-  set(playerPortrait, el=> { el.src = "./weaver_aria_Portrait.jpg"; el.style.transform=""; });
-  set(aiPortrait,     el=> { el.src = "./weaver_morr_Portrait.jpg"; el.style.transform="scaleX(-1)"; });
-  set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
-  set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
+  // portraits with fallback to the existing jpgs
+  setPortrait(playerPortrait, "./weaver_aria_Portrait.jpg", "./weaver_aria.jpg", false);
+  setPortrait(aiPortrait,     "./weaver_morr_Portrait.jpg", "./weaver_morr.jpg", true);
+
+  set(playerName, el=> el.textContent = s.player?.weaver?.name || "Player");
+  set(aiName,     el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
   // hearts & aether
   drawHearts(playerPortrait?.closest(".portrait")?.querySelector(".hearts"), s.player?.vitality ?? 5);
