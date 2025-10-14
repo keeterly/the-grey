@@ -8,7 +8,7 @@ const $ = id => document.getElementById(id);
 const set = (el, fn) => { if (el) fn(el); };
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 
-/* buttons & elements already in index.html */
+/* elements */
 const startBtn      = $("btn-start-turn");
 const endBtn        = $("btn-end-turn");
 const aiSlotsEl     = $("ai-slots");
@@ -25,14 +25,14 @@ const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
 
-/* gem/hearts/trance helpers (inline SVGs) */
+/* SVGs */
 const GEM_SVG = `<svg class="gem" viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 8 20l8 32h32l8-32L32 4z"/></svg>`;
 const HEART_SVG = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12.01 21s-5.42-3.63-8.2-6.41C.74 11.52 1.54 6.9 5.24 6.1c1.9-.41 3.53.48 4.59 1.83 1.06-1.35 2.7-2.24 4.59-1.83 3.7.8 4.5 5.42 1.43 8.49-2.78 2.78-8.2 6.41-8.2 6.41z"/></svg>`;
 
 /* state */
 let state = initState({});
 
-/* ------- tiny toast ------- */
+/* ------- toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -45,7 +45,7 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ------- hand fanning (MTGArena style) ------- */
+/* ------- hand fanning ------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
   const MAX_ANGLE = 24, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.72, LIFT_BASE = 42;
@@ -71,19 +71,19 @@ function layoutHand(container, cards) {
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
 function fillCardShell(div, data){
   if (!div) return;
+  data = data || {};
   const gemChip = (data.aetherValue && data.aetherValue>0)
     ? `<div class="aether-chip">${GEM_SVG}<span class="val">${data.aetherValue}</span></div>`
     : "";
   const pips = (data.pip && data.pip>0)
     ? `<div class="pip-track">${Array.from({length:data.pip}).map(()=>`<span class="pip"></span>`).join("")}</div>` : "";
   div.innerHTML = `
-    <div class="title">${data.name}</div>
-    <div class="type">${data.type}${(typeof data.price==='number'&&data.price>0)?` — Cost `:""}</div>
+    <div class="title">${data.name||""}</div>
+    <div class="type">${data.type||""}${(typeof data.price==='number'&&data.price>0)?` — Cost `:""}</div>
     <div class="textbox">${(data.text||"")}</div>
     ${gemChip}${pips}
   `;
 }
-/* long-press zoom for touch, hover peek for mouse */
 let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
@@ -116,7 +116,7 @@ function attachPeekAndZoom(el, data){
 }
 zoomOverlayEl?.addEventListener("click", closeZoom);
 
-/* ------- drag for desktop ------- */
+/* ------- drag (desktop) ------- */
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
@@ -135,24 +135,20 @@ function wireDesktopDrag(el, data){
     pulseDropTargets(data.type, false);
   });
 }
-
-/* Add/remove pulse class to valid targets */
 function pulseDropTargets(cardType, on){
   const valid = [];
   if (cardType==="SPELL") valid.push(...document.querySelectorAll('#player-slots .slot.spell'));
   if (cardType==="GLYPH") valid.push(...document.querySelectorAll('#player-slots .slot.glyph'));
-  // discard pile button (right HUD) can glow too
   const discardBtn = document.querySelector('[data-role="discard"]');
   if (discardBtn) { on ? discardBtn.classList.add('drop-ready') : discardBtn.classList.remove('drop-ready'); }
   valid.forEach(el=> on ? el.classList.add("drop-ready") : el.classList.remove("drop-ready"));
 }
 
-/* ------- slots (with glyph support) ------- */
+/* ------- slots ------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
-  // 3 spell + 1 glyph
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -181,7 +177,6 @@ function renderSlots(container, snapshot, isPlayer){
     }
     container.appendChild(d);
   }
-  // glyph
   const g = document.createElement("div");
   g.className = "slot glyph";
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
@@ -210,14 +205,14 @@ function renderSlots(container, snapshot, isPlayer){
 }
 
 /* ------- flow ------- */
-function cardHTML(c){
+function cardHTML(c={}){
   const gemChip = (c.aetherValue && c.aetherValue>0)
-    ? `<div class="aether-chip">${GEM_SVG}<span class="val">${c.aetherValue}</span></div>` : "";
+    ? `<div class="aether-chip"><svg class="gem" viewBox="0 0 64 64"><path d="M32 4 8 20l8 32h32l8-32L32 4z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
   const pips = (c.pip && c.pip>0)
     ? `<div class="pip-track">${Array.from({length:c.pip}).map(()=>`<span class="pip"></span>`).join("")}</div>` : "";
   return `
-    <div class="title">${c.name}</div>
-    <div class="type">${c.type}${(typeof c.price==='number'&&c.price>0)?` — Cost `:""}</div>
+    <div class="title">${c.name||""}</div>
+    <div class="type">${c.type||""}${(typeof c.price==='number'&&c.price>0)?` — Cost `:""}</div>
     <div class="textbox">${c.text||""}</div>
     ${gemChip}${pips}
   `;
@@ -226,7 +221,8 @@ function renderFlow(flowArray){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
   const COST_LABELS = [4,3,3,2,2];
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+  (flowArray || []).slice(0,5).forEach((raw, idx)=>{
+    const c = raw || {}; // guard against null
     const li = document.createElement("li"); li.className = "flow-card";
     const card = document.createElement("article");
     card.className = "card market";
@@ -234,18 +230,15 @@ function renderFlow(flowArray){
     card.innerHTML = cardHTML(c);
     attachPeekAndZoom(card, c);
 
-    // click to buy (if enough aether)
     card.addEventListener("click", ()=>{
       try{
         state = buyFromFlow(state, "player", idx);
         toast("Bought to discard");
-        // spotlight pose animation to center, then fly to discard HUD
         spotlightBuy(card);
       }catch(err){ toast(err?.message || "Cannot buy"); }
     });
 
     li.appendChild(card);
-    // position cost indicator
     const label = document.createElement("div");
     label.className = "price-label";
     label.textContent = `${COST_LABELS[idx]} to buy`;
@@ -255,7 +248,7 @@ function renderFlow(flowArray){
   });
 }
 
-/* spotlight buy → center → to discard */
+/* spotlight buy animation */
 function spotlightBuy(sourceEl){
   const rect = sourceEl.getBoundingClientRect();
   const clone = sourceEl.cloneNode(true);
@@ -276,13 +269,22 @@ function spotlightBuy(sourceEl){
   });
 }
 
-/* ------- render hearts / gems / trance under portraits ------- */
+/* ------- portrait augments (hearts/gem/trance) ------- */
 function ensurePortraitAugments(){
-  // Player
   const pFig = playerPortrait?.closest(".portrait");
   const aiFig = aiPortrait?.closest(".portrait");
   [pFig, aiFig].forEach(fig=>{
     if (!fig) return;
+
+    // remove any legacy "Trance 0" text nodes
+    Array.from(fig.childNodes).forEach(n=>{
+      if (n.nodeType===Node.TEXT_NODE && /trance/i.test(n.textContent||"")) n.remove();
+      if (n.nodeType===Node.ELEMENT_NODE && /trance/i.test(n.textContent||"")) {
+        // hide legacy elements that literally render "Trance 0"
+        n.style.display="none";
+      }
+    });
+
     if (!fig.querySelector(".hearts")) {
       const hearts = document.createElement("div"); hearts.className="hearts"; fig.appendChild(hearts);
     }
@@ -315,9 +317,8 @@ function setTrance(fig, level=0){
   if (level>=2 && t2) t2.classList.add("active");
 }
 
-/* ------- start/end turn visual flourishes ------- */
+/* ------- turn animations ------- */
 function animateDrawNewCards(){
-  // add a one-shot class to new hand children
   Array.from(handEl?.children||[]).forEach(el=> el.classList.add("draw-anim"));
   setTimeout(()=> Array.from(handEl?.children||[]).forEach(el=> el.classList.remove("draw-anim")), 450);
 }
@@ -328,11 +329,10 @@ function animateDiscardHand(){
   setTimeout(()=> { Array.from(handEl?.children||[]).forEach(el=> el.classList.remove("discard-anim")); }, 600);
 }
 
-/* ------- render ------- */
+/* ------- safety / render ------- */
 function ensureSafetyShape(s){
-  // keep old safety net to avoid blank screen if logic returns nothing
   if (!Array.isArray(s.flow) || s.flow.length===0){
-    s.flow = new Array(5).fill(0).map((_,i)=>({id:"empty"+i,name:"Empty",type:"—",price:[4,3,3,2,2][i],text:"—"}));
+    s.flow = [null,null,null,null,null]; // guarded in renderFlow
   }
   if (!s.player) s.player = {vitality:5,aether:0,channeled:0,hand:[],slots:[]};
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
@@ -349,21 +349,17 @@ function render({drawAnimation=false}={}){
   let s = ensureSafetyShape(serializePublic(state) || {});
   ensurePortraitAugments();
 
-  // portraits / names
-  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || "./weaver_aria.jpg");
-  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
+  // portraits & names
+  set(playerPortrait, el=> { el.src = "./weaver_aria_Portrait.jpg"; el.style.transform=""; });
+  set(aiPortrait,     el=> { el.src = "./weaver_morr_Portrait.jpg"; el.style.transform="scaleX(-1)"; });
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-  // health (runic hearts)
+  // hearts & aether
   drawHearts(playerPortrait?.closest(".portrait")?.querySelector(".hearts"), s.player?.vitality ?? 5);
   drawHearts(aiPortrait?.closest(".portrait")?.querySelector(".hearts"),     s.ai?.vitality ?? 5);
-
-  // aether counters
   setAether(playerPortrait?.closest(".portrait")?.querySelector(".aether-display"), s.player?.aether ?? 0);
   setAether(aiPortrait?.closest(".portrait")?.querySelector(".aether-display"),     s.ai?.aether ?? 0);
-
-  // trance placeholders (set level 0 for now)
   setTrance(playerPortrait.closest(".portrait"), s.player?.trance ?? 0);
   setTrance(aiPortrait.closest(".portrait"),     s.ai?.trance ?? 0);
 
@@ -371,7 +367,7 @@ function render({drawAnimation=false}={}){
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
   renderFlow(s.flow);
 
-  // hand (drag + peek + aether/pip visuals)
+  // hand
   if (handEl){
     handEl.replaceChildren();
     const els = [];
@@ -408,11 +404,10 @@ function render({drawAnimation=false}={}){
 startBtn?.addEventListener("click", ()=>{ render({drawAnimation:true}); });
 endBtn?.addEventListener("click", ()=>{
   animateDiscardHand();
-  toast("End turn"); // your AI + river logic happens in GameLogic; we just animate
+  toast("End turn");
 });
 
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 
-/* initial draw */
 document.addEventListener("DOMContentLoaded", ()=> render({drawAnimation:true}));
