@@ -1,48 +1,118 @@
-// v2.52 engine: river flow + buy/shift + lastDrop marker + draw/discard hooks
+// v2.53 engine: updated Base Deck + Aetherflow pool per spec,
+// keeping river costs (4,3,3,2,2) as position-based buy prices.
 
 const FLOW_COSTS = [4,3,3,2,2];
 const STARTING_VITALITY = 5;
 
-function mkMarketCard(id, name, type, text="") {
-  return { id, name, type, aetherValue:0, text };
+/* Utility */
+function mk(id, name, type, {
+  playCost = 0, pip = null, effect = "", aetherValue = 0
+} = {}) {
+  // Keep extra fields for future rules; render uses text + aetherValue today.
+  return {
+    id, name, type,
+    playCost, pip, aetherValue,
+    text: [
+      playCost ? `Cost Æ${playCost}.` : "",
+      pip ? `Pip ${typeof pip === "number" ? pip : pip}.` : "",
+      effect
+    ].filter(Boolean).join(" ")
+  };
 }
+function dup(card, n){ return Array.from({length:n}, (_,i)=> ({...card, id:`${card.id}#${i+1}`})); }
 
-/* ----- Market pool (simple looped deck) ----- */
-function marketPool() {
-  const base = [
-    mkMarketCard("m_resonant","Resonant Chorus","SPELL","Market spell."),
-    mkMarketCard("m_pulse","Pulse Feedback","INSTANT","Tactical instant."),
-    mkMarketCard("m_refract","Refracted Will","GLYPH","Set a glyph."),
-    mkMarketCard("m_cascade","Cascade Insight","INSTANT","Instant."),
-    mkMarketCard("m_vault","Obsidian Vault","SPELL","Spell."),
-  ];
-  return base;
-}
-
-/* ----- Starter Base Set (for both players) ----- */
+/* ===== Shared Starting Deck (with quantities) =====
+| Name                    | Type    | Cost | Pip | Effect                                       | Aether | Qty |
+| Pulse of the Grey       | Spell   | 0    | 1   | On Resolve: Draw 1, Gain 1 Aether            | 0      | 3   |
+| Wispform Surge          | Spell   | 0    | 1   | On Resolve: Advance another Spell for free   | 0      | 1   |
+| Greyfire Bloom          | Spell   | 1    | 1   | On Resolve: Advance another Spell for free   | 0      | 1   |
+| Echoing Reservoir       | Spell   | 0    | 1   | On Resolve: Channel 1                        | 2      | 2   |
+| Dormant Catalyst        | Spell   | 0    | 1   | On Resolve: Channel 2                        | 1      | 1   |
+| Ashen Focus             | Spell   | 0    | 1   | On Resolve: Channel 1 and Draw 1             | 1      | 1   |
+| Surge of Ash            | Instant | 1    | —   | Target Spell advances 1 step free            | 0      | 1   |
+| Veil of Dust            | Instant | 1    | —   | Prevent 1 damage or negate a hostile Instant | 0      | 1   |
+| Glyph of Remnant Light  | Glyph   | 0    | —   | When a Spell resolves → Gain 1 Aether        | 0      | 1   |
+| Glyph of Returning Echo | Glyph   | 0    | —   | When you Channel Aether → Draw 1 card        | 0      | 1   |
+*/
 function starterDeck() {
+  const PULSE = mk("c_pulse","Pulse of the Grey","SPELL",{playCost:0,pip:1,effect:"On resolve: Draw 1, gain Æ1.", aetherValue:0});
+  const WISPF = mk("c_wisp","Wispform Surge","SPELL",{playCost:0,pip:1,effect:"On resolve: Advance another spell 1 (free).", aetherValue:0});
+  const BLOOM = mk("c_bloom","Greyfire Bloom","SPELL",{playCost:1,pip:1,effect:"On resolve: Advance another spell 1 (free).", aetherValue:0});
+  const ECHO  = mk("c_echo","Echoing Reservoir","SPELL",{playCost:0,pip:1,effect:"On resolve: Channel 1.", aetherValue:2});
+  const CATAL = mk("c_catal","Dormant Catalyst","SPELL",{playCost:0,pip:1,effect:"On resolve: Channel 2.", aetherValue:1});
+  const ASHEN = mk("c_ashen","Ashen Focus","SPELL",{playCost:0,pip:1,effect:"On resolve: Channel 1, draw 1.", aetherValue:1});
+  const SURGE = mk("c_surge","Surge of Ash","INSTANT",{playCost:1,effect:"Target spell advances 1 step (free).", aetherValue:0});
+  const VEIL  = mk("c_veil","Veil of Dust","INSTANT",{playCost:1,effect:"Prevent 1 damage or negate a hostile instant.", aetherValue:0});
+  const GL1   = mk("g_light","Glyph of Remnant Light","GLYPH",{effect:"When a spell resolves: gain Æ1.", aetherValue:0});
+  const GL2   = mk("g_echo","Glyph of Returning Echo","GLYPH",{effect:"When you channel Aether: draw 1.", aetherValue:0});
+
   return [
-    { id:"c_pulse", name:"Pulse of the Grey", type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1." },
-    { id:"c_wisp",  name:"Wispform Surge",   type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Advance another spell 1." },
-    { id:"c_bloom", name:"Greyfire Bloom",   type:"SPELL", aetherValue:0, text:"Cost Æ1. Advance 1 (Æ1). On resolve: Deal 1 damage." },
-    { id:"c_echo",  name:"Echoing Reservoir",type:"SPELL", aetherValue:2, text:"Advance 1 (Æ2). On resolve: Channel 1." },
-    { id:"c_catal", name:"Dormant Catalyst", type:"SPELL", aetherValue:1, text:"Advance 1 (Æ1). On resolve: Channel 2." },
-    { id:"c_ashen", name:"Ashen Focus",      type:"SPELL", aetherValue:1, text:"Advance 1 (Æ2). On resolve: Channel 1, draw 1." },
-    { id:"c_surge", name:"Surge of Ash",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Advance a spell you control by 1 (free)." },
-    { id:"c_veil",  name:"Veil of Dust",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Prevent 1 or cancel an instant." },
-    { id:"g_light", name:"Glyph of Remnant Light", type:"GLYPH", aetherValue:0, text:"When a spell resolves: gain Æ1." },
-    { id:"g_echo",  name:"Glyph of Returning Echo", type:"GLYPH", aetherValue:0, text:"When you channel Aether: draw 1." },
+    ...dup(PULSE,3),
+    WISPF,
+    BLOOM,
+    ...dup(ECHO,2),
+    CATAL,
+    ASHEN,
+    SURGE,
+    VEIL,
+    GL1,
+    GL2,
   ];
 }
 
+/* ===== Aetherflow Pool (river draws repeat these) =====
+| Name                     | Type    | Cost | Pip             | Effect                                                   | Aether |
+| Surge of Cinders         | Instant | 2    | —               | Deal 2 damage to any target                              | 0      |
+| Pulse Feedback           | Instant | 3    | —               | Advance all Spells you control by 1                      | 0      |
+| Refracted Will           | Instant | 2    | —               | Counter an Instant or negate a Glyph trigger             | 0      |
+| Aether Impel             | Instant | 4    | —               | Gain 3 Aether this turn                                  | 0      |
+| Cascade Insight          | Instant | 3    | —               | Draw 2 cards, then discard 1                             | 0      |
+| Resonant Chorus          | Spell   | 0    | 1 (1 per step)  | On resolve: Gain 2 Aether and Channel 1                  | +1     |
+| Emberline Pulse          | Spell   | 1    | 1               | On resolve: Deal 2 damage and draw 1                     | 0      |
+| Fractured Memory         | Spell   | 0    | 2 (1 each)      | On resolve: Draw 2 cards                                 | 0      |
+| Obsidian Vault           | Spell   | 0    | 1 (2)           | On resolve: Channel 2 and gain 1 Aether                  | +1     |
+| Mirror Cascade           | Spell   | 1    | 1 (2)           | On resolve: Copy the next Instant you play this turn     | 0      |
+| Sanguine Flow            | Spell   | 2    | 1               | On resolve: Lose 1 Vitality, gain 3 Aether               | 0      |
+| Glyph of Withering Light | Glyph   | 0    | —               | When an opponent plays a Spell → They lose 1 Aether      | 0      |
+| Glyph of Vigilant Echo   | Glyph   | 0    | —               | At end of your turn → Channel 1                          | 0      |
+| Glyph of Buried Heat     | Glyph   | 0    | —               | When you discard a card for Aether → Gain 1 extra Aether | 0      |
+| Glyph of Soulglass       | Glyph   | 0    | —               | When you buy a card from Aether Flow → Draw 1 card       | 0      |
+*/
+function marketPool() {
+  return [
+    mk("m_cinders","Surge of Cinders","INSTANT",{playCost:2, effect:"Deal 2 damage to any target.", aetherValue:0}),
+    mk("m_feedback","Pulse Feedback","INSTANT",{playCost:3, effect:"Advance all spells you control by 1.", aetherValue:0}),
+    mk("m_refract","Refracted Will","INSTANT",{playCost:2, effect:"Counter an instant or negate a glyph trigger.", aetherValue:0}),
+    mk("m_impel","Aether Impel","INSTANT",{playCost:4, effect:"Gain Æ3 this turn.", aetherValue:0}),
+    mk("m_cascade","Cascade Insight","INSTANT",{playCost:3, effect:"Draw 2 cards, then discard 1.", aetherValue:0}),
+
+    mk("m_resonant","Resonant Chorus","SPELL",{playCost:0, pip:"1/step", effect:"On resolve: Gain Æ2 and Channel 1.", aetherValue:1}),
+    mk("m_ember","Emberline Pulse","SPELL",{playCost:1, pip:1, effect:"On resolve: Deal 2 damage and draw 1.", aetherValue:0}),
+    mk("m_fracture","Fractured Memory","SPELL",{playCost:0, pip:"2 (1 each)", effect:"On resolve: Draw 2 cards.", aetherValue:0}),
+    mk("m_vault","Obsidian Vault","SPELL",{playCost:0, pip:"1 (2)", effect:"On resolve: Channel 2 and gain Æ1.", aetherValue:1}),
+    mk("m_mirror","Mirror Cascade","SPELL",{playCost:1, pip:"1 (2)", effect:"On resolve: Copy the next instant you play this turn.", aetherValue:0}),
+    mk("m_sanguine","Sanguine Flow","SPELL",{playCost:2, pip:1, effect:"On resolve: Lose 1 Vitality, gain Æ3.", aetherValue:0}),
+
+    mk("g_wither","Glyph of Withering Light","GLYPH",{effect:"When an opponent plays a spell: they lose Æ1.", aetherValue:0}),
+    mk("g_vigil","Glyph of Vigilant Echo","GLYPH",{effect:"End of your turn: Channel 1.", aetherValue:0}),
+    mk("g_buried","Glyph of Buried Heat","GLYPH",{effect:"When you discard a card for Æ: gain +1 extra Æ.", aetherValue:0}),
+    mk("g_soul","Glyph of Soulglass","GLYPH",{effect:"When you buy from Aether Flow: draw 1.", aetherValue:0}),
+  ];
+}
+
+/* ===== State Init ===== */
 export function initState() {
+  // Build starting deck from quantities
   const deck = starterDeck();
+  // Simple: first 5 to hand, rest counted
   const hand = deck.slice(0,5);
   const remaining = deck.slice(5);
 
+  // Build a looping market deck from pool
   const pool = marketPool();
   const flowDeck = [];
-  for (let i=0;i<60;i++) {
+  // Repeat the pool to make a long supply
+  for (let i=0;i<80;i++) {
     const b = pool[i % pool.length];
     flowDeck.push({...b, id:`${b.id}_${i}`});
   }
@@ -52,8 +122,8 @@ export function initState() {
     activePlayer: "player",
     flowSlots: [null,null,null,null,null],
     flowDeck,
-    lastFlowDrop: null,   // for animation (the one that fell off the right)
-    lastBoughtCard: null, // for spotlight animation
+    lastFlowDrop: null,
+    lastBoughtCard: null,
     players: {
       player: {
         vitality: STARTING_VITALITY,
@@ -73,7 +143,7 @@ export function initState() {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deckCount: 10,
-        hand: [],
+        hand: [], // hidden
         discardCount: 0,
         slots: [
           { hasCard:false, card:null },
@@ -99,21 +169,15 @@ export function serializePublic(state) {
   };
 }
 
-/* ----- Flow helpers ----- */
+/* ===== River flow helpers (unchanged) ===== */
 const slotCost = i => FLOW_COSTS[i] ?? 0;
-function drawFlow(state){
-  return state.flowDeck.shift() || null;
-}
+function drawFlow(state){ return state.flowDeck.shift() || null; }
 export function startTurn(state){
-  // reveal exactly 1 card into slot 0 if empty
-  if (!state.flowSlots[0]){
-    state.flowSlots[0] = drawFlow(state);
-  }
+  if (!state.flowSlots[0]) state.flowSlots[0] = drawFlow(state);
   state.lastFlowDrop = null;
   return state;
 }
 export function endTurn(state){
-  // capture the card that will fall off the right
   state.lastFlowDrop = state.flowSlots[4] || null;
   for (let i=state.flowSlots.length-1; i>=1; i--){
     state.flowSlots[i] = state.flowSlots[i-1];
@@ -123,11 +187,11 @@ export function endTurn(state){
   return state;
 }
 
-/* ----- Draw/Discard (very light stub for demo) ----- */
+/* ===== Minimal hand/draw for demo (unchanged) ===== */
 export function drawNewHand(state, n=5){
-  // demo draw: loop over starter set names
+  // Pull from starter definition so updated cards appear in draw animation
   const src = starterDeck();
-  state.players.player.hand = src.slice(0,n).map((c,idx)=> ({...c, id:`draw_${state.turn}_${idx}_${c.id}`}));
+  state.players.player.hand = src.slice(0,n).map((c,idx)=> ({...c, id:`draw_${state.turn}_${idx}_${c.id}`})); 
   return state;
 }
 export function discardHand(state){
@@ -137,7 +201,7 @@ export function discardHand(state){
   return state;
 }
 
-/* ----- Actions ----- */
+/* ===== Actions (unchanged) ===== */
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -184,11 +248,8 @@ export function buyFromFlow(state, playerId, flowIndex){
 
   P.aether = (P.aether|0) - cost;
   P.discardCount += 1;
-
-  // hold for spotlight animation on UI
   state.lastBoughtCard = { ...card };
 
-  // remove purchased card and slide left side toward cheap end
   for (let i=flowIndex; i>0; i--){
     state.flowSlots[i] = state.flowSlots[i-1];
   }
