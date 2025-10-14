@@ -1,4 +1,4 @@
-// v2.51 engine: river flow + basic buy/shift, deal/discard hooks
+// v2.52 engine: river flow + buy/shift + lastDrop marker + draw/discard hooks
 
 const FLOW_COSTS = [4,3,3,2,2];
 const STARTING_VITALITY = 5;
@@ -9,7 +9,6 @@ function mkMarketCard(id, name, type, text="") {
 
 /* ----- Market pool (simple looped deck) ----- */
 function marketPool() {
-  // small repeating pool; ids keep incrementing
   const base = [
     mkMarketCard("m_resonant","Resonant Chorus","SPELL","Market spell."),
     mkMarketCard("m_pulse","Pulse Feedback","INSTANT","Tactical instant."),
@@ -23,36 +22,27 @@ function marketPool() {
 /* ----- Starter Base Set (for both players) ----- */
 function starterDeck() {
   return [
-    // Spells of Utility (x3)
     { id:"c_pulse", name:"Pulse of the Grey", type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1." },
     { id:"c_wisp",  name:"Wispform Surge",   type:"SPELL", aetherValue:0, text:"Advance 1 (Æ1). On resolve: Advance another spell 1." },
     { id:"c_bloom", name:"Greyfire Bloom",   type:"SPELL", aetherValue:0, text:"Cost Æ1. Advance 1 (Æ1). On resolve: Deal 1 damage." },
-
-    // Channelers (x3)
     { id:"c_echo",  name:"Echoing Reservoir",type:"SPELL", aetherValue:2, text:"Advance 1 (Æ2). On resolve: Channel 1." },
     { id:"c_catal", name:"Dormant Catalyst", type:"SPELL", aetherValue:1, text:"Advance 1 (Æ1). On resolve: Channel 2." },
     { id:"c_ashen", name:"Ashen Focus",      type:"SPELL", aetherValue:1, text:"Advance 1 (Æ2). On resolve: Channel 1, draw 1." },
-
-    // Instants (x2)
     { id:"c_surge", name:"Surge of Ash",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Advance a spell you control by 1 (free)." },
     { id:"c_veil",  name:"Veil of Dust",     type:"INSTANT", aetherValue:0, text:"Cost Æ1. Prevent 1 or cancel an instant." },
-
-    // Glyphs (x2)
     { id:"g_light", name:"Glyph of Remnant Light", type:"GLYPH", aetherValue:0, text:"When a spell resolves: gain Æ1." },
     { id:"g_echo",  name:"Glyph of Returning Echo", type:"GLYPH", aetherValue:0, text:"When you channel Aether: draw 1." },
   ];
 }
 
 export function initState() {
-  // simple split: first 5 in hand, rest in deckCount (display only)
   const deck = starterDeck();
   const hand = deck.slice(0,5);
   const remaining = deck.slice(5);
 
-  // market "deck": loop through pool forever
   const pool = marketPool();
   const flowDeck = [];
-  for (let i=0;i<40;i++) {
+  for (let i=0;i<60;i++) {
     const b = pool[i % pool.length];
     flowDeck.push({...b, id:`${b.id}_${i}`});
   }
@@ -60,9 +50,10 @@ export function initState() {
   return {
     turn: 1,
     activePlayer: "player",
-    // 5 river slots; null = unrevealed/empty
     flowSlots: [null,null,null,null,null],
     flowDeck,
+    lastFlowDrop: null,   // for animation (the one that fell off the right)
+    lastBoughtCard: null, // for spotlight animation
     players: {
       player: {
         vitality: STARTING_VITALITY,
@@ -71,10 +62,10 @@ export function initState() {
         hand: hand,
         discardCount: 0,
         slots: [
-          { hasCard:false, card:null }, // spell
-          { hasCard:false, card:null }, // spell
-          { hasCard:false, card:null }, // spell
-          { isGlyph:true, hasCard:false, card:null }, // glyph
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { isGlyph:true, hasCard:false, card:null },
         ],
         weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
       },
@@ -82,7 +73,7 @@ export function initState() {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deckCount: 10,
-        hand: [], // hidden
+        hand: [],
         discardCount: 0,
         slots: [
           { hasCard:false, card:null },
@@ -101,6 +92,8 @@ export function serializePublic(state) {
     turn: state.turn,
     activePlayer: state.activePlayer,
     flowSlots: state.flowSlots,
+    lastFlowDrop: state.lastFlowDrop,
+    lastBoughtCard: state.lastBoughtCard,
     player: state.players?.player,
     ai: state.players?.ai,
   };
@@ -116,10 +109,12 @@ export function startTurn(state){
   if (!state.flowSlots[0]){
     state.flowSlots[0] = drawFlow(state);
   }
+  state.lastFlowDrop = null;
   return state;
 }
 export function endTurn(state){
-  // shift everything one step toward cheaper end (rightward)
+  // capture the card that will fall off the right
+  state.lastFlowDrop = state.flowSlots[4] || null;
   for (let i=state.flowSlots.length-1; i>=1; i--){
     state.flowSlots[i] = state.flowSlots[i-1];
   }
@@ -128,8 +123,21 @@ export function endTurn(state){
   return state;
 }
 
+/* ----- Draw/Discard (very light stub for demo) ----- */
+export function drawNewHand(state, n=5){
+  // demo draw: loop over starter set names
+  const src = starterDeck();
+  state.players.player.hand = src.slice(0,n).map((c,idx)=> ({...c, id:`draw_${state.turn}_${idx}_${c.id}`}));
+  return state;
+}
+export function discardHand(state){
+  const P = state.players.player;
+  P.discardCount += P.hand.length;
+  P.hand = [];
+  return state;
+}
+
 /* ----- Actions ----- */
-// Play SPELL from hand into a spell slot (0..2)
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -148,7 +156,6 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   return state;
 }
 
-// Set GLYPH from hand into glyph slot (index 3)
 export function setGlyphFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -167,7 +174,6 @@ export function setGlyphFromHand(state, playerId, cardId){
   return state;
 }
 
-// Market buy → spend aether, +1 discard, shift river toward cheap end
 export function buyFromFlow(state, playerId, flowIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -179,7 +185,10 @@ export function buyFromFlow(state, playerId, flowIndex){
   P.aether = (P.aether|0) - cost;
   P.discardCount += 1;
 
-  // remove purchased card and slide left side down toward cheap end
+  // hold for spotlight animation on UI
+  state.lastBoughtCard = { ...card };
+
+  // remove purchased card and slide left side toward cheap end
   for (let i=flowIndex; i>0; i--){
     state.flowSlots[i] = state.flowSlots[i-1];
   }
