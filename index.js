@@ -13,13 +13,15 @@ const playerSlotsEl = $("player-slots");
 const flowRowEl     = $("flow-row");
 const handEl        = $("hand");
 const turnIndicator = $("turn-indicator");
-const aetherReadout = $("aether-readout");
+
 const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
 
-/* HUD targets for deck/discard (must exist in HTML) */
+const playerAeEl    = $("player-aether");
+const aiAeEl        = $("ai-aether");
+
 const hudDiscardBtn = $("btn-discard-hud");
 const hudDeckBtn    = $("btn-deck-hud");
 
@@ -43,7 +45,26 @@ function toast(msg, ms=1100){
 }
 
 /* ------------------------------------------------
-   Card layout (MTG Arena–style tighter fanning)
+   Icons & inline Æ
+-------------------------------------------------*/
+function gemSVG(cls=""){ 
+  return `<svg class="${cls}" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+    <path d="M12 2l5 4-5 16L7 6l5-4zM2 8l5-2 5 16-5 2-5-16zm20 0l-5-2-5 16 5 2 5-16z"></path>
+  </svg>`;
+}
+function withAetherText(s=""){
+  return (s||"").replace(/Æ/g, () => `<span class="ae-inline">${gemSVG("aegem-txt")}</span>`);
+}
+function setAetherDisplay(el, v=0){
+  if (!el) return;
+  el.innerHTML = `
+    <span class="gem">${gemSVG()}</span>
+    <strong class="val">${v|0}</strong>
+  `;
+}
+
+/* ------------------------------------------------
+   Hand layout (MTGArena-like tighter fan)
 -------------------------------------------------*/
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
@@ -73,15 +94,6 @@ function layoutHand(container, cards) {
    Preview / Zoom (press & hold or hover)
 -------------------------------------------------*/
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
-
-function gemSVG(cls=""){ 
-  return `<svg class="${cls}" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-    <path d="M12 2l5 4-5 16L7 6l5-4zM2 8l5-2 5 16-5 2-5-16zm20 0l-5-2-5 16 5 2 5-16z"></path>
-  </svg>`;
-}
-function withAetherText(s=""){
-  return (s||"").replace(/Æ/g, () => `<span class="ae-inline">${gemSVG("aegem-txt")}</span>`);
-}
 
 function fillCardShell(div, data){
   if (!div) return;
@@ -132,7 +144,7 @@ function attachPeekAndZoom(el, data){
 }
 
 /* ------------------------------------------------
-   Drag & Drop (desktop + mobile touch)
+   Drag & Drop (desktop + touch)
 -------------------------------------------------*/
 function wireDesktopDrag(el, data){
   el.draggable = true;
@@ -153,7 +165,6 @@ function wireDesktopDrag(el, data){
   });
 }
 
-/* ----- touch drag (mobile) ----- */
 function wireTouchDrag(el, data){
   let dragging = false;
   let ghost = null;
@@ -202,7 +213,6 @@ function wireTouchDrag(el, data){
 
     if (ghost) { ghost.remove(); ghost = null; }
 
-    // drop behavior
     if (target){
       if (target.classList.contains("slot") && target.classList.contains("spell") && data.type==="SPELL"){
         const slotIndex = Number(target.dataset.slotIndex || 0);
@@ -240,13 +250,13 @@ function findValidDropTarget(node, cardType){
 
 function markDropTargets(cardType, on){
   document.querySelectorAll(".slot.spell").forEach(s=>{
-    if (on && cardType==="SPELL") s.classList.add("drag-over-pulse");
-    else s.classList.remove("drag-over-pulse");
+    if (on && cardType==="SPELL") s.classList.add("drag-over");
+    else s.classList.remove("drag-over");
   });
   const g = document.querySelector(".slot.glyph");
   if (g){
-    if (on && cardType==="GLYPH") g.classList.add("drag-over-pulse");
-    else g.classList.remove("drag-over-pulse");
+    if (on && cardType==="GLYPH") g.classList.add("drag-over");
+    else g.classList.remove("drag-over");
   }
   if (hudDiscardBtn){
     if (on) hudDiscardBtn.classList.add("drop-ready");
@@ -255,7 +265,7 @@ function markDropTargets(cardType, on){
 }
 
 /* ------------------------------------------------
-   Simple discard-for-aether (front-end convenience)
+   Discard-for-Aether (front-end helper)
 -------------------------------------------------*/
 function discardCardForAether(s, playerId, cardId){
   const P = s.players[playerId];
@@ -268,20 +278,19 @@ function discardCardForAether(s, playerId, cardId){
   P.aether = (P.aether|0) + gain;
   P.discardCount += 1;
   P.hand.splice(i,1);
-  const readout = document.querySelector(".aether-display");
+  const readout = document.querySelector("#player-aether");
   if (readout){ readout.classList.remove("flash"); void readout.offsetWidth; readout.classList.add("flash"); }
   return s;
 }
 
 /* ------------------------------------------------
-   Slots
+   Slots (spell/glyph show full card when occupied)
 -------------------------------------------------*/
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
 
-  // 3 spell + 1 glyph
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -349,7 +358,7 @@ function renderSlots(container, snapshot, isPlayer){
 }
 
 /* ------------------------------------------------
-   Flow (uses state.flow from GameLogic)
+   Flow (uses state.flow; click-to-buy)
 -------------------------------------------------*/
 function cardHTML(c){
   if (!c) return `<div class="title">Empty</div><div class="type">—</div>`;
@@ -377,7 +386,6 @@ function renderFlow(flowArray){
     if (c){ card.innerHTML = cardHTML(c); attachPeekAndZoom(card, c); }
     else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div>`; }
 
-    // click to buy (uses GameLogic buyFromFlow)
     if (c){
       card.addEventListener("click", ()=>{
         try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); render(); }
@@ -386,6 +394,8 @@ function renderFlow(flowArray){
     }
 
     li.appendChild(card);
+
+    // position cost rail (4,3,3,2,2)
     const costLbl = document.createElement("div");
     costLbl.className = "price-label";
     const cost = [4,3,3,2,2][idx] || 0;
@@ -400,9 +410,8 @@ function renderFlow(flowArray){
    Render
 -------------------------------------------------*/
 function ensureSafetyShape(s){
-  if (!Array.isArray(s.flow) || s.flow.length===0){
-    s.flow = [null,null,null,null,null];
-  }
+  // Don’t override flow if present; only fallback if missing.
+  if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
   if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[]};
   if (!Array.isArray(s.player.hand)) s.player.hand=[];
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
@@ -421,13 +430,16 @@ function render(){
 
   let s = ensureSafetyShape(serializePublic(state) || {});
   set(turnIndicator, el => el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
-  set(aetherReadout, el => el.textContent  = `Æ ${s.player?.aether ?? 0}  ◇ ${s.player?.channeled ?? 0}`);
+
   set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || "./weaver_aria.jpg");
   set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
   set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
   set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
 
-  // mark HUD as drop-targets
+  // Gem readouts under portraits
+  setAetherDisplay(playerAeEl, s.player?.aether ?? 0);
+  setAetherDisplay(aiAeEl,     s.ai?.aether ?? 0);
+
   if (hudDiscardBtn) hudDiscardBtn.classList.add("drop-target");
   if (hudDeckBtn)    hudDeckBtn.classList.add("drop-target");
 
