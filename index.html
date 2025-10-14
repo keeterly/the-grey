@@ -5,12 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Grey — board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
-  <!-- Cache-bust so GitHub Pages doesn’t serve an old file -->
-  <link rel="stylesheet" href="./styles.css?v=257" />
+  <link rel="stylesheet" href="./styles.css" />
 </head>
 <body id="board" class="theme-dark parchment">
 
-  <!-- Top bar (hidden) -->
   <header class="topbar" style="display:none">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
@@ -23,7 +21,6 @@
   </header>
 
   <main id="board-grid" class="grid">
-    <!-- AI (top) -->
     <section class="row ai">
       <figure class="portrait">
         <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent">
@@ -35,7 +32,6 @@
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
-    <!-- FLOW (center) -->
     <section class="row flow">
       <div class="flow-wrap">
         <div class="flow-title-rail">
@@ -45,7 +41,6 @@
       </div>
     </section>
 
-    <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
       <figure class="portrait">
@@ -57,20 +52,17 @@
       </figure>
     </section>
 
-    <!-- HAND -->
     <section class="hand-wrap">
       <div id="hand" class="hand" aria-label="Player hand"></div>
     </section>
   </main>
 
-  <!-- HUD -->
   <aside class="hud">
     <button id="btn-endturn-hud" class="hud-btn" title="End turn">»</button>
     <button id="btn-discard-hud" class="hud-btn" title="Discard pile"></button>
     <button id="btn-deck-hud" class="hud-btn" title="Deck"></button>
   </aside>
 
-  <!-- Peek + Zoom -->
   <div id="preview-layer" aria-hidden="true">
     <div id="peek-card" class="card peek"></div>
     <div id="zoom-overlay" data-open="false">
@@ -78,7 +70,7 @@
     </div>
   </div>
 
-  <!-- Single entry point ONLY. Do not add other <script> tags here. -->
-  <script type="module" src="./index.js?v=257"></script>
+  <!-- IMPORTANT: only this one script, as before -->
+  <script type="module" src="./index.js"></script>
 </body>
 </html>
