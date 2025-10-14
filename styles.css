@@ -34,20 +34,21 @@ html,body{height:100%}
 .portrait{margin:0;text-align:center;font-size:1.05rem;color:var(--muted)}
 .portrait img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 6px 16px #000}
 
-/* Hearts = runic red */
-.hearts{display:flex;gap:6px;justify-content:center;margin-top:6px}
-.hearts svg{width:14px;height:14px;filter:drop-shadow(0 0 6px #000)}
-.hearts svg path{fill:var(--heart);stroke:#4a2a2a;stroke-width:1}
+/* Hearts (runic) — 3x size */
+.hearts{display:flex;gap:8px;justify-content:center;margin-top:8px}
+.hearts svg{width:42px;height:42px;filter:drop-shadow(0 0 8px #000)}
+.hearts svg path{fill:var(--heart);stroke:#4a2a2a;stroke-width:1.25}
 
-/* Aether gem counters under portraits */
-.aether-display{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px;color:var(--gem-blue);font-weight:700}
-.aether-display .gem{width:16px;height:16px;filter:drop-shadow(0 0 6px rgba(126,182,255,.45));fill:var(--gem-blue)}
+/* Aether gem counters under portraits — 3x size */
+.aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
+.aether-display .gem{width:48px;height:48px;filter:drop-shadow(0 0 8px rgba(126,182,255,.45));fill:var(--gem-blue)}
+.aether-display .val{font-size:1.15rem}
 
-/* Trance placeholders */
-.trance-stack{display:flex;flex-direction:column;gap:4px;align-items:center;margin-top:2px}
-.trance{display:flex;align-items:center;gap:6px;color:var(--muted);opacity:.5}
+/* Trance placeholders (no “Trance 0” text in UI) */
+.trance-stack{display:flex;flex-direction:column;gap:6px;align-items:center;margin-top:4px}
+.trance{display:flex;align-items:center;gap:8px;color:var(--muted);opacity:.5}
 .trance.active{opacity:1}
-.trance .diamond{width:12px;height:12px;transform:rotate(45deg);background:linear-gradient(180deg,#2e2b3a,#1e1b25);border:1px solid #5d5980;box-shadow:0 0 8px #000 inset}
+.trance .diamond{width:14px;height:14px;transform:rotate(45deg);background:linear-gradient(180deg,#2e2b3a,#1e1b25);border:1px solid #5d5980;box-shadow:0 0 8px #000 inset}
 
 /* Corner placement */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
@@ -100,7 +101,7 @@ html,body{height:100%}
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
   width:min(1200px, 96vw); height:24vh; perspective:1200px;
-  pointer-events:auto; /* allow drag */
+  pointer-events:auto;
 }
 
 /* ===== Card ===== */
@@ -119,19 +120,19 @@ html,body{height:100%}
 
 /* Card content spacing */
 .card .title{padding:10px 10px 0 10px; font-weight:600}
-.card .type{opacity:.78; padding:0 10px 2px 10px; font-size:.9rem; margin-bottom:4px}
-.card .textbox{flex:1; padding:4px 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
+.card .type{opacity:.78; padding:0 10px 2px 10px; font-size:.9rem; margin-bottom:6px}
+.card .textbox{flex:1; padding:6px 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
 
-/* Aether cost gem on card bottom-right (intrinsic cost) */
+/* Cost (intrinsic) */
 .card .cost{position:absolute; right:10px; bottom:10px; font-size:1.05rem; opacity:.9; text-shadow:0 1px 2px #000}
 
-/* Aether discard value chip (bottom-left) */
+/* Aether discard value chip (bottom-left) — larger icon */
 .card .aether-chip{
   position:absolute; left:10px; bottom:10px; transform:translateY(1px);
   display:flex; align-items:center; gap:6px; z-index:3; filter:drop-shadow(0 1px 2px #000);
   user-select:none; pointer-events:none;
 }
-.aether-chip svg{width:24px;height:24px;display:block;fill:var(--gem-blue)} /* 300% bigger */
+.card .aether-chip .gem{width:24px;height:24px;display:block;fill:var(--gem-blue)}
 .aether-chip .val{font-weight:800;font-size:14px;letter-spacing:.02em;color:var(--ink);text-shadow:0 1px 0 #000, 0 0 6px #000}
 
 /* Pip tracker */
@@ -147,7 +148,7 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
-/* HUD / deck-discard buttons (unchanged visuals) */
+/* HUD */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
 .hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
 .hud-btn:hover{box-shadow:0 0 10px var(--gold)}
