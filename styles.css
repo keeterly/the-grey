@@ -26,6 +26,7 @@ html,body{height:100%}
   overflow:hidden;
 }
 
+/* Grid */
 #board-grid.grid{
   display:grid !important;
   grid-template-rows:auto auto auto !important;
@@ -44,28 +45,26 @@ html,body{height:100%}
 .hearts{display:flex;gap:6px;justify-content:center;margin-top:4px}
 .hearts::before{content:"\25CF \25CF \25CF \25CF \25CF"; letter-spacing:6px; color:#e8a2a2; text-shadow:0 0 6px #000}
 .trance{margin-top:2px;opacity:.8;font-size:.9rem}
-
-/* Aether readout */
 .aether-display{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{width:16px;height:16px;filter:drop-shadow(0 0 6px rgba(126,182,255,.45));fill:var(--gem-blue)}
-@keyframes gem-flash{0%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}25%{filter:drop-shadow(0 0 14px rgba(126,182,255,.95)) brightness(1.7); transform:scale(1.18)}55%{filter:drop-shadow(0 0 10px rgba(126,182,255,.65)) brightness(1.35); transform:scale(1.06)}100%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}}
+@keyframes gem-flash {0%{filter:drop-shadow(0 0 0 rgba(126,182,255,0))}25%{filter:drop-shadow(0 0 14px rgba(126,182,255,.95))}55%{filter:drop-shadow(0 0 10px rgba(126,182,255,.65))}100%{filter:drop-shadow(0 0 0 rgba(126,182,255,0))}}
 .aether-display.flash{animation:gem-flash 560ms ease-out}
-
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
 
-/* Board slot rows */
-#ai-slots.slot-row,#player-slots.slot-row{
-  display:grid !important; grid-auto-flow:column !important;
-  grid-template-columns:repeat(4,var(--card-w-board)) !important;
-  gap:16px !important; width:calc(var(--card-w-board)*4 + 16px*3) !important;
+/* Slot rows */
+#ai-slots.slot-row, #player-slots.slot-row{
+  display:grid !important;
+  grid-auto-flow:column !important;
+  grid-template-columns:repeat(4, var(--card-w-board)) !important;
+  gap:16px !important;
+  width:calc(var(--card-w-board)*4 + 16px*3) !important;
   max-width:96vw; place-items:center; margin-inline:auto;
 }
 
 /* Slots */
 .slot{
-  width:var(--card-w-board); height:var(--card-h-board);
-  border-radius:var(--card-radius-board);
+  width:var(--card-w-board); height:var(--card-h-board); border-radius:var(--card-radius-board);
   background:linear-gradient(180deg,#2b231b,#1a1511); border:1px solid #5a4b37;
   box-shadow:inset 0 0 18px rgba(0,0,0,.6), 0 8px 18px rgba(0,0,0,.35);
   display:grid;place-items:center;color:var(--muted);text-shadow:0 2px 10px #000; position:relative;
@@ -78,25 +77,24 @@ html,body{height:100%}
 .flow-wrap{display:flex; align-items:flex-start; gap:18px;}
 .flow-title-rail{width:36px; display:flex; justify-content:center;}
 .flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; margin-top:6px; user-select:none}
-
 #flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
   width:calc(var(--card-w-board)*5 + 14px*4 + 24px) !important;
-  max-width:98vw;
   display:grid !important; grid-template-columns:repeat(5, var(--card-w-board)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
-
 .flow-card{display:block;width:var(--card-w-board);height:var(--card-h-board)}
-.flow-card .card{position:relative;left:0;top:0;transform:none;width:var(--card-w-board);height:var(--card-h-board);border-radius:var(--card-radius-board)}
-.flow-card .price-label{display:none}
+.flow-card .card{position:relative;left:0;top:0;transform:none}
 
 /* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
-.hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px,96vw); height:24vh; perspective:1200px; pointer-events:auto}
-.dragging-mode .hand{pointer-events:none}
+.hand{
+  position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
+  width:min(1200px, 96vw); height:24vh; perspective:1200px;
+  pointer-events:auto;
+}
 
-/* Card base */
+/* Card */
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
@@ -107,23 +105,23 @@ html,body{height:100%}
   user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; touch-action:none;
 }
 .card *{user-select:none; -webkit-user-select:none; -webkit-touch-callout:none}
-.card.dragging,.card.touch-dragging{opacity:.98; box-shadow:0 0 22px rgba(126,182,255,.55), 0 16px 40px rgba(0,0,0,.9) !important; filter:drop-shadow(0 0 12px rgba(126,182,255,.45)); outline:1px solid rgba(126,182,255,.55)}
+.card.dragging{opacity:.98; box-shadow:0 0 26px var(--aether), 0 16px 40px #000}
 .card:hover{z-index:9999 !important; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.07)}
 
+/* Card content */
 .card .title{padding:10px 10px 0 10px; font-weight:600}
 .card .type{opacity:.78; padding:0 10px 4px 10px; font-size:.9rem}
 .card .textbox{flex:1; padding:0 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
 .card .cost{position:absolute; right:10px; bottom:10px; font-size:1.05rem; opacity:.9; text-shadow:0 1px 2px #000}
 
-/* Bottom-left Aether chip (also used by Flow) */
-.card .aether-chip{ position:absolute; left:10px; bottom:10px; transform:translateY(1px); display:flex; align-items:center; gap:6px; z-index:3; filter:drop-shadow(0 1px 2px #000); user-select:none; pointer-events:none; }
+/* Aether chip */
+.card .aether-chip{
+  position:absolute; left:10px; bottom:10px; transform:translateY(1px);
+  display:flex; align-items:center; gap:6px; z-index:3; filter:drop-shadow(0 1px 2px #000);
+  user-select:none; pointer-events:none;
+}
 .aether-chip svg{width:16px;height:16px;display:block;fill:var(--gem-blue)}
 .aether-chip .val{font-weight:800;font-size:12px;letter-spacing:.02em;color:var(--ink);text-shadow:0 1px 0 #000, 0 0 6px #000}
-
-/* Pip tracker */
-.card .pip-track{position:absolute; left:50%; bottom:10px; transform:translateX(-50%); display:flex; gap:6px; z-index:3}
-.pip{width:9px;height:9px;border-radius:50%;border:1px solid var(--gold);background:#0007;box-shadow:0 0 6px #000}
-.pip.filled{background:var(--gold);box-shadow:0 0 10px var(--gold)}
 
 /* Peek / Zoom */
 #preview-layer{position:fixed; inset:0; z-index:50; pointer-events:none}
@@ -133,110 +131,23 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
-/* HUD + toggles (left top for mobile landscape you already use) */
-.hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
-.hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
-.hud-btn:hover{box-shadow:0 0 10px var(--gold)}
-.drop-target.drop-ready{outline:2px dashed var(--aether); outline-offset:4px; box-shadow:0 0 20px rgba(126,182,255,.45)}
-.badge{ position:absolute; right:6px; bottom:6px; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#1f1712; color:var(--ink); border:1px solid #4a3d2f; font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000; }
-
-.toggles{ position:fixed; left:8px; top:8px; display:flex; gap:8px; z-index:32; }
-.zoom-toggle, .layout-toggle{ padding:8px 12px; border-radius:999px; border:1px solid #4a3d2f; background:#2a211a; color:#fff; font-weight:700; box-shadow:0 4px 10px #000; display:none; }
-.zoom-toggle[aria-pressed="true"], .layout-toggle[aria-pressed="true"]{ box-shadow:0 0 10px var(--aether); }
-
-.toast{ position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70 }
-.toast.show{opacity:1}
-
-/* ========== MOBILE: make board text & padding 50% smaller ========== */
-/* Applies to both portrait and landscape on phones */
-@media (max-width: 820px) {
-  /* Slots (AI/Player boards) */
-  .slot{ font-size: .7rem; }
-  .slot::after{ inset: 6px; } /* ~40% thinner, looks good with font cut */
-  /* Card faces used on boards (Flow & any placed cards) */
-  .flow-card .card .title{ padding:6px 6px 0 6px; font-size:.75rem }
-  .flow-card .card .type{ padding:0 6px 2px 6px; font-size:.62rem }
-  .flow-card .card .textbox{ padding:0 6px 16px 6px; font-size:.70rem; line-height:1.14 }
-  /* Player/AI slot label text (just center text) is scaled by .slot font-size */
+/* HUD */
+.hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:10px; z-index:30}
+.hud-btn{ width:56px; height:56px; border-radius:12px; border:1px solid #4a3d2f; background:#2a211a; color:var(--ink); box-shadow:0 4px 10px #000; font-weight:700; display:grid; place-items:center; position:relative; }
+.hud-btn:hover{ box-shadow:0 0 10px var(--gold); }
+.drop-target{position:relative}
+.drop-target.drop-ready{ outline:2px dashed var(--aether); outline-offset:4px; box-shadow:0 0 20px rgba(126,182,255,.45) }
+.badge{
+  position:absolute; right:6px; bottom:6px; min-width:20px; height:20px; padding:0 6px;
+  border-radius:999px; background:#1f1712; color:var(--ink); border:1px solid #4a3d2f;
+  font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000;
 }
 
-/* ===== PHONE LANDSCAPE (tight layout already) ===== */
-@media (orientation: landscape) and (max-height: 480px){
-  :root{
-    --card-w-board: calc(var(--card-w) * 0.64);
-    --card-h-board: calc(var(--card-h) * 0.64);
-    --card-radius-board: calc(var(--card-radius) * 0.55);
-    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
-  }
-  .zoom-toggle,.layout-toggle{display:inline-block}
-  #board-grid.grid{row-gap:14px; padding:8px 8px calc(22vh + 6px)}
-  .flow-title-rail{display:none}
-
-  #flow-row.flow-row{
-    width:auto !important; max-width:96vw;
-    display:flex !important; gap:8px !important; padding:8px;
-    overflow-x:auto; overflow-y:hidden; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
-  }
-  #ai-slots.slot-row,#player-slots.slot-row{gap:8px !important}
-
-  /* board text/padding already reduced by the global mobile rules */
-  .portrait img{width:58px;height:58px}
-  .row.player .portrait{left:6px;bottom:6px}
-  .row.ai     .portrait{right:6px;top:6px}
-  .portrait{font-size:.9rem}
-
-  .hud{right:6px; bottom:12vh; gap:8px}
-  .hud-btn{width:54px;height:54px;border-radius:10px}
-  .badge{right:4px;bottom:4px;min-width:18px;height:18px;font-size:11px;line-height:16px}
-
-  .hand-wrap{height:22vh}
-  .hand{bottom:1vh;height:21vh}
-}
-
-/* LANDSCAPE — ZOOMED */
-@media (orientation: landscape) and (max-height: 480px){
-  body.board-zoom75{
-    --card-w-board: calc(var(--card-w) * 0.52);
-    --card-h-board: calc(var(--card-h) * 0.52);
-    --card-radius-board: calc(var(--card-radius) * 0.45);
-    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
-  }
-  body.board-zoom75 #board-grid.grid{row-gap:8px; padding:4px 6px calc(20vh + 4px)}
-  body.board-zoom75 #flow-row.flow-row{gap:6px !important; padding:6px; max-width:96vw}
-  body.board-zoom75 #ai-slots.slot-row, body.board-zoom75 #player-slots.slot-row{gap:6px !important}
-  body.board-zoom75 .portrait img{width:54px;height:54px}
-  body.board-zoom75 .portrait{font-size:.86rem}
-  body.board-zoom75 .hud-btn{width:50px;height:50px;border-radius:9px}
-  body.board-zoom75 .badge{min-width:16px;height:16px;font-size:10px;line-height:14px}
-}
-
-/* ALT LAYOUT: VERTICAL FLOW LEFT */
-@media (orientation: landscape) and (max-height: 480px){
-  body.layout-vertflow #board-grid.grid{
-    grid-template-areas:"flow ai" "flow player";
-    grid-template-columns:minmax(0,var(--flow-rail-w)) 1fr;
-    grid-template-rows:1fr 1fr;
-    align-items:center; row-gap:10px; column-gap:12px; padding:8px 8px calc(22vh + 6px);
-  }
-  body.layout-vertflow .flow-wrap{width:100%; height:100%; align-items:stretch; gap:0}
-  body.layout-vertflow #flow-row.flow-row{
-    display:flex !important; flex-direction:column; align-items:center; gap:8px !important;
-    width:100%; height:calc(100% - var(--flow-rail-pad)*2); max-height:calc(100% - var(--flow-rail-pad)*2);
-    padding:var(--flow-rail-pad); margin:0; overflow-y:auto; overflow-x:hidden;
-    scroll-snap-type:y mandatory; -webkit-overflow-scrolling:touch;
-    background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
-  }
-  body.layout-vertflow .flow-card{flex:0 0 auto; width:var(--card-w-board); height:var(--card-h-board); scroll-snap-align:start}
-  body.layout-vertflow .flow-card .card{width:var(--card-w-board); height:var(--card-h-board); border-radius:var(--card-radius-board)}
-  body.layout-vertflow #ai-slots.slot-row, body.layout-vertflow #player-slots.slot-row{gap:8px !important; width:calc(var(--card-w-board)*4 + 8px*3) !important}
-}
-
-@media (orientation: landscape) and (max-height: 480px){
-  body.layout-vertflow.board-zoom75{
-    --card-w-board: calc(var(--card-w) * 0.52);
-    --card-h-board: calc(var(--card-h) * 0.52);
-    --card-radius-board: calc(var(--card-radius) * 0.45);
-    --flow-rail-w: calc(var(--card-w-board) + var(--flow-rail-pad)*2 + 2px);
-  }
-  body.layout-vertflow.board-zoom75 #board-grid.grid{column-gap:10px; row-gap:8px; padding:6px 6px calc(20vh + 4px)}
+/* Mobile: smaller board text/padding */
+@media (max-width: 820px){
+  .slot{font-size:.7rem}
+  .slot::after{inset:6px}
+  .flow-card .card .title{padding:6px 6px 0 6px; font-size:.75rem}
+  .flow-card .card .type{padding:0 6px 2px 6px; font-size:.62rem}
+  .flow-card .card .textbox{padding:0 6px 16px 6px; font-size:.70rem; line-height:1.14}
 }
