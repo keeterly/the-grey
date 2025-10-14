@@ -1,6 +1,5 @@
-/* ===== Grey Animations bootstrap — ADD THIS BLOCK AT THE VERY TOP (v2.571-safe) ===== */
+/* ===== Grey Animations bootstrap (idempotent) ===== */
 (() => {
-  // Idempotent bus (won’t overwrite an existing one)
   const Grey = (function ensureBus() {
     if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
     const listeners = new Map();
@@ -11,9 +10,7 @@
     };
     const off = (name, fn) => listeners.get(name)?.delete(fn);
     const emit = (name, detail) => {
-      (listeners.get(name) || []).forEach(fn => {
-        try { fn(detail); } catch (e) { console.error('[Grey handler]', name, e); }
-      });
+      (listeners.get(name) || []).forEach(fn => { try { fn(detail); } catch {} });
     };
     const safeEmit = (name, detail) => { try { emit(name, detail); } catch {} };
     const bus = { on, off, emit, safeEmit };
@@ -21,23 +18,12 @@
     return bus;
   })();
 
-  // Load animations once, without changing your flow
+  // Load animations without blocking
   async function loadAnimationsOnce() {
     if (window.__greyAnimationsLoaded__) return;
-    try {
-      await import('./animations.js');
-    } catch (e) {
-      // Fallback for older loaders – still no-op if it fails
-      const s = document.createElement('script');
-      s.type = 'module';
-      s.src = './animations.js';
-      s.onload = () => {};
-      s.onerror = () => console.warn('[Grey] animations fallback failed');
-      document.head.appendChild(s);
-    }
+    try { await import('./animations.js?v=2571'); }
+    catch { /* no-op */ }
   }
-
-  // Start loading ASAP, but don’t block your existing code
   loadAnimationsOnce();
 })();
 
@@ -52,8 +38,7 @@ import {
   setGlyphFromHand,
   buyFromFlow,
   discardForAether,
-  withAetherText,
-  AE_GEM_SVG
+  withAetherText
 } from "./GameLogic.js";
 
 /* ------- DOM helpers ------- */
@@ -87,6 +72,18 @@ const zoomCardEl    = $("zoom-card");
 
 /* ------- state ------- */
 let state = initState();
+
+/* ------- animation emit helpers (safe) ------- */
+const A = {
+  drawn(nodes){ window.Grey?.safeEmit?.('cards:drawn', { nodes }); },
+  flowReveal(node){ window.Grey?.safeEmit?.('aetherflow:reveal', { node }); },
+  flowFalloff(node){ window.Grey?.safeEmit?.('aetherflow:falloff', { node }); },
+  flowBought(node){ window.Grey?.safeEmit?.('aetherflow:bought', { node }); }
+};
+
+/* ------- previous snapshots for diffing ------- */
+let prevHandIds = [];              // array of card ids in hand
+let prevFlowIds = [null,null,null,null,null]; // array of flow ids (or null)
 
 /* ------- toast ------- */
 let toastEl;
@@ -413,9 +410,26 @@ function renderSlots(container, snapshot, isPlayer){
 
 /* ------------------------------------------------
    Flow (river): uses s.flow; click-to-buy
+   Emits: reveal/falloff/bought
 -------------------------------------------------*/
 function renderFlow(flowArray){
   if (!flowRowEl) return;
+
+  // capture existing nodes (to animate falloff before we remove them)
+  const oldCardsByIndex = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
+
+  // compute falloffs by comparing prevFlowIds to incoming flowArray
+  const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
+  prevFlowIds.forEach((prevId, idx) => {
+    if (!prevId) return;
+    const incoming = nextIds[idx];
+    if (incoming !== prevId) {
+      const oldNode = oldCardsByIndex[idx];
+      if (oldNode) A.flowFalloff(oldNode);
+    }
+  });
+
+  // now rebuild DOM
   flowRowEl.replaceChildren();
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li"); li.className = "flow-card";
@@ -426,16 +440,22 @@ function renderFlow(flowArray){
     if (c){ card.innerHTML = cardHTML(c); attachPeekAndZoom(card, c); }
     else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div>`; }
 
+    // BUY -> spotlight + fly, then state update + render
     if (c){
       card.addEventListener("click", ()=>{
-        try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); render(); }
-        catch(err){ toast(err?.message || "Cannot buy"); }
+        // signal bought on the *current* DOM node before it disappears
+        A.flowBought(card);
+        try{
+          state = buyFromFlow(state, "player", idx);
+          toast("Bought to discard");
+          render();
+        } catch(err){ toast(err?.message || "Cannot buy"); }
       });
     }
 
     li.appendChild(card);
 
-    // fixed price rail (4,3,3,2,2 by position)
+    // price rail
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
     const PRICE_BY_POS = [4,3,3,2,2];
@@ -443,16 +463,22 @@ function renderFlow(flowArray){
     li.appendChild(priceLbl);
 
     flowRowEl.appendChild(li);
+
+    // REVEAL: previously empty at this index → now has card
+    if (!prevFlowIds[idx] && c) {
+      A.flowReveal(card);
+    }
   });
+
+  // update snapshot
+  prevFlowIds = nextIds;
 }
 
 /* ------------------------------------------------
-   Render root
+   Render root (diffs to trigger animations)
 -------------------------------------------------*/
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
-
-  // don’t mutate original player structures here beyond counts
   if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],deckCount:0};
   if (!Array.isArray(s.player.hand)) s.player.hand=[];
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
@@ -486,12 +512,18 @@ function render(){
 
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
+
+  // ---- Flow (with reveal/falloff emits) ----
   renderFlow(s.flow);
 
-  // hand
+  // ---- Hand (with draw detection) ----
   if (handEl){
+    // record previous -> new diff
+    const oldIds = prevHandIds;
     handEl.replaceChildren();
     const els = [];
+    const newIds = [];
+
     (s.players?.player?.hand || []).forEach(c=>{
       const el = document.createElement("article");
       el.className = "card";
@@ -515,8 +547,18 @@ function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
       handEl.appendChild(el); els.push(el);
+      newIds.push(c.id);
     });
+
+    // fan
     layoutHand(handEl, els);
+
+    // DRAW ANIMATION: any ids that are in newIds but not in oldIds
+    const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
+    if (addedNodes.length) A.drawn(addedNodes);
+
+    // snapshot
+    prevHandIds = newIds;
   }
 }
 
@@ -525,16 +567,16 @@ function render(){
 -------------------------------------------------*/
 function doStartTurn(){
   state = startTurn(state);
-  // draw up to 5 if desired at start (optional; comment if not needed)
-  // state = drawN(state, "player", Math.max(0, 5 - (state.players.player.hand?.length||0)));
+  // Optional: uncomment to actually draw to hand at start of turn
+  // const need = Math.max(0, 5 - (state.players.player.hand?.length||0));
+  // if (need) { state = drawN(state, "player", need); }
   render();
 }
 
 function doEndTurn(){
-  // (Optionally discard remaining hand, then draw—left to your game rules)
   state = endTurn(state);        // shift river + switch player + reveal for next
   if (state.activePlayer === "ai"){
-    state = aiTakeTurn(state);   // stub; no-ops by default
+    state = aiTakeTurn(state);   // stub; no-ops
     state = endTurn(state);      // pass back to player and reveal again
   }
   render();
@@ -554,45 +596,6 @@ document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom()
    Boot
 -------------------------------------------------*/
 document.addEventListener("DOMContentLoaded", ()=>{
-  // reveal the first flow card at game start
   state = startTurn(state);
   render();
 });
-
-
-/* ============================================================
-   v2.571 — Animations harness (safe / optional)
-   - No visual changes.
-   - Loads animations module only if it exists.
-   - Exposes Grey.emit(...) you can call later.
-   ============================================================ */
-
-const Grey = window.Grey ?? (window.Grey = {
-  on(type, fn, opts)  { document.addEventListener(type, fn, opts); },
-  off(type, fn, opts) { document.removeEventListener(type, fn, opts); },
-  emit(type, detail={}) {
-    document.dispatchEvent(new CustomEvent(type, { detail, bubbles:true }));
-  }
-});
-
-async function loadAnimationsModule() {
-  try {
-    await import('./animations.js?v=2571'); // cache-bust to avoid iOS stale cache
-  } catch (_) {
-    // animations.js not present yet — totally fine, remain no-op
-  }
-}
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => queueMicrotask(loadAnimationsModule));
-} else {
-  queueMicrotask(loadAnimationsModule);
-}
-
-/* Example signals you'll wire later (do not add yet):
-Grey.emit('cards:drawn',   { nodes: [/* DOM nodes of drawn cards *\/] });
-Grey.emit('cards:discard', { nodes: [/* DOM nodes discarded *\/] });
-Grey.emit('flow:reveal',   { node: /* newly revealed flow card *\/ });
-Grey.emit('flow:falloff',  { node: /* rightmost flow card *\/ });
-Grey.emit('flow:purchase', { node: /* bought flow card *\/ });
-*/
