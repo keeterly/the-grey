@@ -1,377 +1,271 @@
-import { initState, serializePublic, playCardToSpellSlot, setGlyphFromHand, buyFromFlow } from "./GameLogic.js";
+import {
+  initState, snapshot, startOfTurn, endOfTurn,
+  buyFromFlow, playCardToSpellSlot, setGlyphFromHand, discardForAether
+} from "./GameLogic.js";
 
-/* ------------ tiny helpers ------------ */
-const $ = id => document.getElementById(id);
-const set = (el, fn) => { if (el) fn(el); };
-const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+/* ------- helpers ------- */
+const $ = (id)=> document.getElementById(id);
+const el = (sel,root=document)=> root.querySelector(sel);
 
-/* ------------ DOM refs ------------ */
-const aiSlotsEl     = $("ai-slots");
-const playerSlotsEl = $("player-slots");
-const flowRowEl     = $("flow-row");
-const handEl        = $("hand");
+/* UI refs */
+const aiSlotsEl      = $("ai-slots");
+const playerSlotsEl  = $("player-slots");
+const flowRowEl      = $("flow-row");
+const flowCostRail   = $("flow-cost-rail");
+const handEl         = $("hand");
+const zoomOverlayEl  = $("zoom-overlay");
+const zoomCardEl     = $("zoom-card");
+const peekEl         = $("peek-card");
 
-const playerPortrait= $("player-portrait");
-const aiPortrait    = $("ai-portrait");
-const playerName    = $("player-name");
-const aiName        = $("ai-name");
+const playerGemCount = $("player-gem-count");
+const aiGemCount     = $("ai-gem-count");
+const playerHearts   = $("player-hearts");
+const aiHearts       = $("ai-hearts");
 
-/* bars */
-const playerHearts  = $("player-hearts");
-const aiHearts      = $("ai-hearts");
-const playerGem     = $("player-gem");
-const aiGem         = $("ai-gem");
-const playerGemCount= $("player-gem-count");
-const aiGemCount    = $("ai-gem-count");
-const pTrI          = $("p-trance-I");
-const pTrII         = $("p-trance-II");
-const aTrI          = $("a-trance-I");
-const aTrII         = $("a-trance-II");
+const hudDiscard     = $("btn-discard-hud");
+const hudDeck        = $("btn-deck-hud");
+const hudDiscardCount= $("hud-discard-count");
+const hudDeckCount   = $("hud-deck-count");
 
-/* preview/zoom */
-const peekEl        = $("peek-card");
-const zoomOverlayEl = $("zoom-overlay");
-const zoomCardEl    = $("zoom-card");
+/* ------- state ------- */
+let state = initState();
+state = startOfTurn(state);
 
-/* buttons */
-$("btn-end-turn")?.addEventListener("click", onEndTurn);
+/* ------- icons ------- */
+const gemSVG = '<svg viewBox="0 0 24 24" width="14" height="14" class="i-gem"><path fill="currentColor" d="M12 2l6 6-6 14L6 8l6-6z"/></svg>';
+const heartSVG = '<svg viewBox="0 0 24 24" width="22" height="22"><path fill="#f1a9a9" d="M12 21s-6.7-4.35-9.33-8.05C1.18 11.1 1 9.86 1 8.9 1 6.2 3.2 4 5.9 4c1.6 0 3.1.77 4.1 1.97C11 4.77 12.5 4 14.1 4 16.8 4 19 6.2 19 8.9c0 .96-.18 2.2-1.67 4.05C18.7 16.65 12 21 12 21z"/></svg>';
 
-let state = initState({});
-
-/* ------------ svg helpers ------------ */
-function gemSVG(cls="gem"){ 
-  return `<svg class="${cls}" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg>`; 
+/* ------- utility ------- */
+function renderHearts(container, n=5){
+  container.replaceChildren();
+  for (let i=0;i<n;i++){ const d=document.createElement("div"); d.innerHTML=heartSVG; container.appendChild(d.firstChild); }
 }
-function heartSVG(){ 
-  return `<svg viewBox="0 0 20 18" aria-hidden="true">
-    <path class="heart-stroke" d="M10 16s-6-3.5-8-7.5C.2 4.3 2 2 4.5 2 6.2 2 7.6 3 8.3 4.3 9 3 10.4 2 12 2 14.5 2 16.3 4.3 18 8.5 16 12.5 10 16 10 16z"/>
-    <path class="heart-fill" d="M10 15.2S4.7 12.2 2.9 8.8C1.7 6.5 3 4.5 4.9 4.5c1.3 0 2.3.8 2.8 2 .5-1.2 1.5-2 2.8-2 1.8 0 3.3 1.7 2 4.4C12.7 12.2 10 15.2 10 15.2z"/>
-  </svg>`;
-}
-
-/* ------------ toast ------------ */
-let toastEl;
-function toast(msg, ms=1100){
-  if (!toastEl){
-    toastEl = document.createElement("div");
-    toastEl.className = "toast";
-    document.body.appendChild(toastEl);
-  }
-  toastEl.textContent = msg;
-  toastEl.classList.add("show");
-  setTimeout(()=> toastEl.classList.remove("show"), ms);
+function cardHTML(c){
+  // replace :GEM: with inline icon
+  const text = (c.text||"").replaceAll(":GEM:", `<span class="inline-gem">${gemSVG}</span>`);
+  // pip dots
+  const pips = c.pip? `<div class="pip-track">${Array.from({length:c.pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
+  const aether = c.aetherValue>0 ? `<div class="aether-chip">${gemSVG}<span class="val">${c.aetherValue}</span></div>` : "";
+  return `
+    <div class="title">${c.name}</div>
+    <div class="type">${c.type}${c.cost?` — Cost ${gemSVG} ${c.cost}`:""}</div>
+    <div class="textbox">${text}</div>
+    ${pips}
+    ${aether}
+  `;
 }
 
-/* ------------ hand layout (MTGA-like) ------------ */
-function layoutHand(container, cards) {
-  const N = cards.length; if (!N || !container) return;
-  const MAX_ANGLE = 22, MIN_ANGLE = 4, MAX_SPREAD_PX = container.clientWidth * 0.70, LIFT_BASE = 40;
-  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*2.2, MIN_ANGLE, MAX_ANGLE);
-  const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
-  const spread = Math.min(MAX_SPREAD_PX, 760);
-  const stepX = (N===1) ? 0 : spread/(N-1), startX = -spread/2;
-
+/* ------- layout hand (fan) ------- */
+function layoutHand(){
+  const cards = Array.from(handEl.children);
+  const N = cards.length; if (!N) return;
+  const MAX_ANGLE=24, MIN_ANGLE=6;
+  const totalAngle = (N===1)?0:Math.min(MAX_ANGLE, MIN_ANGLE + (N-2)*2.4);
+  const step = (N===1)?0: totalAngle/(N-1), startAngle=-totalAngle/2;
+  const spread = Math.min(handEl.clientWidth*0.70, 880);
+  const stepX = (N===1)?0: spread/(N-1), startX = -spread/2;
   cards.forEach((el,i)=>{
-    const a = startAngle + step*i;
-    const rad = a*Math.PI/180;
+    const a = startAngle+step*i;
+    const rad = a*Math.PI/180; const LIFT=34;
     const x = startX + stepX*i;
-    const y = LIFT_BASE - Math.cos(rad) * (LIFT_BASE*0.82);
-    el.style.setProperty("--tx", `${x}px`);
-    el.style.setProperty("--ty", `${y}px`);
-    el.style.setProperty("--rot", `${a}deg`);
-    el.style.zIndex = String(400+i);
+    const y = LIFT - Math.cos(rad)*(LIFT*0.78);
+    el.style.setProperty('--tx',`${x}px`);
+    el.style.setProperty('--ty',`${y}px`);
+    el.style.setProperty('--rot',`${a}deg`);
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
+    el.style.zIndex = String(400+i);
   });
 }
 
-/* ------------ peek & zoom ------------ */
-function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
-function fillCardShell(div, data){
-  if (!div) return;
-  const pip = Math.max(0, Number(data.pip||0));
-  const pips = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map((_,i)=>`<span class="pip filled"></span>`).join("")}</div>` : "";
-  const chip = (data.aetherValue>0) ? `
-    <div class="aether-chip">${gemSVG("gem")}<span class="val">${data.aetherValue}</span></div>` : "";
-  div.innerHTML = `
-    <div class="title">${data.name}</div>
-    <div class="type">${data.type}${data.price?` — Cost ${gemSVG("gem")} ${data.price}`:""}</div>
-    <div class="textbox">${(data.text||"")}</div>
-    ${chip}${pips}
-  `;
-}
-function attachPeekAndZoom(el, data){
+/* ------- drag & preview ------- */
+let longPressTimer=null, pressStart={x:0,y:0};
+const LONG_MS=350, MOVE_CANCEL=8;
+function attachPeekAndZoom(el, card){
   if (peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
+    el.addEventListener("mouseenter", ()=>{ peekEl.innerHTML=cardHTML(card); peekEl.classList.add("show"); });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
-  let tId;
-  el.addEventListener("pointerdown", (ev)=>{
-    clearTimeout(tId);
-    tId = setTimeout(()=>{
-      if (zoomOverlayEl && zoomCardEl){ fillCardShell(zoomCardEl, data); zoomOverlayEl.setAttribute("data-open","true"); }
-    }, 360);
-  }, {passive:true});
-  ["pointerup","pointercancel","pointerleave"].forEach(e=> el.addEventListener(e, ()=> clearTimeout(tId), {passive:true}));
+  const onDown = (ev)=>{
+    if (longPressTimer) clearTimeout(longPressTimer);
+    const t = ev.touches?.[0] || ev;
+    pressStart={x:t.clientX,y:t.clientY};
+    longPressTimer=setTimeout(()=>{
+      if (zoomOverlayEl && zoomCardEl){
+        zoomCardEl.innerHTML = cardHTML(card);
+        zoomOverlayEl.setAttribute("data-open","true");
+      }
+    }, LONG_MS);
+  };
+  const cancel=()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
+  const onMove=(ev)=>{ const t = ev.touches?.[0] || ev; if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y)>MOVE_CANCEL) cancel(); };
+  el.addEventListener("pointerdown", onDown, {passive:true});
+  el.addEventListener("pointerup", cancel, {passive:true});
+  el.addEventListener("pointerleave", cancel, {passive:true});
+  el.addEventListener("pointercancel", cancel, {passive:true});
+  el.addEventListener("pointermove", onMove, {passive:true});
 }
-zoomOverlayEl?.addEventListener("click", closeZoom);
-document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
+zoomOverlayEl?.addEventListener("click", ()=> zoomOverlayEl.setAttribute("data-open","false"));
 
-/* ------------ drag & drop ------------ */
-function dragifyCard(el, data){
+function makeDraggable(el, card){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
     el.classList.add("dragging");
-    ev.dataTransfer?.setData("text/card-id", data.id);
-    ev.dataTransfer?.setData("text/card-type", data.type);
-
-    // show pulses on legal targets
-    document.querySelectorAll('.slot').forEach(s=>{
-      const isGlyph = s.classList.contains("glyph");
-      if ((data.type==="SPELL" && !isGlyph) || (data.type==="GLYPH" && isGlyph)) s.classList.add("accept");
-    });
-
-    // ghost
-    const ghost = el.cloneNode(true);
-    ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
+    ev.dataTransfer?.setData("text/card-id", card.id);
+    ev.dataTransfer?.setData("text/card-type", card.type);
+    const ghost = el.cloneNode(true); ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
     ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
     setTimeout(()=> ghost.remove(), 0);
+    // pulse valid targets
+    document.querySelectorAll(".slot").forEach(s=>{
+      const ok = (card.type==="SPELL" && s.classList.contains("spell")) ||
+                 (card.type==="GLYPH" && s.classList.contains("glyph"));
+      if (ok) s.classList.add("pulse");
+    });
+    hudDiscard.classList.add("pulse","drop-ready");
   });
   el.addEventListener("dragend", ()=>{
     el.classList.remove("dragging");
-    document.querySelectorAll('.slot.accept').forEach(s=> s.classList.remove("accept"));
+    document.querySelectorAll(".slot").forEach(s=> s.classList.remove("pulse","drag-over"));
+    hudDiscard.classList.remove("pulse","drop-ready");
   });
 }
 
-function makeSlotDroppable(dEl, i, isGlyph, isPlayer){
-  if (!isPlayer) return; // no drops on opponent
-  dEl.addEventListener("dragover", (ev)=>{
-    const t = ev.dataTransfer?.getData("text/card-type");
-    if ((t==="SPELL" && !isGlyph) || (t==="GLYPH" && isGlyph)){ ev.preventDefault(); dEl.classList.add("accept"); }
+/* ------- render pieces ------- */
+function renderFlow(s){
+  flowRowEl.replaceChildren();
+  s.flowSlots.forEach((c,idx)=>{
+    const li = document.createElement("li"); li.className="flow-card";
+    const cardEl = document.createElement("article"); cardEl.className="card market";
+    if (c){ cardEl.innerHTML = cardHTML(c); }
+    else { cardEl.innerHTML = `<div class="title">Empty</div><div class="type">— Cost</div>`; }
+    li.appendChild(cardEl);
+    flowRowEl.appendChild(li);
+
+    // click to buy
+    cardEl.addEventListener("click", ()=>{
+      try{
+        state = buyFromFlow(state, "player", idx);
+        // spotlight then bump discard counter
+        cardEl.classList.add("spotlight");
+        setTimeout(()=>{ render(); }, 160);
+      }catch(err){ toast(err.message||"Can't buy"); }
+    });
   });
-  dEl.addEventListener("dragleave", ()=> dEl.classList.remove("accept"));
-  dEl.addEventListener("drop", (ev)=>{
-    ev.preventDefault(); dEl.classList.remove("accept");
-    const cardId   = ev.dataTransfer?.getData("text/card-id");
-    const cardType = ev.dataTransfer?.getData("text/card-type");
-    if (!cardId) return;
 
-    try{
-      if (!isGlyph && cardType==="SPELL"){ state = playCardToSpellSlot(state, "player", cardId, i); render(); return; }
-      if ( isGlyph && cardType==="GLYPH"){ state = setGlyphFromHand(state, "player", cardId); render(); return; }
-    }catch(err){ toast(err?.message || "Cannot play here"); }
+  // cost rail
+  flowCostRail.replaceChildren();
+  (s.flowCosts||[]).forEach(cost=>{
+    const c = document.createElement("div"); c.className="cell"; c.innerHTML = `${gemSVG} ${cost} to buy`; flowCostRail.appendChild(c);
   });
 }
 
-/* ------------ render helpers ------------ */
-function renderHearts(container, n=5){
-  if (!container) return; container.replaceChildren();
-  for(let i=0;i<n;i++){ const span = document.createElement("span"); span.innerHTML = heartSVG(); container.appendChild(span); }
-}
-function renderPortraitBars(){
-  renderHearts(playerHearts, 5); renderHearts(aiHearts, 5);
-  playerGem.innerHTML = gemSVG("gem"); aiGem.innerHTML = gemSVG("gem");
-  playerGemCount.textContent = String(state.players?.player?.aether ?? 0);
-  aiGemCount.textContent     = String(state.players?.ai?.aether ?? 0);
-
-  // trance (placeholder active I only)
-  [pTrI, aTrI].forEach(el=> el?.classList.add("active"));
-  [pTrII, aTrII].forEach(el=> el?.classList.remove("active"));
-}
-
-function cardHTML(c){
-  const pip = Math.max(0, Number(c.pip||0));
-  const pips = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>`<span class="pip filled"></span>`).join("")}</div>` : "";
-  const chip = (c.aetherValue>0) ? `<div class="aether-chip">${gemSVG("gem")}<span class="val">${c.aetherValue}</span></div>` : "";
-  return `
-    <div class="title">${c.name}</div>
-    <div class="type">${c.type}${c.price?` — Cost ${gemSVG("gem")} ${c.price}`:""}</div>
-    <div class="textbox">${c.text||""}</div>
-    ${chip}${pips}
-  `;
-}
-
-function renderSlots(container, snapshot, isPlayer){
-  if (!container) return;
+function renderSlots(container, slots, isPlayer){
   container.replaceChildren();
-  const safe = Array.isArray(snapshot) ? snapshot : [];
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
-    d.className = "slot spell";
-    const slot = safe[i] || {hasCard:false, card:null};
-    if (slot.hasCard && slot.card){
-      const inner = document.createElement("article"); inner.className="card"; inner.innerHTML = cardHTML(slot.card);
-      attachPeekAndZoom(inner, slot.card);
-      d.appendChild(inner);
-    }else{
-      d.textContent = "Spell Slot";
+    d.className = "slot spell"; d.textContent="Spell Slot";
+    if (isPlayer){
+      d.addEventListener("dragover", (ev)=>{
+        const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }
+      });
+      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
+      d.addEventListener("drop", (ev)=>{
+        ev.preventDefault(); d.classList.remove("drag-over");
+        const id = ev.dataTransfer?.getData("text/card-id");
+        const t  = ev.dataTransfer?.getData("text/card-type");
+        if (t!=="SPELL") return;
+        try{ state = playCardToSpellSlot(state,"player",id,i); render(); }
+        catch(err){ toast(err.message||"Can't play"); }
+      });
     }
-    makeSlotDroppable(d, i, false, isPlayer);
     container.appendChild(d);
   }
-  // glyph
   const g = document.createElement("div");
-  g.className = "slot glyph";
-  const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
-  if (glyphSlot.hasCard && glyphSlot.card){
-    const inner = document.createElement("article"); inner.className="card"; inner.innerHTML = cardHTML(glyphSlot.card);
-    attachPeekAndZoom(inner, glyphSlot.card);
-    g.appendChild(inner);
-  }else{
-    g.textContent = "Glyph Slot";
+  g.className = "slot glyph"; g.textContent = "Glyph Slot";
+  if (isPlayer){
+    g.addEventListener("dragover", (ev)=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }});
+    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
+    g.addEventListener("drop", (ev)=>{
+      ev.preventDefault(); g.classList.remove("drag-over");
+      const id = ev.dataTransfer?.getData("text/card-id");
+      const t  = ev.dataTransfer?.getData("text/card-type");
+      if (t!=="GLYPH") return;
+      try{ state = setGlyphFromHand(state,"player",id); render(); }
+      catch(err){ toast(err.message||"Can't set glyph"); }
+    });
   }
-  makeSlotDroppable(g, 3, true, isPlayer);
   container.appendChild(g);
 }
 
-function renderFlow(flowArray){
-  if (!flowRowEl) return;
-  flowRowEl.replaceChildren();
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li"); li.className = "flow-card";
-    const card = document.createElement("article");
-    card.className = "card market";
-    card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
-    attachPeekAndZoom(card, c);
-
-    // buy
-    card.addEventListener("click", ()=>{
-      try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
-      catch(err){ toast(err?.message || "Cannot buy"); }
-    });
-
-    const price = document.createElement("div");
-    price.className = "flow-price";
-    price.innerHTML = `${gemSVG("gem")} <span>${c.price ?? ""}</span> <span>to buy</span>`;
-
-    li.appendChild(card);
-    li.appendChild(price);
-    flowRowEl.appendChild(li);
+function renderHand(s){
+  handEl.replaceChildren();
+  const els=[];
+  (s.players.player.hand||[]).forEach(card=>{
+    const a = document.createElement("article"); a.className="card draw-in";
+    a.dataset.cardId=card.id; a.dataset.cardType=card.type;
+    a.innerHTML = cardHTML(card);
+    attachPeekAndZoom(a, card);
+    makeDraggable(a, card);
+    handEl.appendChild(a); els.push(a);
   });
+  layoutHand();
 }
 
-/* ------------ main render ------------ */
+/* HUD discard / deck drop */
+hudDiscard.addEventListener("dragover",(ev)=>{ ev.preventDefault(); hudDiscard.classList.add("drag-over"); });
+hudDiscard.addEventListener("dragleave",()=> hudDiscard.classList.remove("drag-over"));
+hudDiscard.addEventListener("drop",(ev)=>{
+  ev.preventDefault(); hudDiscard.classList.remove("drag-over");
+  const id = ev.dataTransfer?.getData("text/card-id");
+  try{ state = discardForAether(state,"player",id); render(); }
+  catch(err){ toast(err.message||"Can't discard"); }
+});
+
+/* ------- toast ------- */
+let toastEl;
+function toast(msg, ms=1100){
+  if (!toastEl){ toastEl=document.createElement("div"); toastEl.className="toast"; document.body.appendChild(toastEl); }
+  toastEl.textContent=msg; toastEl.classList.add("show"); setTimeout(()=> toastEl.classList.remove("show"), ms);
+}
+
+/* ------- main render ------- */
 function render(){
-  closeZoom(); peekEl?.classList.remove("show");
-  const s = serializePublic(state) || {};
+  const s = snapshot(state);
+
   // portraits
-  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || "./weaver_aria.jpg");
-  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
-  set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
-  set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
-  renderPortraitBars();
+  playerGemCount.textContent = String(s.players.player.aether||0);
+  aiGemCount.textContent     = String(s.players.ai.aether||0);
+  renderHearts(playerHearts, s.players.player.vitality);
+  renderHearts(aiHearts,     s.players.ai.vitality);
 
-  renderSlots(playerSlotsEl, s.player?.slots || [], true);
-  renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-  renderFlow(s.flow);
+  $("player-portrait").src = s.players.player.weaver.portrait;
+  $("ai-portrait").src     = s.players.ai.weaver.portrait;
+  $("player-name").textContent = s.players.player.weaver.name || "Player";
+  $("ai-name").textContent     = s.players.ai.weaver.name || "Opponent";
 
-  // hand
-  if (handEl){
-    handEl.replaceChildren();
-    const els = [];
-    (s.player?.hand || []).forEach(c=>{
-      const el = document.createElement("article");
-      el.className = "card";
-      el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-      el.innerHTML = cardHTML(c);
-      dragifyCard(el, c);
-      attachPeekAndZoom(el, c);
-      handEl.appendChild(el); els.push(el);
-    });
-    layoutHand(handEl, els);
-  }
+  renderSlots(playerSlotsEl, s.players.player.slots, true);
+  renderSlots(aiSlotsEl,     s.players.ai.slots, false);
+  renderFlow(s);
+  renderHand(s);
+
+  // HUD counts
+  hudDeckCount.textContent    = String(s.players.player.deckCount||0);
+  hudDiscardCount.textContent = String(s.players.player.discardCount||0);
 }
 
-/* ------------ end turn ------------ */
-function onEndTurn(){
-  // discard whole hand (visual)
-  const cards = Array.from(handEl?.children || []);
-  cards.forEach((el,i)=> setTimeout(()=> { el.style.opacity="0"; el.style.transform += " translateY(180px) rotate(14deg)"; }, i*60));
-  setTimeout(()=> toast("End turn (stub)"), 320);
-}
+/* ------- turn wiring ------- */
+$("btn-endturn-hud").addEventListener("click", ()=>{
+  // animate hand discard
+  Array.from(handEl.children).forEach(c=> c.classList.add("drop-void"));
+  setTimeout(()=>{
+    state = endOfTurn(state);
+    state = startOfTurn(state);
+    render();
+  }, 320);
+});
 
-window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
+/* ------- init ------- */
+window.addEventListener("resize", layoutHand);
 document.addEventListener("DOMContentLoaded", render);
-
-
-
-
-
-// --- imports: make sure __dev is imported from GameLogic ---
-import {
-  initState,
-  serializePublic,
-  playCardToSpellSlot,
-  setGlyphFromHand,
-  buyFromFlow,
-  __dev,                   // <-- add this
-} from "./GameLogic.js";
-
-// --- state bootstrap (unchanged) ---
-let STATE = initState();
-render();
-
-// ========== OPTIONAL animation shims (won’t throw if you don’t have them) ==========
-async function animateDiscardAllFromHand() {
-  if (window.animations?.discardAllFromHand) {
-    await window.animations.discardAllFromHand();
-  } else if (window.animations?.discardAll) {
-    await window.animations.discardAll();
-  } else {
-    // tiny pause so the turn change still feels responsive
-    await new Promise(r => setTimeout(r, 120));
-  }
-}
-async function animateDrawToHand() {
-  if (window.animations?.drawToHand) {
-    await window.animations.drawToHand();
-  } else if (window.animations?.draw) {
-    await window.animations.draw(1);
-  } else {
-    await new Promise(r => setTimeout(r, 120));
-  }
-}
-
-// ========== END TURN: real turn logic ==========
-// Try either #endTurn or a [data-action="end-turn"] hook, whichever exists.
-const endTurnBtn =
-  document.getElementById("endTurn") ||
-  document.querySelector('[data-action="end-turn"]');
-
-if (endTurnBtn) {
-  endTurnBtn.addEventListener("click", onEndTurn);
-}
-
-let uiLocked = false;
-async function onEndTurn() {
-  if (uiLocked) return;
-  try {
-    uiLocked = true;
-
-    // 1) Discard the whole player hand (visual)
-    await animateDiscardAllFromHand();
-
-    // 2) Advance the game (river shifts, AI quick turn, player draws 1)
-    //    __dev.endTurn mutates state; return for safety if you prefer immutable
-    __dev.endTurn(STATE);
-
-    // 3) Re-render immediately so river/AI updates show
-    render();
-
-    // 4) Start-of-turn draw animation for player (optional)
-    await animateDrawToHand();
-
-    // 5) Final re-render in case animations altered any temp UI
-    render();
-  } finally {
-    uiLocked = false;
-  }
-}
-
-// ========== render helper (unchanged, keep your existing one) ==========
-function render() {
-  const view = serializePublic(STATE);
-  // ... your existing DOM update code that consumes `view` ...
-}
-
+document.addEventListener("keydown", (e)=> { if (e.key==="Escape") zoomOverlayEl?.setAttribute("data-open","false"); });
