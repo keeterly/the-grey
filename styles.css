@@ -80,7 +80,7 @@ html,body{height:100%}
 .slot.pulse-ok{animation:pulse 1.2s ease-in-out infinite}
 .slot .card{position:absolute; left:0; top:0; width:100%; height:100%; transform:none; border-radius:var(--card-radius)}
 
-/* Flow */
+/* Flow (with cost labels) */
 .flow-wrap{display:flex; align-items:flex-start; gap:18px;}
 .flow-title-rail{width:36px; display:flex; justify-content:center;}
 .flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; margin-top:6px; user-select:none}
@@ -90,8 +90,12 @@ html,body{height:100%}
   display:grid !important; grid-template-columns:repeat(5, var(--card-w)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
-.flow-card{display:block;width:var(--card-w);height:var(--card-h)}
+.flow-card{display:block;width:var(--card-w);height:var(--card-h); position:relative}
 .flow-card .card{position:relative;left:0;top:0;transform:none}
+.flow-cost-label{height:22px; display:flex; justify-content:center; align-items:center; margin-top:4px; pointer-events:none}
+.flow-cost-label .aether-chip{position:static; transform:none; filter:none}
+.flow-cost-label .aether-chip svg{width:18px;height:18px}
+.flow-cost-label .aether-chip .val{font-size:12px}
 
 /* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
@@ -143,6 +147,23 @@ html,body{height:100%}
 }
 .card.discarding { animation: discardOut .32s ease forwards; }
 
+/* Drop-to-void (flow right card falling away) */
+.card.drop-void{
+  position:fixed; z-index:4000; width:var(--card-w); height:var(--card-h);
+  pointer-events:none; opacity:.98; transition:transform .6s ease, opacity .6s ease, filter .6s ease;
+}
+.card.drop-void.run{
+  transform: translate(140px, 180px) rotate(18deg) scale(.8);
+  opacity:0; filter:blur(2px);
+}
+
+/* Spotlight when buying from flow */
+.card.spotlight{
+  transition: transform .36s ease, opacity .42s ease;
+  box-shadow:0 18px 40px rgba(0,0,0,.6), 0 0 28px rgba(126,182,255,.45);
+  border-color:#8fbaff;
+}
+
 /* HUD & badges */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
 .hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
@@ -155,6 +176,14 @@ html,body{height:100%}
   border-radius:999px; background:#1f1712; color:var(--ink); border:1px solid #4a3d2f;
   font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000;
 }
+
+/* Preview / Zoom */
+#preview-layer{position:fixed; inset:0; z-index:50; pointer-events:none}
+#peek-card.card.peek{position:fixed; left:50%; top:18vh; transform:translate(-50%,0) scale(1.28); width:var(--card-w); height:var(--card-h); display:none; opacity:0; transition:opacity .12s ease; box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35)}
+#peek-card.show{display:block; opacity:1}
+#zoom-overlay{position:fixed; inset:0; display:none; background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px); place-items:center; pointer-events:auto; z-index:60}
+#zoom-overlay[data-open="true"]{display:grid}
+#zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
 /* Toast */
 .toast{
