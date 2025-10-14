@@ -1,140 +1,135 @@
-/* =========================================================
-   The Grey — Animation helpers (v2.57+)
-   Drop this file next to index.js and include it after index.js
-   ========================================================= */
+// animations.js — v2.57 add-on
+// Listens to Grey.* events (created by the small bridge in index.js)
+// Uses Web Animations API; no external libs.
 
-(function () {
-  const FX = {};
+const q = sel => document.querySelector(sel);
+const DECK   = () => q('#btn-deck-hud');
+const DISCARD= () => q('#btn-discard-hud');
+const HAND   = () => q('#hand');
 
-  // ===== Utilities =====
-  function q(sel){ return document.querySelector(sel); }
-  function rect(el){ return el.getBoundingClientRect(); }
-  function px(n){ return `${Math.round(n)}px`; }
+function rect(el) {
+  const r = el.getBoundingClientRect();
+  return {x:r.left + window.scrollX, y:r.top + window.scrollY, w:r.width, h:r.height};
+}
+function translateFromTo(a, b) {
+  return [
+    { transform: `translate(${a.x - b.x}px, ${a.y - b.y}px) scale(${a.w / b.w})`, opacity: 0.01 },
+    { transform: 'translate(0,0) scale(1)', opacity: 1 }
+  ];
+}
+function translateTo(targetRect, fromRect) {
+  return [
+    { transform: 'translate(0,0) scale(1)', opacity: 1 },
+    { transform: `translate(${targetRect.x - fromRect.x}px, ${targetRect.y - fromRect.y}px) scale(${targetRect.w / fromRect.w})`, opacity: 0.0 }
+  ];
+}
 
-  // Create (or reuse) a screen-space FX layer
-  function layer(){
-    let l = q('#fx-layer');
-    if(!l){
-      l = document.createElement('div');
-      l.id = 'fx-layer';
-      document.body.appendChild(l);
-    }
-    return l;
-  }
+function cloneForFx(node) {
+  const c = node.cloneNode(true);
+  const r = rect(node);
+  c.style.position = 'absolute';
+  c.style.left = r.x + 'px';
+  c.style.top  = r.y + 'px';
+  c.style.width  = r.w + 'px';
+  c.style.height = r.h + 'px';
+  c.style.pointerEvents = 'none';
+  c.style.zIndex = 9999;
+  c.classList.add('fx-shadow');
+  document.body.appendChild(c);
+  return { clone:c, from:r };
+}
 
-  // Clone an element visually (shallow) into the FX layer
-  function makeClone(el){
-    const r = rect(el);
-    const c = el.cloneNode(true);
-    c.classList.add('fx-clone');
-    c.style.position = 'absolute';
-    c.style.left = px(r.left);
-    c.style.top  = px(r.top);
-    c.style.width  = px(r.width);
-    c.style.height = px(r.height);
-    c.style.margin = '0';
-    return c;
-  }
+function spotlight(node, {scale=1.05, ms=380} = {}) {
+  const { clone } = cloneForFx(node);
+  clone.classList.add('fx-spotlight');
+  const a = clone.animate([
+    { filter:'brightness(1.0)', transform:'scale(1)' },
+    { filter:'brightness(1.35)', transform:`scale(${scale})` },
+    { filter:'brightness(1.0)', transform:'scale(1)' }
+  ], { duration: ms, easing:'ease-out' });
+  return a.finished.finally(() => clone.remove());
+}
 
-  // Compute translate deltas
-  function delta(fromEl, toEl, options = {}){
-    const a = rect(fromEl), b = rect(toEl);
-    const x0 = 0, y0 = 0;
-    const x1 = (b.left + b.width/2) - (a.left + a.width/2);
-    const y1 = (b.top  + b.height/2) - (a.top  + a.height/2);
-    return {
-      x0: px(x0), y0: px(y0),
-      x1: px(x1), y1: px(y1),
-      s0: options.s0 ?? 1, s1: options.s1 ?? 0.66,
-      dur: options.dur ?? 420
-    };
-  }
+/* ===== Event handlers ===== */
 
-  // Play a “fly” animation from 'fromEl' to 'toEl'
-  function fly(elFrom, elTo, opts = {}){
-    if(!elFrom || !elTo) return Promise.resolve();
-    const l = layer();
-    const clone = makeClone(elFrom);
-    const d = delta(clone, elTo, opts);
+function onCardsDrawn(e) {
+  const nodes = (e.detail?.nodes ?? []).filter(Boolean);
+  if (!nodes.length) return;
 
-    clone.classList.add('fx-fly');
-    clone.style.setProperty('--fx-x0', d.x0);
-    clone.style.setProperty('--fx-y0', d.y0);
-    clone.style.setProperty('--fx-x1', d.x1);
-    clone.style.setProperty('--fx-y1', d.y1);
-    clone.style.setProperty('--fx-s0', d.s0);
-    clone.style.setProperty('--fx-s1', d.s1);
-    clone.style.setProperty('--fx-dur', d.dur + 'ms');
+  const deck = DECK();
+  if (!deck) return;
 
-    l.appendChild(clone);
-    return new Promise(res=>{
-      clone.addEventListener('animationend', ()=>{
-        clone.remove(); res();
-      }, {once:true});
-    });
-  }
+  const deckRect = rect(deck);
+  nodes.forEach((n, i) => {
+    const { clone, from } = cloneForFx(n);
+    const kf = translateFromTo(deckRect, from);
+    clone.animate(kf, { duration: 420 + i*70, easing:'cubic-bezier(.16,.84,.3,1)' })
+      .finished.then(() => clone.remove())
+      .catch(() => clone.remove());
+  });
+}
 
-  // Pop reveal inside its current slot
-  function reveal(el){
-    if(!el) return;
-    const l = layer();
-    const c = makeClone(el);
-    c.classList.add('fx-reveal');
-    l.appendChild(c);
-    c.addEventListener('animationend', ()=>c.remove(), {once:true});
-  }
+function onCardsDiscard(e) {
+  const nodes = (e.detail?.nodes ?? []).filter(Boolean);
+  if (!nodes.length) return;
 
-  // Fall off to the right
-  function falloff(el){
-    if(!el) return;
-    const l = layer();
-    const c = makeClone(el);
-    c.classList.add('fx-falloff');
-    l.appendChild(c);
-    c.addEventListener('animationend', ()=>c.remove(), {once:true});
-  }
+  const pile = DISCARD();
+  if (!pile) return;
 
-  // Spotlight pulse over an element
-  function spotlight(el){
-    if(!el) return;
-    const l = layer();
-    const r = rect(el);
-    const s = document.createElement('div');
-    s.className = 'fx-spotlight';
-    s.style.left = px(r.left);
-    s.style.top = px(r.top);
-    s.style.width = px(r.width);
-    s.style.height = px(r.height);
-    l.appendChild(s);
-    s.addEventListener('animationend', ()=>s.remove(), {once:true});
-  }
+  const pileRect = rect(pile);
+  nodes.forEach((n, i) => {
+    const { clone, from } = cloneForFx(n);
+    const kf = translateTo(pileRect, from);
+    clone.animate(kf, { duration: 420 + i*60, easing:'cubic-bezier(.16,.84,.3,1)' })
+      .finished.then(() => clone.remove())
+      .catch(() => clone.remove());
+  });
+}
 
-  // ===== Public API =====
-  FX.animateDraw = async function(cardEl, deckEl, handEl){
-    // deck → hand
-    if(deckEl && handEl && cardEl){
-      await fly(deckEl, handEl, {s0:.9, s1:1, dur:440});
-    }
-  };
+function onFlowReveal(e) {
+  const node = e.detail?.node;
+  if (!node) return;
+  spotlight(node, { scale:1.08, ms:420 });
+}
 
-  FX.animateDiscard = function(cardEl, discardEl){
-    return fly(cardEl, discardEl, {s0:1, s1:.66, dur:420});
-  };
+function onFlowFalloff(e) {
+  const node = e.detail?.node;
+  if (!node) return;
 
-  FX.animateFlowReveal = function(flowCardEl){
-    reveal(flowCardEl);
-  };
+  const { clone } = cloneForFx(node);
+  clone.animate([
+    { transform:'translate(0,0)', opacity:1 },
+    { transform:'translate(0,24px)', opacity:0 }
+  ], { duration: 360, easing:'ease-out' })
+  .finished.then(() => clone.remove())
+  .catch(() => clone.remove());
+}
 
-  FX.animateFlowFalloff = function(flowCardEl){
-    falloff(flowCardEl);
-  };
+function onFlowPurchase(e) {
+  const node = e.detail?.node;
+  if (!node) return;
 
-  FX.animateBuyToDiscard = async function(flowCardEl, discardEl){
-    spotlight(flowCardEl);
-    await new Promise(r=>setTimeout(r, 260));
-    await fly(flowCardEl, discardEl, {s0:1, s1:.6, dur:460});
-  };
+  // 1) spotlight the card in place
+  spotlight(node, { scale:1.08, ms:360 })
+  .then(() => {
+    // 2) then slide to discard
+    const pile = DISCARD();
+    if (!pile) return;
+    const pileRect = rect(pile);
+    const { clone, from } = cloneForFx(node);
+    return clone.animate(translateTo(pileRect, from),
+      { duration: 460, easing:'cubic-bezier(.16,.84,.3,1)' }).finished
+      .finally(() => clone.remove());
+  })
+  .catch(()=>{ /* ignore */ });
+}
 
-  // Expose globally
-  window.GREY_ANIM = FX;
-})();
+/* ===== Wire up ===== */
+
+document.addEventListener('cards:drawn',   onCardsDrawn);
+document.addEventListener('cards:discard', onCardsDiscard);
+document.addEventListener('flow:reveal',   onFlowReveal);
+document.addEventListener('flow:falloff',  onFlowFalloff);
+document.addEventListener('flow:purchase', onFlowPurchase);
+
+// Nothing else here — the game can freely emit Grey.emit(...)
