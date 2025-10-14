@@ -1,34 +1,41 @@
-import { initState, serializePublic, playCardToSpellSlot, setGlyphFromHand, buyFromFlow } from "./GameLogic.js";
+import {
+  initState, serializePublic,
+  playCardToSpellSlot, setGlyphFromHand,
+  buyFromFlow, startTurn, endTurn
+} from "./GameLogic.js";
 
-/* ===== helpers ===== */
+/* ------- helpers ------- */
 const $ = id => document.getElementById(id);
-const set = (el, fn) => { if (el) fn(el); };
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 
 const aiSlotsEl     = $("ai-slots");
 const playerSlotsEl = $("player-slots");
 const flowRowEl     = $("flow-row");
 const handEl        = $("hand");
+const aetherReadout = $("aether-readout");
+const deckBadge     = $("deck-count");
+const discardBadge  = $("discard-count");
 
 const playerPortrait= $("player-portrait");
 const aiPortrait    = $("ai-portrait");
 const playerName    = $("player-name");
 const aiName        = $("ai-name");
-const playerAether  = $("player-aether");
-const playerAetherVal = $("player-aether-val");
-const deckCountEl   = $("deck-count");
+
+const endHudBtn     = $("btn-endturn-hud");
+const deckBtn       = $("btn-deck-hud");
+const discardBtn    = $("btn-discard-hud");
+
+const btnZoom       = $("btn-board-zoom");
+const btnLayout     = $("btn-layout-toggle");
 
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
 
-const hudDiscard    = $("btn-discard-hud");
-const hudEnd        = $("btn-endturn-hud");
-
 let state = initState({});
-let prevAether = 0;
+document.addEventListener("DOMContentLoaded", ()=>{ state = startTurn(state); render(); });
 
-/* ===== toast ===== */
+/* ------- toast ------- */
 let toastEl;
 function toast(msg, ms=1200){
   if (!toastEl){
@@ -41,20 +48,26 @@ function toast(msg, ms=1200){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
-/* ===== hand fanning ===== */
+/* ------- tighter hand fan (MTGA-like overlap) ------- */
+function getCardW(){
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--card-w').trim();
+  return parseFloat(v.replace('px','')) || 150;
+}
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-  const MAX_ANGLE = 24, MIN_ANGLE = 6, MAX_SPREAD_PX = container.clientWidth * 0.92, LIFT_BASE = 36;
-  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*2.6, MIN_ANGLE, MAX_ANGLE);
+  const CARD_W = getCardW();
+  const overlap = CARD_W * 0.52;              // how much each card overlaps the previous
+  const spread = Math.min(container.clientWidth * 0.78, (N-1)*overlap + CARD_W); // keep hand compact
+  const MAX_ANGLE = 20, MIN_ANGLE = 6;
+  const totalAngle = (N===1) ? 0 : clamp(MIN_ANGLE + (N-2)*2.0, MIN_ANGLE, MAX_ANGLE);
   const step = (N===1) ? 0 : totalAngle/(N-1), startAngle = -totalAngle/2;
-  const spread = Math.min(MAX_SPREAD_PX, 900);
   const stepX = (N===1) ? 0 : spread/(N-1), startX = -spread/2;
 
   cards.forEach((el,i)=>{
     const a = startAngle + step*i;
     const rad = a*Math.PI/180;
     const x = startX + stepX*i;
-    const y = LIFT_BASE - Math.cos(rad) * (LIFT_BASE*0.75);
+    const y = 36 - Math.cos(rad) * (36*0.75);
     el.style.setProperty("--tx", `${x}px`);
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
@@ -63,26 +76,23 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ===== peek / zoom ===== */
-function closeZoom(){ zoomOverlayEl?.setAttribute("data-open","false"); }
+/* ------- peek / zoom ------- */
+function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
 function fillCardShell(div, data){
   if (!div) return;
   div.innerHTML = `
     <div class="title">${data.name}</div>
-    <div class="type">${data.type}${data.price?` — Cost Æ ${data.price}`:""}</div>
+    <div class="type">${data.type}</div>
     <div class="textbox">${data.text||""}</div>
-    ${aetherChipHTML(getAetherValue(data))}
-    ${pipTrackHTML(getPipRequirement(data), data.currentPips || 0)}
   `;
 }
-let longPressTimer=null, pressStart={x:0,y:0};
-const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
-
 function attachPeekAndZoom(el, data){
   if (peekEl){
     el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
+  let longPressTimer=null, pressStart={x:0,y:0};
+  const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
@@ -104,228 +114,137 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("pointerleave", clearLP, {passive:true});
   el.addEventListener("pointercancel", clearLP, {passive:true});
   el.addEventListener("pointermove", onMove, {passive:true});
-  el.addEventListener("dragstart", clearLP);
 }
 
-/* ===== adornments ===== */
-function gemSVG(){ return `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2L21 9l-9 13L3 9l9-7zM7 9l5 11L17 9H7z"/></svg>`; }
-function getAetherValue(card){ return (typeof card?.aetherValue === "number") ? card.aetherValue : 0; }
-function getPipRequirement(card){
-  const t = (card?.text || "").toString();
-  const m = t.match(/Advance\s+(\d+)/i);
-  const n = m ? parseInt(m[1], 10) : 0;
-  return Number.isFinite(n) ? n : 0;
-}
-function pipTrackHTML(req, cur=0){
-  if (!req || req < 1) return "";
-  const safeCur = Math.max(0, Math.min(cur|0, req));
-  let dots = "";
-  for (let i=0;i<req;i++){
-    const filled = i < safeCur ? "filled" : "";
-    dots += `<span class="pip ${filled}"></span>`;
-  }
-  return `<div class="pip-track" aria-label="Pip track (${safeCur}/${req})">${dots}</div>`;
-}
-function aetherChipHTML(val){
-  if (!val || val < 1) return "";
-  return `<div class="aether-chip" title="Aether gained when discarded">${gemSVG()}<span class="val">${val}</span></div>`;
-}
-
-/* ===== robust DnD payload helpers ===== */
-function setDragPayload(dt, id, type){
-  if (!dt) return;
-  dt.setData("text/plain", `card:${id}:${type}`);  // universal
-  dt.setData("text/card-id", id);                  // convenience
-  dt.setData("text/card-type", type);
-  dt.effectAllowed = "move";
-}
-function getDragPayload(dt){
-  const plain = dt?.getData("text/plain") || "";
-  const id = dt?.getData("text/card-id") || (plain.startsWith("card:") ? plain.split(":")[1] : "");
-  const type = dt?.getData("text/card-type") || (plain.startsWith("card:") ? plain.split(":")[2] : "");
-  return { id, type };
-}
-
-/* ===== make hand cards draggable (uniform glow) ===== */
-function makeDraggableCard(el, data){
+/* ------- desktop drag (fixed) ------- */
+function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
+    document.body.classList.add("dragging-mode");
     el.classList.add("dragging");
-    setDragPayload(ev.dataTransfer, data.id, data.type);
-    // unified ghost
+    ev.dataTransfer?.setData("text/plain", data.id);     // use standard type
+    ev.dataTransfer?.setData("application/x-card-type", data.type);
+    // ghost
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
     ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
     setTimeout(()=> ghost.remove(), 0);
   });
-  el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+  el.addEventListener("dragend", ()=>{
+    el.classList.remove("dragging");
+    document.body.classList.remove("dragging-mode");
+  });
 }
 
-/* ===== slots (3 spell + 1 glyph) ===== */
+/* ------- slots (with glyph) ------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
-
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
     const slot = safe[i] || {hasCard:false, card:null};
+    d.textContent = slot.hasCard ? (slot.card?.name || "Spell") : "Spell Slot";
 
-    if (slot.hasCard && slot.card){
-      d.innerHTML = `
-        <div class="title">${slot.card.name}</div>
-        <div class="type">${slot.card.type}</div>
-        <div class="textbox">${slot.card.text||""}</div>
-        ${aetherChipHTML(getAetherValue(slot.card))}
-        ${pipTrackHTML(getPipRequirement(slot.card), slot.card.currentPips || 0)}
-      `;
-      attachPeekAndZoom(d, slot.card);
-    } else {
-      d.textContent = "Spell Slot";
-    }
+    if (slot.hasCard && slot.card){ attachPeekAndZoom(d, slot.card); }
 
     if (isPlayer){
-      d.addEventListener("dragover", (ev)=>{
-        const { type } = getDragPayload(ev.dataTransfer);
-        if (type === "SPELL"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; d.classList.add("drag-over"); }
-      });
+      // IMPORTANT: allow drop unconditionally during dragover (can't read dataTransfer here on Chrome)
+      d.addEventListener("dragover", (ev)=>{ ev.preventDefault(); d.classList.add("drag-over"); });
       d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
       d.addEventListener("drop", (ev)=>{
         ev.preventDefault(); d.classList.remove("drag-over");
-        const { id, type } = getDragPayload(ev.dataTransfer);
-        if (!id || type !== "SPELL") return;
-        try { state = playCardToSpellSlot(state, "player", id, i); render(); }
+        const cardId   = ev.dataTransfer?.getData("text/plain");
+        const cardType = ev.dataTransfer?.getData("application/x-card-type");
+        if (!cardId || cardType !== "SPELL") return;
+        try { state = playCardToSpellSlot(state, "player", cardId, i); render(); }
         catch(err){ toast(err?.message || "Can't play"); }
       });
     }
     container.appendChild(d);
   }
-
   // glyph
   const g = document.createElement("div");
   g.className = "slot glyph";
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
-  if (glyphSlot.hasCard && glyphSlot.card){
-    g.innerHTML = `
-      <div class="title">${glyphSlot.card.name}</div>
-      <div class="type">${glyphSlot.card.type}</div>
-      <div class="textbox">${glyphSlot.card.text||""}</div>`;
-    attachPeekAndZoom(g, glyphSlot.card);
-  } else {
-    g.textContent = "Glyph Slot";
-  }
+  g.textContent = glyphSlot.hasCard ? (glyphSlot.card?.name || "Glyph") : "Glyph Slot";
+
+  if (glyphSlot.hasCard && glyphSlot.card){ attachPeekAndZoom(g, glyphSlot.card); }
 
   if (isPlayer){
-    g.addEventListener("dragover", (ev)=>{
-      const { type } = getDragPayload(ev.dataTransfer);
-      if (type === "GLYPH"){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; g.classList.add("drag-over"); }
-    });
+    g.addEventListener("dragover", (ev)=> { ev.preventDefault(); g.classList.add("drag-over"); });
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", (ev)=>{
-      ev.preventDefault(); g.classList.remove("drag-over");
-      const { id, type } = getDragPayload(ev.dataTransfer);
-      if (type !== "GLYPH") return;
-      try { state = setGlyphFromHand(state, "player", id); render(); }
+    g.addEventListener("drop", (ev)=>{ 
+      ev.preventDefault(); g.classList.remove("drag-over"); 
+      const cardId = ev.dataTransfer?.getData("text/plain");
+      const t = ev.dataTransfer?.getData("application/x-card-type");
+      if (t!=="GLYPH") return;
+      try { state = setGlyphFromHand(state, "player", cardId); render(); }
       catch(err){ toast(err?.message || "Can't set glyph"); }
     });
   }
   container.appendChild(g);
 }
 
-/* ===== flow (market) ===== */
-function cardHTML(c){
-  const price = (typeof c.price === "number") ? c.price : 0;
-  const gems = "🜂".repeat(price);
+/* ------- Flow ------- */
+const FLOW_COSTS = [4,3,3,2,2];
+const slotCost = (i)=> FLOW_COSTS[i] ?? 0;
+function gemChipHTML(val){
   return `
-    <div class="title">${c.name}</div>
-    <div class="type">${c.type}${price?` — Cost Æ ${price}`:""}</div>
-    <div class="textbox">${c.text||""}</div>
-    <div class="cost" style="right:10px; left:auto;">${gems}</div>
-    ${aetherChipHTML(getAetherValue(c))}
-    ${pipTrackHTML(getPipRequirement(c), c.currentPips || 0)}
+    <div class="aether-chip" aria-label="Aether cost">
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+        <path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/>
+      </svg>
+      <span class="val">${val|0}</span>
+    </div>
   `;
 }
-function renderFlow(flowArray){
+function flowCardHTML(c, price){
+  return `
+    <div class="title">${c.name}</div>
+    <div class="type">${c.type}</div>
+    <div class="textbox">${c.text||""}</div>
+    ${gemChipHTML(price)}
+  `;
+}
+function renderFlow(flowSlots){
   if (!flowRowEl) return;
   flowRowEl.replaceChildren();
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+  (flowSlots || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li"); li.className = "flow-card";
+    const price = slotCost(idx);
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
-    attachPeekAndZoom(card, {...c, costGems:"🜂".repeat(c.price||0) });
 
-    card.addEventListener("click", ()=>{
-      try{ state = buyFromFlow(state, "player", idx); toast("Bought to discard"); }
-      catch(err){ toast(err?.message || "Cannot buy"); }
-    });
-
+    if (c){
+      card.innerHTML = flowCardHTML(c, price);
+      attachPeekAndZoom(card, {...c});
+      card.addEventListener("click", ()=>{
+        try{
+          const before = state.players.player.aether;
+          state = buyFromFlow(state, "player", idx);
+          const after  = state.players.player.aether;
+          render();
+          toast(after < before ? `Bought for Æ${(before-after)}` : "Bought");
+        }catch(err){ toast(err?.message || "Cannot buy"); }
+      });
+    } else {
+      card.innerHTML = `<div class="title" style="opacity:.5">Empty</div><div class="type" style="opacity:.5">—</div><div class="textbox"></div>`;
+      card.style.opacity = .25; card.style.pointerEvents = "none";
+    }
     li.appendChild(card);
-    const priceLabel = document.createElement("div");
-    priceLabel.className = "price-label";
-    priceLabel.textContent = `Æ ${c.price ?? 0} to buy`;
-    li.appendChild(priceLabel);
     flowRowEl.appendChild(li);
   });
 }
 
-/* ===== discard drop target ===== */
-function handleDiscardDragOver(ev){
-  const { id } = getDragPayload(ev.dataTransfer);
-  if (id){ ev.preventDefault(); ev.dataTransfer.dropEffect="move"; hudDiscard.classList.add("drop-ready"); }
-}
-function handleDiscardLeave(){ hudDiscard.classList.remove("drop-ready"); }
-function handleDiscardDrop(ev){
-  ev.preventDefault();
-  hudDiscard.classList.remove("drop-ready");
-  const { id } = getDragPayload(ev.dataTransfer);
-  if (!id) return;
-
-  const hand = state.players?.player?.hand || [];
-  const i = hand.findIndex(c => c.id === id);
-  if (i < 0){ toast("Card not in hand"); return; }
-  const card = hand[i];
-  const gain = getAetherValue(card);
-  hand.splice(i,1);
-  state.players.player.discardCount = (state.players.player.discardCount|0) + 1;
-  const before = state.players.player.aether|0;
-  const after  = before + (gain|0);
-  state.players.player.aether = after;
-  if (after > before){ triggerAetherFlash(); }
-  toast(gain ? `Discarded for Æ${gain}` : "Discarded");
-  render();
-}
-
-/* ===== flash + render ===== */
-function triggerAetherFlash(){
-  if (!playerAether) return;
-  playerAether.classList.remove("flash"); void playerAether.offsetWidth; playerAether.classList.add("flash");
-}
-
+/* ------- render ------- */
 function ensureSafetyShape(s){
-  if (!Array.isArray(s.flow) || s.flow.length===0){
-    s.flow = [
-      {id:"f1",name:"Resonant Chorus",type:"SPELL",price:4,text:"Market spell"},
-      {id:"f2",name:"Pulse Feedback",type:"INSTANT",price:3,text:"Instant"},
-      {id:"f3",name:"Refracted Will",type:"GLYPH",price:2,text:"Glyph"},
-      {id:"f4",name:"Cascade Insight",type:"INSTANT",price:2,text:"Instant"},
-      {id:"f5",name:"Obsidian Vault",type:"SPELL",price:2,text:"Spell"},
-    ];
-  }
-  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],weaver:{},deckCount:0};
-  if (!Array.isArray(s.player.hand) || s.player.hand.length===0){
-    s.player.hand = [
-      {id:"h1",name:"Pulse of the Grey",type:"SPELL",aetherValue:0,text:"Advance 1 (Æ1). On resolve: Draw 1, gain Æ1."},
-      {id:"h2",name:"Echoing Reservoir",type:"SPELL",aetherValue:2,text:"Advance 1 (Æ2). On resolve: Channel 1."},
-      {id:"h3",name:"Ashen Focus",type:"SPELL",aetherValue:1,text:"Advance 1 (Æ2). On resolve: Channel 1, draw 1."},
-      {id:"h4",name:"Veil of Dust",type:"INSTANT",aetherValue:0,text:"Cost Æ1. Prevent 1 or cancel an instant."},
-      {id:"h5",name:"Glyph of Remnant Light",type:"GLYPH",aetherValue:0,text:"When a spell resolves: gain Æ1."},
-    ];
-  }
+  if (!Array.isArray(s.flowSlots) || s.flowSlots.length!==5){ s.flowSlots = [null,null,null,null,null]; }
+  if (!s.player) s.player = {aether:0,channeled:0,hand:[],slots:[],discardCount:0,deckCount:0};
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
     s.player.slots = [
       {hasCard:false,card:null},{hasCard:false,card:null},{hasCard:false,card:null},
@@ -338,23 +257,22 @@ function ensureSafetyShape(s){
 
 function render(){
   closeZoom();
-  if (peekEl) peekEl.classList.remove("show");
+  peekEl?.classList.remove("show");
 
   const s = ensureSafetyShape(serializePublic(state) || {});
-  set(playerPortrait, el=> el.src = s.player?.weaver?.portrait || "./weaver_aria.jpg");
-  set(aiPortrait,     el=> el.src = s.ai?.weaver?.portrait     || "./weaver_morr.jpg");
-  set(playerName,     el=> el.textContent = s.player?.weaver?.name || "Player");
-  set(aiName,         el=> el.textContent = s.ai?.weaver?.name || "Opponent");
+  playerPortrait.src = s.player?.weaver?.portrait || "./weaver_aria.jpg";
+  aiPortrait.src     = s.ai?.weaver?.portrait     || "./weaver_morr.jpg";
+  playerName.textContent = s.player?.weaver?.name || "Player";
+  aiName.textContent     = s.ai?.weaver?.name || "Opponent";
 
-  const curAether = s.player?.aether ?? 0;
-  set(playerAetherVal, el=> el.textContent = String(curAether));
-  if (curAether > prevAether){ triggerAetherFlash(); }
-  prevAether = curAether;
-  set(deckCountEl, el => el.textContent = String(s.player?.deckCount ?? 0));
+  // Æ display and pile badges
+  aetherReadout.innerHTML = `<svg class="gem" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M12 2l6.6 5.1-2.5 8.3H7.9L5.4 7.1 12 2zM7.9 15.4L12 22l4.1-6.6H7.9z"/></svg><span>${s.player?.aether ?? 0}</span>`;
+  deckBadge.textContent = s.player?.deckCount ?? "—";
+  discardBadge.textContent = s.player?.discardCount ?? 0;
 
   renderSlots(playerSlotsEl, s.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.ai?.slots     || [], false);
-  renderFlow(s.flow);
+  renderFlow(s.flowSlots);
 
   // hand
   if (handEl){
@@ -365,30 +283,68 @@ function render(){
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
+      const intrinsicCost = (c.name==="Greyfire Bloom" || c.name==="Surge of Ash" || c.name==="Veil of Dust") ? 1 : 0;
+      const costGems = "🜂".repeat(intrinsicCost);
+
       el.innerHTML = `
         <div class="title">${c.name}</div>
         <div class="type">${c.type}</div>
         <div class="textbox">${c.text||""}</div>
-        ${aetherChipHTML(getAetherValue(c))}
-        ${pipTrackHTML(getPipRequirement(c), c.currentPips || 0)}
+        ${intrinsicCost? `<div class="cost">${costGems}</div>` : ""}
       `;
 
-      makeDraggableCard(el, c);
-      attachPeekAndZoom(el, c);
+      wireDesktopDrag(el, c);
+      attachPeekAndZoom(el, {...c});
       handEl.appendChild(el); els.push(el);
     });
     layoutHand(handEl, els);
   }
 }
 
-/* wiring */
-hudDiscard?.addEventListener("dragenter", handleDiscardDragOver);
-hudDiscard?.addEventListener("dragover", handleDiscardDragOver);
-hudDiscard?.addEventListener("dragleave", handleDiscardLeave);
-hudDiscard?.addEventListener("drop", handleDiscardDrop);
+/* ------- HUD drop targets (discard for Æ) ------- */
+function cardFromHandById(id){
+  const H = state.players.player.hand;
+  const i = H.findIndex(c => c.id === id);
+  return { idx:i, card: H[i] };
+}
+discardBtn.addEventListener("dragover", (ev)=>{ ev.preventDefault(); discardBtn.classList.add("drop-ready"); });
+discardBtn.addEventListener("dragleave", ()=> discardBtn.classList.remove("drop-ready"));
+discardBtn.addEventListener("drop", (ev)=>{
+  ev.preventDefault(); discardBtn.classList.remove("drop-ready");
+  const id = ev.dataTransfer?.getData("text/plain");
+  if (!id) return;
+  const {idx, card} = cardFromHandById(id);
+  if (idx < 0) return;
+  // gain Æ equal to aetherValue
+  const gain = Number(card.aetherValue || 0);
+  state.players.player.aether = (state.players.player.aether || 0) + gain;
+  state.players.player.discardCount += 1;
+  state.players.player.hand.splice(idx,1);
+  // flash gem
+  aetherReadout.classList.remove("flash"); void aetherReadout.offsetWidth; aetherReadout.classList.add("flash");
+  render();
+});
 
-hudEnd?.addEventListener("click", ()=> toast("End turn (stub)"));
+/* ------- End turn -> slide then reveal ------- */
+endHudBtn.addEventListener("click", ()=>{
+  state = endTurn(state);
+  state = startTurn(state);
+  render();
+});
+
+/* Zoom/Layout toggles (mobile helpers) */
+btnZoom?.addEventListener("click", ()=>{
+  const on = document.body.classList.toggle("board-zoom75");
+  btnZoom.setAttribute("aria-pressed", on ? "true" : "false");
+  btnZoom.textContent = on ? "Normal Size" : "Board Zoom";
+});
+btnLayout?.addEventListener("click", ()=>{
+  const on = document.body.classList.toggle("layout-vertflow");
+  btnLayout.setAttribute("aria-pressed", on ? "true" : "false");
+  btnLayout.textContent = on ? "Flow Bottom" : "Flow Left";
+});
+
+/* Misc */
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
-document.addEventListener("DOMContentLoaded", render);
