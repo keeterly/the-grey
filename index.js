@@ -14,13 +14,7 @@
     window.Grey = bus;
     return bus;
   })();
-
-  // Load animations without blocking
-  async function loadAnimationsOnce() {
-    if (window.__greyAnimationsLoaded__) return;
-    try { await import('./animations.js?v=2571'); } catch {}
-  }
-  loadAnimationsOnce();
+  (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
 import {
@@ -69,23 +63,18 @@ const zoomCardEl    = $("zoom-card");
 
 /* ------- state ------- */
 let state = initState();
+let bootDealt = false;  // for intro “deal from deck” once
 
-/* ------- animation emit helpers ------- */
-function emitAnim(name, detail){
-  if (window.Grey?.emit) window.Grey.emit(name, detail);
-  else document.dispatchEvent(new CustomEvent(name, { detail, bubbles:true }));
-}
+/* ------- Grey emit helpers ------- */
+const Emit = (name, detail)=> (window.Grey?.emit?.(name, detail));
 const A = {
-  drawn(nodes){ emitAnim('cards:drawn', { nodes }); },
-  discarded(nodes){ emitAnim('cards:discard', { nodes }); },
-  flowReveal(node){ emitAnim('aetherflow:reveal', { node }); },
-  flowFalloff(node){ emitAnim('aetherflow:falloff', { node }); },
-  flowBought(node){ emitAnim('aetherflow:bought', { node }); }
+  drawPop(nodes){ Emit('cards:drawn', { nodes }); },
+  deal(nodes, stagger){ Emit('cards:deal', { nodes, stagger }); },
+  discard(nodes){ Emit('cards:discard', { nodes }); },
+  flowReveal(node){ Emit('aetherflow:reveal', { node }); },
+  flowFalloff(node){ Emit('aetherflow:falloff', { node }); },
+  flowBought(node){ Emit('aetherflow:bought', { node }); },
 };
-
-/* ------- previous snapshots for diffing ------- */
-let prevHandIds = [];
-let prevFlowIds = [null,null,null,null,null];
 
 /* ------- toast ------- */
 let toastEl;
@@ -196,6 +185,8 @@ function wireDesktopDrag(el, data){
     el.classList.add("dragging");
     ev.dataTransfer?.setData("text/card-id", data.id);
     ev.dataTransfer?.setData("text/card-type", data.type);
+    ev.dataTransfer?.setData("text/plain", data.id); // Safari/Firefox friendliness
+    ev.dataTransfer.effectAllowed = "move";
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
@@ -259,7 +250,7 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchend", end, {passive:false});
   el.addEventListener("touchcancel", end, {passive:false});
 }
-// Only allow dropping into YOUR board slots (not AI)
+// Allow dropping only into player's slots (not AI)
 function findValidDropTarget(node, cardType){
   if (!node) return null;
   const slot = node.closest(".slot");
@@ -322,14 +313,18 @@ function renderSlots(container, snapshot, isPlayer){
       d.textContent = "Spell Slot";
     }
     if (isPlayer){
+      d.addEventListener("dragenter", (ev)=> {
+        const t = ev.dataTransfer?.getData("text/card-type");
+        if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect = "move"; }
+      });
       d.addEventListener("dragover", (ev)=> { 
         const t = ev.dataTransfer?.getData("text/card-type");
-        if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }
+        if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect = "move"; }
       });
       d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
       d.addEventListener("drop", (ev)=>{
         ev.preventDefault(); d.classList.remove("drag-over");
-        const cardId   = ev.dataTransfer?.getData("text/card-id");
+        const cardId   = ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const cardType = ev.dataTransfer?.getData("text/card-type");
         if (!cardId || cardType !== "SPELL") return;
         try { state = playCardToSpellSlot(state, "player", cardId, i); render(); }
@@ -352,14 +347,18 @@ function renderSlots(container, snapshot, isPlayer){
     g.textContent = "Glyph Slot";
   }
   if (isPlayer){
+    g.addEventListener("dragenter", (ev)=> {
+      const t = ev.dataTransfer?.getData("text/card-type");
+      if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect = "move"; }
+    });
     g.addEventListener("dragover", (ev)=> {
       const t = ev.dataTransfer?.getData("text/card-type");
-      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }
+      if (t === "GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect = "move"; }
     });
     g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
     g.addEventListener("drop", (ev)=>{ 
       ev.preventDefault(); g.classList.remove("drag-over"); 
-      const cardId = ev.dataTransfer?.getData("text/card-id");
+      const cardId = ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
       const t = ev.dataTransfer?.getData("text/card-type");
       if (t!=="GLYPH") return;
       try { state = setGlyphFromHand(state, "player", cardId); render(); }
@@ -372,12 +371,13 @@ function renderSlots(container, snapshot, isPlayer){
 /* ------------------------------------------------
    Aetherflow row (reveal, falloff, buy)
 -------------------------------------------------*/
+let prevFlowIds = [null,null,null,null,null];
 function renderFlow(flowArray){
   if (!flowRowEl) return;
   const oldCardsByIndex = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
 
-  // falloff animation for slots whose id changed from previous render
+  // falloff animation for changed slots
   prevFlowIds.forEach((prevId, idx) => {
     if (!prevId) return;
     const incoming = nextIds[idx];
@@ -415,7 +415,7 @@ function renderFlow(flowArray){
 
     flowRowEl.appendChild(li);
 
-    // reveal animation when a new id appears
+    // reveal animation when a new id appears in that slot
     if (!prevFlowIds[idx] && c) A.flowReveal(card);
   });
 
@@ -439,6 +439,7 @@ function ensureSafetyShape(s){
   return s;
 }
 
+let prevHandIds = [];
 function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
@@ -454,7 +455,7 @@ function render(){
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
 
-  // Ensure icons in HUD
+  // HUD icons if missing
   if (hudDeckBtn && !hudDeckBtn.dataset.icon){
     hudDeckBtn.dataset.icon = "true";
     hudDeckBtn.innerHTML = `
@@ -513,11 +514,68 @@ function render(){
     });
     layoutHand(handEl, els);
 
+    // intro deal or newly drawn “pop”
     const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
-    if (addedNodes.length) A.drawn(addedNodes);
+    if (!bootDealt && els.length){  // first render: deal from deck to all nodes
+      A.deal(els, 110);
+      bootDealt = true;
+    } else if (addedNodes.length){
+      // cards drawn mid-game: deal only new nodes
+      A.deal(addedNodes, 110);
+    }
 
     prevHandIds = newIds;
   }
+}
+
+/* ------------------------------------------------
+   Simple AI (very basic heuristic)
+-------------------------------------------------*/
+function aiSimpleTurn(){
+  const S = state;
+  const AI = S.players.ai;
+
+  // 1) If no glyph set, try to set one
+  if (!AI.slots[3].hasCard){
+    const gIdx = AI.hand.findIndex(c=>c.type==="GLYPH");
+    if (gIdx>=0){
+      const [card] = AI.hand.splice(gIdx,1);
+      AI.slots[3] = { ...AI.slots[3], hasCard:true, card };
+    }
+  }
+
+  // 2) Try to play a SPELL into first empty spell slot
+  const emptySlot = [0,1,2].find(i => !AI.slots[i].hasCard);
+  if (emptySlot!==undefined){
+    const sIdx = AI.hand.findIndex(c=>c.type==="SPELL");
+    if (sIdx>=0){
+      const [card] = AI.hand.splice(sIdx,1);
+      AI.slots[emptySlot] = { hasCard:true, card };
+    }
+  }
+
+  // 3) If short on Æ, discard a card with aetherValue>0
+  if ((AI.aether|0) < 2){
+    const aIdx = AI.hand.findIndex(c=> (c.aetherValue|0) > 0);
+    if (aIdx>=0){
+      const [card] = AI.hand.splice(aIdx,1);
+      AI.discard.push(card);
+      AI.aether += (card.aetherValue|0);
+    }
+  }
+
+  // 4) Try to buy the leftmost affordable Flow card
+  for (let i=0; i<(state.flow?.length||0); i++){
+    const card = state.flow[i];
+    const priceByPos = [4,3,3,2,2][i] || 0;
+    if (card && (AI.aether|0) >= priceByPos){
+      try {
+        state = buyFromFlow(state, "ai", i);
+      } catch {}
+      break;
+    }
+  }
+  return state;
 }
 
 /* ------------------------------------------------
@@ -525,44 +583,42 @@ function render(){
 -------------------------------------------------*/
 async function doStartTurn(){
   state = startTurn(state);             // reveal flow head if empty
-  // Auto-draw up to 5 for the ACTIVE player
   const active = state.activePlayer;
   const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
   if (need) state = drawN(state, active, need);
-  render(); // render first so new DOM nodes exist
-  // Draw animation: emit after DOM built
-  const handNodes = Array.from(handEl?.children || []);
-  const justDrawn = handNodes.slice(-Math.max(0, need));
-  if (justDrawn.length) A.drawn(justDrawn);
+  render(); // ensure DOM
+  const nodes = Array.from(handEl?.children || []);
+  const justDrawn = nodes.slice(-Math.max(0, need));
+  if (justDrawn.length) A.deal(justDrawn, 110);
 }
 
 async function doEndTurn(){
-  // 1) Animate discarding the player's remaining hand
-  const handNodes = Array.from(handEl?.children || []);
-  if (handNodes.length) {
-    A.discarded(handNodes);
-    await sleep(560);
-    // move hand -> discard in state
-    const P = state.players.player;
-    P.discard.push(...P.hand.splice(0));
+  // 1) Player discard animation
+  if (state.activePlayer === "player"){
+    const handNodes = Array.from(handEl?.children || []);
+    if (handNodes.length) {
+      A.discard(handNodes);
+      await sleep(600);
+      const P = state.players.player;
+      P.discard.push(...P.hand.splice(0));
+    }
   }
 
-  // 2) Finish player's turn: river shift + switch to AI (also reveals for next)
+  // 2) End current turn (shift river + switch)
   state = endTurn(state);
 
-  // 3) AI start turn: draw to 5, render (optional quick pause)
+  // 3) AI turn: draw, act, (optional: no anim discard), end
   if (state.activePlayer === "ai"){
     const needAI = Math.max(0, 5 - (state.players.ai.hand?.length||0));
     if (needAI) state = drawN(state, "ai", needAI);
     render();
-
-    // (stub AI actions go here)
-
-    // 4) AI end turn immediately (no hand discard anim for AI yet)
+    state = aiSimpleTurn();
+    render();
+    // End AI turn
     state = endTurn(state);
   }
 
-  // 5) Back to player start: reveal & draw to 5 and animate draw
+  // 4) Back to player start
   await doStartTurn();
 }
 
@@ -580,23 +636,23 @@ document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom()
    Boot
 -------------------------------------------------*/
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // Inject HUD icons immediately (so discard target exists for anims)
-  hudDeckBtn && (hudDeckBtn.innerHTML = `
-    <svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="12" width="36" height="40" rx="4"></rect>
-      <rect x="14" y="8" width="36" height="40" rx="4"></rect>
-      <rect x="18" y="4" width="36" height="40" rx="4"></rect>
-    </svg>
-  `);
-  hudDiscardBtn && (hudDiscardBtn.innerHTML = `
-    <svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="10" width="44" height="34" rx="6"></rect>
-      <path d="M20 22h24M20 30h24M20 38h24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
-    </svg>
-  `);
-  hudDiscardBtn?.classList.add("drop-target");
-  hudDeckBtn?.classList.add("drop-target");
-
-  // Initial start-of-game: treat as start turn (reveal + draw to 5 + anim)
+  // Ensure HUD icons present (targets for deal/discard)
+  if (hudDeckBtn && !hudDeckBtn.innerHTML.trim()){
+    hudDeckBtn.innerHTML = `
+      <svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
+        <rect x="10" y="12" width="36" height="40" rx="4"></rect>
+        <rect x="14" y="8" width="36" height="40" rx="4"></rect>
+        <rect x="18" y="4" width="36" height="40" rx="4"></rect>
+      </svg>
+    `;
+  }
+  if (hudDiscardBtn && !hudDiscardBtn.innerHTML.trim()){
+    hudDiscardBtn.innerHTML = `
+      <svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
+        <rect x="10" y="10" width="44" height="34" rx="6"></rect>
+        <path d="M20 22h24M20 30h24M20 38h24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+      </svg>
+    `;
+  }
   await doStartTurn();
 });
