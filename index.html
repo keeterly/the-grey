@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Grey — board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css" />
+  <!-- Cache-bust so GitHub Pages doesn’t serve an old file -->
+  <link rel="stylesheet" href="./styles.css?v=257" />
 </head>
 <body id="board" class="theme-dark parchment">
 
-  <!-- Top bar (hidden visually if you removed it in CSS; the buttons still exist for desktop testing) -->
+  <!-- Top bar (hidden) -->
   <header class="topbar" style="display:none">
     <div class="left">
       <button id="btn-start-turn" class="btn">Start Turn</button>
@@ -29,13 +30,8 @@
         <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
         <div class="hearts" id="ai-hearts"></div>
         <div class="trance">Trance 0</div>
-
-        <!-- Aether readout under AI portrait -->
-        <div class="aether-display" id="ai-aether">
-          <!-- filled from JS with gem + number -->
-        </div>
+        <div class="aether-display" id="ai-aether"></div>
       </figure>
-
       <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
     </section>
 
@@ -57,11 +53,7 @@
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
         <div class="hearts" id="player-hearts"></div>
         <div class="trance">Trance 0</div>
-
-        <!-- Aether readout under Player portrait -->
-        <div class="aether-display" id="player-aether">
-          <!-- filled from JS with gem + number -->
-        </div>
+        <div class="aether-display" id="player-aether"></div>
       </figure>
     </section>
 
@@ -71,22 +63,14 @@
     </section>
   </main>
 
-  <!-- right HUD (discard/deck are drop targets) -->
+  <!-- HUD -->
   <aside class="hud">
     <button id="btn-endturn-hud" class="hud-btn" title="End turn">»</button>
-
-    <!-- Discard (TOP) -->
-    <button id="btn-discard-hud" class="hud-btn" title="Discard pile">
-      <!-- discard stack icon -->
-    </button>
-
-    <!-- Deck (BOTTOM) -->
-    <button id="btn-deck-hud" class="hud-btn" title="Deck">
-      <!-- deck stack icon -->
-    </button>
+    <button id="btn-discard-hud" class="hud-btn" title="Discard pile"></button>
+    <button id="btn-deck-hud" class="hud-btn" title="Deck"></button>
   </aside>
 
-  <!-- Peek + Zoom layers -->
+  <!-- Peek + Zoom -->
   <div id="preview-layer" aria-hidden="true">
     <div id="peek-card" class="card peek"></div>
     <div id="zoom-overlay" data-open="false">
@@ -94,12 +78,7 @@
     </div>
   </div>
 
-  <!-- Load the game like before -->
-  <script type="module" src="./index.js"></script>
-
-  <!-- NEW: safe module-scoped import for animations (no globals, no double-load) -->
-  <script type="module">
-    import './animations.js';
-  </script>
+  <!-- Single entry point ONLY. Do not add other <script> tags here. -->
+  <script type="module" src="./index.js?v=257"></script>
 </body>
 </html>
