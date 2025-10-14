@@ -1,113 +1,223 @@
-/* =========================================================
-   The Grey — v2.57 animation wiring (safe integrator)
-   Replace your index.js with this, or merge the WIRING blocks.
-   It expects GameLogic to exist and keeps all state there.
-   ========================================================= */
+/**
+ * index.js — v2.57 bootstrap
+ * -------------------------------------------
+ * - Loads animations lazily (inside the module) to avoid double-loads.
+ * - Wires a tiny event bus (Grey.on / Grey.emit) for decoupled animations.
+ * - Boots whatever your GameLogic.js exposes (init/render/turn handlers).
+ * - Never throws if a helper is missing — everything is feature-detected.
+ */
 
-import './animations.js'; // make sure this is included after your bundler resolves or via <script>
+const qs  = (sel, root = document) => root.querySelector(sel);
+const qsa = (sel, root = document) => [...root.querySelectorAll(sel)];
 
-const $ = (s, r=document)=>r.querySelector(s);
-const $$ = (s, r=document)=>Array.from(r.querySelectorAll(s));
-
-/* ---------- DOM pointers that are fairly stable in v2.57 ---------- */
-const DOM = {
-  deck:   $('#hud-deck')    || $('#deckBtn')    || $('[data-role="deck"]')    || $('.hud .btn-deck'),
-  discard:$('#hud-discard') || $('#discardBtn') || $('[data-role="discard"]') || $('.hud .btn-discard'),
-  flowRow: $('#flow-row')   || $('[data-role="aetherflow"]'),
-  hand:    $('.hand')       || $('#hand'),
-  endTurn: $('#endTurn')    || $('[data-role="end-turn"]'),
+/* ---------- Tiny event bus (DOM CustomEvents under the hood) ---------- */
+const Grey = {
+  on(type, handler, options) {
+    document.addEventListener(type, handler, options);
+    return () => document.removeEventListener(type, handler, options);
+  },
+  emit(type, detail = {}) {
+    document.dispatchEvent(new CustomEvent(type, { detail, bubbles: true }));
+  }
 };
+// Expose for GameLogic.js (optional usage)
+window.Grey = Grey;
 
-/* Safety: if something is missing we still run without crashing */
-function elOrNull(x){ return x instanceof Element ? x : null; }
+/* ---------- Optional animations (lazy) ---------- */
+let Anims = null;
 
-/* ---------- WIRING: Begin turn (draw N with animation) ---------- */
-async function doBeginTurn() {
-  // Ask GameLogic how many to draw; fallback 5 if missing
-  const n = (window.GameLogic?.cardsToDrawStartOfTurn?.() ?? 0);
-
-  for (let i = 0; i < n; i++) {
-    // Create a card in logic, get DOM node once in hand
-    const card = await window.GameLogic.drawOneToHand(); // should append to hand and return the new .card element
-    const cardEl = elOrNull(card?.el || card);           // accept element or wrapper
-    await GREY_ANIM.animateDraw(cardEl, elOrNull(DOM.deck), elOrNull(DOM.hand));
+async function loadAnimations() {
+  try {
+    // Cache-busted import so GH Pages doesn't serve an old copy
+    const mod = await import('./animations.js?v=257');
+    Anims = mod?.default ?? mod;
+    // Give the module a chance to hook once, if it exports an install() helper
+    if (Anims && typeof Anims.install === 'function') {
+      Anims.install({ Grey, root: document });
+    }
+    // If the animation module wants to subscribe by itself
+    if (Anims && typeof Anims.autowire === 'function') {
+      Anims.autowire({ Grey });
+    }
+  } catch (err) {
+    // Animations are optional; never block the game if missing
+    console.warn('[Animations] not loaded (optional):', err?.message || err);
   }
-
-  // Optional: flash aether gem under portrait if GameLogic gained aether on draw
-  const gem = $('.aether-display');
-  if (gem) gem.classList.add('flash'), setTimeout(()=>gem.classList.remove('flash'), 580);
 }
 
-/* ---------- WIRING: End turn (discard all hand with animation) ---------- */
-async function doEndTurn() {
-  const handCards = $$('.hand .card');
-  for (const card of handCards) {
-    await GREY_ANIM.animateDiscard(card, elOrNull(DOM.discard));
-    window.GameLogic?.discardCardFromHand?.(card); // remove from state/DOM after flight
-  }
-  // Pass priority to AI (your logic)
-  await window.GameLogic?.aiTurn?.();
-  // Start next player turn
-  await doBeginTurn();
+/* ---------- Safely read exported helpers from GameLogic.js ---------- */
+function getGameAPI() {
+  // Common patterns we’ve used across versions — feature detect them
+  const api = {
+    // init/boot
+    init:
+      window.initGame ||
+      window.setupGame ||
+      window.startGame ||
+      window.Game?.init ||
+      null,
+
+    // renderers
+    renderAll:
+      window.renderAll ||
+      window.renderBoard ||
+      window.Game?.render ||
+      null,
+
+    // turn helpers
+    startTurn:
+      window.startTurn ||
+      window.Game?.startTurn ||
+      null,
+
+    endTurn:
+      window.endTurn ||
+      window.Game?.endTurn ||
+      null,
+
+    // drag & drop (optional in some builds)
+    enableDnD:
+      window.enableDragAndDrop ||
+      window.Game?.enableDragAndDrop ||
+      null
+  };
+
+  return api;
 }
 
-/* ---------- WIRING: Aetherflow (river) operations ---------- */
-function setupAetherflowObservers(){
-  if (!DOM.flowRow) return;
+/* ---------- HUD wiring (safe) ---------- */
+function wireHUD(api) {
+  const endBtn = qs('#btn-endturn-hud');
+  if (endBtn) {
+    endBtn.addEventListener('click', async () => {
+      // Let game logic handle end turn if provided
+      if (typeof api.endTurn === 'function') {
+        // You can dispatch “cards:discarded” *before* the actual state change if you want the animation to run while resolving.
+        Grey.emit('turn:ending');
+        await api.endTurn();
+        Grey.emit('turn:ended');
+      } else {
+        Grey.emit('turn:ended');
+      }
+    });
+  }
 
-  // 1) Reveal animation when a new card node is inserted in flow-row
-  const obs = new MutationObserver(muts=>{
-    for (const m of muts) {
-      m.addedNodes.forEach(node=>{
-        if (!(node instanceof Element)) return;
-        if (node.classList.contains('flow-card') || node.matches('.flow-card .card, .market-card, .flow .card')) {
-          GREY_ANIM.animateFlowReveal(node.classList.contains('card') ? node : node.querySelector('.card') || node);
-        }
-      });
-      m.removedNodes.forEach(node=>{
-        if (!(node instanceof Element)) return;
-        // falloff only for removals from the right-most slot:
-        if (m.target === DOM.flowRow) {
-          const before = $$('.flow-card, .market-card', DOM.flowRow);
-          if (!before.length) return;
-          // if the removed element had been the last column, play falloff from a clone of the last before removal
-          GREY_ANIM.animateFlowFalloff(node.querySelector('.card') || node);
-        }
-      });
+  const discardBtn = qs('#btn-discard-hud');
+  if (discardBtn) {
+    // Example drop target marking (your DnD may already do this)
+    discardBtn.dataset.dropTarget = 'discard';
+  }
+  const deckBtn = qs('#btn-deck-hud');
+  if (deckBtn) {
+    deckBtn.dataset.dropTarget = 'deck';
+  }
+}
+
+/* ---------- Portrait aether readouts (safe/optional) ---------- */
+function updateAetherDisplays() {
+  // If your logic exposes values on window/state, reflect them here.
+  // These calls are no-ops if you haven’t wired them yet.
+  try {
+    const player = window.Game?.state?.player ?? window.playerState;
+    const ai     = window.Game?.state?.ai     ?? window.aiState;
+
+    const p = qs('#player-aether');
+    const a = qs('#ai-aether');
+    if (p && player && typeof player.aether === 'number') {
+      p.textContent = `${player.aether}`;
+    }
+    if (a && ai && typeof ai.aether === 'number') {
+      a.textContent = `${ai.aether}`;
+    }
+  } catch (_) {
+    // silent — best effort UI refresh
+  }
+}
+
+/* ---------- Animation hooks (events you can emit from GameLogic) ---------- */
+/*
+  Fire these from your game logic whenever appropriate:
+
+  Grey.emit('cards:drawn',   { cards, source: 'deck' });
+  Grey.emit('cards:discarded',{ cards, target: 'discard' });
+  Grey.emit('flow:reveal',   { cardEl, index });        // leftmost/new reveal
+  Grey.emit('flow:falloff',  { cardEl, index });        // rightmost leaving
+  Grey.emit('market:buy',    { cardEl });               // spotlight then flyTo discard
+*/
+function wireAnimationListeners() {
+  if (!Anims) return; // optional
+
+  // Draw
+  Grey.on('cards:drawn', e => {
+    if (typeof Anims.animateDraw === 'function') {
+      Anims.animateDraw(e.detail);
     }
   });
-  obs.observe(DOM.flowRow, {childList:true, subtree:false});
-}
 
-/* ---------- WIRING: Buy from aetherflow → spotlight → discard ---------- */
-/* Expect GameLogic to call this when a card is purchased */
-window.onAetherflowBuy = async function(cardEl){
-  await GREY_ANIM.animateBuyToDiscard(cardEl, elOrNull(DOM.discard));
-  window.GameLogic?.moveFlowCardToDiscard?.(cardEl);
-};
+  // Discard
+  Grey.on('cards:discarded', e => {
+    if (typeof Anims.animateDiscard === 'function') {
+      Anims.animateDiscard(e.detail);
+    }
+  });
 
-/* ---------- Hook End Turn button ---------- */
-function wireEndTurn(){
-  if(!DOM.endTurn) return;
-  DOM.endTurn.addEventListener('click', async ()=>{
-    await doEndTurn();
+  // Flow reveal (leftmost or new card)
+  Grey.on('flow:reveal', e => {
+    if (typeof Anims.animateFlowReveal === 'function') {
+      Anims.animateFlowReveal(e.detail);
+    }
+  });
+
+  // Flow falloff (rightmost)
+  Grey.on('flow:falloff', e => {
+    if (typeof Anims.animateFlowFalloff === 'function') {
+      Anims.animateFlowFalloff(e.detail);
+    }
+  });
+
+  // Market buy spotlight then fly
+  Grey.on('market:buy', e => {
+    if (typeof Anims.animateMarketBuy === 'function') {
+      Anims.animateMarketBuy(e.detail);
+    }
   });
 }
 
-/* ---------- Init ---------- */
-async function init(){
-  setupAetherflowObservers();
-  wireEndTurn();
+/* ---------- Boot sequence ---------- */
+async function boot() {
+  await loadAnimations();           // optional, non-blocking
+  const api = getGameAPI();
 
-  // If your GameLogic exposes a turn lifecycle, attach:
-  if (window.GameLogic?.on) {
-    window.GameLogic.on('turn:begin', doBeginTurn);
-    window.GameLogic.on('turn:end',   doEndTurn);
-    window.GameLogic.on('flow:buy',   window.onAetherflowBuy);
-  } else {
-    // Fallback: just kick a first draw
-    await doBeginTurn();
+  // Initialize game logic if provided
+  if (typeof api.init === 'function') {
+    await api.init({ Grey });       // pass bus (optional)
+  }
+
+  // Render once
+  if (typeof api.renderAll === 'function') {
+    await api.renderAll();
+  }
+
+  wireHUD(api);
+  if (typeof api.enableDnD === 'function') {
+    api.enableDnD();
+  }
+
+  // Hook animation listeners after DOM is in place
+  wireAnimationListeners();
+
+  // First frame UI sync
+  updateAetherDisplays();
+
+  // If your logic exposes a startTurn, kick off the opener
+  if (typeof api.startTurn === 'function') {
+    await api.startTurn();
   }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+/* ---------- Start on DOM ready ---------- */
+document.addEventListener('DOMContentLoaded', () => {
+  boot().catch(err => {
+    console.error('[Boot] Fatal error:', err);
+  });
+});
