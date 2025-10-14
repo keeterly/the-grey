@@ -3,93 +3,85 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>The Grey — v2.53 baseline</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css" />
+  <title>The Grey · v2.55</title>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@300;400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body id="board" class="theme-dark parchment">
-  <main id="board-grid" class="grid">
+<body>
+  <div id="table">
+    <!-- Opponent -->
+    <aside class="portrait portrait--opponent">
+      <div class="portrait__art"></div>
+      <div class="portrait__name">Morr, Gravecurrent Binder</div>
+      <div class="track track--hearts" data-count="8"></div>
+      <div class="track track--gems" data-count="6"></div>
+      <div class="badge">Trance ◈</div>
+    </aside>
 
-    <!-- OPPONENT (top) -->
-    <section class="row ai">
-      <div class="portrait-area">
-        <figure class="portrait">
-          <img id="ai-portrait" src="./weaver_morr.jpg" alt="Opponent portrait" />
-          <figcaption id="ai-name" class="name">Opponent</figcaption>
-          <div id="ai-hearts" class="hearts"></div>
-          <div class="portrait-bar">
-            <svg id="ai-gem" class="gem" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg>
-            <span id="ai-gem-count" class="gem-count">0</span>
-          </div>
-          <div class="trance-wrap">
-            <div id="a-trance-I"  class="trance-row"><div class="trance-diamond"></div><span>I</span></div>
-            <div id="a-trance-II" class="trance-row dim"><div class="trance-diamond"></div><span>II</span></div>
-          </div>
-        </figure>
-      </div>
-
-      <div id="ai-slots" class="slot-row" aria-label="AI slots"></div>
-    </section>
-
-    <!-- FLOW (center) -->
-    <section class="row flow">
-      <div class="flow-wrap">
-        <div class="flow-title-rail"><span class="flow-title">AETHER FLOW</span></div>
-        <ul id="flow-row" class="flow-row" aria-label="Aether Flow"></ul>
-      </div>
-      <div id="flow-cost-rail" class="flow-cost-rail"></div>
-    </section>
-
-    <!-- PLAYER (bottom) -->
-    <section class="row player">
-      <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
-
-      <div class="portrait-area">
-        <figure class="portrait">
-          <img id="player-portrait" src="./weaver_aria.jpg" alt="Player portrait" />
-          <figcaption id="player-name" class="name">Player</figcaption>
-          <div id="player-hearts" class="hearts"></div>
-          <div class="portrait-bar">
-            <svg id="player-gem" class="gem" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l6 6-6 14L6 8l6-6z"/></svg>
-            <span id="player-gem-count" class="gem-count">0</span>
-          </div>
-          <div class="trance-wrap">
-            <div id="p-trance-I"  class="trance-row"><div class="trance-diamond"></div><span>I</span></div>
-            <div id="p-trance-II" class="trance-row dim"><div class="trance-diamond"></div><span>II</span></div>
-          </div>
-        </figure>
+    <!-- Top row slots -->
+    <section class="board board--top">
+      <div class="slot-row">
+        <div class="slot spell" data-slot="spell"></div>
+        <div class="slot spell" data-slot="spell"></div>
+        <div class="slot spell" data-slot="spell"></div>
+        <div class="slot glyph" data-slot="glyph"></div>
       </div>
     </section>
 
-    <!-- HAND -->
-    <section class="hand-wrap">
-      <div id="hand" class="hand" aria-label="Player hand"></div>
+    <!-- Aether Flow rail -->
+    <section class="flow">
+      <div class="flow__title">A E T H E R&nbsp;&nbsp;F L O W</div>
+      <div class="flow__ribbon" id="flowRibbon"></div>
     </section>
 
-  </main>
+    <!-- Player slots -->
+    <section class="board board--player">
+      <div class="slot-row">
+        <div class="card mini" id="peekPreview" aria-hidden="true"></div>
+        <div class="slot spell" data-slot="spell"></div>
+        <div class="slot spell" data-slot="spell"></div>
+        <div class="slot glyph" data-slot="glyph"></div>
+      </div>
+    </section>
 
-  <!-- HUD right -->
-  <aside class="hud">
-    <button id="btn-endturn-hud" class="hud-btn" title="End turn">End Turn</button>
-    <button id="btn-discard-hud"  class="hud-btn drop-target" title="Discard pile">
-      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="4" width="12" height="16" rx="2"/></svg>
-      <span id="hud-discard-count" class="badge">0</span>
-    </button>
-    <button id="btn-deck-hud"     class="hud-btn" title="Deck">
-      <svg class="icon deck" viewBox="0 0 24 24" aria-hidden="true">
-        <rect x="5" y="6" width="10" height="14" rx="2"/><rect x="7" y="4" width="10" height="14" rx="2"/><rect x="9" y="2" width="10" height="14" rx="2"/>
-      </svg>
-      <span id="hud-deck-count" class="badge">0</span>
-    </button>
-  </aside>
+    <!-- Player -->
+    <aside class="portrait portrait--player">
+      <div class="portrait__art"></div>
+      <div class="portrait__name">Aria, Runesurge Adept</div>
+      <div class="track track--hearts" data-count="8"></div>
+      <div class="track track--gems" data-count="6"></div>
+      <div class="badge">Trance ◇</div>
+    </aside>
 
-  <!-- Peek + Zoom -->
-  <div id="preview-layer" aria-hidden="true">
-    <div id="peek-card" class="card peek"></div>
-    <div id="zoom-overlay" data-open="false"><div id="zoom-card" class="card zoom"></div></div>
+    <!-- Right HUD -->
+    <nav class="hud">
+      <button id="endTurn" class="hud__btn">End Turn</button>
+      <div class="hud__panel">
+        <div class="hud__meter"><span>🜁</span><b id="deckCount">119</b></div>
+        <div class="hud__meter"><span>✜</span><b id="discardCount">5</b></div>
+      </div>
+    </nav>
+
+    <!-- Hand -->
+    <section id="hand" aria-label="Your hand"></section>
   </div>
 
-  <script type="module" src="./GameLogic.js"></script>
-  <script type="module" src="./index.js"></script>
+  <template id="cardTemplate">
+    <article class="card" draggable="true">
+      <header class="card__head">
+        <div class="card__title">Card Name</div>
+        <div class="card__type">SPELL</div>
+      </header>
+      <div class="card__rules">Card text…</div>
+      <footer class="card__cost">
+        <div class="pip" title="Aether cost"></div>
+        <div class="pip-count">1</div>
+      </footer>
+    </article>
+  </template>
+
+  <script src="game-logic.js"></script>
+  <script src="index.js"></script>
 </body>
 </html>

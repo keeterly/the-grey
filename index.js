@@ -1,267 +1,154 @@
-/* =========================================================
-   Minimal UI engine that restores:
-   - hand fan
-   - drag/drop with slot gating & pulse
-   - draw/discard animations
-   - preview on long-press
-   - Aether Flow costs + buy/spotlight
-   Works with your existing GameLogic.js-rendered DOM.
-   ========================================================= */
+// v2.55 UI glue — fanned hand, long-press peek, drag to slots, flow spotlight + buy animation.
+const template = document.getElementById('cardTemplate');
+const handEl = document.getElementById('hand');
+const ribbonEl = document.getElementById('flowRibbon');
+const endTurnBtn = document.getElementById('endTurn');
+const deckCountEl = document.getElementById('deckCount');
+const discardCountEl = document.getElementById('discardCount');
 
-(() => {
-  const $ = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => [...root.querySelectorAll(sel)];
+const wait = (ms)=> new Promise(r=>setTimeout(r,ms));
+function makeCardEl(card){
+  const el = template.content.firstElementChild.cloneNode(true);
+  el.querySelector('.card__title').textContent = card.name;
+  el.querySelector('.card__type').textContent = card.type;
+  el.querySelector('.card__rules').textContent = card.text;
+  el.querySelector('.pip-count').textContent = (card.cost || card.pip || 1);
+  return el;
+}
 
-  /* ---------- Fan the hand like MTGA ---------- */
-  function fanHand() {
-    const hand = $('.hand');
-    if (!hand) return;
-    const cards = $$('.hand .card', hand);
-    hand.dataset.count = cards.length;
-
-    const N = cards.length;
-    const spread = Math.min(16, Math.max(8, N*1.2));  // degrees total
-    const offset = (i) => (i - (N-1)/2);              // centered index
-    const radius = Math.max(320, 34 * N);             // pixels to arc
-    const lift = 24;                                  // vertical lift for middle
-
-    cards.forEach((card, i) => {
-      const k = offset(i);
-      const rot = (spread/(N||1)) * k;
-      const y  = -Math.max(0, lift - Math.abs(k)*3);
-      const x  = k * 22; // horizontal spacing
-      card.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
-      card.style.zIndex = String(1000 + i);
+// Flow
+function renderFlow(){
+  const {flow,flowCosts} = Game.state();
+  ribbonEl.innerHTML = '';
+  flow.slice(0,5).forEach((c,i)=>{
+    const a = document.createElement('article');
+    a.className = 'flow-card';
+    a.innerHTML = `
+      <header class="card__head">
+        <div class="card__title">${c.name}</div>
+        <div class="card__type">${c.type}</div>
+      </header>
+      <div class="card__rules">${c.text}</div>
+      <div class="pip"></div><div class="pip-count">${flowCosts[i] || (c.cost||c.pip||1)}</div>
+    `;
+    a.addEventListener('click', async ()=>{
+      a.classList.add('spotlight');
+      await wait(120);
+      const ghost = a.cloneNode(true);
+      const rect = a.getBoundingClientRect();
+      ghost.style.position='fixed';
+      ghost.style.left = rect.left+'px';
+      ghost.style.top = rect.top+'px';
+      ghost.style.zIndex = 999;
+      ghost.style.transform = 'translateY(-6px)';
+      document.body.appendChild(ghost);
+      const hud = document.querySelector('.hud__panel').getBoundingClientRect();
+      await wait(40);
+      ghost.style.transition='transform .35s ease, opacity .35s ease';
+      ghost.style.transform = `translate(${hud.left-rect.left}px, ${hud.top-rect.top}px) scale(.4)`;
+      ghost.style.opacity = .35;
+      Game.buyFromFlow(i);
+      updateHud();
+      await wait(360);
+      ghost.remove();
+      a.classList.remove('spotlight');
     });
+    ribbonEl.appendChild(a);
+  });
+}
 
-    hand.classList.add('fan');
-  }
+// Hand
+function layoutHand(){
+  const cards = Array.from(handEl.children);
+  const total = cards.length;
+  const spread = Math.min(20, total * 7);
+  cards.forEach((el,idx)=>{
+    const t = idx/(total-1 || 1);
+    const angle = (t-.5) * spread * 0.5;
+    const x = (t-.5) * (total*18);
+    const y = Math.abs(t-.5) * 34;
+    el.style.transform = `translate(${x}px, ${y}px) rotate(${angle}deg)`;
+    el.style.zIndex = 10+idx;
+  });
+}
 
-  /* ---------- Long press preview ---------- */
-  let pressTimer = null;
-  function bindPreview(card){
-    const peek = $('#peek-card');
-    const previewOn = () => {
-      if (!peek) return;
-      peek.classList.add('show');
-      // clone content (cheap snapshot)
-      peek.innerHTML = card.outerHTML;
-      const inner = $('.card', peek);
-      if (inner) inner.classList.add('peek');
-    };
-    const previewOff = () => peek && peek.classList.remove('show');
-
-    card.addEventListener('pointerdown', (e)=>{
-      if (e.button===2) return;
-      clearTimeout(pressTimer);
-      pressTimer = setTimeout(previewOn, 280);
-    });
-    ['pointerup','pointercancel','pointerleave','dragstart'].forEach(ev=>{
-      card.addEventListener(ev, ()=>{ clearTimeout(pressTimer); previewOff(); });
-    });
-  }
-
-  /* ---------- Drag & drop ---------- */
-  const state = {
-    dragging: null,
-    ghost: null,
-    fromZone: null,
-  };
-
-  function canDrop(cardEl, slotEl){
-    if (!slotEl) return false;
-    const accepts = slotEl.dataset.accept; // 'spell' | 'glyph' | 'discard'
-    const type = (cardEl.dataset.type||'').toLowerCase();
-    if (accepts === 'discard') return true;
-    if (!type) return false;
-    if (accepts === 'spell' && type==='spell') return true;
-    if (accepts === 'glyph' && type==='glyph') return true;
-    return false;
-  }
-
-  function nearestSlot(clientX, clientY){
-    const slots = $$('.slot[data-accept]');
-    let best = null, bestD = Infinity;
-    slots.forEach(sl=>{
-      const r = sl.getBoundingClientRect();
-      const cx = Math.max(r.left, Math.min(clientX, r.right));
-      const cy = Math.max(r.top , Math.min(clientY, r.bottom));
-      const dx = clientX - cx, dy = clientY - cy;
-      const d2 = dx*dx + dy*dy;
-      if (d2 < bestD){ bestD = d2; best = sl; }
-    });
-    return best;
-  }
-
-  function clearSlotHints(){ $$('.slot.can-drop').forEach(s=>s.classList.remove('can-drop')); }
-
-  function onDragStart(e){
-    const card = e.currentTarget;
-    state.dragging = card;
-    state.fromZone = card.closest('.hand, .slot, .flow-card');
-    card.classList.add('dragging');
-    card.setPointerCapture(e.pointerId);
-  }
-  function onDragMove(e){
-    const {dragging} = state; if (!dragging) return;
-    const dx = e.movementX, dy = e.movementY;
-    const tr = dragging.style.transform || 'translate(0px,0px)';
-    dragging.style.transform = tr.replace(/translate\([^)]*\)/,'') || '';
-    dragging.style.transform = `translate(${dx}px, ${dy}px)`;
-    // Slot pulse hint
-    clearSlotHints();
-    const sl = nearestSlot(e.clientX, e.clientY);
-    if (sl && canDrop(dragging, sl)) sl.classList.add('can-drop');
-  }
-  function onDragEnd(e){
-    const {dragging} = state; if (!dragging) return;
-    clearSlotHints();
-    const sl = nearestSlot(e.clientX, e.clientY);
-    if (sl && canDrop(dragging, sl)){
-      // drop success
-      if (sl.dataset.accept === 'discard') {
-        animateDiscard(dragging, ()=> dragging.remove());
-        // inform game logic:
-        window?.Game?.onDiscardForAether?.(dragging.dataset.cardId);
-      } else {
-        // place to slot — show full card in slot
-        sl.innerHTML = '';
-        sl.appendChild(dragging);
-        dragging.style.position = 'static';
-        dragging.style.transform = 'none';
-        dragging.classList.remove('dragging');
-        // notify:
-        window?.Game?.onPlayToSlot?.(dragging.dataset.cardId, sl.dataset.accept);
-      }
-    } else {
-      // return to hand
-      dragging.classList.remove('dragging');
-      dragging.style.transform = '';
-      if (state.fromZone?.classList.contains('hand')){
-        state.fromZone.appendChild(dragging);
-        fanHand();
-      }
+let peekTimer=null;
+function wireCardInteractions(el, index){
+  el.addEventListener('mousedown', ()=>{
+    peekTimer = setTimeout(()=>{ el.classList.add('is-peeking'); }, 280);
+  });
+  el.addEventListener('mouseup', ()=>{
+    clearTimeout(peekTimer);
+    if(el.classList.contains('is-peeking')){
+      el.classList.remove('is-peeking');
+    }else{
+      const free = document.querySelector('.slot[data-slot="spell"]:not(.filled)');
+      if(free) animatePlayToSlot(el, free, index);
     }
-    state.dragging = null;
-    state.fromZone = null;
-  }
+  });
+  el.addEventListener('dragstart', e=>{
+    el.classList.add('dragging');
+    document.querySelectorAll('.slot').forEach(s=> s.classList.add('drop-ready'));
+  });
+  el.addEventListener('dragend', e=>{
+    el.classList.remove('dragging');
+    document.querySelectorAll('.slot').forEach(s=> s.classList.remove('drop-ready'));
+  });
+}
 
-  function bindCardDrag(card){
-    card.addEventListener('pointerdown', onDragStart);
-    card.addEventListener('pointermove', onDragMove);
-    card.addEventListener('pointerup', onDragEnd);
-    card.addEventListener('pointercancel', onDragEnd);
-    bindPreview(card);
-  }
+async function animatePlayToSlot(cardEl, slotEl, handIndex){
+  const rect = cardEl.getBoundingClientRect();
+  const target = slotEl.getBoundingClientRect();
+  const ghost = cardEl.cloneNode(true);
+  ghost.style.position='fixed';
+  ghost.style.left = rect.left+'px';
+  ghost.style.top = rect.top+'px';
+  ghost.style.transform = 'translateY(-8px)';
+  ghost.style.zIndex = 1000;
+  document.body.appendChild(ghost);
+  await wait(16);
+  ghost.style.transition='transform .35s ease';
+  ghost.style.transform = `translate(${target.left-rect.left}px, ${target.top-rect.top}px) scale(.68)`;
+  await wait(360);
+  ghost.remove();
+  slotEl.classList.add('ready','filled');
+  Game.playFromHand(handIndex);
+  renderHand();
+  updateHud();
+}
 
-  /* ---------- Draw / Discard animations ---------- */
-  function animateDraw(cardEl){
-    cardEl.classList.add('anim-draw');
-    setTimeout(()=>cardEl.classList.remove('anim-draw'), 600);
-  }
-  function animateDiscard(cardEl, after){
-    cardEl.classList.add('anim-discard');
-    setTimeout(()=>{ cardEl.classList.remove('anim-discard'); after?.(); }, 420);
-  }
+function renderHand(){
+  const {hand} = Game.state();
+  handEl.innerHTML = '';
+  hand.forEach((c, i)=>{
+    const el = makeCardEl(c);
+    el.classList.add('fan-enter');
+    handEl.appendChild(el);
+    wireCardInteractions(el, i);
+  });
+  layoutHand();
+}
 
-  /* ---------- Flow costs + buy + spotlight ---------- */
-  function renderFlowCosts(){
-    $$('#flow-row .flow-card').forEach((fc,i)=>{
-      let pip = fc.querySelector('.cost-pip');
-      if (!pip){
-        pip = document.createElement('div');
-        pip.className = 'cost-pip';
-        pip.innerHTML = `
-          <span class="gem">${svgGem(14,14)}</span>
-          <span class="v">${flowCostAt(i)}</span> <span class="to">to buy</span>
-        `;
-        fc.appendChild(pip);
-      }else{
-        $('.v',pip).textContent = flowCostAt(i);
-      }
-    });
-  }
-  function flowCostAt(i){
-    // river pattern 4,3,3,2,2
-    return [4,3,3,2,2][i] ?? 2;
-  }
-  function bindFlowPurchases(){
-    $$('#flow-row .flow-card .card').forEach(card=>{
-      card.addEventListener('click', ()=>{
-        const cost = Number(card.closest('.flow-card')?.querySelector('.v')?.textContent || '0');
-        if (window?.Game?.canBuy?.(cost, card.dataset.cardId) === false) return;
-        // spotlight and fly to discard
-        card.classList.add('spotlight');
-        setTimeout(()=>{
-          window?.Game?.onBuyFromFlow?.(card.dataset.cardId, cost);
-          // simple fly-to discard: ask game for discard position?
-          const discard = $('.hud .hud-btn[data-target="discard"]') || $('.slot[data-accept="discard"]');
-          if (discard){
-            const r1 = card.getBoundingClientRect();
-            const r2 = discard.getBoundingClientRect();
-            const dx = r2.left - r1.left, dy = r2.top - r1.top;
-            card.style.transition = 'transform .35s ease-in, opacity .35s ease-in';
-            card.style.transform = `translate(${dx}px, ${dy}px) scale(.72)`;
-            card.style.opacity = '0';
-            setTimeout(()=> card.remove(), 360);
-          } else {
-            card.remove();
-          }
-        }, 560);
-      }, {once:false});
-    });
-  }
+function updateHud(){
+  const {deck, discard} = Game.state();
+  deckCountEl.textContent = String(100 + deck.length);
+  discardCountEl.textContent = String(discard.length);
+}
 
-  /* ---------- Portrait meters (hearts / gem sizes kept) ---------- */
-  function svgGem(w=16,h=16){
-    return `<svg viewBox="0 0 24 28" width="${w}" height="${h}" fill="${getComputedStyle(document.documentElement).getPropertyValue('--aether').trim()}"><path d="M12 0l7 7-7 21L5 7l7-7z"/></svg>`;
-  }
+// Turn
+endTurnBtn.addEventListener('click', async ()=>{
+  ribbonEl.style.transition = 'transform .15s ease';
+  ribbonEl.style.transform = 'translateY(2px)';
+  await wait(150);
+  ribbonEl.style.transform = 'translateY(0)';
+  Game.draw(1);
+  renderHand();
+  updateHud();
+});
 
-  /* ---------- Bootstrapping after initial render ---------- */
-  function wireAll(){
-    // Fan
-    fanHand();
-
-    // Make hand cards draggable and previewable
-    $$('.hand .card').forEach(bindCardDrag);
-
-    // Slot accepts
-    $$('.slot').forEach(sl=>{
-      if (!sl.dataset.accept){ // annotate by label text if needed
-        const label = (sl.textContent||'').toLowerCase();
-        if (label.includes('glyph')) sl.dataset.accept = 'glyph';
-        else if (label.includes('spell')) sl.dataset.accept = 'spell';
-      }
-    });
-
-    // Discard target (your right HUD discard stack should have data-accept="discard")
-    $$('.drop-discard, .slot-discard, .slot[data-discard], .slot-discard-target').forEach(el=>{
-      el.classList.add('slot'); el.dataset.accept='discard';
-    });
-
-    // Flow
-    renderFlowCosts();
-    bindFlowPurchases();
-  }
-
-  /* ---------- Public hooks GameLogic can call ---------- */
-  window.UI = {
-    onRender: wireAll,              // call after you render a turn
-    onHandChanged: ()=>{ fanHand(); $$('.hand .card').forEach(bindCardDrag); },
-    onDrawCard: (cardEl)=>{ animateDraw(cardEl); bindCardDrag(cardEl); fanHand(); },
-    onDiscardCard: (cardEl)=> animateDiscard(cardEl, ()=>cardEl.remove()),
-    pulseSlotsFor: (type)=>{ // 'spell' | 'glyph' | 'discard'
-      $$('.slot').forEach(sl=>{
-        sl.classList.toggle('can-drop', sl.dataset.accept===type || (type && sl.dataset.accept==='discard'));
-      });
-      setTimeout(clearSlotHints, 1200);
-    }
-  };
-
-  /* ---------- Kick once DOM is ready ---------- */
-  if (document.readyState !== 'loading') wireAll();
-  else document.addEventListener('DOMContentLoaded', wireAll);
-
-  /* Redo hand fan on resize (keeps arc nice) */
-  window.addEventListener('resize', ()=>requestAnimationFrame(fanHand));
-})();
+// boot
+Game.init();
+renderFlow();
+renderHand();
+updateHud();
+window.addEventListener('resize', layoutHand);
