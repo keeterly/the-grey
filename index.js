@@ -69,7 +69,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: text fixed at 12.5% (half of prior 25%) ---------- */
+/* ---------- portrait Aether gem: text at 12.5% (half of prior 25%) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -95,7 +95,6 @@ function layoutHand(container, cards) {
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
 
-  // Horizontal spacing from actual card width so edges touch.
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
   const stepX = cw * 0.98;
   const startX = -stepX * (N-1) / 2;
@@ -107,7 +106,6 @@ function layoutHand(container, cards) {
     const rad = a * Math.PI/180;
     const x = startX + stepX*i;
     const y = LIFT - Math.cos(rad)*(LIFT*0.78);
-    // Set ONLY CSS vars; base transform is in CSS so :hover can extend it.
     el.style.setProperty("--tx", `${x}px`);
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
@@ -141,32 +139,93 @@ function cardShellHTML(c){
 }
 function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
-let longPressTimer=null, pressStart={x:0,y:0};
-const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
-function attachPeekAndZoom(el, data){
-  if (peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
-    el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
+/* ---------- action menu ---------- */
+function clearAllActionMenus(){
+  document.querySelectorAll(".action-pop").forEach(n => n.remove());
+}
+function firstOpenSpellSlotIndex(pub){
+  const slots = pub.players?.player?.slots || [];
+  for (let i=0;i<3;i++){
+    const s = slots[i];
+    if (!s?.hasCard) return i;
   }
-  const onDown = (ev)=>{
-    if (longPressTimer) clearTimeout(longPressTimer);
-    const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
-    pressStart = {x:t.clientX,y:t.clientY};
-    longPressTimer = setTimeout(()=>{
-      if (peekEl){ fillCardShell(peekEl, data); peekEl.classList.add("show"); }
-    }, LONG_PRESS_MS);
-  };
-  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
-  const onMove = (ev)=>{
-    const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
-    if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y) > MOVE_CANCEL_PX) clearLP();
-  };
-  el.addEventListener("pointerdown", onDown, {passive:true});
-  el.addEventListener("pointerup", clearLP, {passive:true});
-  el.addEventListener("pointerleave", clearLP, {passive:true});
-  el.addEventListener("pointercancel", clearLP, {passive:true});
-  el.addEventListener("pointermove", onMove, {passive:true});
-  el.addEventListener("dragstart", clearLP);
+  return -1;
+}
+function canChannel(card){ return (card?.aetherValue|0) > 0; }
+function canPlaySpell(pub, card){
+  if (card?.type!=="SPELL") return false;
+  return firstOpenSpellSlotIndex(pub) >= 0;
+}
+function canSetGlyph(pub, card){
+  if (card?.type!=="GLYPH") return false;
+  const slot = (pub.players?.player?.slots || [])[3];
+  return slot && !slot.hasCard;
+}
+function canCastInstant(pub, card){
+  if (card?.type!=="INSTANT") return false;
+  // Only enable if the engine exposes a cast hook on window (future-proof).
+  return typeof window.castInstantFromHand === "function";
+}
+function showToast(msg, ms=1400){
+  let t = document.querySelector(".toast");
+  if (!t){ t = document.createElement("div"); t.className="toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=> t.classList.remove("show"), ms);
+}
+function showCardOptions(cardEl, cardData){
+  clearAllActionMenus();
+  const pub = serializePublic(state) || {};
+  const opts = [];
+
+  if (canPlaySpell(pub, cardData)) opts.push({k:"play", label:"Play"});
+  if (canSetGlyph(pub, cardData))  opts.push({k:"set",  label:"Set"});
+  if (canCastInstant(pub, cardData)) opts.push({k:"cast", label:"Cast"});
+  if (canChannel(cardData))         opts.push({k:"channel", label:"Channel"});
+
+  if (!opts.length) return;
+
+  const pop = document.createElement("div");
+  pop.className = `action-pop t-${(cardData.type||'X').toLowerCase()}`;
+
+  opts.forEach(o=>{
+    const b = document.createElement("button");
+    b.type="button";
+    b.className = `rune-btn act-${o.k}`;
+    b.textContent = o.label;
+    b.addEventListener("click", async (ev)=>{
+      ev.stopPropagation();
+      try{
+        if (o.k === "play"){
+          const idx = firstOpenSpellSlotIndex(serializePublic(state)||{});
+          if (idx>=0){ state = playCardToSpellSlot(state, "player", cardData.id, idx); }
+        } else if (o.k === "set"){
+          state = setGlyphFromHand(state, "player", cardData.id);
+        } else if (o.k === "channel"){
+          // animate discard then apply
+          cardEl.classList.add("discarding");
+          await sleep(320);
+          state = discardForAether(state, "player", cardData.id);
+        } else if (o.k === "cast"){
+          if (typeof window.castInstantFromHand === "function"){
+            state = await window.castInstantFromHand(state, "player", cardData.id);
+          } else {
+            showToast("Casting for Instants not available yet.");
+          }
+        }
+      } catch(e){}
+      clearAllActionMenus();
+      await render();
+    });
+    pop.appendChild(b);
+  });
+
+  document.body.appendChild(pop);
+
+  // position above the card
+  const r = cardEl.getBoundingClientRect();
+  pop.style.left = `${r.left + r.width/2}px`;
+  pop.style.top  = `${r.top  - 12}px`;
+  pop.style.transform = "translate(-50%, -100%)";
 }
 
 /* ---------- DnD (desktop + touch) ---------- */
@@ -183,7 +242,8 @@ function findValidDropTarget(node, cardType){
   return null;
 }
 function markDropTargets(cardType, on){
-  document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
+  document.querySelectorAll(".row.player .slot.spell")
+    .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
   if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
@@ -192,6 +252,8 @@ function applyDrop(target, cardId, cardType){
   if (!target || !cardId) return;
   try {
     if (target === hudDiscardBtn){
+      const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
+      if (el){ el.classList.add("discarding"); setTimeout(()=>{}, 0); }
       state = discardForAether(state, "player", cardId); render(); return;
     }
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
@@ -208,6 +270,7 @@ function applyDrop(target, cardId, cardType){
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
+    clearAllActionMenus();
     el.classList.add("dragging");
     const payload = JSON.stringify({id:data.id,type:data.type});
     ev.dataTransfer?.setData("application/x-card", payload);
@@ -215,25 +278,26 @@ function wireDesktopDrag(el, data){
     ev.dataTransfer?.setData("text/card-type", data.type);
     ev.dataTransfer?.setData("text/plain", data.id);
     ev.dataTransfer.effectAllowed = "move";
-
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
     ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
     setTimeout(()=> ghost.remove(), 0);
-
     markDropTargets(data.type, true);
   });
   el.addEventListener("dragend", ()=>{
     el.classList.remove("dragging");
     markDropTargets(data.type, false);
   });
+  // Click/tap menu
+  el.addEventListener("click", (e)=>{ e.stopPropagation(); showCardOptions(el, data); });
 }
 
 /* Touch drag wiring */
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   const start = (ev)=>{
+    clearAllActionMenus();
     const t = ev.touches ? ev.touches[0] : ev;
     dragging = true; markDropTargets(data.type, true);
     ghost = el.cloneNode(true);
@@ -269,7 +333,7 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchcancel", end, {passive:false});
 }
 
-/* Global DnD listeners (desktop) */
+/* Global listeners */
 document.addEventListener('dragover', (e)=>{
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const tgt = findValidDropTarget(el, "SPELL");
@@ -284,16 +348,7 @@ document.addEventListener('drop', (ev)=>{
   const target = findValidDropTarget(ev.target, type);
   if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
 }, true);
-hudDiscardBtn?.addEventListener('dragover', (e)=>{ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); });
-hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
-hudDiscardBtn?.addEventListener('drop', (e)=>{
-  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
-  const json = e.dataTransfer?.getData('application/x-card') || '{}';
-  let payload={}; try{ payload=JSON.parse(json); }catch{}
-  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
-  const type = payload.type || e.dataTransfer?.getData("text/card-type");
-  if (id){ applyDrop(hudDiscardBtn, id, type); }
-});
+document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- slots / flow ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
@@ -371,7 +426,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper --- */
+/* --- Flow title helper (left of board, outside grid) --- */
 function ensureFlowTitle(){
   const wrap = document.querySelector(".flow-wrap");
   if (!wrap) return;
@@ -382,6 +437,12 @@ function ensureFlowTitle(){
     rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
     wrap.appendChild(rail);
   }
+}
+
+async function animateFlowFall(node){
+  if (!node) return;
+  node.classList.add("flow-fall");
+  await sleep(280);
 }
 
 async function renderFlow(flowArray){
@@ -396,15 +457,15 @@ async function renderFlow(flowArray){
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-
     card.innerHTML = cardHTML(c);
     if (c) attachPeekAndZoom(card, c);
 
     if (c){
       card.addEventListener("click", async ()=>{
         Emit('aetherflow:bought', { node: card });
-        await sleep(560);
-        try { state = buyFromFlow(state, "player", idx); render(); } catch {}
+        // fall off animation on the clicked card
+        await animateFlowFall(card);
+        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
     }
 
@@ -418,6 +479,26 @@ async function renderFlow(flowArray){
 
     flowRowEl.appendChild(li);
   });
+
+  /* --- End Turn Card after last slot --- */
+  const endLi = document.createElement("li");
+  endLi.className = "flow-card end-turn-holder";
+  const endCard = document.createElement("article");
+  endCard.className = "card end-turn";
+  endCard.innerHTML = `
+    <div class="title">End Turn</div>
+    <div class="type" data-k="UTILITY">—</div>
+    <div class="divider"></div>
+    <div class="textbox">Pass priority and draw up next turn.</div>
+  `;
+  endCard.addEventListener("click", async ()=>{
+    // small drop/fade for feedback
+    endCard.classList.add("flow-fall");
+    await sleep(240);
+    await doEndTurn();
+  });
+  endLi.appendChild(endCard);
+  flowRowEl.appendChild(endLi);
 
   prevFlowIds = nextIds;
 }
@@ -451,6 +532,33 @@ function ensureTranceUI(){
   apply(aiPortrait, aLevel);
 }
 
+/* ---------- playable pulse ---------- */
+function highlightPlayableCards(){
+  const pub = serializePublic(state) || {};
+  const hand = pub.players?.player?.hand || [];
+  const openSpell = firstOpenSpellSlotIndex(pub) >= 0;
+  const glyphOpen = canSetGlyph(pub, {type:"GLYPH"}); // just checks glyph slot empty
+
+  // map id -> class
+  const pulseFor = (c)=>{
+    const t = c.type;
+    if (t==="SPELL" && openSpell) return "pulse-spell";
+    if (t==="GLYPH" && glyphOpen) return "pulse-glyph";
+    if (t==="INSTANT" && canCastInstant(pub, c)) return "pulse-instant";
+    if (canChannel(c)) return `pulse-${t?.toLowerCase?.()||"spell"}`; // channelable
+    return "";
+  };
+
+  const nodes = Array.from(handEl?.children || []);
+  nodes.forEach(node=>{
+    node.classList.remove("pulse-spell","pulse-glyph","pulse-instant");
+    const id = node.dataset.cardId;
+    const data = hand.find(h=> h.id===id);
+    const cls = data ? pulseFor(data) : "";
+    if (cls) node.classList.add(cls);
+  });
+}
+
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
@@ -482,7 +590,7 @@ async function render(){
 
   ensureTranceUI();
 
-  // HUD icons (same aesthetic)
+  // HUD icons (kept)
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
@@ -530,6 +638,9 @@ async function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
+      // Click/tap (desktop listener already set)
+      el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
+
       handEl.appendChild(el); domCards.push(el);
     });
 
@@ -558,6 +669,8 @@ async function render(){
 
     prevHandIds = newIds;
   }
+
+  highlightPlayableCards();
 }
 
 /* ---------- turn loop ---------- */
