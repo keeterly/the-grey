@@ -69,7 +69,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: text fixed at 12.5% (was 25%) ---------- */
+/* ---------- portrait Aether gem: text fixed at 12.5% (half of prior 25%) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -82,24 +82,22 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  // 12.5% of 24 viewBox = 3
   const t = el.querySelector("svg text");
-  if (t) t.setAttribute("font-size", "3");
+  if (t) t.setAttribute("font-size", "3"); // 12.5% of 24 viewBox
 }
 
 /* ---------- hand layout (edge-to-edge fanned) ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  // Angle: gentle fan so edges can touch.
   const MAX_ANGLE = 22, MIN_ANGLE = 8;
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
 
-  // Horizontal spacing: use actual card width so edges sit next to each other.
+  // Horizontal spacing from actual card width so edges touch.
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = cw * 0.98;     // slight overlap to feel cohesive
+  const stepX = cw * 0.98;
   const startX = -stepX * (N-1) / 2;
 
   const LIFT = 44;
@@ -109,11 +107,11 @@ function layoutHand(container, cards) {
     const rad = a * Math.PI/180;
     const x = startX + stepX*i;
     const y = LIFT - Math.cos(rad)*(LIFT*0.78);
+    // Set ONLY CSS vars; base transform is in CSS so :hover can extend it.
     el.style.setProperty("--tx", `${x}px`);
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
-    el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
 
@@ -187,7 +185,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -274,7 +272,7 @@ function wireTouchDrag(el, data){
 /* Global DnD listeners (desktop) */
 document.addEventListener('dragover', (e)=>{
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tgt = findValidDropTarget(el, "SPELL"); // generic check
+  const tgt = findValidDropTarget(el, "SPELL");
   if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
 }, true);
 document.addEventListener('drop', (ev)=>{
@@ -373,7 +371,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper (left of board, outside grid) --- */
+/* --- Flow title helper --- */
 function ensureFlowTitle(){
   const wrap = document.querySelector(".flow-wrap");
   if (!wrap) return;
@@ -484,7 +482,7 @@ async function render(){
 
   ensureTranceUI();
 
-  // HUD icons
+  // HUD icons (same aesthetic)
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
