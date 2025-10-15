@@ -82,12 +82,12 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  // Fit 1–3 digits inside the gem neatly
+  // Fit 1–3 digits neatly inside the gem
   const svg = el.querySelector("svg");
   const t   = svg?.querySelector("text");
   if (svg && t) {
     const digits = String(val).length;
-    const base = 24 * 0.46;                   // mirrors styles.css for --gem-size
+    const base = 24 * 0.46; // matches CSS calc(var(--gem-size)*0.46) with 24 viewBox
     const size = Math.max(24*0.26, Math.min(base, base * (1 - (digits - 1) * 0.15)));
     t.setAttribute("font-size", String(Math.floor(size)));
   }
@@ -193,7 +193,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // fixed
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -407,6 +407,37 @@ async function renderFlow(flowArray){
   prevFlowIds = nextIds;
 }
 
+/* ---------- trance UI (force replace existing .trance content) ---------- */
+function ensureTranceUI(){
+  const templateHTML = `
+    <div class="level" data-level="1">◇ I — Runic Surge</div>
+    <div class="level" data-level="2">◇ II — Spell Unbound</div>
+  `;
+  const apply = (portraitImgEl, level=0)=>{
+    if (!portraitImgEl) return;
+    const holder = portraitImgEl.closest('.portrait');
+    if (!holder) return;
+    let t = holder.querySelector('.trance');
+    if (!t){
+      t = document.createElement('div');
+      t.className = 'trance';
+      holder.appendChild(t);
+    }
+    // Always replace content so "Trance 0" is not left behind
+    t.innerHTML = templateHTML;
+    Array.from(t.querySelectorAll('.level')).forEach(el=>{
+      const n = Number(el.getAttribute('data-level'));
+      el.classList.toggle('active', (level|0) >= n);
+    });
+  };
+
+  const pub = serializePublic(state) || {};
+  const pLevel = pub.players?.player?.tranceLevel ?? 0;
+  const aLevel = pub.players?.ai?.tranceLevel ?? 0;
+  apply(playerPortrait, pLevel);
+  apply(aiPortrait, aLevel);
+}
+
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
@@ -420,35 +451,6 @@ function ensureSafetyShape(s){
   }
   if (!s.ai) s.ai = {aether:0, vitality:5, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
   return s;
-}
-
-/* ---------- trance placeholders (helper) ---------- */
-function ensureTrancePlaceholders(){
-  const apply = (portraitImgEl, level=0)=>{
-    if (!portraitImgEl) return;
-    const holder = portraitImgEl.closest('.portrait');
-    if (!holder) return;
-    let t = holder.querySelector('.trance');
-    if (!t){
-      t = document.createElement('div');
-      t.className = 'trance';
-      t.innerHTML = `
-        <div class="level" data-level="1">◇ I — Runic Surge</div>
-        <div class="level" data-level="2">◇ II — Spell Unbound</div>
-      `;
-      holder.appendChild(t);
-    }
-    Array.from(t.querySelectorAll('.level')).forEach(el=>{
-      const n = Number(el.getAttribute('data-level'));
-      el.classList.toggle('active', (level|0) >= n);
-    });
-  };
-
-  const pub = serializePublic(state) || {};
-  const pLevel = pub.players?.player?.tranceLevel ?? 0;
-  const aLevel = pub.players?.ai?.tranceLevel ?? 0;
-  apply(playerPortrait, pLevel);
-  apply(aiPortrait, aLevel);
 }
 
 async function render(){
@@ -465,7 +467,8 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  ensureTrancePlaceholders(); // add two-line trance UI
+  // Ensure trance lines are present and updated
+  ensureTranceUI();
 
   // HUD icons
   if (hudDeckBtn){
