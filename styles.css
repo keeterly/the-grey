@@ -158,9 +158,12 @@ html,body{height:100%}
 /* Deal/Discard helpers */
 .grey-fly-clone{position:fixed;z-index:9999;pointer-events:none;transform-origin:center;will-change:transform,opacity}
 .grey-hide-during-flight{opacity:0 !important}
-@keyframes dealIn{0%{opacity:0; transform:translateY(60px) scale(.9) rotate(var(--rot,0deg));}
-100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}}
-.card.deal-in{animation:dealIn .28s ease forwards}
+@keyframes dealIn{
+  0%{opacity:0; transform:translate(var(--tx,0), calc(var(--ty,0) + 2.2em)) rotate(var(--rot,0)) scale(.94);}
+  100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0)) scale(1);}
+}
+.card.deal-in{animation:dealIn .14s ease-out forwards} /* 2× faster than .28s */
+
 
 @keyframes discardOut{0%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
 100%{opacity:0; transform:translateY(80px) rotate(6deg) scale(.94);}}
@@ -179,3 +182,33 @@ html,body{height:100%}
 
 .toast{position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70}
 .toast.show{opacity:1}
+
+/* Glyph slot differentiation */
+.slot.glyph{
+  background:linear-gradient(180deg,#231b15,#15100c);  /* darker than spell slots */
+  border-color:#463a2d;
+}
+.slot.glyph .card{ border-color:#514232; }
+.slot-glyph-hint{
+  position:absolute; inset:0; display:grid; place-items:center;
+  color:#b6a98e; opacity:.7; text-align:center; gap:.35em;
+  pointer-events:none;
+}
+.slot-glyph-hint .lbl{ font-size:.85rem; opacity:.8 }
+.slot.glyph.drag-over{ outline:2px dashed var(--type-glyph); filter:drop-shadow(0 0 10px rgba(199,160,255,.45)); }
+
+
+/* Glyph slot differentiation */
+.slot.glyph{
+  background:linear-gradient(180deg,#231b15,#15100c);  /* darker than spell slots */
+  border-color:#463a2d;
+}
+.slot.glyph .card{ border-color:#514232; }
+.slot-glyph-hint{
+  position:absolute; inset:0; display:grid; place-items:center;
+  color:#b6a98e; opacity:.7; text-align:center; gap:.35em;
+  pointer-events:none;
+}
+.slot-glyph-hint .lbl{ font-size:.85rem; opacity:.8 }
+.slot.glyph.drag-over{ outline:2px dashed var(--type-glyph); filter:drop-shadow(0 0 10px rgba(199,160,255,.45)); }
+
