@@ -30,6 +30,7 @@ const set = (el, fn) => { if (el) fn(el); };
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
+const nextFrame = () => new Promise(requestAnimationFrame);
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -67,17 +68,29 @@ function renderHearts(el, n=5){
   if (!el) return;
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
+
+/* Portrait gem value — auto-fit digits inside the SVG gem */
 function setAetherDisplay(el, v=0){
   if (!el) return;
+  const val = v|0;
   el.innerHTML = `
     <span class="gem">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 2l6 6-6 14-6-14 6-6z"/>
-        <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${v|0}</text>
+        <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${val}</text>
       </svg>
     </span>
-    <strong class="val" aria-hidden="true">${v|0}</strong>
+    <strong class="val" aria-hidden="true">${val}</strong>
   `;
+  // Dynamic font sizing for the <text> inside the gem (1–3 digits typical)
+  const svg = el.querySelector("svg");
+  const t   = svg?.querySelector("text");
+  if (svg && t) {
+    const digits = String(val).length;
+    const base = 24 * 0.46; // mirrors styles.css font sizing
+    const size = Math.max(24*0.26, Math.min(base, base * (1 - (digits - 1) * 0.15)));
+    t.setAttribute("font-size", String(Math.floor(size)));
+  }
 }
 
 /* ---------- hand layout (MTGA-like fan) ---------- */
@@ -104,6 +117,17 @@ function layoutHand(container, cards) {
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
+  });
+
+  // small jitter guard: re-apply on the next frame after paint
+  requestAnimationFrame(()=>{
+    cards.forEach((el,i)=>{
+      const a = startA + stepA*i;
+      const x = startX + stepX*i;
+      const rad = a * Math.PI/180;
+      const y = LIFT - Math.cos(rad)*(LIFT*0.78);
+      el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
+    });
   });
 }
 
@@ -180,7 +204,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -423,6 +447,9 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
+  // NEW: trance placeholders (two lines; 50% inactive)
+  ensureTrancePlaceholders();
+
   // HUD icons
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
@@ -468,6 +495,9 @@ async function render(){
     });
 
     layoutHand(handEl, domCards);
+    // NEW: jitter guard — refan once after paint
+    await nextFrame();
+    layoutHand(handEl, domCards);
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
@@ -491,6 +521,35 @@ async function render(){
 
     prevHandIds = newIds;
   }
+}
+
+/* ---------- trance placeholders (helper) ---------- */
+function ensureTrancePlaceholders(){
+  const apply = (portraitImgEl, level=0)=>{
+    if (!portraitImgEl) return;
+    const holder = portraitImgEl.closest('.portrait');
+    if (!holder) return;
+    let t = holder.querySelector('.trance');
+    if (!t){
+      t = document.createElement('div');
+      t.className = 'trance';
+      t.innerHTML = `
+        <div class="level" data-level="1">◇ I — Runic Surge</div>
+        <div class="level" data-level="2">◇ II — Spell Unbound</div>
+      `;
+      holder.appendChild(t);
+    }
+    Array.from(t.querySelectorAll('.level')).forEach(el=>{
+      const n = Number(el.getAttribute('data-level'));
+      el.classList.toggle('active', (level|0) >= n);
+    });
+  };
+
+  const pub = serializePublic(state) || {};
+  const pLevel = pub.players?.player?.tranceLevel ?? 0;
+  const aLevel = pub.players?.ai?.tranceLevel ?? 0;
+  apply(playerPortrait, pLevel);
+  apply(aiPortrait, aLevel);
 }
 
 /* ---------- turn loop ---------- */
