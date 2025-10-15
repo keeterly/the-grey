@@ -134,16 +134,22 @@ function attachPeekAndZoom(el, data){
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
   const onDown = (ev)=>{
-    if (longPressTimer) clearTimeout(longPressTimer);
-    const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
-    pressStart = {x:t.clientX,y:t.clientY};
-    longPressTimer = setTimeout(()=>{
-      if (zoomOverlayEl && zoomCardEl){
-        fillCardShell(zoomCardEl, data);
-        zoomOverlayEl.setAttribute("data-open","true");
-      }
-    }, LONG_PRESS_MS);
-  };
+  if (longPressTimer) clearTimeout(longPressTimer);
+  const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
+  pressStart = {x:t.clientX,y:t.clientY};
+  longPressTimer = setTimeout(()=>{
+    if (zoomOverlayEl && zoomCardEl){
+      // Hide hover peek so it doesn't fight the zoom
+      if (peekEl) peekEl.classList.remove("show");
+      // Clear any residual transforms and center
+      zoomCardEl.style.transform = "";
+      zoomCardEl.style.left = ""; zoomCardEl.style.top = "";
+      fillCardShell(zoomCardEl, data);
+      zoomOverlayEl.setAttribute("data-open","true");
+    }
+  }, LONG_PRESS_MS);
+};
+
   const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
   const onMove = (ev)=>{
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
