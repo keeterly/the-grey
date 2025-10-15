@@ -65,9 +65,6 @@ let selectedCard = null;
 let draggingType = "";
 
 /* =============== visuals helpers =============== */
-function gemSVG(cls="", size=24){
-  return `<svg class="${cls}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg>`;
-}
 function heartSVG(size=36){
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
     <path d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z" fill="#d65151" />
@@ -80,60 +77,22 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:count}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 const aeInline = (s)=> withAetherText(s);
+
+/** Big gem with value centered INSIDE the gem (for portraits) */
+function gemWithValue(value=0, size=40){
+  // Center the text in the diamond using SVG text + transform
+  return `
+  <svg class="gem-badge" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
+    <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
+    <text x="12" y="13.5" text-anchor="middle" font-size="${Math.floor(size*0.46)}" font-weight="800" fill="#0d0a07">
+      ${Number(value|0)}
+    </text>
+  </svg>`;
+}
 function setAetherDisplay(el, v=0){
   if (!el) return;
-  el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 24)}</span><strong class="val">${v|0}</strong>`;
-}
-
-/* =============== Trance placeholders (helpers) =============== */
-function getTranceMeta(weaverId) {
-  if (weaverId === "morr") {
-    return {
-      id: "morr",
-      thresholds: { stage1: 4, stage2: 1 },
-      stages: [
-        { roman: "I",  name: "Gravecurrent Siphon", hint: "On leave-slot: +1 Aether (once/turn)" },
-        { roman: "II", name: "Soulglass Purchase",  hint: "First Flow buy: −1 Æ & Channel 1" },
-      ],
-    };
-  }
-  // default Aria
-  return {
-    id: "aria",
-    thresholds: { stage1: 4, stage2: 2 },
-    stages: [
-      { roman: "I",  name: "Runesurge Spark",  hint: "On advance: +1 Aether (once/turn)" },
-      { roman: "II", name: "Arc Accelerant",   hint: "First Advance −1 Æ (min 0) & +1 Æ" },
-    ],
-  };
-}
-function computeActiveStage(vitality, thresholds) {
-  if ((vitality|0) <= thresholds.stage2) return 2;
-  if ((vitality|0) <= thresholds.stage1) return 1;
-  return 0;
-}
-function renderTranceList(intoEl, weaverId, vitality) {
-  if (!intoEl) return;
-  const meta = getTranceMeta(weaverId);
-  const active = computeActiveStage(vitality|0, meta.thresholds);
-  intoEl.className = "trance";
-  intoEl.innerHTML = `
-    <div class="trance-list" role="list">
-      ${meta.stages.map((stg, i) => {
-        const stageNum = i + 1;
-        const isActive = (active === stageNum) ? 'true' : 'false';
-        return `
-          <div class="trance-item" role="listitem" data-stage="${stageNum}" aria-current="${isActive}">
-            <span class="diamond" aria-hidden="true"><span class="roman">${stg.roman}</span></span>
-            <div class="trance-text">
-              <div class="trance-name">${stg.name}</div>
-              <div class="trance-hint">${stg.hint}</div>
-            </div>
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `.trim();
+  // Only the gem with value inside; CSS will place it to the right of hearts
+  el.innerHTML = gemWithValue(v, 40); // 2.5× feel; tweak via CSS variable if needed
 }
 
 /* =============== hand layout (fan) =============== */
@@ -157,8 +116,8 @@ function layoutHand(container, cards) {
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
-    // Keep final pose assigned immediately (so animations can target it),
-    // but hide nodes until flight completes to avoid the "fan flash".
+    // Keep final pose assigned immediately (so deal animation targets it),
+    // but newly-added nodes are hidden via class until the flight completes.
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
@@ -168,13 +127,22 @@ function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open",
 function fillCardShell(div, data){
   if (!div) return;
   const pip = Number.isFinite(data.pip) ? Math.max(0, data.pip|0) : 0;
-  const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-  const aetherChip = (data.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${data.aetherValue}</span></div>` : "";
+  const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : `<div class="pip-track"></div>`;
+  const playCost = (data.cost|0) > 0 ? (data.cost|0) : null;
+  const aetherChip = (data.aetherValue>0)
+    ? `<div class="aether-chip">
+         <svg viewBox="0 0 24 24" aria-hidden="true">
+           <path d="M12 2l6 6-6 14-6-14 6-6z"/>
+         </svg>
+         <span class="val">${data.aetherValue}</span>
+       </div>` : "";
   div.innerHTML = `
     <div class="title">${data.name}</div>
-    <div class="type">${data.type}${(data.price ?? data.cost) ? ` — Cost ${aeInline("Æ")}${data.price ?? data.cost}` : ""}</div>
-    <div class="textbox">${aeInline(data.text||"")}</div>
+    <div class="type">${data.type || ""}</div>
+    ${playCost ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
+    <div class="divider"></div>
     ${pipDots}
+    <div class="textbox">${aeInline(data.text||"")}</div>
     ${aetherChip}
   `;
 }
@@ -192,8 +160,7 @@ function attachPeekAndZoom(el, data){
     longPressTimer = setTimeout(()=>{
       if (zoomOverlayEl && zoomCardEl){
         fillCardShell(zoomCardEl, data);
-        // overlay is a CSS grid—this centers the zoom card cleanly
-        zoomOverlayEl.setAttribute("data-open","true");
+        zoomOverlayEl.setAttribute("data-open","true"); // overlay is CSS grid -> centers zoom card
       }
     }, LONG_PRESS_MS);
   };
@@ -344,22 +311,43 @@ hudDiscardBtn?.addEventListener('drop', (e)=>{
   if (id){ applyDrop(hudDiscardBtn, id, type); }
 });
 
-/* =============== card html / slots =============== */
+/* =============== card html (unified) =============== */
 function cardHTML(c){
-  if (!c) return `<div class="title">Empty</div><div class="type">—</div>`;
+  if (!c) {
+    return `
+      <div class="title">Empty</div>
+      <div class="type">—</div>
+      <div class="play-cost-badge" style="display:none"></div>
+      <div class="divider"></div>
+      <div class="pip-track"></div>
+      <div class="textbox">—</div>
+    `;
+  }
   const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
-  const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-  const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
-  const price = (c.price ?? c.cost) | 0;
+  const pipDots = pip>0
+    ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>`
+    : `<div class="pip-track"></div>`;
+  const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
+  const aetherChip = (c.aetherValue>0)
+    ? `<div class="aether-chip">
+         <svg viewBox="0 0 24 24" aria-hidden="true">
+           <path d="M12 2l6 6-6 14-6-14 6-6z"/>
+         </svg>
+         <span class="val">${c.aetherValue}</span>
+       </div>` : "";
+
   return `
     <div class="title">${c.name}</div>
-    <div class="type">${c.type}${price ? ` — Cost ${withAetherText("Æ")}${price}` : ""}</div>
-    <div class="textbox">${withAetherText(c.text||"")}</div>
+    <div class="type">${c.type || ""}</div>
+    ${playCost ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
+    <div class="divider"></div>
     ${pipDots}
+    <div class="textbox">${withAetherText(c.text || "")}</div>
     ${aetherChip}
   `;
 }
 
+/* =============== Slots =============== */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -458,11 +446,11 @@ async function renderFlow(flowArray){
     card.dataset.flowIndex = String(idx);
 
     if (c){ card.innerHTML = cardHTML(c); attachPeekAndZoom(card, c); }
-    else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div>`; }
+    else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
     if (c){
       card.addEventListener("click", async ()=>{
-        // MTGA-style: spotlight at center then fly to discard (handled in animations.js)
+        // Spotlight/fly handled in animations; wait a beat then mutate state
         Emit('aetherflow:bought', { node: card });
         await sleep(560);
         try { state = buyFromFlow(state, "player", idx); render(); }
@@ -472,6 +460,7 @@ async function renderFlow(flowArray){
 
     li.appendChild(card);
 
+    // fixed price rail (your existing label)
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
     const PRICE_BY_POS = [4,3,3,2,2];
@@ -521,38 +510,14 @@ async function render(){
   set(playerName,     el=> el && (el.textContent = s.players?.player?.weaver?.name || "Player"));
   set(aiName,         el=> el && (el.textContent = s.players?.ai?.weaver?.name || "Opponent"));
 
-  setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
-  setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
+  // Hearts + (right) gem with value INSIDE
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
+  setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
+  setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
 
-  // ----- Trance placeholders under Aether gem -----
-  const playerPortraitFig = document.querySelector(".row.player .portrait");
-  const aiPortraitFig     = document.querySelector(".row.ai .portrait");
-  const playerTranceEl    = playerPortraitFig?.querySelector(".trance");
-  const aiTranceEl        = aiPortraitFig?.querySelector(".trance");
-
-  if (playerTranceEl) {
-    renderTranceList(
-      playerTranceEl,
-      (s.players?.player?.weaver?.id || "aria"),
-      (s.players?.player?.vitality ?? 5)
-    );
-    // ensure it's below the aether display
-    if (playerAeEl && playerTranceEl.parentElement === playerPortraitFig) {
-      playerPortraitFig.appendChild(playerTranceEl);
-    }
-  }
-  if (aiTranceEl) {
-    renderTranceList(
-      aiTranceEl,
-      (s.players?.ai?.weaver?.id || "morr"),
-      (s.players?.ai?.vitality ?? 5)
-    );
-    if (aiAeEl && aiTranceEl.parentElement === aiPortraitFig) {
-      aiPortraitFig.appendChild(aiTranceEl);
-    }
-  }
+  // remove any leftover "trance 0" placeholder text
+  document.querySelectorAll('.portrait .trance').forEach(t => (t.textContent = ""));
 
   // deck / discard icons
   if (hudDeckBtn){
@@ -575,12 +540,11 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  /* ---------- HAND (fixed no-flash draw) ---------- */
+  /* ---------- HAND (no-flash deal; only animate new cards) ---------- */
   if (handEl){
-    const oldIds = prevHandIds.slice();       // snapshot before rebuild
+    const oldIds = prevHandIds.slice();       // before rebuild
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
 
-    // Build new DOM (hide any newly-added nodes until flight completes)
     handEl.replaceChildren();
     const domCards = [];
     (s.players?.player?.hand || []).forEach(c=>{
@@ -588,20 +552,8 @@ async function render(){
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
-      const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
-      const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-      const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
-      const price = (c.price ?? c.cost) | 0;
+      el.innerHTML = cardHTML(c);
 
-      el.innerHTML = `
-        <div class="title">${c.name}</div>
-        <div class="type">${c.type}${price ? ` — Cost ${withAetherText("Æ")}${price}` : ""}</div>
-        <div class="textbox">${withAetherText(c.text||"")}</div>
-        ${pipDots}
-        ${aetherChip}
-      `;
-
-      // Mark new ids to be animated (hidden until flight finishes)
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
       wireDesktopDrag(el, c);
@@ -610,24 +562,20 @@ async function render(){
       handEl.appendChild(el); domCards.push(el);
     });
 
-    // Lay them out in final fan positions BEFORE triggering the flight
+    // Lay out first, then animate only newly-added cards
     layoutHand(handEl, domCards);
 
-    // Decide which nodes to animate from deck -> hand
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
-
     if (addedNodes.length){
-      // Only animate newly-added cards
       Emit('cards:deal', { nodes: addedNodes, stagger: 110 });
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
-      // Game start fallback: animate whole hand once
       domCards.forEach(n=> n.classList.add('grey-hide-during-flight'));
       Emit('cards:deal', { nodes: domCards, stagger: 110 });
       bootDealt = true;
     }
 
-    prevHandIds = newIds; // update after render so next diff is correct
+    prevHandIds = newIds;
   }
 }
 
