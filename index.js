@@ -185,7 +185,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
