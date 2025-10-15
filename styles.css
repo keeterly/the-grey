@@ -7,8 +7,8 @@
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gem-blue:#7eb6ff;
 
-  --card-gem: 40px;  /* in-card gem size */
-  --gem-size: 48px;  /* portrait gem size */
+  --card-gem: 40px;   /* in-card gem size */
+  --gem-size: 96px;   /* portrait gem size (2×) */
   --heart:#e27a7a;
 
   --type-spell:#7eb6ff;    /* blue */
@@ -45,7 +45,7 @@ html,body{height:100%}
 .hearts svg{width:36px;height:36px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
 .trance{margin-top:2px;opacity:.8;font-size:.9rem}
 
-/* Portrait Aether – gem to right of hearts, value inside gem */
+/* Portrait Aether – gem to right of hearts, value inside gem (2× size) */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{
   width:var(--gem-size);height:var(--gem-size);
@@ -82,13 +82,24 @@ html,body{height:100%}
 .slot.drag-over{outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45))}
 .slot .card{position:absolute; left:0; top:0; width:100%; height:100%; border-radius:var(--card-radius)}
 
-/* Flow */
-.flow-wrap{display:flex; align-items:flex-start; gap:18px;}
-.flow-title-rail{width:36px; display:flex; justify-content:center;}
-.flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; margin-top:6px; user-select:none}
+/* ====== Aether Flow board (centered like slots) ====== */
+.flow-wrap{
+  position:relative;
+  width:100%;
+  display:block;          /* no flex — prevents title from shifting the grid */
+}
+.flow-title-rail{
+  position:absolute;
+  left:calc(50% - (var(--flow-width, 0px))/2 - 36px); /* 36px off the left edge of the board */
+  top:12px;
+  width:36px; display:flex; justify-content:center;
+}
+.flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; user-select:none; text-align:center}
+
 #flow-row.flow-row{
+  --flow-width: calc(var(--card-w)*5 + 14px*4 + 24px);
   list-style:none;margin:0 auto;padding:12px;
-  width:calc(var(--card-w)*5 + 14px*4 + 24px) !important;
+  width:var(--flow-width) !important;
   display:grid !important; grid-template-columns:repeat(5, var(--card-w)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
 }
@@ -98,6 +109,7 @@ html,body{height:100%}
 /* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px, 96vw); height:24vh; perspective:1200px; pointer-events:auto;}
+.hand.dealing .card:hover{transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))} /* suppress hover pop during deal */
 
 /* Card */
 .card{
@@ -127,11 +139,11 @@ html,body{height:100%}
 /* Rules text */
 .card .textbox{flex:1; padding:8px 12px 48px 12px; opacity:.92; font-size:.95rem; line-height:1.2}
 
-/* Top-right play cost – 5% smaller circle, value +5% and bold */
+/* Top-right play cost — perfectly centered */
 .card .play-cost-badge{
   position:absolute; top:8px; right:8px;
   width:23px; height:23px; border-radius:999px;
-  background:#c6a56a; color:#0d0a07; display:grid; place-items:center;
+  background:#c6a56a; color:#0d0a07; display:flex; align-items:center; justify-content:center;
   font-weight:900; z-index:4;
   box-shadow:0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
   text-shadow:0 1px 0 rgba(255,255,255,.35);
