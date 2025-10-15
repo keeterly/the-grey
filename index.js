@@ -85,6 +85,57 @@ function setAetherDisplay(el, v=0){
   el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 24)}</span><strong class="val">${v|0}</strong>`;
 }
 
+/* =============== Trance placeholders (helpers) =============== */
+function getTranceMeta(weaverId) {
+  if (weaverId === "morr") {
+    return {
+      id: "morr",
+      thresholds: { stage1: 4, stage2: 1 },
+      stages: [
+        { roman: "I",  name: "Gravecurrent Siphon", hint: "On leave-slot: +1 Aether (once/turn)" },
+        { roman: "II", name: "Soulglass Purchase",  hint: "First Flow buy: −1 Æ & Channel 1" },
+      ],
+    };
+  }
+  // default Aria
+  return {
+    id: "aria",
+    thresholds: { stage1: 4, stage2: 2 },
+    stages: [
+      { roman: "I",  name: "Runesurge Spark",  hint: "On advance: +1 Aether (once/turn)" },
+      { roman: "II", name: "Arc Accelerant",   hint: "First Advance −1 Æ (min 0) & +1 Æ" },
+    ],
+  };
+}
+function computeActiveStage(vitality, thresholds) {
+  if ((vitality|0) <= thresholds.stage2) return 2;
+  if ((vitality|0) <= thresholds.stage1) return 1;
+  return 0;
+}
+function renderTranceList(intoEl, weaverId, vitality) {
+  if (!intoEl) return;
+  const meta = getTranceMeta(weaverId);
+  const active = computeActiveStage(vitality|0, meta.thresholds);
+  intoEl.className = "trance";
+  intoEl.innerHTML = `
+    <div class="trance-list" role="list">
+      ${meta.stages.map((stg, i) => {
+        const stageNum = i + 1;
+        const isActive = (active === stageNum) ? 'true' : 'false';
+        return `
+          <div class="trance-item" role="listitem" data-stage="${stageNum}" aria-current="${isActive}">
+            <span class="diamond" aria-hidden="true"><span class="roman">${stg.roman}</span></span>
+            <div class="trance-text">
+              <div class="trance-name">${stg.name}</div>
+              <div class="trance-hint">${stg.hint}</div>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `.trim();
+}
+
 /* =============== hand layout (fan) =============== */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
@@ -475,8 +526,33 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  // remove "trance 0" placeholder text if present
-  document.querySelectorAll('.portrait .trance').forEach(t => (t.textContent = ""));
+  // ----- Trance placeholders under Aether gem -----
+  const playerPortraitFig = document.querySelector(".row.player .portrait");
+  const aiPortraitFig     = document.querySelector(".row.ai .portrait");
+  const playerTranceEl    = playerPortraitFig?.querySelector(".trance");
+  const aiTranceEl        = aiPortraitFig?.querySelector(".trance");
+
+  if (playerTranceEl) {
+    renderTranceList(
+      playerTranceEl,
+      (s.players?.player?.weaver?.id || "aria"),
+      (s.players?.player?.vitality ?? 5)
+    );
+    // ensure it's below the aether display
+    if (playerAeEl && playerTranceEl.parentElement === playerPortraitFig) {
+      playerPortraitFig.appendChild(playerTranceEl);
+    }
+  }
+  if (aiTranceEl) {
+    renderTranceList(
+      aiTranceEl,
+      (s.players?.ai?.weaver?.id || "morr"),
+      (s.players?.ai?.vitality ?? 5)
+    );
+    if (aiAeEl && aiTranceEl.parentElement === aiPortraitFig) {
+      aiPortraitFig.appendChild(aiTranceEl);
+    }
+  }
 
   // deck / discard icons
   if (hudDeckBtn){
