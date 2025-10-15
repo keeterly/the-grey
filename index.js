@@ -46,6 +46,7 @@ const playerAeEl    = $("player-aether");
 const aiAeEl        = $("ai-aether");
 const hudDiscardBtn = $("btn-discard-hud");
 const hudDeckBtn    = $("btn-deck-hud");
+const hudEndBtn     = $("btn-endturn-hud");
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
@@ -55,7 +56,6 @@ let state = initState();
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
-let draggingType = "";
 
 /* ---------- portraits ---------- */
 function heartSVG(size=36){
@@ -69,7 +69,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: number auto-fit ---------- */
+/* ---------- portrait Aether gem: smaller + auto-fit ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -82,13 +82,14 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  // Fit 1–3 digits neatly inside the gem
   const svg = el.querySelector("svg");
   const t   = svg?.querySelector("text");
   if (svg && t) {
     const digits = String(val).length;
-    const base = 24 * 0.46; // matches CSS calc(var(--gem-size)*0.46) with 24 viewBox
-    const size = Math.max(24*0.26, Math.min(base, base * (1 - (digits - 1) * 0.15)));
+    // Start smaller, clamp harder so it never touches the inner faces
+    const base = 24 * 0.42;        // smaller than before
+    const min  = 24 * 0.24;
+    const size = Math.max(min, Math.min(base, base * (1 - (digits - 1) * 0.18)));
     t.setAttribute("font-size", String(Math.floor(size)));
   }
 }
@@ -97,7 +98,6 @@ function setAetherDisplay(el, v=0){
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  // Wider fan & deeper arc (closer to MTGA)
   const MAX_ANGLE = 28, MIN_ANGLE = 10;
   const spread = Math.min(container.clientWidth * 0.90, 980);
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2.6, MIN_ANGLE, MAX_ANGLE);
@@ -193,7 +193,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // fixed
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -211,93 +211,10 @@ function applyDrop(target, cardId, cardType){
     }
   } catch(e){}
 }
-function wireDesktopDrag(el, data){
-  el.draggable = true;
-  el.addEventListener("dragstart", (ev)=>{
-    el.classList.add("dragging");
-    const payload = JSON.stringify({id:data.id,type:data.type});
-    ev.dataTransfer?.setData("application/x-card", payload);
-    ev.dataTransfer?.setData("text/card-id", data.id);
-    ev.dataTransfer?.setData("text/card-type", data.type);
-    ev.dataTransfer?.setData("text/plain", data.id);
-    ev.dataTransfer.effectAllowed = "move";
-    const ghost = el.cloneNode(true);
-    ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
-    document.body.appendChild(ghost);
-    ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
-    setTimeout(()=> ghost.remove(), 0);
-    markDropTargets(data.type, true);
-  });
-  el.addEventListener("dragend", ()=>{
-    el.classList.remove("dragging");
-    markDropTargets(data.type, false);
-  });
-}
-function wireTouchDrag(el, data){
-  let dragging=false, ghost=null, currentHover=null;
-  const start = (ev)=>{
-    const t = ev.touches ? ev.touches[0] : ev;
-    dragging = true; markDropTargets(data.type, true);
-    ghost = el.cloneNode(true);
-    ghost.style.position="fixed"; ghost.style.left="0"; ghost.style.top="0";
-    ghost.style.pointerEvents="none"; ghost.style.transform="translate(-9999px,-9999px)";
-    ghost.style.zIndex="99999"; ghost.classList.add("dragging");
-    document.body.appendChild(ghost);
-    move(t.clientX, t.clientY); ev.preventDefault();
-  };
-  const move = (x,y)=>{
-    if (!dragging || !ghost) return;
-    ghost.style.transform = `translate(${x-ghost.clientWidth/2}px, ${y-ghost.clientHeight*0.9}px) rotate(6deg)`;
-    const elUnder = document.elementFromPoint(x,y);
-    const hoverTarget = findValidDropTarget(elUnder, data.type);
-    if (hoverTarget !== currentHover){
-      currentHover?.classList.remove("drag-over");
-      currentHover = hoverTarget; currentHover?.classList.add("drag-over");
-    }
-  };
-  const end = (ev)=>{
-    if (!dragging) return; dragging=false;
-    const t = ev.changedTouches ? ev.changedTouches[0] : ev;
-    const elUnder = document.elementFromPoint(t.clientX, t.clientY);
-    const target = findValidDropTarget(elUnder, data.type);
-    currentHover?.classList.remove("drag-over");
-    markDropTargets(data.type, false);
-    ghost?.remove(); ghost=null;
-    if (target) applyDrop(target, el.dataset.cardId, data.type);
-  };
-  el.addEventListener("touchstart", start, {passive:false});
-  el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
-  el.addEventListener("touchend", end, {passive:false});
-  el.addEventListener("touchcancel", end, {passive:false});
-}
-document.addEventListener('dragover', (e)=>{
-  const tgt = findValidDropTarget(document.elementFromPoint(e.clientX, e.clientY), "SPELL"); // type checked in mark
-  if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
-}, true);
-document.addEventListener('drop', (ev)=>{
-  const json = ev.dataTransfer?.getData('application/x-card') || '{}';
-  let payload={}; try{ payload=JSON.parse(json); }catch{}
-  const id = payload.id || ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain');
-  const type = payload.type || ev.dataTransfer?.getData('text/card-type');
-  if (!id || !type) return;
-  const target = findValidDropTarget(ev.target, type);
-  if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
-}, true);
-hudDiscardBtn?.addEventListener('dragover', (e)=>{ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); });
-hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
-hudDiscardBtn?.addEventListener('drop', (e)=>{
-  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
-  const json = e.dataTransfer?.getData('application/x-card') || '{}';
-  let payload={}; try{ payload=JSON.parse(json); }catch{}
-  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
-  const type = payload.type || e.dataTransfer?.getData("text/card-type");
-  if (id){ applyDrop(hudDiscardBtn, id, type); }
-});
 
-/* ---------- card html ---------- */
+/* ---------- slot/flow rendering ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
-/* ---------- slots / flow ---------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -318,10 +235,10 @@ function renderSlots(container, snapshot, isPlayer){
     } else { d.textContent = "Spell Slot"; }
 
     if (isPlayer){
-      const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
-      const over  = enter;
-      const leave = ()=> d.classList.remove("drag-over");
-      const drop  = ev => {
+      d.addEventListener("dragenter", ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }});
+      d.addEventListener("dragover",  ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); }});
+      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
+      d.addEventListener("drop", ev=>{
         ev.preventDefault(); d.classList.remove("drag-over");
         const json = ev.dataTransfer?.getData('application/x-card') || '{}';
         let payload={}; try{ payload=JSON.parse(json); }catch{}
@@ -329,11 +246,7 @@ function renderSlots(container, snapshot, isPlayer){
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
         try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch {}
-      };
-      d.addEventListener("dragenter", enter);
-      d.addEventListener("dragover", over);
-      d.addEventListener("dragleave", leave);
-      d.addEventListener("drop", drop);
+      });
     }
     container.appendChild(d);
   }
@@ -351,10 +264,10 @@ function renderSlots(container, snapshot, isPlayer){
   } else { g.textContent = "Glyph Slot"; }
 
   if (isPlayer){
-    const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
-    const over  = enter;
-    const leave = ()=> g.classList.remove("drag-over");
-    const drop  = ev => {
+    g.addEventListener("dragenter", ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }});
+    g.addEventListener("dragover",  ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); }});
+    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
+    g.addEventListener("drop", ev=>{
       ev.preventDefault(); g.classList.remove("drag-over");
       const json = ev.dataTransfer?.getData('application/x-card') || '{}';
       let payload={}; try{ payload=JSON.parse(json); }catch{}
@@ -362,26 +275,38 @@ function renderSlots(container, snapshot, isPlayer){
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
       try { state = setGlyphFromHand(state, "player", id); render(); } catch {}
-    };
-    g.addEventListener("dragenter", enter);
-    g.addEventListener("dragover", over);
-    g.addEventListener("dragleave", leave);
-    g.addEventListener("drop", drop);
+    });
   }
   container.appendChild(g);
 }
 
+/* --- Flow title helper: injects the left-side vertical title --- */
+function ensureFlowTitle(){
+  const wrap = document.querySelector(".flow-wrap");
+  if (!wrap) return;
+  let rail = wrap.querySelector(".flow-title-rail");
+  if (!rail){
+    rail = document.createElement("div");
+    rail.className = "flow-title-rail";
+    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
+    wrap.appendChild(rail);
+  }
+}
+
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
+  ensureFlowTitle(); // make sure the title exists (outside the grid)
+
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
   flowRowEl.replaceChildren();
 
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li"); li.className = "flow-card";
+    const li = document.createElement("li");
+    li.className = "flow-card";
+
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-
     card.innerHTML = cardHTML(c);
     if (c) attachPeekAndZoom(card, c);
 
@@ -407,7 +332,7 @@ async function renderFlow(flowArray){
   prevFlowIds = nextIds;
 }
 
-/* ---------- trance UI (force replace existing .trance content) ---------- */
+/* ---------- trance UI ---------- */
 function ensureTranceUI(){
   const templateHTML = `
     <div class="level" data-level="1">◇ I — Runic Surge</div>
@@ -423,14 +348,12 @@ function ensureTranceUI(){
       t.className = 'trance';
       holder.appendChild(t);
     }
-    // Always replace content so "Trance 0" is not left behind
     t.innerHTML = templateHTML;
     Array.from(t.querySelectorAll('.level')).forEach(el=>{
       const n = Number(el.getAttribute('data-level'));
       el.classList.toggle('active', (level|0) >= n);
     });
   };
-
   const pub = serializePublic(state) || {};
   const pLevel = pub.players?.player?.tranceLevel ?? 0;
   const aLevel = pub.players?.ai?.tranceLevel ?? 0;
@@ -467,31 +390,37 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  // Ensure trance lines are present and updated
   ensureTranceUI();
 
-  // HUD icons
+  // HUD icons (borderless rune glyphs)
   if (hudDeckBtn){
-    hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="12" width="36" height="40" rx="4"></rect>
-      <rect x="14" y="8" width="36" height="40" rx="4"></rect>
-      <rect x="18" y="4" width="36" height="40" rx="4"></rect>
-    </svg>`;
-    hudDeckBtn.classList.add("drop-target");
+    hudDeckBtn.innerHTML = `
+      <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
+        <rect x="18" y="14" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <rect x="14" y="10" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".85"/>
+        <rect x="10" y="6"  width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"/>
+      </svg>`;
   }
   if (hudDiscardBtn){
-    hudDiscardBtn.innerHTML = `<svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="10" width="44" height="34" rx="6"></rect>
-      <path d="M20 22h24M20 30h24M20 38h24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
-    </svg>`;
-    hudDiscardBtn.classList.add("drop-target");
+    hudDiscardBtn.innerHTML = `
+      <svg class="icon discard" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
+        <path d="M18 22h28M18 30h28M18 38h28" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <rect x="14" y="16" width="36" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="2" opacity=".8"/>
+      </svg>`;
+  }
+  if (hudEndBtn){
+    hudEndBtn.innerHTML = `
+      <svg class="icon end" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
+        <path d="M18 32h28" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path d="M34 22l12 10-12 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>`;
   }
 
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  /* ----- HAND: no flash, smoother deal, MTGA spread ----- */
+  /* ----- HAND ----- */
   if (handEl){
     const oldIds = prevHandIds.slice();
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
@@ -507,15 +436,23 @@ async function render(){
 
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
-      wireDesktopDrag(el, c);
-      wireTouchDrag(el, c);
+      // desktop
+      el.draggable = true;
+      el.addEventListener("dragstart", (ev)=>{
+        el.classList.add("dragging");
+        const payload = JSON.stringify({id:c.id,type:c.type});
+        ev.dataTransfer?.setData("application/x-card", payload);
+        ev.dataTransfer?.setData("text/plain", c.id);
+        ev.dataTransfer.effectAllowed = "move";
+      });
+      el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
+
       attachPeekAndZoom(el, c);
 
       handEl.appendChild(el); domCards.push(el);
     });
 
     layoutHand(handEl, domCards);
-    // jitter guard — refan once after paint
     await nextFrame(); layoutHand(handEl, domCards);
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
