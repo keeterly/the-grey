@@ -496,22 +496,26 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  // hand + deck→hand deal (no ghosting)
+    // hand
   if (handEl){
-    const oldIds = prevHandIds;
     handEl.replaceChildren();
     const els = [];
-    const newIds = [];
+    const newEls = [];
     (s.players?.player?.hand || []).forEach(c=>{
       const el = document.createElement("article");
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
 
+      // if first time we ever render this DOM node, it has no data-dealt
+      // (state ids are stable, so this only runs for new draws)
+      if (!el.dataset.dealt) newEls.push(el);
+
       const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
       const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-      const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
-      const price = (c.price ?? c.cost) | 0;
+      const aetherChip = (c.aetherValue>0)
+        ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
 
+      const price = (c.price ?? c.cost) | 0;
       el.innerHTML = `
         <div class="title">${c.name}</div>
         <div class="type">${c.type}${price ? ` — Cost ${withAetherText("Æ")}${price}` : ""}</div>
@@ -519,27 +523,18 @@ async function render(){
         ${pipDots}
         ${aetherChip}
       `;
+
       wireDesktopDrag(el, c);
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
       handEl.appendChild(el); els.push(el);
-      newIds.push(c.id);
     });
     layoutHand(handEl, els);
 
-    const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
-    if (addedNodes.length){
-      addedNodes.forEach(n=> n.classList.add('grey-hide-during-flight')); // prevent flash
-      Emit('cards:deal', { nodes: addedNodes, stagger: 110 });
-    } else if (!bootDealt && els.length){
-      els.forEach(n=> n.classList.add('grey-hide-during-flight'));
-      Emit('cards:deal', { nodes: els, stagger: 110 });
-      bootDealt = true;
-    }
-
-    prevHandIds = newIds;
+    // trigger draw animation only for fresh nodes
+    if (newEls.length) window.Grey?.emit?.('cards:deal', { nodes: newEls, stagger: 90 });
   }
-}
+
 
 /* ------- simple AI ------- */
 function aiSimpleTurn(){
