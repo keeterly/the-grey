@@ -7,13 +7,15 @@
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gem-blue:#7eb6ff;
 
-  /* Scale in-card gem to the card width so it scales with the card */
+  /* Scales with card */
   --card-gem: calc(var(--card-w) * 0.26);
   --gem-size: 96px;
 
   --heart:#e27a7a;
 
-  --type-spell:#7eb6ff; --type-instant:#93d39c; --type-glyph:#c7a0ff;
+  --type-spell:#7eb6ff;    /* blue */
+  --type-instant:#93d39c;  /* green */
+  --type-glyph:#c7a0ff;    /* purple */
 }
 
 *{box-sizing:border-box}
@@ -110,6 +112,16 @@ html,body{height:100%}
   font-size:.8rem; color:var(--muted); text-shadow:0 1px 2px #000;
 }
 
+/* End turn card styling */
+.flow-card .card.end-turn .title{letter-spacing:.06em}
+.flow-card .card.end-turn{outline:1px dashed rgba(198,165,106,.25); outline-offset:6px}
+
+/* Flow fall-off animation */
+@keyframes flowFall {
+  to { transform: translateY(120%); opacity: 0; }
+}
+.card.flow-fall{ animation: flowFall .28s ease forwards }
+
 /* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px, 96vw); height:24vh; perspective:1200px; pointer-events:auto;}
@@ -119,25 +131,20 @@ html,body{height:100%}
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
-
-  /* Base transform uses CSS vars so JS doesn't override :hover */
   transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0));
-
-  /* Set a responsive base font size; all internals use ems */
-  font-size: calc(var(--card-w) * 0.085); /* tune this multiplier to taste */
+  font-size: calc(var(--card-w) * 0.085);
 
   background:linear-gradient(180deg,#30271f,#211b15);
   border:1px solid #5a4b37; color:var(--ink);
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
 }
-/* Hover: lift + scale now works (no inline transform to fight it) */
 .card:hover{
   z-index:9999 !important;
   transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0)) translateY(-0.9em) scale(1.12);
 }
 
-/* Header (now in ems) */
+/* Header (ems) */
 .card .title{padding:.65em .75em .15em .75em; font-weight:600; font-size:.95em}
 .card .type{opacity:.9; padding:0 .75em 0 .75em; font-size:.81em}
 .card .type[data-k="SPELL"]{color:var(--type-spell)}
@@ -211,5 +218,34 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
+/* Action pop (radial-ish) */
+.action-pop{
+  position:fixed; transform:translate(-50%,-100%);
+  display:flex; gap:.5em; padding:.4em .5em;
+  background:rgba(20,16,12,.85); border:1px solid #3b3126; border-radius:.6em;
+  box-shadow:0 10px 24px rgba(0,0,0,.6);
+  z-index:100;
+}
+.rune-btn{
+  appearance:none; border:none; border-radius:.45em;
+  padding:.35em .65em; font-weight:700; color:#e7dcc3; cursor:pointer;
+  background:linear-gradient(180deg,#2c241c,#1e1813);
+  box-shadow:inset 0 0 0 1px #4a3d2f, 0 2px 6px rgba(0,0,0,.45);
+}
+.action-pop.t-spell .rune-btn{ outline:1px solid rgba(126,182,255,.35) }
+.action-pop.t-glyph .rune-btn{ outline:1px solid rgba(199,160,255,.35) }
+.action-pop.t-instant .rune-btn{ outline:1px solid rgba(147,211,156,.35) }
+.rune-btn:hover{ filter:brightness(1.08) }
+
+/* Pulsing for playable cards */
+@keyframes pulseSpell { 0%{box-shadow:0 0 0 0 rgba(126,182,255,.35);} 70%{box-shadow:0 0 0 .8em rgba(126,182,255,0);} 100%{box-shadow:0 0 0 0 rgba(126,182,255,0);} }
+@keyframes pulseGlyph  { 0%{box-shadow:0 0 0 0 rgba(199,160,255,.35);} 70%{box-shadow:0 0 0 .8em rgba(199,160,255,0);} 100%{box-shadow:0 0 0 0 rgba(199,160,255,0);} }
+@keyframes pulseInstant{ 0%{box-shadow:0 0 0 0 rgba(147,211,156,.35);} 70%{box-shadow:0 0 0 .8em rgba(147,211,156,0);} 100%{box-shadow:0 0 0 0 rgba(147,211,156,0);} }
+
+.pulse-spell   { animation: pulseSpell 1.6s ease-out infinite; }
+.pulse-glyph   { animation: pulseGlyph 1.6s ease-out infinite; }
+.pulse-instant { animation: pulseInstant 1.6s ease-out infinite; }
+
+/* Toast */
 .toast{position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:#e7dcc3; border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70}
 .toast.show{opacity:1}
