@@ -82,7 +82,7 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  // Force 25% of viewBox side (24 * .25 = 6) – scaling will follow the SVG size.
+  // 25% of the 24px viewBox = 6; scales with the svg size.
   const t = el.querySelector("svg text");
   if (t) t.setAttribute("font-size", "6");
 }
@@ -103,6 +103,7 @@ function layoutHand(container, cards) {
   cards.forEach((el,i)=>{
     const a = startA + stepA*i;
     const rad = a * Math.PI/180;
+    the:
     const x = startX + stepX*i;
     const y = LIFT - Math.cos(rad)*(LIFT*0.78);
     el.style.setProperty("--tx", `${x}px`);
@@ -143,24 +144,15 @@ let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
   if (peekEl){
-    // Hover: show centered preview (#peek-card) — not the overlay.
-    el.addEventListener("mouseenter", ()=>{
-      fillCardShell(peekEl, data);
-      peekEl.classList.add("show");
-    });
+    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
-
-  // Long-press: show centered preview as well.
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     pressStart = {x:t.clientX,y:t.clientY};
     longPressTimer = setTimeout(()=>{
-      if (peekEl){
-        fillCardShell(peekEl, data);
-        peekEl.classList.add("show");
-      }
+      if (peekEl){ fillCardShell(peekEl, data); peekEl.classList.add("show"); }
     }, LONG_PRESS_MS);
   };
   const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
@@ -168,7 +160,6 @@ function attachPeekAndZoom(el, data){
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y) > MOVE_CANCEL_PX) clearLP();
   };
-
   el.addEventListener("pointerdown", onDown, {passive:true});
   el.addEventListener("pointerup", clearLP, {passive:true});
   el.addEventListener("pointerleave", clearLP, {passive:true});
@@ -193,7 +184,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // ← fixed: no extra paren
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -212,7 +203,7 @@ function applyDrop(target, cardId, cardType){
   } catch(e){}
 }
 
-/* Desktop drag wiring */
+/* Desktop drag */
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
@@ -224,7 +215,6 @@ function wireDesktopDrag(el, data){
     ev.dataTransfer?.setData("text/plain", data.id);
     ev.dataTransfer.effectAllowed = "move";
 
-    // ghost
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
     document.body.appendChild(ghost);
@@ -239,7 +229,7 @@ function wireDesktopDrag(el, data){
   });
 }
 
-/* Touch drag wiring */
+/* Touch drag */
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   const start = (ev)=>{
@@ -278,10 +268,10 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchcancel", end, {passive:false});
 }
 
-/* Global DnD listeners (desktop) */
+/* Global DnD (desktop) */
 document.addEventListener('dragover', (e)=>{
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tgt = findValidDropTarget(el, "SPELL"); // generic check; markDropTargets enforces type
+  const tgt = findValidDropTarget(el, "SPELL");
   if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
 }, true);
 document.addEventListener('drop', (ev)=>{
@@ -380,7 +370,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper (left of board, outside grid) --- */
+/* --- Flow title helper --- */
 function ensureFlowTitle(){
   const wrap = document.querySelector(".flow-wrap");
   if (!wrap) return;
@@ -491,7 +481,6 @@ async function render(){
 
   ensureTranceUI();
 
-  // HUD icons (unchanged artwork; they were fixed earlier)
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
