@@ -55,8 +55,9 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let draggingType = "";
+let selectedCard = null;
 
-/* ---------- visuals helpers ---------- */
+/* ---------- visuals ---------- */
 function heartSVG(size=36){
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
     <path d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z" fill="#d65151" />
@@ -67,7 +68,6 @@ function renderHearts(el, n=5){
   if (!el) return;
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
-
 function setAetherDisplay(el, v=0){
   if (!el) return;
   el.innerHTML = `
@@ -81,7 +81,7 @@ function setAetherDisplay(el, v=0){
   `;
 }
 
-/* ---------- hand layout (fan) ---------- */
+/* ---------- hand layout ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
   const MAX_ANGLE = 18, MIN_ANGLE = 6;
@@ -109,13 +109,11 @@ function layoutHand(container, cards) {
 /* ---------- preview / zoom ---------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
-
 function fillCardShell(div, data){
   if (!div) return;
   const pip = Number.isFinite(data.pip) ? Math.max(0, data.pip|0) : 0;
   const pipDots = `<div class="pip-track">${pip>0 ? Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("") : ""}</div>`;
   const playCost = (data.cost|0) > 0 ? (data.cost|0) : null;
-
   const aetherChip = (data.aetherValue>0)
     ? `<div class="aether-chip">
          <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -123,7 +121,6 @@ function fillCardShell(div, data){
            <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${data.aetherValue}</text>
          </svg>
        </div>` : "";
-
   div.innerHTML = `
     <div class="title">${data.name}</div>
     <div class="type" data-k="${data.type||""}">${data.type||""}</div>
@@ -134,7 +131,6 @@ function fillCardShell(div, data){
     ${aetherChip}
   `;
 }
-
 let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
@@ -166,7 +162,7 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ---------- drag & drop (unchanged mechanics) ---------- */
+/* ---------- DnD wiring (RESTORED) ---------- */
 function findValidDropTarget(node, cardType){
   if (!node) return null;
   const slot = node.closest(".slot");
@@ -176,26 +172,131 @@ function findValidDropTarget(node, cardType){
     if (slot.classList.contains("spell") && cardType==="SPELL") return slot;
     if (slot.classList.contains("glyph") && cardType==="GLYPH") return slot;
   }
-  const hudDiscardBtn = $("btn-discard-hud");
   if (hudDiscardBtn && node.closest("#btn-discard-hud")) return hudDiscardBtn;
   return null;
 }
+function markDropTargets(cardType, on){
+  document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
+  const g = document.querySelector(".row.player .slot.glyph");
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
+  hudDiscardBtn?.classList.toggle("drop-ready", !!on);
+}
+function applyDrop(target, cardId, cardType){
+  if (!target || !cardId) return;
+  try {
+    if (target === hudDiscardBtn){
+      state = discardForAether(state, "player", cardId);
+      render(); return;
+    }
+    if (target.classList.contains("glyph") && cardType==="GLYPH"){
+      state = setGlyphFromHand(state, "player", cardId); render(); return;
+    }
+    if (target.classList.contains("spell") && cardType==="SPELL"){
+      const idx = Number(target.dataset.slotIndex||0);
+      state = playCardToSpellSlot(state, "player", cardId, idx); render(); return;
+    }
+  } catch(e){ /* toast could go here */ }
+}
+function wireDesktopDrag(el, data){
+  el.draggable = true;
+  el.addEventListener("dragstart", (ev)=>{
+    draggingType = data.type || "";
+    el.classList.add("dragging");
+    ev.dataTransfer?.setData("application/x-card", JSON.stringify({id:data.id,type:data.type}));
+    ev.dataTransfer?.setData("text/card-id", data.id);
+    ev.dataTransfer?.setData("text/card-type", data.type);
+    ev.dataTransfer?.setData("text/plain", data.id);
+    ev.dataTransfer.effectAllowed = "move";
+    const ghost = el.cloneNode(true);
+    ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
+    document.body.appendChild(ghost);
+    ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
+    setTimeout(()=> ghost.remove(), 0);
+    markDropTargets(data.type, true);
+  });
+  el.addEventListener("dragend", ()=>{
+    draggingType = "";
+    el.classList.remove("dragging");
+    markDropTargets(data.type, false);
+  });
+  // click-to-place
+  el.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    selectedCard = { id: el.dataset.cardId, type: data.type };
+    Array.from(handEl.children).forEach(n=> n.classList.toggle('selected', n===el));
+  });
+}
+function wireTouchDrag(el, data){
+  let dragging=false, ghost=null, currentHover=null;
+  const start = (ev)=>{
+    const t = ev.touches ? ev.touches[0] : ev;
+    dragging = true; markDropTargets(data.type, true);
+    ghost = el.cloneNode(true);
+    ghost.style.position="fixed"; ghost.style.left="0"; ghost.style.top="0";
+    ghost.style.pointerEvents="none"; ghost.style.transform="translate(-9999px,-9999px)";
+    ghost.style.zIndex="99999"; ghost.classList.add("dragging");
+    document.body.appendChild(ghost);
+    move(t.clientX, t.clientY); ev.preventDefault();
+  };
+  const move = (x,y)=>{
+    if (!dragging || !ghost) return;
+    ghost.style.transform = `translate(${x-ghost.clientWidth/2}px, ${y-ghost.clientHeight*0.9}px) rotate(6deg)`;
+    const elUnder = document.elementFromPoint(x,y);
+    const hoverTarget = findValidDropTarget(elUnder, data.type);
+    if (hoverTarget !== currentHover){
+      currentHover?.classList.remove("drag-over");
+      currentHover = hoverTarget; currentHover?.classList.add("drag-over");
+    }
+  };
+  const end = (ev)=>{
+    if (!dragging) return; dragging=false;
+    const t = ev.changedTouches ? ev.changedTouches[0] : ev;
+    const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+    const target = findValidDropTarget(elUnder, data.type);
+    currentHover?.classList.remove("drag-over");
+    markDropTargets(data.type, false);
+    ghost?.remove(); ghost=null;
+    if (target) applyDrop(target, el.dataset.cardId, data.type);
+  };
+  el.addEventListener("touchstart", start, {passive:false});
+  el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
+  el.addEventListener("touchend", end, {passive:false});
+  el.addEventListener("touchcancel", end, {passive:false});
+}
+document.addEventListener('dragover', (e)=>{
+  if (!draggingType) return;
+  const tgt = findValidDropTarget(document.elementFromPoint(e.clientX, e.clientY), draggingType);
+  if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+}, true);
+document.addEventListener('drop', (ev)=>{
+  if (!draggingType) return;
+  const json = ev.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain');
+  const type = payload.type || ev.dataTransfer?.getData('text/card-type') || draggingType;
+  if (!id) return;
+  const target = findValidDropTarget(ev.target, type);
+  if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
+}, true);
+hudDiscardBtn?.addEventListener('dragover', (e)=>{ if (draggingType){ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); }});
+hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
+hudDiscardBtn?.addEventListener('drop', (e)=>{
+  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
+  const json = e.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
+  const type = payload.type || e.dataTransfer?.getData("text/card-type");
+  if (id){ applyDrop(hudDiscardBtn, id, type); }
+});
 
 /* ---------- card HTML ---------- */
 function cardHTML(c){
-  if (!c) {
-    return `
-      <div class="title">Empty</div>
-      <div class="type">—</div>
-      <div class="divider"></div>
-      <div class="pip-track"></div>
-      <div class="textbox">—</div>
-    `;
+  if (!c){
+    return `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`;
   }
   const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
   const pipDots = `<div class="pip-track">${pip>0 ? Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("") : ""}</div>`;
   const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
-
   const aetherChip = (c.aetherValue>0)
     ? `<div class="aether-chip">
          <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -203,7 +304,6 @@ function cardHTML(c){
            <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${c.aetherValue}</text>
          </svg>
        </div>` : "";
-
   return `
     <div class="title">${c.name}</div>
     <div class="type" data-k="${c.type||""}">${c.type || ""}</div>
@@ -215,7 +315,7 @@ function cardHTML(c){
   `;
 }
 
-/* ---------- slots / flow (same as before) ---------- */
+/* ---------- slots / flow ---------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -233,9 +333,7 @@ function renderSlots(container, snapshot, isPlayer){
       art.innerHTML = cardHTML(slot.card);
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
-    } else {
-      d.textContent = "Spell Slot";
-    }
+    } else { d.textContent = "Spell Slot"; }
 
     if (isPlayer){
       const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -248,7 +346,7 @@ function renderSlots(container, snapshot, isPlayer){
         const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
-        try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch(e){ /* toast? */ }
+        try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch {}
       };
       d.addEventListener("dragenter", enter);
       d.addEventListener("dragover", over);
@@ -268,9 +366,7 @@ function renderSlots(container, snapshot, isPlayer){
     art.innerHTML = cardHTML(glyphSlot.card);
     attachPeekAndZoom(art, glyphSlot.card);
     g.appendChild(art);
-  } else {
-    g.textContent = "Glyph Slot";
-  }
+  } else { g.textContent = "Glyph Slot"; }
 
   if (isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -283,7 +379,7 @@ function renderSlots(container, snapshot, isPlayer){
       const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
-      try { state = setGlyphFromHand(state, "player", id); render(); } catch(e){ /* toast? */ }
+      try { state = setGlyphFromHand(state, "player", id); render(); } catch {}
     };
     g.addEventListener("dragenter", enter);
     g.addEventListener("dragover", over);
@@ -311,7 +407,7 @@ async function renderFlow(flowArray){
       card.addEventListener("click", async ()=>{
         Emit('aetherflow:bought', { node: card });
         await sleep(560);
-        try { state = buyFromFlow(state, "player", idx); render(); } catch{}
+        try { state = buyFromFlow(state, "player", idx); render(); } catch {}
       });
     }
 
@@ -383,7 +479,7 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  /* ----- HAND (with safe fallback so cards don’t stay hidden) ----- */
+  /* ----- HAND with deal + restored interaction wiring ----- */
   if (handEl){
     const oldIds = prevHandIds.slice();
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
@@ -395,12 +491,14 @@ async function render(){
       const el = document.createElement("article");
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
-
       el.innerHTML = cardHTML(c);
 
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
+      wireDesktopDrag(el, c);
+      wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
+
       handEl.appendChild(el); domCards.push(el);
     });
 
@@ -409,8 +507,6 @@ async function render(){
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
       Emit('cards:deal', { nodes: addedNodes, stagger: 110 });
-
-      /* Fallback reveal in case animations.js didn’t unhide for any reason */
       setTimeout(()=> addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight')), 800);
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
@@ -435,9 +531,9 @@ async function doStartTurn(){
 async function doEndTurn(){ state = endTurn(state); await doStartTurn(); }
 
 /* ---------- events ---------- */
-document.getElementById("btn-start-turn")?.addEventListener("click", doStartTurn);
-document.getElementById("btn-end-turn")?.addEventListener("click", doEndTurn);
-document.getElementById("btn-endturn-hud")?.addEventListener("click", doEndTurn);
+$("btn-start-turn")?.addEventListener("click", doStartTurn);
+$("btn-end-turn")?.addEventListener("click", doEndTurn);
+$("btn-endturn-hud")?.addEventListener("click", doEndTurn);
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
