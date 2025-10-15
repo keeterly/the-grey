@@ -204,7 +204,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // <-- fixed: removed extra ')'
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -447,8 +447,7 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  // NEW: trance placeholders (two lines; 50% inactive)
-  ensureTrancePlaceholders();
+  ensureTrancePlaceholders(); // add two-line trance UI
 
   // HUD icons
   if (hudDeckBtn){
@@ -495,9 +494,8 @@ async function render(){
     });
 
     layoutHand(handEl, domCards);
-    // NEW: jitter guard — refan once after paint
-    await nextFrame();
-    layoutHand(handEl, domCards);
+    // jitter guard — refan once after paint
+    await nextFrame(); layoutHand(handEl, domCards);
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
