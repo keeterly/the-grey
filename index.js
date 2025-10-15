@@ -335,7 +335,20 @@ function renderSlots(container, snapshot, isPlayer){
     art.innerHTML = cardHTML(glyphSlot.card);
     attachPeekAndZoom(art, glyphSlot.card);
     g.appendChild(art);
-  } else { g.textContent = "Glyph Slot"; }
+    } else {
+    g.textContent = "";
+    const hint = document.createElement("div");
+    hint.className = "slot-glyph-hint";
+    hint.setAttribute("aria-hidden", "true");
+    hint.innerHTML = `
+      <svg viewBox="0 0 24 24" width="28" height="28">
+        <path d="M12 3l3 4-3 7-3-7 3-4zM5 10l4-1m6 1l4-1M7 16h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <div class="lbl">Glyph Slot</div>
+    `;
+    g.appendChild(hint);
+  }
+
 
   if (isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -360,6 +373,8 @@ function renderSlots(container, snapshot, isPlayer){
 
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
+  ensureFlowTitle();
+
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
   flowRowEl.replaceChildren();
 
@@ -368,15 +383,14 @@ async function renderFlow(flowArray){
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
-
     card.innerHTML = cardHTML(c);
     if (c) attachPeekAndZoom(card, c);
 
     if (c){
       card.addEventListener("click", async ()=>{
         Emit('aetherflow:bought', { node: card });
-        await sleep(560);
-        try { state = buyFromFlow(state, "player", idx); render(); } catch {}
+        await animateFlowFall(card);            // smooth fall-off
+        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
     }
 
@@ -393,6 +407,7 @@ async function renderFlow(flowArray){
 
   prevFlowIds = nextIds;
 }
+
 
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
@@ -425,13 +440,19 @@ async function render(){
 
   // HUD icons
   if (hudDeckBtn){
-    hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="12" width="36" height="40" rx="4"></rect>
-      <rect x="14" y="8" width="36" height="40" rx="4"></rect>
-      <rect x="18" y="4" width="36" height="40" rx="4"></rect>
-    </svg>`;
-    hudDeckBtn.classList.add("drop-target");
-  }
+  const deckCount = (state?.players?.player?.deck?.length ?? 0);
+  hudDeckBtn.innerHTML = `
+    <div class="hud-deck-wrap">
+      <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
+        <rect x="18" y="14" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <rect x="14" y="10" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".85"/>
+        <rect x="10" y="6"  width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"/>
+      </svg>
+      <span class="deck-count">${deckCount}</span>
+    </div>
+  `;
+}
+
   if (hudDiscardBtn){
     hudDiscardBtn.innerHTML = `<svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
       <rect x="10" y="10" width="44" height="34" rx="6"></rect>
@@ -472,35 +493,65 @@ async function render(){
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
       handEl.classList.add('dealing');
-      Emit('cards:deal', { nodes: addedNodes, stagger: 90 });
+      addedNodes.forEach(n => { n.classList.add('deal-in'); });   // animate actual cards
       setTimeout(()=>{
-        addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight'));
+        addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 800);
+      }, 400); // short total; CSS runs faster now
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
       handEl.classList.add('dealing');
-      domCards.forEach(n=> n.classList.add('grey-hide-during-flight'));
-      Emit('cards:deal', { nodes: domCards, stagger: 90 });
+      domCards.forEach(n=> { n.classList.add('grey-hide-during-flight','deal-in'); });
       setTimeout(()=>{
-        domCards.forEach(n=> n.classList.remove('grey-hide-during-flight'));
+        domCards.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 800);
+      }, 400);
       bootDealt = true;
     }
+
 
     prevHandIds = newIds;
   }
 }
 
+/* --------- deck helpers ---------- */
+function shuffleInPlace(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = (Math.random() * (i + 1)) | 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function reshuffleFromDiscard(side = "player"){
+  const p = state?.players?.[side];
+  if (!p) return;
+  const deck = p.deck || (p.deck = []);
+  const disc = p.discard || (p.discard = []);
+  if (deck.length === 0 && disc.length > 0){
+    deck.push(...disc.splice(0, disc.length));
+    shuffleInPlace(deck);
+  }
+}
+
+
+
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
   const active = state.activePlayer;
-  const need   = Math.max(0, 5 - (state.players[active].hand?.length||0));
-  if (need) state = drawN(state, active, need);
+
+  // ensure we can draw (deck auto-reshuffle from discard if needed)
+  reshuffleFromDiscard(active);
+
+  const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
+  if (need){
+    // if we still need more and deck is empty, reshuffle again (handles multi-draw)
+    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
+    state = drawN(state, active, need);
+  }
   await render();
 }
+
 async function doEndTurn(){ state = endTurn(state); await doStartTurn(); }
 
 /* ---------- events ---------- */
