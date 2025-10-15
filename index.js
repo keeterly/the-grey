@@ -142,7 +142,7 @@ function cardShellHTML(c){
 let longPressTimer = null, pressStart = {x:0,y:0};
 const LONG_PRESS_MS = 350, MOVE_CANCEL_PX = 8;
 
-function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
+
 
 function attachPeekAndZoom(el, data){
   // Desktop hover peek
