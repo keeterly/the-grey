@@ -175,25 +175,30 @@ export function startTurn(state) {
 }
 
 // End of turn:
-// - river shift: move cards rightward (0→1→2→3→4), 4 spills (removed)
-// - swap active player, increment turn on player→ai and ai→player appropriately
+// - river shift happens ONLY when the PLAYER ends their turn
+// - swap active player; auto-start next player's turn with a reveal if needed
 export function endTurn(state) {
   if (!state?.flow) return state;
 
-  // River shift (from right to left to avoid overwrite)
-  for (let i = state.flow.length - 1; i > 0; i--) {
-    state.flow[i] = state.flow[i] || state.flow[i - 1] ? state.flow[i - 1] : null;
-  }
-  state.flow[0] = null;
+  const endingPlayer = state.activePlayer;
 
-  // Switch active player (simple: player -> ai -> player)
+  // Shift the river only when the player ends their turn
+  if (endingPlayer === "player") {
+    for (let i = state.flow.length - 1; i > 0; i--) {
+      state.flow[i] = state.flow[i] || state.flow[i - 1] ? state.flow[i - 1] : null;
+    }
+    state.flow[0] = null;
+  }
+
+  // Switch active player
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
-  // Auto-start next player's turn: reveal if needed
+  // Reveal at the start of whoever's new turn
   startTurn(state);
   return state;
 }
+
 
 /////////////////////////////
 // Player actions
