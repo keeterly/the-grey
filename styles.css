@@ -54,6 +54,64 @@ html,body{height:100%}
 }
 .aether-display.flash{animation:gem-flash 560ms ease-out}
 
+/* ===== Trance placeholders (under Aether icon) ===== */
+.trance { margin-top: 8px; }
+
+.trance-list {
+  display: grid;
+  grid-auto-rows: minmax(24px, auto);
+  gap: 8px;
+  justify-items: start;
+  align-items: start;
+}
+
+.trance-item {
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: center;
+  opacity: .5;                 /* inactive default */
+  transition: opacity .18s ease, filter .18s ease;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,.45));
+}
+
+.trance-item[aria-current="true"] {
+  opacity: 1;                  /* active stage */
+}
+
+.trance-item .diamond {
+  width: 18px;
+  height: 18px;
+  transform: rotate(45deg);
+  background: linear-gradient(180deg, #6a92c8, #406091);
+  border: 1px solid rgba(255,255,255,.25);
+  box-shadow: 0 2px 6px rgba(0,0,0,.6), inset 0 0 10px rgba(255,255,255,.08);
+  display: grid; place-items: center;
+}
+
+.trance-item .diamond .roman {
+  transform: rotate(-45deg);
+  font-size: 11px;
+  font-weight: 700;
+  color: #e7f1ff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.7);
+  letter-spacing: .02em;
+}
+
+.trance-text { line-height: 1.05; }
+.trance-name {
+  font-size: .95rem;
+  color: var(--ink);
+}
+.trance-hint {
+  font-size: .78rem;
+  color: var(--muted);
+  opacity: .85;
+  margin-top: 2px;
+}
+
+
+
 /* Corner placement */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
