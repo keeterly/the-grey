@@ -62,12 +62,13 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let selectedCard = null; // click-to-place fallback
+let draggingType = "";   // desktop drag helper
 
 /* ------- visuals helpers ------- */
-function gemSVG(cls="", size=32){ // 2× larger under portraits
+function gemSVG(cls="", size=24){ // 1.5× under portraits
   return `<svg class="${cls}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg>`;
 }
-function heartSVG(size=36){ // 2× larger
+function heartSVG(size=36){
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
     <path d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z" fill="#d65151" />
     <path d="M12 8l2 3h-4l-2 0 2-3z" fill="#6b1111"/>
@@ -81,7 +82,7 @@ function renderHearts(el, n=5){
 function aeInline(s){ return withAetherText(s); }
 function setAetherDisplay(el, v=0){
   if (!el) return;
-  el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 32)}</span><strong class="val">${v|0}</strong>`;
+  el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 24)}</span><strong class="val">${v|0}</strong>`;
 }
 
 /* ------- hand layout ------- */
@@ -159,6 +160,7 @@ function attachPeekAndZoom(el, data){
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
+    draggingType = data.type || "";
     el.classList.add("dragging");
     ev.dataTransfer?.setData("application/x-card", JSON.stringify({id:data.id,type:data.type}));
     ev.dataTransfer?.setData("text/card-id", data.id);
@@ -173,6 +175,7 @@ function wireDesktopDrag(el, data){
     markDropTargets(data.type, true);
   });
   el.addEventListener("dragend", ()=>{
+    draggingType = "";
     el.classList.remove("dragging");
     markDropTargets(data.type, false);
   });
@@ -222,6 +225,13 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchcancel", end, {passive:false});
 }
 
+/* allow drop when hovering a valid target (fixes desktop) */
+document.addEventListener('dragover', (e)=>{
+  if (!draggingType) return;
+  const tgt = findValidDropTarget(document.elementFromPoint(e.clientX, e.clientY), draggingType);
+  if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+}, true);
+
 function findValidDropTarget(node, cardType){
   if (!node) return null;
   const slot = node.closest(".slot");
@@ -260,34 +270,31 @@ function applyDrop(target, cardId, cardType){
   } catch(e){ toast(e?.message || "Action failed"); }
 }
 
-/* Capture drop anywhere and route it (desktop safety) */
+/* Also catch drop bubbling (desktop safety) */
 document.addEventListener('drop', (ev)=>{
-  const dataStr = ev.dataTransfer?.getData('application/x-card') || '';
-  const txtId   = ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain') || '';
-  let id='', type='';
-  if (dataStr) { try { const o=JSON.parse(dataStr); id=o.id; type=o.type; } catch{} }
-  if (!id) id = txtId;
+  if (!draggingType) return;
+  const json = ev.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain');
+  const type = payload.type || ev.dataTransfer?.getData('text/card-type') || draggingType;
   if (!id) return;
-  const target = findValidDropTarget(ev.target, type || ev.dataTransfer?.getData('text/card-type'));
-  if (target){
-    ev.preventDefault(); ev.stopPropagation();
-    applyDrop(target, id, type || ev.dataTransfer?.getData('text/card-type'));
-  }
+  const target = findValidDropTarget(ev.target, type);
+  if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
 }, true);
 
-/* Desktop: make Discard explicitly accept drags */
-hudDiscardBtn?.addEventListener('dragover', (e)=>{ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); });
+/* Desktop: explicit Discard target */
+hudDiscardBtn?.addEventListener('dragover', (e)=>{ if (draggingType){ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); }});
 hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
 hudDiscardBtn?.addEventListener('drop', (e)=>{
-  e.preventDefault();
-  hudDiscardBtn.classList.remove('drop-ready');
+  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
   const json = e.dataTransfer?.getData('application/x-card') || '{}';
   let payload={}; try{ payload=JSON.parse(json); }catch{}
   const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
-  if (id){ applyDrop(hudDiscardBtn, id, payload.type || e.dataTransfer?.getData("text/card-type")); }
+  const type = payload.type || e.dataTransfer?.getData("text/card-type");
+  if (id){ applyDrop(hudDiscardBtn, id, type); }
 });
 
-/* Click-to-place fallback on slots & discard */
+/* Click-to-place fallback */
 document.addEventListener('click', (ev)=>{
   if (!selectedCard) return;
   const t = ev.target;
@@ -398,21 +405,19 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* ------- Flow (with entry/falloff cues) ------- */
+/* ------- Flow (with cleaner entry/falloff cues) ------- */
 function renderFlow(flowArray){
   if (!flowRowEl) return;
-  const oldCards = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
-  const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
 
-  // falloff for those leaving
-  prevFlowIds.forEach((prevId, idx) => {
-    if (!prevId) return;
-    const incoming = nextIds[idx];
-    if (incoming !== prevId) {
-      const oldNode = oldCards[idx];
-      if (oldNode) Emit('aetherflow:falloff', { node: oldNode });
-    }
-  });
+  // existing DOM snapshot (for falloff of rightmost only)
+  const oldCards = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
+
+  const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
+  // If the previous rightmost id disappears, animate falloff on the old rightmost node
+  if (prevFlowIds[4] && prevFlowIds[4] !== nextIds[4]) {
+    const rightOldNode = oldCards[4];
+    if (rightOldNode) Emit('aetherflow:falloff', { node: rightOldNode });
+  }
 
   flowRowEl.replaceChildren();
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
@@ -425,8 +430,10 @@ function renderFlow(flowArray){
     else { card.innerHTML = `<div class="title">Empty</div><div class="type">—</div>`; }
 
     if (c){
-      card.addEventListener("click", ()=>{
+      card.addEventListener("click", async ()=>{
+        // Spotlight + fly first, then mutate state
         Emit('aetherflow:bought', { node: card });
+        await sleep(560);
         try { state = buyFromFlow(state, "player", idx); render(); }
         catch(err){ toast(err?.message || "Cannot buy"); }
       });
@@ -441,7 +448,8 @@ function renderFlow(flowArray){
 
     flowRowEl.appendChild(li);
 
-    if (!prevFlowIds[idx] && c) Emit('aetherflow:reveal', { node: card });
+    // Reveal: if slot 0 was empty before and now has a card, cue it
+    if (idx === 0 && !prevFlowIds[0] && c) Emit('aetherflow:reveal', { node: card });
   });
 
   prevFlowIds = nextIds;
@@ -483,7 +491,7 @@ function render(){
   set(playerName,     el=> el && (el.textContent = s.players?.player?.weaver?.name || "Player"));
   set(aiName,         el=> el && (el.textContent = s.players?.ai?.weaver?.name || "Opponent"));
 
-  // aether & hearts (2× size)
+  // aether & hearts (1.5× gem; hearts already large)
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
@@ -492,22 +500,22 @@ function render(){
   // remove “trance 0” placeholder if present
   document.querySelectorAll('.portrait .trance').forEach(t => (t.textContent = ""));
 
-  // ensure HUD icons exist (also serve as animation anchors)
-  if (hudDeckBtn && !hudDeckBtn.innerHTML.trim()){
+  // Deck / Discard icons (force present every render)
+  if (hudDeckBtn){
     hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
       <rect x="10" y="12" width="36" height="40" rx="4"></rect>
       <rect x="14" y="8" width="36" height="40" rx="4"></rect>
       <rect x="18" y="4" width="36" height="40" rx="4"></rect>
     </svg>`;
+    hudDeckBtn.classList.add("drop-target");
   }
-  if (hudDiscardBtn && !hudDiscardBtn.innerHTML.trim()){
+  if (hudDiscardBtn){
     hudDiscardBtn.innerHTML = `<svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
       <rect x="10" y="10" width="44" height="34" rx="6"></rect>
       <path d="M20 22h24M20 30h24M20 38h24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
     </svg>`;
+    hudDiscardBtn.classList.add("drop-target");
   }
-  hudDiscardBtn?.classList.add("drop-target");
-  hudDeckBtn?.classList.add("drop-target");
 
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
@@ -627,19 +635,5 @@ document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom()
 
 /* ------- boot ------- */
 document.addEventListener("DOMContentLoaded", async ()=>{
-  // ensure deck/discard icons exist (animation targets)
-  if (hudDeckBtn && !hudDeckBtn.innerHTML.trim()){
-    hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="12" width="36" height="40" rx="4"></rect>
-      <rect x="14" y="8" width="36" height="40" rx="4"></rect>
-      <rect x="18" y="4" width="36" height="40" rx="4"></rect>
-    </svg>`;
-  }
-  if (hudDiscardBtn && !hudDiscardBtn.innerHTML.trim()){
-    hudDiscardBtn.innerHTML = `<svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
-      <rect x="10" y="10" width="44" height="34" rx="6"></rect>
-      <path d="M20 22h24M20 30h24M20 38h24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
-    </svg>`;
-  }
   await doStartTurn();
 });
