@@ -137,6 +137,47 @@ function cardShellHTML(c){
     ${aetherChip}
   `;
 }
+
+/* ---------- preview / zoom (centered) ---------- */
+let longPressTimer = null, pressStart = {x:0,y:0};
+const LONG_PRESS_MS = 350, MOVE_CANCEL_PX = 8;
+
+function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
+
+function attachPeekAndZoom(el, data){
+  // Desktop hover peek
+  const peekEl = document.getElementById("peek-card");
+  if (peekEl){
+    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
+    el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
+  }
+
+  // Press & hold -> centered preview (uses #peek-card as well)
+  const onDown = (ev)=>{
+    if (longPressTimer) clearTimeout(longPressTimer);
+    const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
+    pressStart = {x:t.clientX,y:t.clientY};
+    longPressTimer = setTimeout(()=>{
+      if (peekEl){
+        fillCardShell(peekEl, data);
+        peekEl.classList.add("show"); // CSS positions it at screen center
+      }
+    }, LONG_PRESS_MS);
+  };
+  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
+  const onMove = (ev)=>{
+    const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
+    if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y) > MOVE_CANCEL_PX) clearLP();
+  };
+
+  el.addEventListener("pointerdown", onDown, {passive:true});
+  el.addEventListener("pointerup", clearLP, {passive:true});
+  el.addEventListener("pointerleave", clearLP, {passive:true});
+  el.addEventListener("pointercancel", clearLP, {passive:true});
+  el.addEventListener("pointermove", onMove, {passive:true});
+  el.addEventListener("dragstart", clearLP);
+}
+
 function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
 /* ---------- action menu ---------- */
