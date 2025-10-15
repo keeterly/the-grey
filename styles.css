@@ -6,8 +6,9 @@
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gem-blue:#7eb6ff;
-  --card-gem: 40px; /* in-card gem size */
-  --gem-size: 48px; /* portrait gem size */
+
+  --card-gem: 40px;  /* in-card gem size */
+  --gem-size: 48px;  /* portrait gem size */
   --heart:#e27a7a;
 
   --type-spell:#7eb6ff;    /* blue */
@@ -44,18 +45,15 @@ html,body{height:100%}
 .hearts svg{width:36px;height:36px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
 .trance{margin-top:2px;opacity:.8;font-size:.9rem}
 
-/* Portrait Aether display – gem to the right of hearts, value inside */
+/* Portrait Aether – gem to right of hearts, value inside gem */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{
   width:var(--gem-size);height:var(--gem-size);
-  filter:drop-shadow(0 0 6px rgba(126,182,255,.45)); color:var(--gem-blue);
-  display:grid; place-items:center;
+  filter:drop-shadow(0 0 6px rgba(126,182,255,.45));
+  display:grid; place-items:center; color:var(--gem-blue);
 }
 .aether-display .gem svg{width:100%;height:100%;fill:currentColor}
-.aether-display .gem svg text{
-  font-weight:900; font-size:calc(var(--gem-size) * 0.46);
-  fill:#0d0a07; text-anchor:middle; dominant-baseline:central;
-}
+.aether-display .gem svg text{font-weight:900;font-size:calc(var(--gem-size)*0.46);fill:#0d0a07;text-anchor:middle;dominant-baseline:central}
 .aether-display .val{display:none}
 
 /* Corners */
@@ -156,7 +154,7 @@ html,body{height:100%}
 100%{opacity:0; transform:translateY(80px) rotate(6deg) scale(.94);}}
 .card.discarding{animation:discardOut .32s ease forwards}
 
-/* HUD, preview, toast (unchanged) */
+/* HUD / preview / toast */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
 .hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
 
