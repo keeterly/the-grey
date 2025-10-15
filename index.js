@@ -714,6 +714,39 @@ async function render(){
   highlightPlayableCards();
 }
 
+
+/* --------- discard & draw helpers ---------- */
+
+// Animate discarding all cards in a side's hand, then clear the hand in state
+async function discardHandAndAnimate(side = "player"){
+  const container = side === "player" ? handEl : null;
+  if (container){
+    const nodes = Array.from(container.children);
+    nodes.forEach(n => n.classList.add("discarding"));
+    await sleep(340);
+  }
+  // true discard: no aether gain
+  try {
+    if (state?.players?.[side]){
+      state.players[side].hand = [];
+    }
+  } catch(e){}
+  await render();
+}
+
+// Simple AI turn: start -> draw to 5 -> (future: play) -> end
+async function doAiTurn(){
+  state = startTurn(state);
+  const need = Math.max(0, 5 - (state.players.ai?.hand?.length || 0));
+  if (need) state = drawN(state, "ai", need);
+  await render();
+
+  // (hook real AI plays here later)
+
+  state = endTurn(state);
+  await render();
+}
+
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
@@ -722,7 +755,21 @@ async function doStartTurn(){
   if (need) state = drawN(state, active, need);
   await render();
 }
-async function doEndTurn(){ state = endTurn(state); await doStartTurn(); }
+
+
+// Full “end turn” that discards hand, runs AI, then returns to player with a fresh draw
+async function doEndTurn(){
+  // 1) player discards entire hand (no aether gain)
+  await discardHandAndAnimate("player");
+
+  // 2) pass to AI and run its turn
+  state = endTurn(state);      // give priority to AI
+  await doAiTurn();            // AI draws to 5 and ends turn
+
+  // 3) back to player: start and draw a NEW hand up to 5
+  await doStartTurn();
+}
+
 
 /* ---------- events ---------- */
 $("btn-start-turn")?.addEventListener("click", doStartTurn);
