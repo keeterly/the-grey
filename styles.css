@@ -43,10 +43,11 @@ html,body{height:100%}
 .portrait img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 6px 16px #000}
 .hearts{display:flex;gap:6px;justify-content:center;margin-top:6px}
 .hearts svg{width:36px;height:36px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
-.trance{margin-top:2px;opacity:.8;font-size:.9rem}
-/* NEW: visible active/inactive trance lines */
+
+/* Trance (two lines; 50% inactive) */
+.trance{margin-top:4px;opacity:.9;font-size:.9rem;text-align:center;color:var(--muted)}
 .trance .level{opacity:.5; transition:opacity .16s ease}
-.trance .level.active{opacity:1}
+.trance .level.active{opacity:1; color:var(--ink)}
 
 /* Portrait Aether – gem to right of hearts, value inside gem (2× size) */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
@@ -117,8 +118,8 @@ html,body{height:100%}
 .card:hover{z-index:9999 !important; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.07)}
 
 /* Header */
-.card .title{padding:10px 12px 2px 12px; font-weight:600; font-size:.95em} /* -5% */
-.card .type{opacity:.9; padding:0 12px 0 12px; font-size:.81rem}        /* -10% */
+.card .title{padding:10px 12px 2px 12px; font-weight:600; font-size:.95em}
+.card .type{opacity:.9; padding:0 12px 0 12px; font-size:.81rem}
 .card .type[data-k="SPELL"]{color:var(--type-spell)}
 .card .type[data-k="INSTANT"]{color:var(--type-instant)}
 .card .type[data-k="GLYPH"]{color:var(--type-glyph)}
@@ -171,5 +172,5 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
-.toast{position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70}
+.toast{position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:#var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70}
 .toast.show{opacity:1}
