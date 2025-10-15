@@ -3,9 +3,9 @@
   const Grey = (function ensureBus() {
     if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
     const listeners = new Map();
-    const on = (n, fn) => { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(fn); };
+    const on  = (n, fn) => { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(fn); };
     const off = (n, fn) => listeners.get(n)?.delete(fn);
-    const emit = (n, d) => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
+    const emit= (n, d) => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
     return (window.Grey = { on, off, emit });
   })();
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
@@ -209,7 +209,7 @@ function wireTouchDrag(el, data){
       currentHover = hoverTarget; currentHover?.classList.add("drag-over");
     }
   };
-  const end = (ev)=>{
+  const end = async (ev)=>{
     if (!dragging) return; dragging=false;
     const t = ev.changedTouches ? ev.changedTouches[0] : ev;
     const elUnder = document.elementFromPoint(t.clientX, t.clientY);
@@ -217,7 +217,7 @@ function wireTouchDrag(el, data){
     currentHover?.classList.remove("drag-over");
     markDropTargets(data.type, false);
     ghost?.remove(); ghost=null;
-    if (target) applyDrop(target, el.dataset.cardId, data.type);
+    if (target) await applyDrop(target, el.dataset.cardId, data.type);
   };
   el.addEventListener("touchstart", start, {passive:false});
   el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
@@ -251,24 +251,33 @@ function markDropTargets(cardType, on){
   if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
-function applyDrop(target, cardId, cardType){
+
+async function applyDrop(target, cardId, cardType){
   if (!target) return;
   try {
     if (target === hudDiscardBtn){
+      // animate from hand to discard before mutating state
+      const node = handEl?.querySelector(`article.card[data-card-id="${cardId}"]`);
+      if (node){ Emit('cards:discard', { nodes: [node] }); await sleep(560); }
       state = discardForAether(state, "player", cardId);
-      render(); return;
+      await render();
+      return;
     }
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
-      state = setGlyphFromHand(state, "player", cardId); render(); return;
+      state = setGlyphFromHand(state, "player", cardId);
+      await render();
+      return;
     }
     if (target.classList.contains("spell") && cardType==="SPELL"){
       const idx = Number(target.dataset.slotIndex||0);
-      state = playCardToSpellSlot(state, "player", cardId, idx); render(); return;
+      state = playCardToSpellSlot(state, "player", cardId, idx);
+      await render();
+      return;
     }
   } catch(e){ toast(e?.message || "Action failed"); }
 }
 
-document.addEventListener('drop', (ev)=>{
+document.addEventListener('drop', async (ev)=>{
   if (!draggingType) return;
   const json = ev.dataTransfer?.getData('application/x-card') || '{}';
   let payload={}; try{ payload=JSON.parse(json); }catch{}
@@ -276,18 +285,18 @@ document.addEventListener('drop', (ev)=>{
   const type = payload.type || ev.dataTransfer?.getData('text/card-type') || draggingType;
   if (!id) return;
   const target = findValidDropTarget(ev.target, type);
-  if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
+  if (target){ ev.preventDefault(); ev.stopPropagation(); await applyDrop(target, id, type); }
 }, true);
 
 hudDiscardBtn?.addEventListener('dragover', (e)=>{ if (draggingType){ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); }});
 hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
-hudDiscardBtn?.addEventListener('drop', (e)=>{
+hudDiscardBtn?.addEventListener('drop', async (e)=>{
   e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
   const json = e.dataTransfer?.getData('application/x-card') || '{}';
   let payload={}; try{ payload=JSON.parse(json); }catch{}
   const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
   const type = payload.type || e.dataTransfer?.getData("text/card-type");
-  if (id){ applyDrop(hudDiscardBtn, id, type); }
+  if (id){ await applyDrop(hudDiscardBtn, id, type); }
 });
 
 /* ------- card html / slots ------- */
@@ -331,14 +340,14 @@ function renderSlots(container, snapshot, isPlayer){
       const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
       const over  = enter;
       const leave = ()=> d.classList.remove("drag-over");
-      const drop  = ev => {
+      const drop  = async ev => {
         ev.preventDefault(); d.classList.remove("drag-over");
         const json = ev.dataTransfer?.getData('application/x-card') || '{}';
         let payload={}; try{ payload=JSON.parse(json); }catch{}
         const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
-        try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch(e){ toast(e?.message||"Can't play"); }
+        try { state = playCardToSpellSlot(state, "player", id, i); await render(); } catch(e){ toast(e?.message||"Can't play"); }
       };
       d.addEventListener("dragenter", enter);
       d.addEventListener("dragover", over);
@@ -366,14 +375,14 @@ function renderSlots(container, snapshot, isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
     const over  = enter;
     const leave = ()=> g.classList.remove("drag-over");
-    const drop  = ev => {
+    const drop  = async ev => {
       ev.preventDefault(); g.classList.remove("drag-over");
       const json = ev.dataTransfer?.getData('application/x-card') || '{}';
       let payload={}; try{ payload=JSON.parse(json); }catch{}
       const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
-      try { state = setGlyphFromHand(state, "player", id); render(); } catch(e){ toast(e?.message||"Can't set glyph"); }
+      try { state = setGlyphFromHand(state, "player", id); await render(); } catch(e){ toast(e?.message||"Can't set glyph"); }
     };
     g.addEventListener("dragenter", enter);
     g.addEventListener("dragover", over);
@@ -390,10 +399,10 @@ async function renderFlow(flowArray){
   const oldCards = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
 
-  // If rightmost id changes, animate falloff on existing DOM before we rebuild
+  // animate falloff of previous rightmost if it changed
   if (prevFlowIds[4] && prevFlowIds[4] !== nextIds[4] && oldCards[4]) {
     Emit('aetherflow:falloff', { node: oldCards[4] });
-    await sleep(520); // wait for fall-off to complete before DOM swap
+    await sleep(520);
   }
 
   flowRowEl.replaceChildren();
@@ -409,10 +418,9 @@ async function renderFlow(flowArray){
 
     if (c){
       card.addEventListener("click", async ()=>{
-        // Spotlight + fly first, then mutate state
         Emit('aetherflow:bought', { node: card });
         await sleep(560);
-        try { state = buyFromFlow(state, "player", idx); render(); }
+        try { state = buyFromFlow(state, "player", idx); await render(); }
         catch(err){ toast(err?.message || "Cannot buy"); }
       });
     }
@@ -427,7 +435,7 @@ async function renderFlow(flowArray){
 
     flowRowEl.appendChild(li);
 
-    // Reveal animation: if slot 0 was previously empty and now has a card
+    // reveal animation for slot 0 if it transitioned from empty → card
     if (idx === 0 && !prevFlowIds[0] && c) Emit('aetherflow:reveal', { node: card });
   });
 
@@ -496,7 +504,7 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  // hand + deck→hand deal (no ghosting)
+  // hand + deck→hand deal (no flash: use 'grey-hide', which animations.js clears)
   if (handEl){
     const oldIds = prevHandIds;
     handEl.replaceChildren();
@@ -529,10 +537,10 @@ async function render(){
 
     const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
-      addedNodes.forEach(n=> n.classList.add('grey-hide-during-flight')); // prevent flash
+      addedNodes.forEach(n=> n.classList.add('grey-hide')); // <-- match animations.js
       Emit('cards:deal', { nodes: addedNodes, stagger: 110 });
     } else if (!bootDealt && els.length){
-      els.forEach(n=> n.classList.add('grey-hide-during-flight'));
+      els.forEach(n=> n.classList.add('grey-hide'));
       Emit('cards:deal', { nodes: els, stagger: 110 });
       bootDealt = true;
     }
