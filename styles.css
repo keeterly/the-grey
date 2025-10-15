@@ -43,10 +43,24 @@ html,body{height:100%}
 .portrait img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 6px 16px #000}
 .hearts{display:flex;gap:6px;justify-content:center;margin-top:6px}
 .hearts svg{width:36px;height:36px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
-.trance{margin-top:2px;opacity:.8;font-size:.9rem}
-/* NEW: Trance visibility */
-.trance .level{opacity:.5; transition:opacity .16s ease}
-.trance .level.active{opacity:1}
+
+
+.trance {
+  margin-top: 4px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+  transition: opacity 0.25s ease;
+}
+.trance .level {
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+.trance .level.active {
+  opacity: 1;
+  color: var(--ink);
+}
+
 
 /* Portrait Aether – gem to right of hearts, value inside gem (2× size) */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
