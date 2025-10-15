@@ -3,19 +3,17 @@
  * Event-driven animations for The Grey
  *
  * Events:
- *  - 'cards:drawn'        { nodes:[HTMLElement,...] }               // small pop
- *  - 'cards:deal'         { nodes:[HTMLElement,...], stagger?:120 } // deck → hand flight (no ghosting)
- *  - 'cards:discard'      { nodes:[HTMLElement,...] }               // to discard (curve + spin)
- *  - 'aetherflow:reveal'  { node:HTMLElement }                      // entry pop
- *  - 'aetherflow:falloff' { node:HTMLElement }                      // fall-right and fade
+ *  - 'cards:drawn'        { nodes:[HTMLElement,...] }
+ *  - 'cards:deal'         { nodes:[HTMLElement,...], stagger?:120 } // deck → hand flight
+ *  - 'cards:discard'      { nodes:[HTMLElement,...] }               // to discard
+ *  - 'aetherflow:reveal'  { node:HTMLElement }                      // entry pop (slot 0)
+ *  - 'aetherflow:falloff' { node:HTMLElement }                      // fall-right (slot 4)
  *  - 'aetherflow:bought'  { node:HTMLElement }                      // spotlight + fly to discard
  */
-
 (() => {
   if (window.__greyAnimationsLoaded__) return;
   window.__greyAnimationsLoaded__ = true;
 
-  // —— minimal bus if host didn’t provide one ——
   const Grey = (function ensureBus() {
     if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
     const listeners = new Map();
@@ -107,7 +105,6 @@
     });
   });
 
-  // Deck → Hand flight (no ghosting)
   Grey.on('cards:deal', async ({nodes, stagger=110}={}) => {
     const deck = getDeckRect();
     const arr = asArray(nodes).filter(isEl);
