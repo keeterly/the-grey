@@ -43,24 +43,10 @@ html,body{height:100%}
 .portrait img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 6px 16px #000}
 .hearts{display:flex;gap:6px;justify-content:center;margin-top:6px}
 .hearts svg{width:36px;height:36px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
-
-
-.trance {
-  margin-top: 4px;
-  text-align: center;
-  font-size: 0.9rem;
-  color: var(--muted);
-  transition: opacity 0.25s ease;
-}
-.trance .level {
-  opacity: 0.45;
-  transition: opacity 0.2s ease;
-}
-.trance .level.active {
-  opacity: 1;
-  color: var(--ink);
-}
-
+.trance{margin-top:2px;opacity:.8;font-size:.9rem}
+/* NEW: visible active/inactive trance lines */
+.trance .level{opacity:.5; transition:opacity .16s ease}
+.trance .level.active{opacity:1}
 
 /* Portrait Aether – gem to right of hearts, value inside gem (2× size) */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
@@ -99,18 +85,9 @@ html,body{height:100%}
 .slot.drag-over{outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45))}
 .slot .card{position:absolute; left:0; top:0; width:100%; height:100%; border-radius:var(--card-radius)}
 
-/* ====== Aether Flow board (centered like slots) ====== */
-.flow-wrap{
-  position:relative;
-  width:100%;
-  display:block;          /* no flex — prevents title from shifting the grid */
-}
-.flow-title-rail{
-  position:absolute;
-  left:calc(50% - (var(--flow-width, 0px))/2 - 36px); /* 36px off the left edge of the board */
-  top:12px;
-  width:36px; display:flex; justify-content:center;
-}
+/* ====== Aether Flow board ====== */
+.flow-wrap{position:relative;width:100%;display:block}
+.flow-title-rail{position:absolute;left:calc(50% - (var(--flow-width, 0px))/2 - 36px);top:12px;width:36px;display:flex;justify-content:center}
 .flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; user-select:none; text-align:center}
 
 #flow-row.flow-row{
@@ -156,7 +133,7 @@ html,body{height:100%}
 /* Rules text */
 .card .textbox{flex:1; padding:8px 12px 48px 12px; opacity:.92; font-size:.95rem; line-height:1.2}
 
-/* Top-right play cost — perfectly centered */
+/* Top-right play cost */
 .card .play-cost-badge{
   position:absolute; top:8px; right:8px;
   width:23px; height:23px; border-radius:999px;
@@ -167,7 +144,7 @@ html,body{height:100%}
 }
 .card .play-cost-badge .v{ font-size:1.25rem; line-height:1; font-weight:900 }
 
-/* Bottom-left Aether gem with value inside */
+/* Bottom-left Aether gem */
 .card .aether-chip{position:absolute; left:10px; bottom:10px; z-index:3; filter:drop-shadow(0 1px 2px #000)}
 .card .aether-chip svg{width:var(--card-gem); height:var(--card-gem); fill:var(--gem-blue)}
 .card .aether-chip svg text{font-weight:800; font-size:calc(var(--card-gem) * 0.46); fill:#0d0a07; text-anchor:middle; dominant-baseline:central}
