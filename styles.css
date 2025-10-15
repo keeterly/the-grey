@@ -197,6 +197,23 @@ html,body{height:100%}
 .fx-shadow { will-change: transform, opacity, filter; }
 .fx-spotlight { will-change: transform, opacity, filter; }
 
+
+/* === Portrait meters: 2× size hearts & æ gem === */
+.portrait .hearts svg { width: 36px; height: 36px; }
+.aether-display .gem svg { width: 32px; height: 32px; }
+.aether-display .val { font-size: 1.15rem; }
+
+/* Click-to-place selection affordance */
+.card.selected { outline: 2px solid var(--aether); outline-offset: 3px; }
+
+/* Strengthen drop affordance */
+.slot.drag-over, #btn-discard-hud.drop-ready {
+  outline: 2px dashed var(--aether);
+  outline-offset: 6px;
+  filter: drop-shadow(0 0 12px rgba(126,182,255,.55));
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   .fx-shadow, .fx-spotlight { transition: none !important; animation: none !important; }
 }
