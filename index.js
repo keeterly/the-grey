@@ -82,13 +82,11 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  const svg = el.querySelector("svg");
-  const t   = svg?.querySelector("text");
-  if (svg && t) {
+  const t = el.querySelector("svg text");
+  if (t){
     const digits = String(val).length;
-    // Start smaller, clamp harder so it never touches the inner faces
-    const base = 24 * 0.42;        // smaller than before
-    const min  = 24 * 0.24;
+    const base = 24 * 0.42;         // smaller start
+    const min  = 24 * 0.24;         // hard floor
     const size = Math.max(min, Math.min(base, base * (1 - (digits - 1) * 0.18)));
     t.setAttribute("font-size", String(Math.floor(size)));
   }
@@ -191,9 +189,10 @@ function findValidDropTarget(node, cardType){
   return null;
 }
 function markDropTargets(cardType, on){
-  document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
+  document.querySelectorAll(".row.player .slot.spell")
+    .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // ← fixed: no extra paren
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -212,7 +211,7 @@ function applyDrop(target, cardId, cardType){
   } catch(e){}
 }
 
-/* ---------- slot/flow rendering ---------- */
+/* ---------- slots / flow ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
 function renderSlots(container, snapshot, isPlayer){
@@ -235,10 +234,10 @@ function renderSlots(container, snapshot, isPlayer){
     } else { d.textContent = "Spell Slot"; }
 
     if (isPlayer){
-      d.addEventListener("dragenter", ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); }});
-      d.addEventListener("dragover",  ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); }});
-      d.addEventListener("dragleave", ()=> d.classList.remove("drag-over"));
-      d.addEventListener("drop", ev=>{
+      const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
+      const over  = enter;
+      const leave = ()=> d.classList.remove("drag-over");
+      const drop  = ev => {
         ev.preventDefault(); d.classList.remove("drag-over");
         const json = ev.dataTransfer?.getData('application/x-card') || '{}';
         let payload={}; try{ payload=JSON.parse(json); }catch{}
@@ -246,7 +245,11 @@ function renderSlots(container, snapshot, isPlayer){
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
         try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch {}
-      });
+      };
+      d.addEventListener("dragenter", enter);
+      d.addEventListener("dragover", over);
+      d.addEventListener("dragleave", leave);
+      d.addEventListener("drop", drop);
     }
     container.appendChild(d);
   }
@@ -264,10 +267,10 @@ function renderSlots(container, snapshot, isPlayer){
   } else { g.textContent = "Glyph Slot"; }
 
   if (isPlayer){
-    g.addEventListener("dragenter", ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); }});
-    g.addEventListener("dragover",  ev=>{ const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); }});
-    g.addEventListener("dragleave", ()=> g.classList.remove("drag-over"));
-    g.addEventListener("drop", ev=>{
+    const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
+    const over  = enter;
+    const leave = ()=> g.classList.remove("drag-over");
+    const drop  = ev => {
       ev.preventDefault(); g.classList.remove("drag-over");
       const json = ev.dataTransfer?.getData('application/x-card') || '{}';
       let payload={}; try{ payload=JSON.parse(json); }catch{}
@@ -275,12 +278,16 @@ function renderSlots(container, snapshot, isPlayer){
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
       try { state = setGlyphFromHand(state, "player", id); render(); } catch {}
-    });
+    };
+    g.addEventListener("dragenter", enter);
+    g.addEventListener("dragover", over);
+    g.addEventListener("dragleave", leave);
+    g.addEventListener("drop", drop);
   }
   container.appendChild(g);
 }
 
-/* --- Flow title helper: injects the left-side vertical title --- */
+/* --- Flow title helper (left of board, outside grid) --- */
 function ensureFlowTitle(){
   const wrap = document.querySelector(".flow-wrap");
   if (!wrap) return;
@@ -295,18 +302,17 @@ function ensureFlowTitle(){
 
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
-  ensureFlowTitle(); // make sure the title exists (outside the grid)
+  ensureFlowTitle();
 
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
   flowRowEl.replaceChildren();
 
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li");
-    li.className = "flow-card";
-
+    const li = document.createElement("li"); li.className = "flow-card";
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
+
     card.innerHTML = cardHTML(c);
     if (c) attachPeekAndZoom(card, c);
 
@@ -392,7 +398,7 @@ async function render(){
 
   ensureTranceUI();
 
-  // HUD icons (borderless rune glyphs)
+  // HUD glyphs (borderless)
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
@@ -436,7 +442,6 @@ async function render(){
 
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
-      // desktop
       el.draggable = true;
       el.addEventListener("dragstart", (ev)=>{
         el.classList.add("dragging");
