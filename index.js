@@ -63,6 +63,7 @@ let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let selectedCard = null;
 let draggingType = "";
+let suppressDealAnimOnce = false; // <-- prevent deal animation on non-draw renders
 
 /* ------- visuals helpers ------- */
 function gemSVG(cls="", size=24){
@@ -255,6 +256,7 @@ function markDropTargets(cardType, on){
 async function applyDrop(target, cardId, cardType){
   if (!target) return;
   try {
+    suppressDealAnimOnce = true; // <- this render is not a draw; don't re-deal animate
     if (target === hudDiscardBtn){
       // animate from hand to discard before mutating state
       const node = handEl?.querySelector(`article.card[data-card-id="${cardId}"]`);
@@ -277,27 +279,47 @@ async function applyDrop(target, cardId, cardType){
   } catch(e){ toast(e?.message || "Action failed"); }
 }
 
-document.addEventListener('drop', async (ev)=>{
-  if (!draggingType) return;
-  const json = ev.dataTransfer?.getData('application/x-card') || '{}';
-  let payload={}; try{ payload=JSON.parse(json); }catch{}
-  const id = payload.id || ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain');
-  const type = payload.type || ev.dataTransfer?.getData('text/card-type') || draggingType;
-  if (!id) return;
-  const target = findValidDropTarget(ev.target, type);
-  if (target){ ev.preventDefault(); ev.stopPropagation(); await applyDrop(target, id, type); }
-}, true);
+/* ------- MTGA-style market spotlight ------- */
+async function runMarketSpotlight(node){
+  if (!node) return;
+  const rect = node.getBoundingClientRect();
+  const W = window.innerWidth, H = window.innerHeight;
+  const cx = W/2 - rect.left - rect.width/2;
+  const cy = H/2 - rect.top  - rect.height/2;
 
-hudDiscardBtn?.addEventListener('dragover', (e)=>{ if (draggingType){ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); }});
-hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
-hudDiscardBtn?.addEventListener('drop', async (e)=>{
-  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
-  const json = e.dataTransfer?.getData('application/x-card') || '{}';
-  let payload={}; try{ payload=JSON.parse(json); }catch{}
-  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
-  const type = payload.type || e.dataTransfer?.getData("text/card-type");
-  if (id){ await applyDrop(hudDiscardBtn, id, type); }
-});
+  // Bring to front during sequence
+  node.style.willChange = 'transform, box-shadow, opacity';
+  node.style.transition = 'transform 420ms cubic-bezier(.2,.7,.2,1), box-shadow 240ms ease-out';
+  node.style.zIndex = '10000';
+
+  // 1) fly to center & enlarge
+  node.style.transform = `translate(${cx}px, ${cy}px) scale(1.25)`;
+  node.style.boxShadow = '0 0 32px rgba(126,182,255,.45), 0 24px 40px rgba(0,0,0,.5)';
+  await sleep(440);
+
+  // 2) impact pop
+  node.style.transition = 'transform 160ms ease-out';
+  node.style.transform = `translate(${cx}px, ${cy}px) scale(1.32)`;
+  await sleep(170);
+  node.style.transform = `translate(${cx}px, ${cy}px) scale(1.22)`;
+  await sleep(140);
+
+  // 3) hold a beat
+  await sleep(360);
+
+  // 4) fly to discard
+  const dst = document.getElementById('btn-discard-hud')?.getBoundingClientRect();
+  if (dst){
+    const dx = dst.left - rect.left, dy = dst.top - rect.top;
+    node.style.transition = 'transform 520ms cubic-bezier(.2,.7,.2,1), opacity 520ms ease';
+    node.style.transform = `translate(${dx}px, ${dy}px) scale(.85)`;
+    node.style.opacity = '0.85';
+    await sleep(540);
+  }
+
+  // cleanup inline styles
+  node.style.transition = ''; node.style.transform=''; node.style.boxShadow=''; node.style.zIndex='';
+}
 
 /* ------- card html / slots ------- */
 function cardHTML(c){
@@ -347,7 +369,7 @@ function renderSlots(container, snapshot, isPlayer){
         const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
-        try { state = playCardToSpellSlot(state, "player", id, i); await render(); } catch(e){ toast(e?.message||"Can't play"); }
+        try { suppressDealAnimOnce = true; state = playCardToSpellSlot(state, "player", id, i); await render(); } catch(e){ toast(e?.message||"Can't play"); }
       };
       d.addEventListener("dragenter", enter);
       d.addEventListener("dragover", over);
@@ -382,7 +404,7 @@ function renderSlots(container, snapshot, isPlayer){
       const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
-      try { state = setGlyphFromHand(state, "player", id); await render(); } catch(e){ toast(e?.message||"Can't set glyph"); }
+      try { suppressDealAnimOnce = true; state = setGlyphFromHand(state, "player", id); await render(); } catch(e){ toast(e?.message||"Can't set glyph"); }
     };
     g.addEventListener("dragenter", enter);
     g.addEventListener("dragover", over);
@@ -418,8 +440,8 @@ async function renderFlow(flowArray){
 
     if (c){
       card.addEventListener("click", async ()=>{
-        Emit('aetherflow:bought', { node: card });
-        await sleep(560);
+        // MTGA-style spotlight: fly to center -> impact -> pause -> fly to discard
+        await runMarketSpotlight(card);
         try { state = buyFromFlow(state, "player", idx); await render(); }
         catch(err){ toast(err?.message || "Cannot buy"); }
       });
@@ -504,7 +526,7 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  // hand + deck→hand deal (no flash: use 'grey-hide', which animations.js clears)
+  // hand + deck→hand deal (no flash; safe fallback if animations are unavailable)
   if (handEl){
     const oldIds = prevHandIds;
     handEl.replaceChildren();
@@ -535,16 +557,31 @@ async function render(){
     });
     layoutHand(handEl, els);
 
+    // Decide whether to animate deal
+    const animLoaded = !!window.__greyAnimationsLoaded__;
     const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
-    if (addedNodes.length){
-      addedNodes.forEach(n=> n.classList.add('grey-hide')); // <-- match animations.js
-      Emit('cards:deal', { nodes: addedNodes, stagger: 110 });
-    } else if (!bootDealt && els.length){
-      els.forEach(n=> n.classList.add('grey-hide'));
-      Emit('cards:deal', { nodes: els, stagger: 110 });
+    const shouldDealAnim =
+      !suppressDealAnimOnce && (
+        (addedNodes.length > 0) ||            // new cards arrived
+        (!bootDealt && els.length > 0)        // first render with cards
+      );
+
+    if (shouldDealAnim){
+      const nodes = addedNodes.length ? addedNodes : els;
+      if (animLoaded){
+        nodes.forEach(n=> n.classList.add('grey-hide')); // animations.js reveals them after flight
+        Emit('cards:deal', { nodes, stagger: 110 });
+        // hard safety in case animations file fails to load:
+        setTimeout(()=> nodes.forEach(n=> n.classList.remove('grey-hide')), 900);
+      } else {
+        // no animations available: just show them immediately
+        nodes.forEach(n=> n.classList.remove('grey-hide'));
+      }
       bootDealt = true;
     }
 
+    // clear the one-shot suppress flag after render
+    suppressDealAnimOnce = false;
     prevHandIds = newIds;
   }
 }
