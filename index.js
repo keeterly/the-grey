@@ -61,27 +61,27 @@ let state = initState();
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
+let selectedCard = null; // click-to-place fallback
 
 /* ------- visuals helpers ------- */
-function gemSVG(cls="", size=16){
+function gemSVG(cls="", size=32){ // 2× larger under portraits
   return `<svg class="${cls}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg>`;
 }
-function heartSVG(size=18){
-  // red runic heart with inner rune cut
+function heartSVG(size=36){ // 2× larger
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
     <path d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z" fill="#d65151" />
-    <path d="M12 8l2 3h-4l2-3z" fill="#6b1111"/>
+    <path d="M12 8l2 3h-4l-2 0 2-3z" fill="#6b1111"/>
   </svg>`;
 }
 function renderHearts(el, n=5){
   if (!el) return;
   const count = Math.max(0, n|0);
-  el.innerHTML = Array.from({length:count}).map(()=>`<span class="heart">${heartSVG(18)}</span>`).join("");
+  el.innerHTML = Array.from({length:count}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 function aeInline(s){ return withAetherText(s); }
 function setAetherDisplay(el, v=0){
   if (!el) return;
-  el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 16)}</span><strong class="val">${v|0}</strong>`;
+  el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 32)}</span><strong class="val">${v|0}</strong>`;
 }
 
 /* ------- hand layout ------- */
@@ -115,7 +115,7 @@ function fillCardShell(div, data){
   if (!div) return;
   const pip = Number.isFinite(data.pip) ? Math.max(0, data.pip|0) : 0;
   const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-  const aetherChip = (data.aetherValue>0) ? `<div class="aether-chip">${gemSVG("", 16)}<span class="val">${data.aetherValue}</span></div>` : "";
+  const aetherChip = (data.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${data.aetherValue}</span></div>` : "";
   div.innerHTML = `
     <div class="title">${data.name}</div>
     <div class="type">${data.type}${(data.price ?? data.cost) ? ` — Cost ${aeInline("Æ")}${data.price ?? data.cost}` : ""}</div>
@@ -160,10 +160,10 @@ function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
     el.classList.add("dragging");
-    ev.dataTransfer?.setData("text/card-id", data.id);
-    ev.dataTransfer?.setData("text/plain", data.id); // safari fallback
     ev.dataTransfer?.setData("application/x-card", JSON.stringify({id:data.id,type:data.type}));
+    ev.dataTransfer?.setData("text/card-id", data.id);
     ev.dataTransfer?.setData("text/card-type", data.type);
+    ev.dataTransfer?.setData("text/plain", data.id); // WebKit fallback
     ev.dataTransfer.effectAllowed = "move";
     const ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
@@ -175,6 +175,13 @@ function wireDesktopDrag(el, data){
   el.addEventListener("dragend", ()=>{
     el.classList.remove("dragging");
     markDropTargets(data.type, false);
+  });
+
+  // click-to-place fallback
+  el.addEventListener("click", (e)=>{
+    e.stopPropagation();
+    selectedCard = { id: el.dataset.cardId, type: data.type };
+    Array.from(handEl.children).forEach(n=> n.classList.toggle('selected', n===el));
   });
 }
 function wireTouchDrag(el, data){
@@ -207,9 +214,7 @@ function wireTouchDrag(el, data){
     currentHover?.classList.remove("drag-over");
     markDropTargets(data.type, false);
     ghost?.remove(); ghost=null;
-    if (target){
-      applyDrop(target, el.dataset.cardId, data.type);
-    }
+    if (target) applyDrop(target, el.dataset.cardId, data.type);
   };
   el.addEventListener("touchstart", start, {passive:false});
   el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
@@ -252,10 +257,10 @@ function applyDrop(target, cardId, cardType){
       const idx = Number(target.dataset.slotIndex||0);
       state = playCardToSpellSlot(state, "player", cardId, idx); render(); return;
     }
-  } catch(e){ /* toast below via render path */ }
+  } catch(e){ toast(e?.message || "Action failed"); }
 }
 
-/* Allow drop via capture even if child eats events */
+/* Capture drop anywhere and route it (desktop safety) */
 document.addEventListener('drop', (ev)=>{
   const dataStr = ev.dataTransfer?.getData('application/x-card') || '';
   const txtId   = ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain') || '';
@@ -270,12 +275,42 @@ document.addEventListener('drop', (ev)=>{
   }
 }, true);
 
-/* ------- slots / card html ------- */
+/* Desktop: make Discard explicitly accept drags */
+hudDiscardBtn?.addEventListener('dragover', (e)=>{ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); });
+hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
+hudDiscardBtn?.addEventListener('drop', (e)=>{
+  e.preventDefault();
+  hudDiscardBtn.classList.remove('drop-ready');
+  const json = e.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
+  if (id){ applyDrop(hudDiscardBtn, id, payload.type || e.dataTransfer?.getData("text/card-type")); }
+});
+
+/* Click-to-place fallback on slots & discard */
+document.addEventListener('click', (ev)=>{
+  if (!selectedCard) return;
+  const t = ev.target;
+  const slot = t.closest?.('.row.player .slot');
+  if (slot){
+    applyDrop(slot, selectedCard.id, selectedCard.type);
+    selectedCard=null;
+    Array.from(handEl.children).forEach(n=> n.classList.remove('selected'));
+    return;
+  }
+  if (t.closest?.('#btn-discard-hud')){
+    applyDrop(hudDiscardBtn, selectedCard.id, selectedCard.type);
+    selectedCard=null;
+    Array.from(handEl.children).forEach(n=> n.classList.remove('selected'));
+  }
+});
+
+/* ------- card html / slots ------- */
 function cardHTML(c){
   if (!c) return `<div class="title">Empty</div><div class="type">—</div>`;
   const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
   const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-  const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip">${gemSVG("", 16)}<span class="val">${c.aetherValue}</span></div>` : "";
+  const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
   const price = (c.price ?? c.cost) | 0;
   return `
     <div class="title">${c.name}</div>
@@ -309,7 +344,7 @@ function renderSlots(container, snapshot, isPlayer){
 
     if (isPlayer){
       const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
-      const over  = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
+      const over  = enter;
       const leave = ()=> d.classList.remove("drag-over");
       const drop  = ev => {
         ev.preventDefault(); d.classList.remove("drag-over");
@@ -318,8 +353,7 @@ function renderSlots(container, snapshot, isPlayer){
         const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
-        try { state = playCardToSpellSlot(state, "player", id, i); render(); }
-        catch(err){ /* handled by toast in render path */ }
+        try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch(e){ toast(e?.message||"Can't play"); }
       };
       d.addEventListener("dragenter", enter);
       d.addEventListener("dragover", over);
@@ -345,7 +379,7 @@ function renderSlots(container, snapshot, isPlayer){
 
   if (isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
-    const over  = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
+    const over  = enter;
     const leave = ()=> g.classList.remove("drag-over");
     const drop  = ev => {
       ev.preventDefault(); g.classList.remove("drag-over");
@@ -354,7 +388,7 @@ function renderSlots(container, snapshot, isPlayer){
       const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
-      try { state = setGlyphFromHand(state, "player", id); render(); } catch{}
+      try { state = setGlyphFromHand(state, "player", id); render(); } catch(e){ toast(e?.message||"Can't set glyph"); }
     };
     g.addEventListener("dragenter", enter);
     g.addEventListener("dragover", over);
@@ -367,15 +401,15 @@ function renderSlots(container, snapshot, isPlayer){
 /* ------- Flow (with entry/falloff cues) ------- */
 function renderFlow(flowArray){
   if (!flowRowEl) return;
-  const oldCardsByIndex = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
+  const oldCards = Array.from(flowRowEl.children).map(li => li.querySelector('.card'));
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
 
-  // trigger falloff on cards being replaced/emptied
+  // falloff for those leaving
   prevFlowIds.forEach((prevId, idx) => {
     if (!prevId) return;
     const incoming = nextIds[idx];
     if (incoming !== prevId) {
-      const oldNode = oldCardsByIndex[idx];
+      const oldNode = oldCards[idx];
       if (oldNode) Emit('aetherflow:falloff', { node: oldNode });
     }
   });
@@ -394,7 +428,7 @@ function renderFlow(flowArray){
       card.addEventListener("click", ()=>{
         Emit('aetherflow:bought', { node: card });
         try { state = buyFromFlow(state, "player", idx); render(); }
-        catch(err){ /* toast handled below */ }
+        catch(err){ toast(err?.message || "Cannot buy"); }
       });
     }
 
@@ -407,14 +441,13 @@ function renderFlow(flowArray){
 
     flowRowEl.appendChild(li);
 
-    // entry reveal for newly filled slots (was null before, now card exists)
     if (!prevFlowIds[idx] && c) Emit('aetherflow:reveal', { node: card });
   });
 
   prevFlowIds = nextIds;
 }
 
-/* ------- render root ------- */
+/* ------- toast ------- */
 let toastEl;
 function toast(msg, ms=1100){
   if (!toastEl){ toastEl=document.createElement("div"); toastEl.className="toast"; document.body.appendChild(toastEl); }
@@ -422,6 +455,7 @@ function toast(msg, ms=1100){
   setTimeout(()=> toastEl.classList.remove("show"), ms);
 }
 
+/* ------- safety shape / render ------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
   if (!s.player) s.player = {aether:0, vitality:5, hand:[], slots:[]};
@@ -440,7 +474,7 @@ function render(){
   closeZoom();
   if (peekEl) peekEl.classList.remove("show");
 
-  let s = ensureSafetyShape(serializePublic(state) || {});
+  const s = ensureSafetyShape(serializePublic(state) || {});
   set(turnIndicator, el => el && (el.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`));
 
   // portraits & names
@@ -449,16 +483,16 @@ function render(){
   set(playerName,     el=> el && (el.textContent = s.players?.player?.weaver?.name || "Player"));
   set(aiName,         el=> el && (el.textContent = s.players?.ai?.weaver?.name || "Opponent"));
 
-  // aether & hearts
+  // aether & hearts (2× size)
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  // nuke “trance 0” placeholders
+  // remove “trance 0” placeholder if present
   document.querySelectorAll('.portrait .trance').forEach(t => (t.textContent = ""));
 
-  // HUD icons (ensure present; also needed as animation targets)
+  // ensure HUD icons exist (also serve as animation anchors)
   if (hudDeckBtn && !hudDeckBtn.innerHTML.trim()){
     hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
       <rect x="10" y="12" width="36" height="40" rx="4"></rect>
@@ -475,12 +509,11 @@ function render(){
   hudDiscardBtn?.classList.add("drop-target");
   hudDeckBtn?.classList.add("drop-target");
 
-  // boards
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   renderFlow(s.flow);
 
-  // hand
+  // hand + deal animation
   if (handEl){
     const oldIds = prevHandIds;
     handEl.replaceChildren();
@@ -493,7 +526,7 @@ function render(){
 
       const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
       const pipDots = pip>0 ? `<div class="pip-track">${Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("")}</div>` : "";
-      const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip">${gemSVG("", 16)}<span class="val">${c.aetherValue}</span></div>` : "";
+      const aetherChip = (c.aetherValue>0) ? `<div class="aether-chip"><svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg><span class="val">${c.aetherValue}</span></div>` : "";
       const price = (c.price ?? c.cost) | 0;
 
       el.innerHTML = `
@@ -511,7 +544,6 @@ function render(){
     });
     layoutHand(handEl, els);
 
-    // deal animation: only for newly-added nodes (draws)
     const addedNodes = els.filter(el => !oldIds.includes(el.dataset.cardId));
     if (!bootDealt && els.length){ Emit('cards:deal', { nodes: els, stagger: 110 }); bootDealt = true; }
     else if (addedNodes.length){  Emit('cards:deal', { nodes: addedNodes, stagger: 110 }); }
@@ -520,7 +552,7 @@ function render(){
   }
 }
 
-/* ------- simple AI to keep flow visible ------- */
+/* ------- simple AI ------- */
 function aiSimpleTurn(){
   const AI = state.players.ai;
   // set a glyph if empty
@@ -553,8 +585,7 @@ async function doStartTurn(){
   const active = state.activePlayer;
   const need   = Math.max(0, 5 - (state.players[active].hand?.length||0));
   if (need) state = drawN(state, active, need);
-  render();
-  // hand deal handled in render via 'cards:deal'
+  render(); // deal animation is triggered from render()
 }
 
 async function doEndTurn(){
@@ -563,7 +594,7 @@ async function doEndTurn(){
     const handNodes = Array.from(handEl?.children || []);
     if (handNodes.length){
       Emit('cards:discard', { nodes: handNodes });
-      await sleep(600);
+      await sleep(620);
       const P = state.players.player;
       P.discard.push(...P.hand.splice(0));
     }
@@ -579,8 +610,7 @@ async function doEndTurn(){
     render();
     state = aiSimpleTurn();
     render();
-    // finish AI
-    state = endTurn(state);
+    state = endTurn(state); // pass back to player (+ flow shift/reveal)
   }
 
   // back to player
