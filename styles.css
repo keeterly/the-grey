@@ -257,3 +257,110 @@ html,body{height:100%}
 
 /* Selection affordance for click-to-place */
 .card.selected { outline: 2px solid var(--aether); outline-offset: 3px; }
+
+
+/* ===== Portrait hearts + gem side-by-side ===== */
+.portrait .hearts,
+.portrait .aether-display {
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+}
+.portrait .hearts { gap: 6px; margin-right: 10px; }
+.portrait .aether-display { gap: 0; margin-left: 0; }
+
+.portrait .aether-display .gem-badge {
+  color: var(--gem-blue);                 /* fills the diamond path */
+  filter: drop-shadow(0 0 6px rgba(126,182,255,.45));
+}
+
+/* 2× hearts remain large; feel free to tweak */
+.portrait .hearts svg { width: 36px; height: 36px; }
+
+/* ===== Card visual upgrades ===== */
+:root{ --card-gem: 40px; } /* bottom-right gem size (≈2.5×) */
+
+/* Title slightly smaller */
+.card .title{
+  font-size: 0.95em;            /* ↓ 5% */
+  padding: 10px 12px 2px 12px;
+  font-weight: 700;
+}
+
+/* Header row with type and top-right cost badge */
+.card .type{
+  opacity: .78;
+  padding: 0 12px 8px 12px;
+  font-size: .9rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+}
+
+/* Thin divider under the header */
+.card .divider{
+  height: 1px;
+  margin: 0 10px 6px 10px;
+  background: linear-gradient(90deg, #4a3d2f33, #6a594433, #4a3d2f33);
+  border-radius: 1px;
+}
+
+/* Pip track now sits right beneath the divider */
+.card .pip-track{
+  display: flex;
+  gap: 6px;
+  padding: 4px 12px 4px 12px;
+}
+.card .pip{
+  width: 12px; height: 12px; border-radius: 50%;
+  background: #b6a98e; box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+}
+
+/* Card text (effect) lower; extra bottom padding so the big gem won't overlap */
+.card .textbox{
+  padding: 8px 12px 48px 12px;
+  opacity: .95; font-size: .95rem; line-height: 1.22;
+}
+
+/* Bottom-right Aether gem (bigger & anchored right) */
+.card .aether-chip{
+  position: absolute;
+  right: 10px; bottom: 10px;
+  transform: translateY(1px);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 3;
+  filter: drop-shadow(0 1px 2px #000);
+  user-select: none; pointer-events: none;
+}
+.card .aether-chip svg{
+  width: var(--card-gem);
+  height: var(--card-gem);
+  fill: var(--gem-blue);
+}
+.card .aether-chip .val{
+  font-weight: 800;
+  font-size: calc(var(--card-gem) * 0.48);
+  letter-spacing: .02em;
+  color: var(--ink);
+  text-shadow: 0 1px 0 #000, 0 0 6px #000;
+}
+
+/* Play cost badge: top-right filled circle with value inside */
+.card .play-cost-badge{
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 28px; height: 28px; border-radius: 999px;
+  background: #c6a56a; color: #0d0a07; 
+  display: grid; place-items: center;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
+  text-shadow: 0 1px 0 rgba(255,255,255,.35);
+  z-index: 4;
+}
+.card .play-cost-badge .v{
+  font-size: 0.95rem; line-height: 1;
+}
+
