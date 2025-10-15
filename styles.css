@@ -1,4 +1,4 @@
-:root{ 
+:root{
   --card-w: clamp(102px, 12.375vw, 150px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
@@ -7,13 +7,13 @@
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gem-blue:#7eb6ff;
 
-  --card-gem: 40px;   /* in-card gem size */
-  --gem-size: 96px;   /* portrait gem size (2×) */
+  /* Scale in-card gem to the card width so it scales with the card */
+  --card-gem: calc(var(--card-w) * 0.26);
+  --gem-size: 96px;
+
   --heart:#e27a7a;
 
-  --type-spell:#7eb6ff;    /* blue */
-  --type-instant:#93d39c;  /* green */
-  --type-glyph:#c7a0ff;    /* purple */
+  --type-spell:#7eb6ff; --type-instant:#93d39c; --type-glyph:#c7a0ff;
 }
 
 *{box-sizing:border-box}
@@ -49,7 +49,7 @@ html,body{height:100%}
 .trance .level{opacity:.5; transition:opacity .16s ease}
 .trance .level.active{opacity:1; color:var(--ink)}
 
-/* Portrait Aether – value now 12.5% of gem */
+/* Portrait Aether — value is 12.5% of gem */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{
   width:var(--gem-size);height:var(--gem-size);
@@ -110,67 +110,79 @@ html,body{height:100%}
   font-size:.8rem; color:var(--muted); text-shadow:0 1px 2px #000;
 }
 
-/* Hand (edge-to-edge fan) */
+/* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px, 96vw); height:24vh; perspective:1200px; pointer-events:auto;}
-.hand.dealing .card:hover{transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))} /* suppress hover pop during deal */
+.hand.dealing .card:hover{transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0))} /* suppress only during deal */
 
+/* Card (scaling contents with card) */
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
+
+  /* Base transform uses CSS vars so JS doesn't override :hover */
+  transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0));
+
+  /* Set a responsive base font size; all internals use ems */
+  font-size: calc(var(--card-w) * 0.085); /* tune this multiplier to taste */
+
   background:linear-gradient(180deg,#30271f,#211b15);
   border:1px solid #5a4b37; color:var(--ink);
   box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
 }
-/* Hover: raise + scale a bit more */
+/* Hover: lift + scale now works (no inline transform to fight it) */
 .card:hover{
   z-index:9999 !important;
-  transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-26px) scale(1.12);
+  transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0)) translateY(-0.9em) scale(1.12);
 }
 
-/* Header */
-.card .title{padding:10px 12px 2px 12px; font-weight:600; font-size:.95em}
-.card .type{opacity:.9; padding:0 12px 0 12px; font-size:.81rem}
+/* Header (now in ems) */
+.card .title{padding:.65em .75em .15em .75em; font-weight:600; font-size:.95em}
+.card .type{opacity:.9; padding:0 .75em 0 .75em; font-size:.81em}
 .card .type[data-k="SPELL"]{color:var(--type-spell)}
 .card .type[data-k="INSTANT"]{color:var(--type-instant)}
 .card .type[data-k="GLYPH"]{color:var(--type-glyph)}
 
 /* Divider */
-.card .divider{height:1px; margin:6px 10px 0 10px; opacity:.35; background:linear-gradient(90deg, transparent, #b6a98e55, transparent);}
+.card .divider{height:1px; margin:.4em .65em 0 .65em; opacity:.35; background:linear-gradient(90deg, transparent, #b6a98e55, transparent);}
 
 /* Pip track */
-.card .pip-track{display:flex; justify-content:center; gap:8px; padding:6px 12px 2px 12px;}
-.card .pip{width:12px;height:12px;border-radius:50%; border:2px solid #b6a98e; background:transparent}
+.card .pip-track{display:flex; justify-content:center; gap:.5em; padding:.38em .75em .15em .75em;}
+.card .pip{width:.75em;height:.75em;border-radius:50%; border:.12em solid #b6a98e; background:transparent}
 
 /* Rules text */
-.card .textbox{flex:1; padding:8px 12px 48px 12px; opacity:.92; font-size:.95rem; line-height:1.2}
+.card .textbox{flex:1; padding:.5em .75em 3em .75em; opacity:.92; font-size:.95em; line-height:1.2}
 
 /* Top-right play cost */
 .card .play-cost-badge{
-  position:absolute; top:8px; right:8px;
-  width:23px; height:23px; border-radius:999px;
+  position:absolute; top:.5em; right:.5em;
+  width:1.45em; height:1.45em; border-radius:999px;
   background:#c6a56a; color:#0d0a07; display:flex; align-items:center; justify-content:center;
   font-weight:900; z-index:4;
-  box-shadow:0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
+  box-shadow:0 .12em .38em rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
   text-shadow:0 1px 0 rgba(255,255,255,.35);
 }
-.card .play-cost-badge .v{ font-size:1.25rem; line-height:1; font-weight:900 }
+.card .play-cost-badge .v{ font-size:1.05em; line-height:1; font-weight:900 }
 
-/* Bottom-left Aether gem on cards (unchanged) */
-.card .aether-chip{position:absolute; left:10px; bottom:10px; z-index:3; filter:drop-shadow(0 1px 2px #000)}
+/* Bottom-left Aether gem on cards (scales with card via --card-gem) */
+.card .aether-chip{position:absolute; left:.62em; bottom:.62em; z-index:3; filter:drop-shadow(0 1px 2px #000)}
 .card .aether-chip svg{width:var(--card-gem); height:var(--card-gem); fill:var(--gem-blue)}
 .card .aether-chip svg text{font-weight:800; font-size:calc(var(--card-gem) * 0.46); fill:#0d0a07; text-anchor:middle; dominant-baseline:central}
 
 /* Deal/Discard helpers */
 .grey-fly-clone{position:fixed;z-index:9999;pointer-events:none;transform-origin:center;will-change:transform,opacity}
 .grey-hide-during-flight{opacity:0 !important}
-@keyframes dealIn{0%{opacity:0; transform:translateY(60px) scale(.9) rotate(var(--rot,0deg));}
-100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}}
+@keyframes dealIn{
+  0%{opacity:0; transform:translate(var(--tx,0), calc(var(--ty,0) + 3em)) rotate(var(--rot,0)) scale(.9);}
+  100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0));}
+}
 .card.deal-in{animation:dealIn .28s ease forwards}
 
-@keyframes discardOut{0%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
-100%{opacity:0; transform:translateY(80px) rotate(6deg) scale(.94);}}
+@keyframes discardOut{
+  0%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0));}
+  100%{opacity:0; transform:translate(var(--tx,0), calc(var(--ty,0) + 5em)) rotate(6deg) scale(.94);}
+}
 .card.discarding{animation:discardOut .32s ease forwards}
 
 /* HUD */
