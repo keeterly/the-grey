@@ -3,9 +3,8 @@
  * Event-driven animations for The Grey
  *
  * Events:
- *  - 'cards:drawn'        { nodes:[HTMLElement,...] }
  *  - 'cards:deal'         { nodes:[HTMLElement,...], stagger?:120 } // deck → hand flight
- *  - 'cards:discard'      { nodes:[HTMLElement,...] }               // to discard
+ *  - 'cards:discard'      { nodes:[HTMLElement,...] }               // hand → discard
  *  - 'aetherflow:reveal'  { node:HTMLElement }                      // entry pop (slot 0)
  *  - 'aetherflow:falloff' { node:HTMLElement }                      // fall-right (slot 4)
  *  - 'aetherflow:bought'  { node:HTMLElement }                      // spotlight + fly to discard
@@ -23,14 +22,14 @@
     return (window.Grey = { on, off, emit });
   })();
 
-  // —— keyframes ——
+  // CSS
   (function css(){
     const id='grey-anim-css';
     if (document.getElementById(id)) return;
     const style=document.createElement('style'); style.id=id;
     style.textContent = `
-@keyframes grey-draw-pop{0%{transform:translateY(16px) scale(.9);opacity:0}
- 60%{transform:translateY(-3px) scale(1.02);opacity:1}
+@keyframes grey-draw-pop{0%{transform:translateY(12px) scale(.92);opacity:0}
+ 60%{transform:translateY(-2px) scale(1.02);opacity:1}
 100%{transform:translateY(0) scale(1);opacity:1}}
 @keyframes grey-reveal{0%{transform:scale(.92);opacity:0}
  60%{transform:scale(1.03);opacity:1}
@@ -42,17 +41,20 @@
  30%{box-shadow:0 0 28px rgba(126,182,255,.45)}
  70%{box-shadow:0 0 22px rgba(126,182,255,.35)}
 100%{box-shadow:0 0 0 rgba(126,182,255,0)}}
-.grey-anim-draw{animation:grey-draw-pop 340ms cubic-bezier(.2,.7,.2,1) both}
+.grey-anim-draw{animation:grey-draw-pop 320ms cubic-bezier(.2,.7,.2,1) both}
 .grey-anim-reveal{animation:grey-reveal 340ms ease-out both}
-.grey-anim-fall{animation:grey-falloff-right 500ms ease-out both}
+.grey-anim-fall{animation:grey-falloff-right 520ms ease-out both}
 .grey-anim-spot{animation:grey-spotlight 620ms ease-out both}
-.grey-fly-clone{position:fixed;z-index:9999;pointer-events:none;transform-origin:center}
+.grey-fly-clone{position:fixed;z-index:9999;pointer-events:none;transform-origin:center;will-change:transform,opacity}
 .grey-hide-during-flight{opacity:0 !important}
+
+/* ensure market card can show spotlight glow cleanly */
+.flow-card .card { position: relative; overflow: visible; }
     `.trim();
     document.head.appendChild(style);
   })();
 
-  // —— helpers ——
+  // helpers
   const asArray = v => Array.isArray(v) ? v : v ? [v] : [];
   const isEl = n => n && n.nodeType === 1;
   const sleep = ms => new Promise(r=>setTimeout(r,ms));
@@ -60,7 +62,7 @@
   function getDeckRect(){
     const d = document.getElementById('btn-deck-hud');
     return d ? d.getBoundingClientRect() : { left: 20, top: 20, width: 1, height: 1 };
-  }
+    }
   function getDiscardRect(){
     const d = document.getElementById('btn-discard-hud');
     return d ? d.getBoundingClientRect() : { left: 40, top: 40, width: 1, height: 1 };
@@ -97,23 +99,14 @@
     node.classList.remove('grey-hide-during-flight');
   }
 
-  // —— Event bindings ——
-  Grey.on('cards:drawn', ({nodes}={}) => {
-    asArray(nodes).filter(isEl).forEach(n=>{
-      n.classList.add('grey-anim-draw');
-      n.addEventListener('animationend', ()=> n.classList.remove('grey-anim-draw'), { once:true });
-    });
-  });
-
+  // Events
   Grey.on('cards:deal', async ({nodes, stagger=110}={}) => {
     const deck = getDeckRect();
     const arr = asArray(nodes).filter(isEl);
     for (let i=0;i<arr.length;i++){
       const target = arr[i];
       const tRect  = target.getBoundingClientRect();
-      target.classList.add('grey-hide-during-flight');
-      await fly(target, deck, tRect, { duration: 520, curve:true, spin:false });
-      target.classList.remove('grey-hide-during-flight');
+      await fly(target, deck, tRect, { duration: 540, curve:true, spin:false });
       target.classList.add('grey-anim-draw');
       target.addEventListener('animationend', ()=> target.classList.remove('grey-anim-draw'), { once:true });
       if (i < arr.length-1) await sleep(stagger);
@@ -147,7 +140,7 @@
     const dst = getDiscardRect();
     node.classList.add('grey-anim-spot');
     const src = node.getBoundingClientRect();
-    await fly(node, src, dst, { duration: 540, curve:true, spin:false });
+    await fly(node, src, dst, { duration: 560, curve:true, spin:false });
     node.classList.remove('grey-anim-spot');
   });
 })();
