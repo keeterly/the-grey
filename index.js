@@ -69,6 +69,37 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
+/* -------- Trance UI -------- */
+function ensureTranceInfo(){
+  const makeTrance = (root, label, level) => {
+    if (!root) return;
+    let t = root.querySelector(".trance");
+    if (!t) {
+      t = document.createElement("div");
+      t.className = "trance";
+      t.innerHTML = `
+        <div class="level" data-level="1">◇ I — Runic Surge</div>
+        <div class="level" data-level="2">◇ II — Spell Unbound</div>
+      `;
+      root.appendChild(t);
+    }
+    Array.from(t.querySelectorAll(".level")).forEach(el=>{
+      const n = Number(el.dataset.level);
+      el.classList.toggle("active", (level|0) >= n);
+    });
+  };
+
+  const playerRoot = document.querySelector(".player .portrait");
+  const aiRoot     = document.querySelector(".ai .portrait");
+
+  const s = serializePublic(state) || {};
+  const pLevel = s.players?.player?.tranceLevel ?? 0;
+  const aLevel = s.players?.ai?.tranceLevel ?? 0;
+
+  makeTrance(playerRoot, "Aria", pLevel);
+  makeTrance(aiRoot, "Morr", aLevel);
+}
+
 /* Portrait gem value — auto-fit digits inside the SVG gem */
 function setAetherDisplay(el, v=0){
   if (!el) return;
@@ -548,6 +579,12 @@ function ensureTrancePlaceholders(){
   const aLevel = pub.players?.ai?.tranceLevel ?? 0;
   apply(playerPortrait, pLevel);
   apply(aiPortrait, aLevel);
+  
+  
+  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
+renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
+
+ensureTranceInfo(); // ⬅️ new
 }
 
 /* ---------- turn loop ---------- */
