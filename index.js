@@ -69,7 +69,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: text fixed at 25% ---------- */
+/* ---------- portrait Aether gem: text fixed at 12.5% (was 25%) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -82,22 +82,26 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  // 25% of the 24px viewBox side => 6. Scales with the svg size.
+  // 12.5% of 24 viewBox = 3
   const t = el.querySelector("svg text");
-  if (t) t.setAttribute("font-size", "6");
+  if (t) t.setAttribute("font-size", "3");
 }
 
-/* ---------- hand layout (MTGA-like fan) ---------- */
+/* ---------- hand layout (edge-to-edge fanned) ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  const MAX_ANGLE = 28, MIN_ANGLE = 10;
-  const spread = Math.min(container.clientWidth * 0.90, 980);
-  const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2.6, MIN_ANGLE, MAX_ANGLE);
-  const stepA = N===1 ? 0 : totalAngle/(N-1);
+  // Angle: gentle fan so edges can touch.
+  const MAX_ANGLE = 22, MIN_ANGLE = 8;
+  const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
+  const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
-  const stepX = N===1 ? 0 : spread/(N-1);
-  const startX = -spread/2;
+
+  // Horizontal spacing: use actual card width so edges sit next to each other.
+  const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
+  const stepX = cw * 0.98;     // slight overlap to feel cohesive
+  const startX = -stepX * (N-1) / 2;
+
   const LIFT = 44;
 
   cards.forEach((el,i)=>{
@@ -270,7 +274,7 @@ function wireTouchDrag(el, data){
 /* Global DnD listeners (desktop) */
 document.addEventListener('dragover', (e)=>{
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tgt = findValidDropTarget(el, "SPELL"); // generic check; markDropTargets enforces type
+  const tgt = findValidDropTarget(el, "SPELL"); // generic check
   if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
 }, true);
 document.addEventListener('drop', (ev)=>{
