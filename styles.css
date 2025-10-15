@@ -1,4 +1,4 @@
-:root{
+:root{ 
   --card-w: clamp(102px, 12.375vw, 150px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
@@ -6,7 +6,8 @@
   --paper:#191512; --paper-2:#1b1611; --ink:#e7dcc3; --muted:#bfb39a;
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
   --gem-blue:#7eb6ff;
-  --portrait-gem: 36px; /* larger gem under portraits (~1.5–2x) */
+  --gem-size: 48px; /* portrait gem size */
+  --card-gem: 40px; /* in-card gem size (~2.5x baseline) */
   --heart:#e27a7a;
 }
 
@@ -21,7 +22,7 @@ html,body{height:100%}
   overflow:hidden;
 }
 
-/* ===== Grid (AI ▸ FLOW ▸ Player) ===== */
+/* Grid */
 #board-grid.grid{
   display:grid !important;
   grid-template-rows:auto auto auto !important;
@@ -32,91 +33,32 @@ html,body{height:100%}
 }
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0; position:relative}
 
-/* Portraits */
+/* Portraits + hearts */
 .portrait{margin:0;text-align:center;font-size:1.05rem;color:var(--muted)}
 .portrait img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 6px 16px #000}
-.portrait figcaption#player-name,
-.portrait figcaption#ai-name{font-size:1.5em; line-height:1.1}
-
-/* Hearts (SVGs) */
 .hearts{display:flex;gap:6px;justify-content:center;margin-top:6px}
-.hearts svg{width:32px;height:32px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
+.hearts svg{width:18px;height:18px;filter:drop-shadow(0 0 4px #000);fill:var(--heart)}
+.trance{margin-top:2px;opacity:.8;font-size:.9rem}
 
-/* Aether under portraits */
-.aether-display{display:flex;align-items:center;gap:8px;justify-content:center;margin-top:6px;color:var(--gem-blue);font-weight:700}
-.aether-display .gem{width:var(--portrait-gem);height:var(--portrait-gem);filter:drop-shadow(0 0 6px rgba(126,182,255,.45));fill:var(--gem-blue)}
-.aether-display .val{font-size:1.25rem}
-@keyframes gem-flash{
-  0%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}
-  25%{filter:drop-shadow(0 0 14px rgba(126,182,255,.95)) brightness(1.7); transform:scale(1.12)}
-  55%{filter:drop-shadow(0 0 10px rgba(126,182,255,.65)) brightness(1.35); transform:scale(1.04)}
-  100%{filter:drop-shadow(0 0 0 rgba(126,182,255,0)) brightness(1); transform:scale(1)}
+/* Portrait Aether display (gem right of hearts, value inside) */
+.aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
+.aether-display .gem{
+  width:var(--gem-size);height:var(--gem-size);
+  filter:drop-shadow(0 0 6px rgba(126,182,255,.45)); color:var(--gem-blue);
+  display:grid; place-items:center;
 }
-.aether-display.flash{animation:gem-flash 560ms ease-out}
-
-/* ===== Trance placeholders (under Aether icon) ===== */
-.trance { margin-top: 8px; }
-
-.trance-list {
-  display: grid;
-  grid-auto-rows: minmax(24px, auto);
-  gap: 8px;
-  justify-items: start;
-  align-items: start;
+.aether-display .gem svg{width:100%;height:100%;fill:currentColor}
+.aether-display .gem svg text{
+  font-weight:900; font-size:calc(var(--gem-size) * 0.46);
+  fill:#0d0a07; text-anchor:middle; dominant-baseline:central;
 }
-
-.trance-item {
-  display: grid;
-  grid-template-columns: 22px 1fr;
-  gap: 10px;
-  align-items: center;
-  opacity: .5;                 /* inactive default */
-  transition: opacity .18s ease, filter .18s ease;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.45));
-}
-
-.trance-item[aria-current="true"] {
-  opacity: 1;                  /* active stage */
-}
-
-.trance-item .diamond {
-  width: 18px;
-  height: 18px;
-  transform: rotate(45deg);
-  background: linear-gradient(180deg, #6a92c8, #406091);
-  border: 1px solid rgba(255,255,255,.25);
-  box-shadow: 0 2px 6px rgba(0,0,0,.6), inset 0 0 10px rgba(255,255,255,.08);
-  display: grid; place-items: center;
-}
-
-.trance-item .diamond .roman {
-  transform: rotate(-45deg);
-  font-size: 11px;
-  font-weight: 700;
-  color: #e7f1ff;
-  text-shadow: 0 1px 2px rgba(0,0,0,.7);
-  letter-spacing: .02em;
-}
-
-.trance-text { line-height: 1.05; }
-.trance-name {
-  font-size: .95rem;
-  color: var(--ink);
-}
-.trance-hint {
-  font-size: .78rem;
-  color: var(--muted);
-  opacity: .85;
-  margin-top: 2px;
-}
-
-
+.aether-display .val{display:none} /* value is inside the gem */
 
 /* Corner placement */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
 
-/* ===== Slot rows ===== */
+/* Slot rows */
 #ai-slots.slot-row, #player-slots.slot-row{
   display:grid !important;
   grid-auto-flow:column !important;
@@ -126,8 +68,8 @@ html,body{height:100%}
   max-width:96vw; place-items:center; margin-inline:auto;
 }
 
-/* Pulse (for permissive drop glow) */
-@keyframes pulse{0%{box-shadow:0 0 0 rgba(126,182,255,0)}50%{box-shadow:0 0 18px rgba(126,182,255,.55)}100%{box-shadow:0 0 0 rgba(126,182,255,0)}}
+/* Pulse */
+@keyframes pulse { 0%{box-shadow:0 0 0 rgba(126,182,255,0)} 50%{box-shadow:0 0 18px rgba(126,182,255,.55)} 100%{box-shadow:0 0 0 rgba(126,182,255,0)} }
 
 /* Slots */
 .slot{
@@ -142,27 +84,23 @@ html,body{height:100%}
 .slot.pulse-ok{animation:pulse 1.2s ease-in-out infinite}
 .slot .card{position:absolute; left:0; top:0; width:100%; height:100%; transform:none; border-radius:var(--card-radius)}
 
-/* ===== Flow (with centered price labels) ===== */
-.flow-wrap{
-  display:grid;
-  grid-template-columns:36px 1fr; /* title rail | board */
-  gap:18px;
-  align-items:start;
-}
-.flow-title-rail{display:flex;align-items:center;justify-content:center}
-.flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; user-select:none; text-align:center}
+/* Flow */
+.flow-wrap{display:flex; align-items:flex-start; gap:18px;}
+.flow-title-rail{width:36px; display:flex; justify-content:center;}
+.flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; margin-top:6px; user-select:none}
 #flow-row.flow-row{
   list-style:none;margin:0 auto;padding:12px;
   width:calc(var(--card-w)*5 + 14px*4 + 24px) !important;
   display:grid !important; grid-template-columns:repeat(5, var(--card-w)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
-  justify-items:center; /* center each cell */
 }
 .flow-card{display:block;width:var(--card-w);height:var(--card-h); position:relative}
 .flow-card .card{position:relative;left:0;top:0;transform:none}
-.price-label{width:100%; text-align:center; margin-top:6px; font-weight:600; opacity:.92}
+.price-label, .flow-cost-label{
+  height:22px; display:flex; justify-content:center; align-items:center; margin-top:4px; pointer-events:none; text-align:center;
+}
 
-/* ===== Hand ===== */
+/* Hand */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{
   position:absolute; left:50%; bottom:2vh; transform:translateX(-50%);
@@ -170,7 +108,7 @@ html,body{height:100%}
   pointer-events:auto;
 }
 
-/* ===== Card ===== */
+/* Card */
 .card{
   position:absolute; top:0; left:50%; transform-origin:50% 95%;
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
@@ -184,58 +122,80 @@ html,body{height:100%}
 .card.dragging{opacity:.98; box-shadow:0 0 26px var(--aether), 0 16px 40px #000}
 .card:hover{z-index:9999 !important; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.07)}
 
-/* Card content */
-.card .title{padding:10px 10px 0 10px; font-weight:600}
-.card .type{
-  opacity:.78; padding:0 10px 6px 10px; font-size:.9rem;
-  border-bottom:1px solid rgba(255,255,255,.08); margin-bottom:8px;
+/* Card header */
+.card .title{padding:10px 12px 2px 12px; font-weight:600; font-size:.95em} /* -5% */
+.card .type{opacity:.78; padding:0 12px 0 12px; font-size:.9rem}
+
+/* Divider */
+.card .divider{
+  height:1px; margin:6px 10px 0 10px; opacity:.35;
+  background:linear-gradient(90deg, transparent, #b6a98e55, transparent);
 }
-.card .textbox{flex:1; padding:6px 10px 10px 10px; opacity:.92; font-size:.95rem; line-height:1.2}
-.card .cost{position:absolute; right:10px; bottom:10px; font-size:1.05rem; opacity:.9; text-shadow:0 1px 2px #000}
 
-/* Pip tracker */
-.card .pip-track{position:absolute; left:50%; bottom:10px; transform:translateX(-50%); display:flex; gap:6px; z-index:3}
-.pip{width:9px;height:9px;border-radius:50%;border:1px solid var(--gold);background:#0007;box-shadow:0 0 6px #000}
-.pip.filled{background:var(--gold);box-shadow:0 0 10px var(--gold)}
+/* Pip track: empty circles under divider */
+.card .pip-track{
+  display:flex; gap:6px; padding:6px 12px 2px 12px;
+}
+.card .pip{
+  width:12px;height:12px;border-radius:50%;
+  border:2px solid #b6a98e; background:transparent; box-shadow:none;
+}
 
-/* Aether chip (bottom-left of card) – keep small for readability */
+/* Rules box */
+.card .textbox{
+  flex:1; padding:8px 12px 48px 12px; opacity:.92; font-size:.95rem; line-height:1.2
+}
+
+/* Top-right play-cost badge (smaller circle, bigger numeral) */
+.card .play-cost-badge{
+  position:absolute; top:8px; right:8px;
+  width:24px; height:24px; border-radius:999px;
+  background:#c6a56a; color:#0d0a07; display:grid; place-items:center;
+  font-weight:800; z-index:4;
+  box-shadow:0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
+  text-shadow:0 1px 0 rgba(255,255,255,.35);
+}
+.card .play-cost-badge .v{ font-size:1.1875rem; line-height:1 }
+
+/* Bottom-left Aether chip (gem with value inside) */
 .card .aether-chip{
-  position:absolute; left:10px; bottom:10px; transform:translateY(1px);
-  display:flex; align-items:center; gap:6px; z-index:3; filter:drop-shadow(0 1px 2px #000);
-  user-select:none; pointer-events:none;
+  position:absolute; left:10px; bottom:10px; z-index:3;
+  filter:drop-shadow(0 1px 2px #000); user-select:none; pointer-events:none;
 }
-.aether-chip svg{width:16px;height:16px;display:block;fill:var(--gem-blue)}
-.aether-chip .val{font-weight:800;font-size:12px;letter-spacing:.02em;color:var(--ink);text-shadow:0 1px 0 #000, 0 0 6px #000}
-
-/* Peek / Zoom */
-#preview-layer{position:fixed; inset:0; z-index:50; pointer-events:none}
-#peek-card.card.peek{position:fixed; left:50%; top:18vh; transform:translate(-50%,0) scale(1.28); width:var(--card-w); height:var(--card-h); display:none; opacity:0; transition:opacity .12s ease; box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35)}
-#peek-card.show{display:block; opacity:1}
-
-/* Zoom overlay: robust centering */
-#zoom-overlay{
-  position:fixed; inset:0;
-  display:none;
-  background:rgba(0,0,0,.50);
-  backdrop-filter:blur(1.5px);
-  place-items:center;           /* grid centering */
-  justify-content:center;       /* flex centering fallback */
-  align-items:center;
-  pointer-events:auto; z-index:60;
-}
-#zoom-overlay[data-open="true"]{
-  display:flex;                 /* ensure centering on all engines */
-}
-#zoom-card.card.zoom{
-  position:relative;
-  transform:none;
-  width:calc(var(--card-w) * 2);
-  height:calc(var(--card-h) * 2);
-  border-radius:22px;
-  margin:0 auto;                /* belt-and-suspenders centering */
+.card .aether-chip svg{width:var(--card-gem); height:var(--card-gem); fill:var(--gem-blue); display:block}
+.card .aether-chip svg text{
+  font-weight:800; font-size:calc(var(--card-gem) * 0.46);
+  fill:#0d0a07; text-anchor:middle; dominant-baseline:central;
 }
 
-/* HUD and badges */
+/* Animations (deal & discard) */
+@keyframes dealIn {
+  0% { opacity:0; transform:translateY(60px) scale(.9) rotate(var(--rot,0deg)); }
+  100% { opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)); }
+}
+.card.deal-in { animation: dealIn .28s ease forwards; animation-delay: var(--deal-delay, 0ms); }
+
+@keyframes discardOut {
+  0% { opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)); }
+  100% { opacity:0; transform:translateY(80px) rotate(6deg) scale(.94); }
+}
+.card.discarding { animation: discardOut .32s ease forwards; }
+
+/* Flow falloff helper */
+.card.drop-void{
+  position:fixed; z-index:4000; width:var(--card-w); height:var(--card-h);
+  pointer-events:none; opacity:.98; transition:transform .6s ease, opacity .6s ease, filter .6s ease;
+}
+.card.drop-void.run{ transform: translate(140px, 180px) rotate(18deg) scale(.8); opacity:0; filter:blur(2px); }
+
+/* Spotlight when buying from flow */
+.card.spotlight{
+  transition: transform .36s ease, opacity .42s ease;
+  box-shadow:0 18px 40px rgba(0,0,0,.6), 0 0 28px rgba(126,182,255,.45);
+  border-color:#8fbaff;
+}
+
+/* HUD & badges */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
 .hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
 .hud-btn:hover{box-shadow:0 0 10px var(--gold)}
@@ -247,6 +207,14 @@ html,body{height:100%}
   font-size:12px; line-height:18px; text-align:center; box-shadow:0 2px 8px #000;
 }
 
+/* Preview / Zoom */
+#preview-layer{position:fixed; inset:0; z-index:50; pointer-events:none}
+#peek-card.card.peek{position:fixed; left:50%; top:18vh; transform:translate(-50%,0) scale(1.28); width:var(--card-w); height:var(--card-h); display:none; opacity:0; transition:opacity .12s ease; box-shadow:0 18px 36px rgba(0,0,0,.55), 0 0 24px rgba(126,182,255,.35)}
+#peek-card.show{display:block; opacity:1}
+#zoom-overlay{position:fixed; inset:0; display:none; background:rgba(0,0,0,.50); backdrop-filter:blur(1.5px); place-items:center; pointer-events:auto; z-index:60}
+#zoom-overlay[data-open="true"]{display:grid}
+#zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
+
 /* Toast */
 .toast{
   position:fixed; left:50%; bottom:18vh; transform:translateX(-50%);
@@ -255,112 +223,27 @@ html,body{height:100%}
 }
 .toast.show{opacity:1}
 
-/* Selection affordance for click-to-place */
-.card.selected { outline: 2px solid var(--aether); outline-offset: 3px; }
+/* v2.571 — animations foundation: harmless defaults */
+.fx-shadow { will-change: transform, opacity, filter; }
+.fx-spotlight { will-change: transform, opacity, filter; }
 
-
-/* ===== Portrait hearts + gem side-by-side ===== */
-.portrait .hearts,
-.portrait .aether-display {
-  display: inline-flex;
-  vertical-align: middle;
-  align-items: center;
-}
-.portrait .hearts { gap: 6px; margin-right: 10px; }
-.portrait .aether-display { gap: 0; margin-left: 0; }
-
-.portrait .aether-display .gem-badge {
-  color: var(--gem-blue);                 /* fills the diamond path */
-  filter: drop-shadow(0 0 6px rgba(126,182,255,.45));
-}
-
-/* 2× hearts remain large; feel free to tweak */
+/* Portrait meters: (already larger) */
 .portrait .hearts svg { width: 36px; height: 36px; }
 
-/* ===== Card visual upgrades ===== */
-:root{ --card-gem: 40px; } /* bottom-right gem size (≈2.5×) */
+/* Click-to-place selection affordance */
+.card.selected { outline: 2px solid var(--aether); outline-offset: 3px; }
 
-/* Title slightly smaller */
-.card .title{
-  font-size: 0.95em;            /* ↓ 5% */
-  padding: 10px 12px 2px 12px;
-  font-weight: 700;
-}
-
-/* Header row with type and top-right cost badge */
-.card .type{
-  opacity: .78;
-  padding: 0 12px 8px 12px;
-  font-size: .9rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
+/* Strengthen drop affordance */
+.slot.drag-over, #btn-discard-hud.drop-ready {
+  outline: 2px dashed var(--aether);
+  outline-offset: 6px;
+  filter: drop-shadow(0 0 12px rgba(126,182,255,.55));
 }
 
-/* Thin divider under the header */
-.card .divider{
-  height: 1px;
-  margin: 0 10px 6px 10px;
-  background: linear-gradient(90deg, #4a3d2f33, #6a594433, #4a3d2f33);
-  border-radius: 1px;
-}
+/* Animations.js base */
+.grey-fly-clone{position:fixed;z-index:9999;pointer-events:none;transform-origin:center;will-change:transform,opacity}
+.grey-hide-during-flight{opacity:0 !important}
 
-/* Pip track now sits right beneath the divider */
-.card .pip-track{
-  display: flex;
-  gap: 6px;
-  padding: 4px 12px 4px 12px;
+@media (prefers-reduced-motion: reduce) {
+  .fx-shadow, .fx-spotlight { transition: none !important; animation: none !important; }
 }
-.card .pip{
-  width: 12px; height: 12px; border-radius: 50%;
-  background: #b6a98e; box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
-}
-
-/* Card text (effect) lower; extra bottom padding so the big gem won't overlap */
-.card .textbox{
-  padding: 8px 12px 48px 12px;
-  opacity: .95; font-size: .95rem; line-height: 1.22;
-}
-
-/* Bottom-right Aether gem (bigger & anchored right) */
-.card .aether-chip{
-  position: absolute;
-  right: 10px; bottom: 10px;
-  transform: translateY(1px);
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  z-index: 3;
-  filter: drop-shadow(0 1px 2px #000);
-  user-select: none; pointer-events: none;
-}
-.card .aether-chip svg{
-  width: var(--card-gem);
-  height: var(--card-gem);
-  fill: var(--gem-blue);
-}
-.card .aether-chip .val{
-  font-weight: 800;
-  font-size: calc(var(--card-gem) * 0.48);
-  letter-spacing: .02em;
-  color: var(--ink);
-  text-shadow: 0 1px 0 #000, 0 0 6px #000;
-}
-
-/* Play cost badge: top-right filled circle with value inside */
-.card .play-cost-badge{
-  position: absolute;
-  top: 8px; right: 8px;
-  width: 28px; height: 28px; border-radius: 999px;
-  background: #c6a56a; color: #0d0a07; 
-  display: grid; place-items: center;
-  font-weight: 800;
-  box-shadow: 0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
-  text-shadow: 0 1px 0 rgba(255,255,255,.35);
-  z-index: 4;
-}
-.card .play-cost-badge .v{
-  font-size: 0.95rem; line-height: 1;
-}
-
