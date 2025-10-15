@@ -65,9 +65,6 @@ let selectedCard = null;
 let draggingType = "";
 
 /* =============== visuals helpers =============== */
-function gemSVG(cls="", size=24){
-  return `<svg class="${cls}" viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z"/></svg>`;
-}
 function heartSVG(size=36){
   return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
     <path d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z" fill="#d65151" />
@@ -80,60 +77,40 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:count}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 const aeInline = (s)=> withAetherText(s);
-function setAetherDisplay(el, v=0){
-  if (!el) return;
-  el.innerHTML = `<span class="gem">${gemSVG("aegem-txt", 24)}</span><strong class="val">${v|0}</strong>`;
+
+/* === New: big gem with centered value (for portraits) === */
+function portraitGemSVG(value=0, size=60){
+  // diamond shape with inner gradient-ish strokes handled by fill + light stroke
+  // value centered using text-anchor + dominant-baseline
+  return `
+<svg class="aether-gem-portrait" viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+  <defs>
+    <filter id="gemGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="rgba(126,182,255,.55)" flood-opacity="1"/>
+    </filter>
+  </defs>
+  <polygon points="32,4 58,30 32,60 6,30" fill="#7eb6ff" stroke="#9cc6ff" stroke-width="2" filter="url(#gemGlow)"/>
+  <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle"
+        style="font-weight:800; font-size:24px; fill:#0e1420; paint-order:stroke; stroke:#e7f1ff; stroke-width:1.2;">
+    ${Number(value|0)}
+  </text>
+</svg>`.trim();
 }
 
-/* =============== Trance placeholders (helpers) =============== */
-function getTranceMeta(weaverId) {
-  if (weaverId === "morr") {
-    return {
-      id: "morr",
-      thresholds: { stage1: 4, stage2: 1 },
-      stages: [
-        { roman: "I",  name: "Gravecurrent Siphon", hint: "On leave-slot: +1 Aether (once/turn)" },
-        { roman: "II", name: "Soulglass Purchase",  hint: "First Flow buy: −1 Æ & Channel 1" },
-      ],
-    };
-  }
-  // default Aria
-  return {
-    id: "aria",
-    thresholds: { stage1: 4, stage2: 2 },
-    stages: [
-      { roman: "I",  name: "Runesurge Spark",  hint: "On advance: +1 Aether (once/turn)" },
-      { roman: "II", name: "Arc Accelerant",   hint: "First Advance −1 Æ (min 0) & +1 Æ" },
-    ],
-  };
-}
-function computeActiveStage(vitality, thresholds) {
-  if ((vitality|0) <= thresholds.stage2) return 2;
-  if ((vitality|0) <= thresholds.stage1) return 1;
-  return 0;
-}
-function renderTranceList(intoEl, weaverId, vitality) {
-  if (!intoEl) return;
-  const meta = getTranceMeta(weaverId);
-  const active = computeActiveStage(vitality|0, meta.thresholds);
-  intoEl.className = "trance";
-  intoEl.innerHTML = `
-    <div class="trance-list" role="list">
-      ${meta.stages.map((stg, i) => {
-        const stageNum = i + 1;
-        const isActive = (active === stageNum) ? 'true' : 'false';
-        return `
-          <div class="trance-item" role="listitem" data-stage="${stageNum}" aria-current="${isActive}">
-            <span class="diamond" aria-hidden="true"><span class="roman">${stg.roman}</span></span>
-            <div class="trance-text">
-              <div class="trance-name">${stg.name}</div>
-              <div class="trance-hint">${stg.hint}</div>
-            </div>
-          </div>
-        `;
-      }).join("")}
-    </div>
-  `.trim();
+/* Render portrait gem, and place it to the RIGHT of the hearts */
+function setPortraitAetherDisplay(aeEl, heartsEl, value){
+  if (!aeEl || !heartsEl) return;
+  aeEl.className = "aether-inline";       // hook for future CSS if needed
+  aeEl.innerHTML = portraitGemSVG(value, 60); // ~2.5x the old 24px
+  // ensure layout: put gem as last child of hearts row so it sits to the right
+  // and make the hearts row a flex container if not already styled
+  heartsEl.style.display = "flex";
+  heartsEl.style.alignItems = "center";
+  heartsEl.style.gap = heartsEl.style.gap || "8px";
+  aeEl.style.display = "inline-flex";
+  aeEl.style.alignItems = "center";
+  aeEl.style.marginLeft = "6px";
+  if (aeEl.parentElement !== heartsEl) heartsEl.appendChild(aeEl);
 }
 
 /* =============== hand layout (fan) =============== */
@@ -157,8 +134,6 @@ function layoutHand(container, cards) {
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
-    // Keep final pose assigned immediately (so animations can target it),
-    // but hide nodes until flight completes to avoid the "fan flash".
     el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
@@ -192,7 +167,6 @@ function attachPeekAndZoom(el, data){
     longPressTimer = setTimeout(()=>{
       if (zoomOverlayEl && zoomCardEl){
         fillCardShell(zoomCardEl, data);
-        // overlay is a CSS grid—this centers the zoom card cleanly
         zoomOverlayEl.setAttribute("data-open","true");
       }
     }, LONG_PRESS_MS);
@@ -462,7 +436,6 @@ async function renderFlow(flowArray){
 
     if (c){
       card.addEventListener("click", async ()=>{
-        // MTGA-style: spotlight at center then fly to discard (handled in animations.js)
         Emit('aetherflow:bought', { node: card });
         await sleep(560);
         try { state = buyFromFlow(state, "player", idx); render(); }
@@ -521,40 +494,23 @@ async function render(){
   set(playerName,     el=> el && (el.textContent = s.players?.player?.weaver?.name || "Player"));
   set(aiName,         el=> el && (el.textContent = s.players?.ai?.weaver?.name || "Opponent"));
 
-  setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
-  setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
-  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
-  renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
+  // Hearts first
+  const playerHeartsEl = $("player-hearts");
+  const aiHeartsEl     = $("ai-hearts");
+  renderHearts(playerHeartsEl, s.players?.player?.vitality ?? 5);
+  renderHearts(aiHeartsEl,     s.players?.ai?.vitality ?? 5);
 
-  // ----- Trance placeholders under Aether gem -----
-  const playerPortraitFig = document.querySelector(".row.player .portrait");
-  const aiPortraitFig     = document.querySelector(".row.ai .portrait");
-  const playerTranceEl    = playerPortraitFig?.querySelector(".trance");
-  const aiTranceEl        = aiPortraitFig?.querySelector(".trance");
+  // Then render/position the big gem to the RIGHT of hearts
+  setPortraitAetherDisplay(playerAeEl, playerHeartsEl, s.players?.player?.aether ?? 0);
+  setPortraitAetherDisplay(aiAeEl,     aiHeartsEl,     s.players?.ai?.aether ?? 0);
 
-  if (playerTranceEl) {
-    renderTranceList(
-      playerTranceEl,
-      (s.players?.player?.weaver?.id || "aria"),
-      (s.players?.player?.vitality ?? 5)
-    );
-    // ensure it's below the aether display
-    if (playerAeEl && playerTranceEl.parentElement === playerPortraitFig) {
-      playerPortraitFig.appendChild(playerTranceEl);
-    }
-  }
-  if (aiTranceEl) {
-    renderTranceList(
-      aiTranceEl,
-      (s.players?.ai?.weaver?.id || "morr"),
-      (s.players?.ai?.vitality ?? 5)
-    );
-    if (aiAeEl && aiTranceEl.parentElement === aiPortraitFig) {
-      aiPortraitFig.appendChild(aiTranceEl);
-    }
-  }
+  // (If you also render smaller inline Æ elsewhere, keep using withAetherText)
+  // Remove any placeholder trance text if it exists (left intact if you already implemented trance UI separately)
+  document.querySelectorAll('.portrait .trance')?.forEach(t => {
+    if (t && t.textContent && t.textContent.trim().toLowerCase().includes("trance 0")) t.textContent = "";
+  });
 
-  // deck / discard icons
+  // HUD icons
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `<svg class="icon deck" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
       <rect x="10" y="12" width="36" height="40" rx="4"></rect>
@@ -575,12 +531,11 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  /* ---------- HAND (fixed no-flash draw) ---------- */
+  /* ---------- HAND (no-flash draw) ---------- */
   if (handEl){
-    const oldIds = prevHandIds.slice();       // snapshot before rebuild
+    const oldIds = prevHandIds.slice();
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
 
-    // Build new DOM (hide any newly-added nodes until flight completes)
     handEl.replaceChildren();
     const domCards = [];
     (s.players?.player?.hand || []).forEach(c=>{
@@ -601,7 +556,6 @@ async function render(){
         ${aetherChip}
       `;
 
-      // Mark new ids to be animated (hidden until flight finishes)
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
       wireDesktopDrag(el, c);
@@ -610,24 +564,20 @@ async function render(){
       handEl.appendChild(el); domCards.push(el);
     });
 
-    // Lay them out in final fan positions BEFORE triggering the flight
     layoutHand(handEl, domCards);
 
-    // Decide which nodes to animate from deck -> hand
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 
     if (addedNodes.length){
-      // Only animate newly-added cards
       Emit('cards:deal', { nodes: addedNodes, stagger: 110 });
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
-      // Game start fallback: animate whole hand once
       domCards.forEach(n=> n.classList.add('grey-hide-during-flight'));
       Emit('cards:deal', { nodes: domCards, stagger: 110 });
       bootDealt = true;
     }
 
-    prevHandIds = newIds; // update after render so next diff is correct
+    prevHandIds = newIds;
   }
 }
 
