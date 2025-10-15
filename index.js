@@ -82,7 +82,7 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  // 25% of the 24px viewBox = 6; scales with the svg size.
+  // 25% of the 24px viewBox side => 6. Scales with the svg size.
   const t = el.querySelector("svg text");
   if (t) t.setAttribute("font-size", "6");
 }
@@ -103,7 +103,6 @@ function layoutHand(container, cards) {
   cards.forEach((el,i)=>{
     const a = startA + stepA*i;
     const rad = a * Math.PI/180;
-    the:
     const x = startX + stepX*i;
     const y = LIFT - Math.cos(rad)*(LIFT*0.78);
     el.style.setProperty("--tx", `${x}px`);
@@ -184,7 +183,7 @@ function findValidDropTarget(node, cardType){
 function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // ← fixed: no extra paren
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -203,7 +202,7 @@ function applyDrop(target, cardId, cardType){
   } catch(e){}
 }
 
-/* Desktop drag */
+/* Desktop drag wiring */
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
@@ -229,7 +228,7 @@ function wireDesktopDrag(el, data){
   });
 }
 
-/* Touch drag */
+/* Touch drag wiring */
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   const start = (ev)=>{
@@ -268,10 +267,10 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchcancel", end, {passive:false});
 }
 
-/* Global DnD (desktop) */
+/* Global DnD listeners (desktop) */
 document.addEventListener('dragover', (e)=>{
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tgt = findValidDropTarget(el, "SPELL");
+  const tgt = findValidDropTarget(el, "SPELL"); // generic check; markDropTargets enforces type
   if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
 }, true);
 document.addEventListener('drop', (ev)=>{
@@ -370,7 +369,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper --- */
+/* --- Flow title helper (left of board, outside grid) --- */
 function ensureFlowTitle(){
   const wrap = document.querySelector(".flow-wrap");
   if (!wrap) return;
@@ -481,6 +480,7 @@ async function render(){
 
   ensureTranceUI();
 
+  // HUD icons
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
