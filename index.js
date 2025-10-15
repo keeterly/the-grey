@@ -69,7 +69,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: smaller + auto-fit ---------- */
+/* ---------- portrait Aether gem: text fixed at 25% ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -82,14 +82,9 @@ function setAetherDisplay(el, v=0){
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
+  // Force 25% of viewBox side (24 * .25 = 6) – scaling will follow the SVG size.
   const t = el.querySelector("svg text");
-  if (t){
-    const digits = String(val).length;
-    const base = 24 * 0.42;         // smaller start
-    const min  = 24 * 0.24;         // hard floor
-    const size = Math.max(min, Math.min(base, base * (1 - (digits - 1) * 0.18)));
-    t.setAttribute("font-size", String(Math.floor(size)));
-  }
+  if (t) t.setAttribute("font-size", "6");
 }
 
 /* ---------- hand layout (MTGA-like fan) ---------- */
@@ -148,25 +143,32 @@ let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
   if (peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
+    // Hover: show centered preview (#peek-card) — not the overlay.
+    el.addEventListener("mouseenter", ()=>{
+      fillCardShell(peekEl, data);
+      peekEl.classList.add("show");
+    });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
+
+  // Long-press: show centered preview as well.
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     pressStart = {x:t.clientX,y:t.clientY};
     longPressTimer = setTimeout(()=>{
-      if (zoomOverlayEl && zoomCardEl){
-        fillCardShell(zoomCardEl, data);
-        zoomOverlayEl.setAttribute("data-open","true");
+      if (peekEl){
+        fillCardShell(peekEl, data);
+        peekEl.classList.add("show");
       }
     }, LONG_PRESS_MS);
   };
-  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
+  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
   const onMove = (ev)=>{
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y) > MOVE_CANCEL_PX) clearLP();
   };
+
   el.addEventListener("pointerdown", onDown, {passive:true});
   el.addEventListener("pointerup", clearLP, {passive:true});
   el.addEventListener("pointerleave", clearLP, {passive:true});
@@ -189,10 +191,9 @@ function findValidDropTarget(node, cardType){
   return null;
 }
 function markDropTargets(cardType, on){
-  document.querySelectorAll(".row.player .slot.spell")
-    .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
+  document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"); // ← fixed: no extra paren
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -210,6 +211,98 @@ function applyDrop(target, cardId, cardType){
     }
   } catch(e){}
 }
+
+/* Desktop drag wiring */
+function wireDesktopDrag(el, data){
+  el.draggable = true;
+  el.addEventListener("dragstart", (ev)=>{
+    el.classList.add("dragging");
+    const payload = JSON.stringify({id:data.id,type:data.type});
+    ev.dataTransfer?.setData("application/x-card", payload);
+    ev.dataTransfer?.setData("text/card-id", data.id);
+    ev.dataTransfer?.setData("text/card-type", data.type);
+    ev.dataTransfer?.setData("text/plain", data.id);
+    ev.dataTransfer.effectAllowed = "move";
+
+    // ghost
+    const ghost = el.cloneNode(true);
+    ghost.style.position="fixed"; ghost.style.left="-9999px"; ghost.style.top="-9999px";
+    document.body.appendChild(ghost);
+    ev.dataTransfer?.setDragImage(ghost, ghost.clientWidth/2, ghost.clientHeight*0.9);
+    setTimeout(()=> ghost.remove(), 0);
+
+    markDropTargets(data.type, true);
+  });
+  el.addEventListener("dragend", ()=>{
+    el.classList.remove("dragging");
+    markDropTargets(data.type, false);
+  });
+}
+
+/* Touch drag wiring */
+function wireTouchDrag(el, data){
+  let dragging=false, ghost=null, currentHover=null;
+  const start = (ev)=>{
+    const t = ev.touches ? ev.touches[0] : ev;
+    dragging = true; markDropTargets(data.type, true);
+    ghost = el.cloneNode(true);
+    ghost.style.position="fixed"; ghost.style.left="0"; ghost.style.top="0";
+    ghost.style.pointerEvents="none"; ghost.style.transform="translate(-9999px,-9999px)";
+    ghost.style.zIndex="99999"; ghost.classList.add("dragging");
+    document.body.appendChild(ghost);
+    move(t.clientX, t.clientY); ev.preventDefault();
+  };
+  const move = (x,y)=>{
+    if (!dragging || !ghost) return;
+    ghost.style.transform = `translate(${x-ghost.clientWidth/2}px, ${y-ghost.clientHeight*0.9}px) rotate(6deg)`;
+    const elUnder = document.elementFromPoint(x,y);
+    const hoverTarget = findValidDropTarget(elUnder, data.type);
+    if (hoverTarget !== currentHover){
+      currentHover?.classList.remove("drag-over");
+      currentHover = hoverTarget; currentHover?.classList.add("drag-over");
+    }
+  };
+  const end = (ev)=>{
+    if (!dragging) return; dragging=false;
+    const t = ev.changedTouches ? ev.changedTouches[0] : ev;
+    const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+    const target = findValidDropTarget(elUnder, data.type);
+    currentHover?.classList.remove("drag-over");
+    markDropTargets(data.type, false);
+    ghost?.remove(); ghost=null;
+    if (target) applyDrop(target, el.dataset.cardId, data.type);
+  };
+  el.addEventListener("touchstart", start, {passive:false});
+  el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
+  el.addEventListener("touchend", end, {passive:false});
+  el.addEventListener("touchcancel", end, {passive:false});
+}
+
+/* Global DnD listeners (desktop) */
+document.addEventListener('dragover', (e)=>{
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const tgt = findValidDropTarget(el, "SPELL"); // generic check; markDropTargets enforces type
+  if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+}, true);
+document.addEventListener('drop', (ev)=>{
+  const json = ev.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || ev.dataTransfer?.getData('text/card-id') || ev.dataTransfer?.getData('text/plain');
+  const type = payload.type || ev.dataTransfer?.getData('text/card-type');
+  if (!id || !type) return;
+  const target = findValidDropTarget(ev.target, type);
+  if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
+}, true);
+hudDiscardBtn?.addEventListener('dragover', (e)=>{ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); });
+hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
+hudDiscardBtn?.addEventListener('drop', (e)=>{
+  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
+  const json = e.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
+  const type = payload.type || e.dataTransfer?.getData("text/card-type");
+  if (id){ applyDrop(hudDiscardBtn, id, type); }
+});
 
 /* ---------- slots / flow ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
@@ -398,7 +491,7 @@ async function render(){
 
   ensureTranceUI();
 
-  // HUD glyphs (borderless)
+  // HUD icons (unchanged artwork; they were fixed earlier)
   if (hudDeckBtn){
     hudDeckBtn.innerHTML = `
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
@@ -442,16 +535,8 @@ async function render(){
 
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
-      el.draggable = true;
-      el.addEventListener("dragstart", (ev)=>{
-        el.classList.add("dragging");
-        const payload = JSON.stringify({id:c.id,type:c.type});
-        ev.dataTransfer?.setData("application/x-card", payload);
-        ev.dataTransfer?.setData("text/plain", c.id);
-        ev.dataTransfer.effectAllowed = "move";
-      });
-      el.addEventListener("dragend", ()=> el.classList.remove("dragging"));
-
+      wireDesktopDrag(el, c);
+      wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
       handEl.appendChild(el); domCards.push(el);
