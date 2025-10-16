@@ -30,6 +30,7 @@ const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 const nextFrame = () => new Promise(requestAnimationFrame);
+const onTransitionEnd = (node) => new Promise(res => node.addEventListener("transitionend", res, {once:true}));
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -47,8 +48,6 @@ const hudDiscardBtn = $("btn-discard-hud");
 const hudDeckBtn    = $("btn-deck-hud");
 const hudEndBtn     = $("btn-endturn-hud");
 const peekEl        = $("peek-card");
-const zoomOverlayEl = $("zoom-overlay");
-const zoomCardEl    = $("zoom-card");
 
 /* ---------- state ---------- */
 let state = initState();
@@ -68,7 +67,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: text scaled inside gem ---------- */
+/* ---------- portrait Aether gem: SAFE small text (12.5% viewBox) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -76,14 +75,11 @@ function setAetherDisplay(el, v=0){
     <span class="gem">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 2l6 6-6 14-6-14 6-6z"/>
-        <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${val}</text>
+        <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="3">${val}</text>
       </svg>
     </span>
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
-  const t = el.querySelector("svg text");
-  // 12.5% of viewBox to stay safely inside (half of the “25%” request)
-  if (t) t.setAttribute("font-size", "3");
 }
 
 /* ---------- hand layout (tight fan; cards sit side-by-side) ---------- */
@@ -96,9 +92,8 @@ function layoutHand(container, cards) {
   const startA = -totalAngle/2;
 
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = cw * 0.98;                  // close spacing
+  const stepX = cw * 0.98;
   const startX = -stepX * (N-1) / 2;
-
   const LIFT = 44;
 
   cards.forEach((el,i)=>{
@@ -113,8 +108,8 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ---------- preview / zoom & card HTML ---------- */
-function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
+/* ---------- card shell / preview ---------- */
+function closeZoom(){ document.getElementById("zoom-overlay")?.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
 function cardShellHTML(c){
   const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
@@ -139,7 +134,7 @@ function cardShellHTML(c){
 }
 function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
-/* ---------- centered hover + press-and-hold preview ---------- */
+/* centered hover + press-and-hold preview */
 let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
@@ -152,10 +147,7 @@ function attachPeekAndZoom(el, data){
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     pressStart = {x:t.clientX,y:t.clientY};
     longPressTimer = setTimeout(()=>{
-      if (peekEl){
-        fillCardShell(peekEl, data);
-        peekEl.classList.add("show");     // CSS centers it
-      }
+      if (peekEl){ fillCardShell(peekEl, data); peekEl.classList.add("show"); }
     }, LONG_PRESS_MS);
   };
   const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
@@ -171,7 +163,7 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
-/* ---------- action popover (Play / Set / Cast / Channel) ---------- */
+/* ---------- action popover ---------- */
 function clearAllActionMenus(){ document.querySelectorAll(".action-pop").forEach(n => n.remove()); }
 function firstOpenSpellSlotIndex(pub){
   const slots = pub.players?.player?.slots || [];
@@ -187,7 +179,7 @@ function canSetGlyph(pub, card){
 }
 function canCastInstant(pub, card){
   if (card?.type!=="INSTANT") return false;
-  return typeof window.castInstantFromHand === "function"; // hook if added later
+  return typeof window.castInstantFromHand === "function";
 }
 function showToast(msg, ms=1400){
   let t = document.querySelector(".toast");
@@ -207,7 +199,6 @@ function showCardOptions(cardEl, cardData){
 
   const pop = document.createElement("div");
   pop.className = `action-pop t-${(cardData.type||'X').toLowerCase()}`;
-
   opts.forEach(o=>{
     const b = document.createElement("button");
     b.type="button"; b.className = `rune-btn act-${o.k}`; b.textContent = o.label;
@@ -220,15 +211,12 @@ function showCardOptions(cardEl, cardData){
         } else if (o.k === "set"){
           state = setGlyphFromHand(state, "player", cardData.id);
         } else if (o.k === "channel"){
-          cardEl.classList.add("discarding");
-          await sleep(320);
+          cardEl.classList.add("discarding"); await sleep(220);
           state = discardForAether(state, "player", cardData.id);
         } else if (o.k === "cast"){
           if (typeof window.castInstantFromHand === "function"){
             state = await window.castInstantFromHand(state, "player", cardData.id);
-          } else {
-            showToast("Casting for Instants not available yet.");
-          }
+          } else { showToast("Casting for Instants not available yet."); }
         }
       } catch(e){}
       clearAllActionMenus();
@@ -236,7 +224,6 @@ function showCardOptions(cardEl, cardData){
     });
     pop.appendChild(b);
   });
-
   document.body.appendChild(pop);
   const r = cardEl.getBoundingClientRect();
   pop.style.left = `${r.left + r.width/2}px`;
@@ -244,7 +231,7 @@ function showCardOptions(cardEl, cardData){
   pop.style.transform = "translate(-50%, -100%)";
 }
 
-/* ---------- DnD (desktop + touch) ---------- */
+/* ---------- DnD ---------- */
 function findValidDropTarget(node, cardType){
   if (!node) return null;
   const slot = node.closest(".slot");
@@ -364,7 +351,7 @@ document.addEventListener('drop', (ev)=>{
 }, true);
 document.addEventListener("click", clearAllActionMenus);
 
-/* ---------- slots / flow ---------- */
+/* ---------- slot render ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
 function renderSlots(container, snapshot, isPlayer){
@@ -376,15 +363,20 @@ function renderSlots(container, snapshot, isPlayer){
     const d = document.createElement("div");
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
-    const slot = safe[i] || {hasCard:false, card:null};
 
+    const label = document.createElement("div");
+    label.className = "slot-title";
+    label.textContent = "Spell Slot";
+    d.appendChild(label);
+
+    const slot = safe[i] || {hasCard:false, card:null};
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
       art.className = "card";
       art.innerHTML = cardHTML(slot.card);
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
-    } else { d.textContent = "Spell Slot"; }
+    }
 
     if (isPlayer){
       const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -407,28 +399,30 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
+  // Glyph
   const g = document.createElement("div");
   g.className = "slot glyph";
-  const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
 
+  const gLabel = document.createElement("div");
+  gLabel.className = "slot-title";
+  gLabel.textContent = "Glyph Slot";
+  g.appendChild(gLabel);
+
+  const rune = document.createElement("div");
+  rune.className = "slot-rune";
+  rune.innerHTML = `
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`;
+  g.appendChild(rune);
+
+  const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
   if (glyphSlot.hasCard && glyphSlot.card){
     const art = document.createElement("article");
     art.className = "card";
     art.innerHTML = cardHTML(glyphSlot.card);
     attachPeekAndZoom(art, glyphSlot.card);
     g.appendChild(art);
-  } else {
-    g.textContent = "";
-    const hint = document.createElement("div");
-    hint.className = "slot-glyph-hint";
-    hint.setAttribute("aria-hidden", "true");
-    hint.innerHTML = `
-      <svg viewBox="0 0 24 24" width="28" height="28">
-        <path d="M12 3l3 4-3 7-3-7 3-4zM5 10l4-1m6 1l4-1M7 16h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
-      </svg>
-      <div class="lbl">Glyph Slot</div>
-    `;
-    g.appendChild(hint);
   }
 
   if (isPlayer){
@@ -452,12 +446,10 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper (left of board, outside grid) --- */
+/* --- Flow title rail (outside grid, centered) --- */
 function ensureFlowTitle(){
   const row = document.getElementById("flow-row");
   if (!row) return;
-
-  // Ensure a .flow-wrap parent so the title can sit outside the grid
   let wrap = row.closest(".flow-wrap");
   if (!wrap){
     wrap = document.createElement("div");
@@ -465,8 +457,6 @@ function ensureFlowTitle(){
     row.parentNode.insertBefore(wrap, row);
     wrap.appendChild(row);
   }
-
-  // Add/keep the vertical title rail
   let rail = wrap.querySelector(".flow-title-rail");
   if (!rail){
     rail = document.createElement("div");
@@ -474,20 +464,17 @@ function ensureFlowTitle(){
     rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
     wrap.appendChild(rail);
   }
-
-  // Tell the wrapper how wide the flow grid is (so title aligns)
   queueMicrotask(()=>{
     const w = row.getBoundingClientRect().width || 0;
     wrap.style.setProperty("--flow-width", `${Math.round(w)}px`);
   });
 }
 
-
-/* --- Small fall-off animation for bought flow cards --- */
+/* --- Flow fall-off animation helper --- */
 async function animateFlowFall(node){
   if (!node) return;
   node.classList.add("flow-fall");
-  await sleep(280);
+  await onTransitionEnd(node);
 }
 
 /* ---------- Flow (no End Turn card) ---------- */
@@ -508,7 +495,7 @@ async function renderFlow(flowArray){
     if (c){
       card.addEventListener("click", async ()=>{
         Emit('aetherflow:bought', { node: card });
-        await animateFlowFall(card);
+        await animateFlowFall(card);   // smoother (waits for transition)
         try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
     }
@@ -522,16 +509,13 @@ async function renderFlow(flowArray){
     li.appendChild(priceLbl);
 
     flowRowEl.appendChild(li);
-  }); // <-- correct close of forEach
+  });
 
   prevFlowIds = nextIds;
-
-  // align the rail AFTER the row is built
   ensureFlowTitle();
 }
 
-
-/* ---------- trance + playable pulse ---------- */
+/* ---------- trance under gem + pulse ---------- */
 function ensureTranceUI(){
   const templateHTML = `
     <div class="level" data-level="1">◇ I — Runic Surge</div>
@@ -541,17 +525,27 @@ function ensureTranceUI(){
     if (!portraitImgEl) return;
     const holder = portraitImgEl.closest('.portrait');
     if (!holder) return;
+
     let t = holder.querySelector('.trance');
     if (!t){
       t = document.createElement('div');
       t.className = 'trance';
-      holder.appendChild(t);
     }
     t.innerHTML = templateHTML;
     Array.from(t.querySelectorAll('.level')).forEach(el=>{
       const n = Number(el.getAttribute('data-level'));
       el.classList.toggle('active', (level|0) >= n);
     });
+
+    // ensure it's under the aether display
+    const aeWrap = holder.querySelector('.aether-display');
+    if (aeWrap && t.parentNode !== holder){
+      holder.appendChild(t);
+    } else if (aeWrap){
+      holder.appendChild(t); // move to end (beneath gem)
+    } else {
+      holder.appendChild(t);
+    }
   };
   const pub = serializePublic(state) || {};
   apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
@@ -563,7 +557,6 @@ function highlightPlayableCards(){
   const hand = pub.players?.player?.hand || [];
   const openSpell = firstOpenSpellSlotIndex(pub) >= 0;
   const glyphOpen = canSetGlyph(pub, {type:"GLYPH"});
-
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(node=>{
     node.classList.remove("pulse-spell","pulse-glyph","pulse-instant");
@@ -627,7 +620,7 @@ async function render(){
 
   ensureTranceUI();
 
-  // HUD deck count
+  // HUD
   if (hudDeckBtn){
     const deckCount = (state?.players?.player?.deck?.length ?? 0);
     hudDeckBtn.innerHTML = `
@@ -638,8 +631,7 @@ async function render(){
           <rect x="10" y="6"  width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"/>
         </svg>
         <span class="deck-count">${deckCount}</span>
-      </div>
-    `;
+      </div>`;
   }
   if (hudDiscardBtn){
     hudDiscardBtn.innerHTML = `
@@ -680,7 +672,6 @@ async function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
-      // quick-tap on touch also opens menu (desktop handled on click in wireDesktopDrag)
       el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
 
       handEl.appendChild(el); domCards.push(el);
@@ -692,15 +683,15 @@ async function render(){
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
       handEl.classList.add('dealing');
-      addedNodes.forEach(n => { n.classList.add('deal-in'); });   // animate actual cards
+      addedNodes.forEach(n => n.classList.add('deal-in'));
       setTimeout(()=>{
         addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 400); // CSS is 2× speed; keep short
+      }, 400); // 2× speed
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
       handEl.classList.add('dealing');
-      domCards.forEach(n=> { n.classList.add('grey-hide-during-flight','deal-in'); });
+      domCards.forEach(n=> n.classList.add('grey-hide-during-flight','deal-in'));
       setTimeout(()=>{
         domCards.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
@@ -718,8 +709,6 @@ async function render(){
 async function doStartTurn(){
   state = startTurn(state);
   const active = state.activePlayer;
-
-  // ensure we can draw (deck auto-reshuffle from discard if needed)
   reshuffleFromDiscard(active);
 
   const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
@@ -729,13 +718,26 @@ async function doStartTurn(){
   }
   await render();
 }
-async function doEndTurn(){ state = endTurn(state); await doStartTurn(); }
+
+// End turn: discard visible hand, then hand control to AI for one auto-turn,
+// then return to player and draw.
+async function doEndTurn(){
+  // discard animation on current player's hand
+  const nodes = Array.from(handEl?.children || []);
+  nodes.forEach(n=> n.classList.add('discarding'));
+  await sleep(220);
+
+  state = endTurn(state);      // pass to AI
+  await doStartTurn();         // AI start/draw
+  state = endTurn(state);      // AI passes back
+  await doStartTurn();         // Player start/draw
+}
 
 /* ---------- events ---------- */
 $("btn-start-turn")?.addEventListener("click", doStartTurn);
 $("btn-end-turn")?.addEventListener("click", doEndTurn);
 $("btn-endturn-hud")?.addEventListener("click", doEndTurn);
-zoomOverlayEl?.addEventListener("click", closeZoom);
+document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("click", clearAllActionMenus);
