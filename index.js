@@ -383,6 +383,30 @@ function wireTouchDrag(el, data){
       currentHover = hoverTarget; currentHover?.classList.add("drag-over");
     }
   };
+  
+  
+  // inside the loop that creates each hand card:
+let focusTimer=null;
+const focusTapMs = 240;
+
+// Toggle a focus state on quick tap (not a drag)
+el.addEventListener("pointerdown", ()=>{
+  focusTimer = performance.now();
+}, {passive:true});
+
+el.addEventListener("pointerup", (e)=>{
+  const dt = performance.now() - (focusTimer||0);
+  if (dt < focusTapMs){           // quick tap
+    // clear focus on siblings
+    Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
+    el.classList.add("is-focus");
+    // tap again to release
+    const off = ()=>{ el.classList.remove("is-focus"); document.removeEventListener("pointerdown", off, true); };
+    document.addEventListener("pointerdown", off, true);
+  }
+}, {passive:true});
+  
+  
   const end = (ev)=>{
     if (!dragging) return; dragging=false;
     const t = ev.changedTouches ? ev.changedTouches[0] : ev;
