@@ -446,29 +446,7 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title rail (outside grid, centered) --- */
-function ensureFlowTitle(){
-  const row = document.getElementById("flow-row");
-  if (!row) return;
-  let wrap = row.closest(".flow-wrap");
-  if (!wrap){
-    wrap = document.createElement("div");
-    wrap.className = "flow-wrap";
-    row.parentNode.insertBefore(wrap, row);
-    wrap.appendChild(row);
-  }
-  let rail = wrap.querySelector(".flow-title-rail");
-  if (!rail){
-    rail = document.createElement("div");
-    rail.className = "flow-title-rail";
-    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
-    wrap.appendChild(rail);
-  }
-  queueMicrotask(()=>{
-    const w = row.getBoundingClientRect().width || 0;
-    wrap.style.setProperty("--flow-width", `${Math.round(w)}px`);
-  });
-}
+
 
 /* --- Flow fall-off animation helper --- */
 async function animateFlowFall(node){
@@ -480,40 +458,26 @@ async function animateFlowFall(node){
 // Map flow-slot index → price (aligns with your 4,3,3,2,2 rule)
 const FLOW_PRICE_BY_POS = [4,3,3,2,2];
 
-// Ensure the DOM scaffold exists:  [flow-title-rail]  [flow-board(#flow-row)]
+// Keep #flow-row as the grid child. Add a title rail INSIDE it.
 function ensureFlowScaffold(){
   const row = document.getElementById("flow-row");
   if (!row) return null;
 
-  // Make sure the row lives in a .flow-board
-  let board = row.closest(".flow-board");
-  if (!board){
-    board = document.createElement("div");
-    board.className = "flow-board";
-    row.parentNode.insertBefore(board, row);
-    board.appendChild(row);
-  }
+  // Make the row itself act as the board container.
+  row.classList.add("flow-board");   // purely styling; no DOM moves
 
-  // Wrap board with a .flow-wrap so the vertical title can sit beside it
-  let wrap = board.closest(".flow-wrap");
-  if (!wrap){
-    wrap = document.createElement("div");
-    wrap.className = "flow-wrap";
-    board.parentNode.insertBefore(wrap, board);
-    wrap.appendChild(board);
-  }
-
-  // Add the vertical title rail if missing
-  let rail = wrap.querySelector(".flow-title-rail");
+  // Add/keep the vertical title rail (as a child of row)
+  let rail = row.querySelector(".flow-title-rail");
   if (!rail){
     rail = document.createElement("div");
     rail.className = "flow-title-rail";
     rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
-    wrap.insertBefore(rail, board);
+    row.appendChild(rail);
   }
 
-  return { wrap, board, row };
+  return { row };
 }
+
 
 
 async function renderFlow(flowArray){
