@@ -335,138 +335,127 @@ html,body{height:100%}
 .hand .card.pulse-instant{ animation: runePulse 1.6s ease-in-out infinite; }
 
 /* ==========================================================
-   Mobile (phone) — Landscape layout v3 (no overlap)
+   Mobile Landscape v3.1 — tighter + side-anchored portraits
    ========================================================== */
 
 body.mobile-landscape{
-  /* reserve skinny side columns for portraits/status */
-  --side-col: 84px;                 /* each side column width */
-  --hud-col: 56px;                  /* HUD stack width on the right */
-
-  /* Smaller cards/slots */
-  --card-w: clamp(52px, 12.6vw, 84px);
-  --card-h: calc(var(--card-w) * 1.38);
-  --card-radius: 10px;
+  --side-col: 70px;          /* narrower side columns */
+  --hud-col: 52px;
+  --card-w: clamp(48px, 11.5vw, 78px);
+  --card-h: calc(var(--card-w) * 1.35);
+  --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
-  --slot-scale: calc(var(--card-scale) * .72);
-
-  /* Portrait + gem smaller */
-  --gem-size: 46px;
-  --card-gem: calc(24px * var(--card-scale));
+  --slot-scale: calc(var(--card-scale) * .7);
+  --gem-size: 42px;
+  --card-gem: calc(22px * var(--card-scale));
 }
 
-/* Grid spacing */
+/* Grid breathing room */
 body.mobile-landscape #board-grid.grid{
-  row-gap: 8px;
-  padding: 6px 8px calc(15vh + 6px);
+  row-gap: 6px;
+  padding: 4px 8px calc(14vh + 4px);
 }
 
-/* ===== Side status columns (left: player, right: AI) ===== */
+/* ===== Sidebars ===== */
 body.mobile-landscape .row.player .portrait,
 body.mobile-landscape .row.ai .portrait{
-  position: absolute;
-  top: 8px;
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
   width: var(--side-col);
   text-align: center;
   color: var(--muted);
+  z-index: 7;
+}
+body.mobile-landscape .row.player .portrait{ left: 4px }
+body.mobile-landscape .row.ai .portrait{ right: 4px }
+
+body.mobile-landscape .portrait img{
+  width:48px; height:48px; border-radius:8px; margin:0 auto 4px;
+}
+body.mobile-landscape .portrait .name{
+  display:block; font-size:.7rem; line-height:1.05; white-space:nowrap;
+  overflow:hidden; text-overflow:ellipsis;
+}
+body.mobile-landscape .hearts{ justify-content:center; gap:3px; margin:2px 0 }
+body.mobile-landscape .hearts svg{ width:12px; height:12px }
+body.mobile-landscape .aether-display{ gap:4px; font-size:.8rem; margin-top:2px }
+body.mobile-landscape .aether-display .temp-ae{
+  min-width:14px; height:14px; font-size:.6rem;
 }
 
-body.mobile-landscape .row.player .portrait{ left: 6px }
-body.mobile-landscape .row.ai     .portrait{ right: 6px }
-
-body.mobile-landscape .portrait img{ width:54px; height:54px; border-radius:10px; margin: 0 auto }
-body.mobile-landscape .portrait .name{ 
-  display:block; font-size:.78rem; line-height:1.05; margin-top:4px;
-  max-width:calc(var(--side-col) - 8px); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-}
-body.mobile-landscape .hearts{ gap:4px; margin-top:4px; justify-content:center }
-body.mobile-landscape .hearts svg{ width:14px; height:14px }
-body.mobile-landscape .aether-display{ gap:6px; margin-top:4px; font-size:.9rem }
-body.mobile-landscape .aether-display .temp-ae{ min-width:16px; height:16px; font-size:.64rem }
-
-/* Hide the tall vertical AETHER FLOW rail on phones */
+/* ===== Flow & slots region ===== */
 body.mobile-landscape .flow-title-rail{ display:none }
-
-/* Wrap becomes single column; center region is bounded by side columns + HUD */
 body.mobile-landscape .flow-wrap{
-  grid-template-columns: 1fr;
-  gap: 8px;
-  align-items: center;
+  grid-template-columns:1fr;
+  gap:6px;
+  align-items:center;
 }
 
-/* Center region max width calculation */
 body.mobile-landscape .flow-board{
-  padding: 8px 8px 14px;
-  border-radius: 10px;
-
-  /* Max width: viewport minus both side columns and the HUD column + gutters */
-  width: min(
-    calc(100vw - (var(--side-col) * 2) - var(--hud-col) - 18px),
-    calc(var(--card-w) * 5 + 6px * 4 + 12px)
+  padding:6px 6px 12px;
+  border-radius:8px;
+  width:min(
+    calc(100vw - (var(--side-col)*2) - var(--hud-col) - 12px),
+    calc(var(--card-w)*5 + 5px*4)
   );
-  margin: 0 auto;
-  z-index: 3;
+  margin:0 auto;
+  z-index:3;
 }
 
-body.mobile-landscape #flow-row{ gap:6px }
-body.mobile-landscape .price-label{ bottom:-10px; font-size:.62rem }
+body.mobile-landscape #flow-row{ gap:5px }
+body.mobile-landscape .price-label{ bottom:-8px; font-size:.58rem }
 
-/* Slot rows live above Flow board and inside the same center width */
+/* Slot rows (fit same width as flow board) */
 body.mobile-landscape #ai-slots.slot-row,
 body.mobile-landscape #player-slots.slot-row{
-  gap: 6px !important;
-  width: min(
-    calc(100vw - (var(--side-col) * 2) - var(--hud-col) - 18px),
-    calc(var(--card-w) * 4 + 6px * 3)
+  gap:5px !important;
+  width:min(
+    calc(100vw - (var(--side-col)*2) - var(--hud-col) - 12px),
+    calc(var(--card-w)*4 + 5px*3)
   ) !important;
-  z-index: 5;
+  z-index:5;
 }
 
-/* Slot visuals */
-body.mobile-landscape .slot{ box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 3px 10px rgba(0,0,0,.22) }
-body.mobile-landscape .slot::after{ inset:6px; border-radius: calc(var(--card-radius) - 4px) }
+/* Slot visuals + titles */
+body.mobile-landscape .slot{
+  box-shadow:inset 0 0 8px rgba(0,0,0,.45),0 2px 8px rgba(0,0,0,.22);
+}
+body.mobile-landscape .slot::after{ inset:5px; border-radius:calc(var(--card-radius)-3px) }
 body.mobile-landscape .slot .slot-title{
-  font-size: clamp(.54rem, .80rem * var(--slot-scale), .8rem);
-  line-height: 1.05;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-size:clamp(.5rem,.75rem*var(--slot-scale),.78rem);
+  line-height:1;
 }
-body.mobile-landscape .slot.glyph .slot-rune{ opacity:.36 }
-body.mobile-landscape .slot.glyph .slot-rune svg{ width:66%; height:66% }
-body.mobile-landscape .slot.glyph .slot-title{ top:8px }
 
-/* Hand (shorter) */
-body.mobile-landscape .hand-wrap{ height:15vh }
+/* Hand */
+body.mobile-landscape .hand-wrap{ height:13vh }
 body.mobile-landscape .hand{
-  height:13vh; bottom:1.1vh; width: min(
-    calc(100vw - (var(--side-col) * 2) - var(--hud-col) - 18px),
-    92vw
-  );
-  z-index: 6;
+  height:11.5vh; bottom:1vh;
+  width:min(calc(100vw - (var(--side-col)*2) - var(--hud-col) - 12px),90vw);
+  z-index:6;
 }
 
-/* Card hover tame on phones */
+/* Card hover + anims */
 body.mobile-landscape .card:hover{
-  transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-3px) scale(1.008);
+  transform:translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,0deg)) translateY(-2px) scale(1.006);
 }
+body.mobile-landscape .card.deal-in{ animation-duration:.09s }
+body.mobile-landscape .card.discarding{ animation-duration:.16s }
 
-/* Deal/discard snappier */
-body.mobile-landscape .card.deal-in{ animation-duration:.10s }
-body.mobile-landscape .card.discarding{ animation-duration:.18s }
+/* HUD */
+body.mobile-landscape .hud{ right:4px; bottom:9vh; gap:5px }
+body.mobile-landscape .hud-btn{ width:46px; height:46px; border-radius:9px }
 
-/* HUD tighter */
-body.mobile-landscape .hud{ right:6px; bottom:10vh; gap:6px }
-body.mobile-landscape .hud-btn{ width:48px; height:48px; border-radius:10px }
-
-/* Peek/zoom smaller */
+/* Zoom peek */
 body.mobile-landscape #peek-card.card.peek,
 body.mobile-landscape #zoom-card.card.zoom{
-  width: calc(var(--card-w) * 1.5);
-  height: calc(var(--card-h) * 1.5);
+  width:calc(var(--card-w)*1.45);
+  height:calc(var(--card-h)*1.45);
 }
 
-/* Extreme short viewports (URL bars showing) */
-@media (max-height: 380px){
-  body.mobile-landscape{ --card-w: clamp(48px, 12vw, 78px); }
-  body.mobile-landscape .hand-wrap{ height:14vh }
-  body.mobile-landscape .hand{ height:12vh }
+/* Tiny screens */
+@media (max-height:380px){
+  body.mobile-landscape{ --card-w:clamp(44px,10.8vw,74px); }
+  body.mobile-landscape .hand-wrap{ height:12vh }
+  body.mobile-landscape .hand{ height:10.5vh }
 }
