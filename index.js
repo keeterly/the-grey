@@ -30,7 +30,6 @@ const set = (el, fn) => { if (el) fn(el); };
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
-const nextFrame = () => new Promise(requestAnimationFrame);
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -46,7 +45,6 @@ const playerAeEl    = $("player-aether");
 const aiAeEl        = $("ai-aether");
 const hudDiscardBtn = $("btn-discard-hud");
 const hudDeckBtn    = $("btn-deck-hud");
-const hudEndBtn     = $("btn-endturn-hud");
 const peekEl        = $("peek-card");
 const zoomOverlayEl = $("zoom-overlay");
 const zoomCardEl    = $("zoom-card");
@@ -56,6 +54,7 @@ let state = initState();
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
+let draggingType = "";
 
 /* ---------- portraits ---------- */
 function heartSVG(size=36){
@@ -68,37 +67,31 @@ function renderHearts(el, n=5){
   if (!el) return;
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
-
-/* ---------- portrait Aether gem: text at 12.5% (half of prior 25%) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
-  const val = v|0;
   el.innerHTML = `
     <span class="gem">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 2l6 6-6 14-6-14 6-6z"/>
-        <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${val}</text>
+        <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${v|0}</text>
       </svg>
     </span>
-    <strong class="val" aria-hidden="true">${val}</strong>
+    <strong class="val" aria-hidden="true">${v|0}</strong>
   `;
-  const t = el.querySelector("svg text");
-  if (t) t.setAttribute("font-size", "3"); // 12.5% of 24 viewBox
 }
 
-/* ---------- hand layout (edge-to-edge fanned) ---------- */
+/* ---------- hand layout (MTGA-like fan) ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  const MAX_ANGLE = 22, MIN_ANGLE = 8;
-  const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
-  const stepA  = N===1 ? 0 : totalAngle/(N-1);
+  // Wider fan & deeper arc (closer to MTGA)
+  const MAX_ANGLE = 28, MIN_ANGLE = 10;
+  const spread = Math.min(container.clientWidth * 0.90, 980);
+  const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2.6, MIN_ANGLE, MAX_ANGLE);
+  const stepA = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
-
-  const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = cw * 0.98;
-  const startX = -stepX * (N-1) / 2;
-
+  const stepX = N===1 ? 0 : spread/(N-1);
+  const startX = -spread/2;
   const LIFT = 44;
 
   cards.forEach((el,i)=>{
@@ -110,6 +103,7 @@ function layoutHand(container, cards) {
     el.style.setProperty("--ty", `${y}px`);
     el.style.setProperty("--rot", `${a}deg`);
     el.style.zIndex = String(400+i);
+    el.style.transform = `translate(${x}px, ${y}px) rotate(${a}deg)`;
   });
 }
 
@@ -137,136 +131,37 @@ function cardShellHTML(c){
     ${aetherChip}
   `;
 }
+function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
-/* ---------- preview / zoom (centered) ---------- */
-let longPressTimer = null, pressStart = {x:0,y:0};
-const LONG_PRESS_MS = 350, MOVE_CANCEL_PX = 8;
-
-
-
+let longPressTimer=null, pressStart={x:0,y:0};
+const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
-  // Desktop hover peek
-  const peekEl = document.getElementById("peek-card");
   if (peekEl){
     el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
     el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
   }
-
-  // Press & hold -> centered preview (uses #peek-card as well)
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     pressStart = {x:t.clientX,y:t.clientY};
     longPressTimer = setTimeout(()=>{
-      if (peekEl){
-        fillCardShell(peekEl, data);
-        peekEl.classList.add("show"); // CSS positions it at screen center
+      if (zoomOverlayEl && zoomCardEl){
+        fillCardShell(zoomCardEl, data);
+        zoomOverlayEl.setAttribute("data-open","true");
       }
     }, LONG_PRESS_MS);
   };
-  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
+  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } };
   const onMove = (ev)=>{
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y) > MOVE_CANCEL_PX) clearLP();
   };
-
   el.addEventListener("pointerdown", onDown, {passive:true});
   el.addEventListener("pointerup", clearLP, {passive:true});
   el.addEventListener("pointerleave", clearLP, {passive:true});
   el.addEventListener("pointercancel", clearLP, {passive:true});
   el.addEventListener("pointermove", onMove, {passive:true});
   el.addEventListener("dragstart", clearLP);
-}
-
-function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
-
-/* ---------- action menu ---------- */
-function clearAllActionMenus(){
-  document.querySelectorAll(".action-pop").forEach(n => n.remove());
-}
-function firstOpenSpellSlotIndex(pub){
-  const slots = pub.players?.player?.slots || [];
-  for (let i=0;i<3;i++){
-    const s = slots[i];
-    if (!s?.hasCard) return i;
-  }
-  return -1;
-}
-function canChannel(card){ return (card?.aetherValue|0) > 0; }
-function canPlaySpell(pub, card){
-  if (card?.type!=="SPELL") return false;
-  return firstOpenSpellSlotIndex(pub) >= 0;
-}
-function canSetGlyph(pub, card){
-  if (card?.type!=="GLYPH") return false;
-  const slot = (pub.players?.player?.slots || [])[3];
-  return slot && !slot.hasCard;
-}
-function canCastInstant(pub, card){
-  if (card?.type!=="INSTANT") return false;
-  // Only enable if the engine exposes a cast hook on window (future-proof).
-  return typeof window.castInstantFromHand === "function";
-}
-function showToast(msg, ms=1400){
-  let t = document.querySelector(".toast");
-  if (!t){ t = document.createElement("div"); t.className="toast"; document.body.appendChild(t); }
-  t.textContent = msg; t.classList.add("show");
-  setTimeout(()=> t.classList.remove("show"), ms);
-}
-function showCardOptions(cardEl, cardData){
-  clearAllActionMenus();
-  const pub = serializePublic(state) || {};
-  const opts = [];
-
-  if (canPlaySpell(pub, cardData)) opts.push({k:"play", label:"Play"});
-  if (canSetGlyph(pub, cardData))  opts.push({k:"set",  label:"Set"});
-  if (canCastInstant(pub, cardData)) opts.push({k:"cast", label:"Cast"});
-  if (canChannel(cardData))         opts.push({k:"channel", label:"Channel"});
-
-  if (!opts.length) return;
-
-  const pop = document.createElement("div");
-  pop.className = `action-pop t-${(cardData.type||'X').toLowerCase()}`;
-
-  opts.forEach(o=>{
-    const b = document.createElement("button");
-    b.type="button";
-    b.className = `rune-btn act-${o.k}`;
-    b.textContent = o.label;
-    b.addEventListener("click", async (ev)=>{
-      ev.stopPropagation();
-      try{
-        if (o.k === "play"){
-          const idx = firstOpenSpellSlotIndex(serializePublic(state)||{});
-          if (idx>=0){ state = playCardToSpellSlot(state, "player", cardData.id, idx); }
-        } else if (o.k === "set"){
-          state = setGlyphFromHand(state, "player", cardData.id);
-        } else if (o.k === "channel"){
-          // animate discard then apply
-          cardEl.classList.add("discarding");
-          await sleep(320);
-          state = discardForAether(state, "player", cardData.id);
-        } else if (o.k === "cast"){
-          if (typeof window.castInstantFromHand === "function"){
-            state = await window.castInstantFromHand(state, "player", cardData.id);
-          } else {
-            showToast("Casting for Instants not available yet.");
-          }
-        }
-      } catch(e){}
-      clearAllActionMenus();
-      await render();
-    });
-    pop.appendChild(b);
-  });
-
-  document.body.appendChild(pop);
-
-  // position above the card
-  const r = cardEl.getBoundingClientRect();
-  pop.style.left = `${r.left + r.width/2}px`;
-  pop.style.top  = `${r.top  - 12}px`;
-  pop.style.transform = "translate(-50%, -100%)";
 }
 
 /* ---------- DnD (desktop + touch) ---------- */
@@ -283,8 +178,7 @@ function findValidDropTarget(node, cardType){
   return null;
 }
 function markDropTargets(cardType, on){
-  document.querySelectorAll(".row.player .slot.spell")
-    .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
+  document.querySelectorAll(".row.player .slot.spell").forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
   if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
@@ -293,8 +187,6 @@ function applyDrop(target, cardId, cardType){
   if (!target || !cardId) return;
   try {
     if (target === hudDiscardBtn){
-      const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
-      if (el){ el.classList.add("discarding"); setTimeout(()=>{}, 0); }
       state = discardForAether(state, "player", cardId); render(); return;
     }
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
@@ -306,12 +198,9 @@ function applyDrop(target, cardId, cardType){
     }
   } catch(e){}
 }
-
-/* Desktop drag wiring */
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
-    clearAllActionMenus();
     el.classList.add("dragging");
     const payload = JSON.stringify({id:data.id,type:data.type});
     ev.dataTransfer?.setData("application/x-card", payload);
@@ -330,15 +219,10 @@ function wireDesktopDrag(el, data){
     el.classList.remove("dragging");
     markDropTargets(data.type, false);
   });
-  // Click/tap menu
-  el.addEventListener("click", (e)=>{ e.stopPropagation(); showCardOptions(el, data); });
 }
-
-/* Touch drag wiring */
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   const start = (ev)=>{
-    clearAllActionMenus();
     const t = ev.touches ? ev.touches[0] : ev;
     dragging = true; markDropTargets(data.type, true);
     ghost = el.cloneNode(true);
@@ -373,11 +257,8 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchend", end, {passive:false});
   el.addEventListener("touchcancel", end, {passive:false});
 }
-
-/* Global listeners */
 document.addEventListener('dragover', (e)=>{
-  const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tgt = findValidDropTarget(el, "SPELL");
+  const tgt = findValidDropTarget(document.elementFromPoint(e.clientX, e.clientY), "SPELL"); // type checked in mark
   if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
 }, true);
 document.addEventListener('drop', (ev)=>{
@@ -389,11 +270,21 @@ document.addEventListener('drop', (ev)=>{
   const target = findValidDropTarget(ev.target, type);
   if (target){ ev.preventDefault(); ev.stopPropagation(); applyDrop(target, id, type); }
 }, true);
-document.addEventListener("click", clearAllActionMenus);
+hudDiscardBtn?.addEventListener('dragover', (e)=>{ e.preventDefault(); hudDiscardBtn.classList.add('drop-ready'); });
+hudDiscardBtn?.addEventListener('dragleave', ()=> hudDiscardBtn.classList.remove('drop-ready'));
+hudDiscardBtn?.addEventListener('drop', (e)=>{
+  e.preventDefault(); hudDiscardBtn.classList.remove('drop-ready');
+  const json = e.dataTransfer?.getData('application/x-card') || '{}';
+  let payload={}; try{ payload=JSON.parse(json); }catch{}
+  const id = payload.id || e.dataTransfer?.getData("text/card-id") || e.dataTransfer?.getData("text/plain");
+  const type = payload.type || e.dataTransfer?.getData("text/card-type");
+  if (id){ applyDrop(hudDiscardBtn, id, type); }
+});
 
-/* ---------- slots / flow ---------- */
+/* ---------- card html ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
+/* ---------- slots / flow ---------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -444,7 +335,20 @@ function renderSlots(container, snapshot, isPlayer){
     art.innerHTML = cardHTML(glyphSlot.card);
     attachPeekAndZoom(art, glyphSlot.card);
     g.appendChild(art);
-  } else { g.textContent = "Glyph Slot"; }
+    } else {
+    g.textContent = "";
+    const hint = document.createElement("div");
+    hint.className = "slot-glyph-hint";
+    hint.setAttribute("aria-hidden", "true");
+    hint.innerHTML = `
+      <svg viewBox="0 0 24 24" width="28" height="28">
+        <path d="M12 3l3 4-3 7-3-7 3-4zM5 10l4-1m6 1l4-1M7 16h10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+      <div class="lbl">Glyph Slot</div>
+    `;
+    g.appendChild(hint);
+  }
+
 
   if (isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -467,25 +371,6 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper (left of board, outside grid) --- */
-function ensureFlowTitle(){
-  const wrap = document.querySelector(".flow-wrap");
-  if (!wrap) return;
-  let rail = wrap.querySelector(".flow-title-rail");
-  if (!rail){
-    rail = document.createElement("div");
-    rail.className = "flow-title-rail";
-    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
-    wrap.appendChild(rail);
-  }
-}
-
-async function animateFlowFall(node){
-  if (!node) return;
-  node.classList.add("flow-fall");
-  await sleep(280);
-}
-
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
   ensureFlowTitle();
@@ -504,8 +389,7 @@ async function renderFlow(flowArray){
     if (c){
       card.addEventListener("click", async ()=>{
         Emit('aetherflow:bought', { node: card });
-        // fall off animation on the clicked card
-        await animateFlowFall(card);
+        await animateFlowFall(card);            // smooth fall-off
         try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
     }
@@ -521,84 +405,9 @@ async function renderFlow(flowArray){
     flowRowEl.appendChild(li);
   });
 
-  /* --- End Turn Card after last slot --- */
-  const endLi = document.createElement("li");
-  endLi.className = "flow-card end-turn-holder";
-  const endCard = document.createElement("article");
-  endCard.className = "card end-turn";
-  endCard.innerHTML = `
-    <div class="title">End Turn</div>
-    <div class="type" data-k="UTILITY">—</div>
-    <div class="divider"></div>
-    <div class="textbox">Pass priority and draw up next turn.</div>
-  `;
-  endCard.addEventListener("click", async ()=>{
-    // small drop/fade for feedback
-    endCard.classList.add("flow-fall");
-    await sleep(240);
-    await doEndTurn();
-  });
-  endLi.appendChild(endCard);
-  flowRowEl.appendChild(endLi);
-
   prevFlowIds = nextIds;
 }
 
-/* ---------- trance UI ---------- */
-function ensureTranceUI(){
-  const templateHTML = `
-    <div class="level" data-level="1">◇ I — Runic Surge</div>
-    <div class="level" data-level="2">◇ II — Spell Unbound</div>
-  `;
-  const apply = (portraitImgEl, level=0)=>{
-    if (!portraitImgEl) return;
-    const holder = portraitImgEl.closest('.portrait');
-    if (!holder) return;
-    let t = holder.querySelector('.trance');
-    if (!t){
-      t = document.createElement('div');
-      t.className = 'trance';
-      holder.appendChild(t);
-    }
-    t.innerHTML = templateHTML;
-    Array.from(t.querySelectorAll('.level')).forEach(el=>{
-      const n = Number(el.getAttribute('data-level'));
-      el.classList.toggle('active', (level|0) >= n);
-    });
-  };
-  const pub = serializePublic(state) || {};
-  const pLevel = pub.players?.player?.tranceLevel ?? 0;
-  const aLevel = pub.players?.ai?.tranceLevel ?? 0;
-  apply(playerPortrait, pLevel);
-  apply(aiPortrait, aLevel);
-}
-
-/* ---------- playable pulse ---------- */
-function highlightPlayableCards(){
-  const pub = serializePublic(state) || {};
-  const hand = pub.players?.player?.hand || [];
-  const openSpell = firstOpenSpellSlotIndex(pub) >= 0;
-  const glyphOpen = canSetGlyph(pub, {type:"GLYPH"}); // just checks glyph slot empty
-
-  // map id -> class
-  const pulseFor = (c)=>{
-    const t = c.type;
-    if (t==="SPELL" && openSpell) return "pulse-spell";
-    if (t==="GLYPH" && glyphOpen) return "pulse-glyph";
-    if (t==="INSTANT" && canCastInstant(pub, c)) return "pulse-instant";
-    if (canChannel(c)) return `pulse-${t?.toLowerCase?.()||"spell"}`; // channelable
-    return "";
-  };
-
-  const nodes = Array.from(handEl?.children || []);
-  nodes.forEach(node=>{
-    node.classList.remove("pulse-spell","pulse-glyph","pulse-instant");
-    const id = node.dataset.cardId;
-    const data = hand.find(h=> h.id===id);
-    const cls = data ? pulseFor(data) : "";
-    if (cls) node.classList.add(cls);
-  });
-}
 
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
@@ -629,37 +438,34 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  ensureTranceUI();
-
-  // HUD icons (kept)
+  // HUD icons
   if (hudDeckBtn){
-    hudDeckBtn.innerHTML = `
+  const deckCount = (state?.players?.player?.deck?.length ?? 0);
+  hudDeckBtn.innerHTML = `
+    <div class="hud-deck-wrap">
       <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
         <rect x="18" y="14" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
         <rect x="14" y="10" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".85"/>
         <rect x="10" y="6"  width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"/>
-      </svg>`;
-  }
+      </svg>
+      <span class="deck-count">${deckCount}</span>
+    </div>
+  `;
+}
+
   if (hudDiscardBtn){
-    hudDiscardBtn.innerHTML = `
-      <svg class="icon discard" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
-        <path d="M18 22h28M18 30h28M18 38h28" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <rect x="14" y="16" width="36" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="2" opacity=".8"/>
-      </svg>`;
-  }
-  if (hudEndBtn){
-    hudEndBtn.innerHTML = `
-      <svg class="icon end" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
-        <path d="M18 32h28" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <path d="M34 22l12 10-12 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      </svg>`;
+    hudDiscardBtn.innerHTML = `<svg class="icon discard" viewBox="0 0 64 64" width="48" height="48" aria-hidden="true">
+      <rect x="10" y="10" width="44" height="34" rx="6"></rect>
+      <path d="M20 22h24M20 30h24M20 38h24" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round"/>
+    </svg>`;
+    hudDiscardBtn.classList.add("drop-target");
   }
 
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
-  /* ----- HAND ----- */
+  /* ----- HAND: no flash, smoother deal, MTGA spread ----- */
   if (handEl){
     const oldIds = prevHandIds.slice();
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
@@ -679,97 +485,74 @@ async function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
-      // Click/tap (desktop listener already set)
-      el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
-
       handEl.appendChild(el); domCards.push(el);
     });
 
     layoutHand(handEl, domCards);
-    await nextFrame(); layoutHand(handEl, domCards);
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
       handEl.classList.add('dealing');
-      Emit('cards:deal', { nodes: addedNodes, stagger: 90 });
+      addedNodes.forEach(n => { n.classList.add('deal-in'); });   // animate actual cards
       setTimeout(()=>{
-        addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight'));
+        addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 800);
+      }, 400); // short total; CSS runs faster now
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
       handEl.classList.add('dealing');
-      domCards.forEach(n=> n.classList.add('grey-hide-during-flight'));
-      Emit('cards:deal', { nodes: domCards, stagger: 90 });
+      domCards.forEach(n=> { n.classList.add('grey-hide-during-flight','deal-in'); });
       setTimeout(()=>{
-        domCards.forEach(n=> n.classList.remove('grey-hide-during-flight'));
+        domCards.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 800);
+      }, 400);
       bootDealt = true;
     }
 
+
     prevHandIds = newIds;
   }
-
-  highlightPlayableCards();
 }
 
-
-/* --------- discard & draw helpers ---------- */
-
-// Animate discarding all cards in a side's hand, then clear the hand in state
-async function discardHandAndAnimate(side = "player"){
-  const container = side === "player" ? handEl : null;
-  if (container){
-    const nodes = Array.from(container.children);
-    nodes.forEach(n => n.classList.add("discarding"));
-    await sleep(340);
+/* --------- deck helpers ---------- */
+function shuffleInPlace(arr){
+  for (let i = arr.length - 1; i > 0; i--){
+    const j = (Math.random() * (i + 1)) | 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
   }
-  // true discard: no aether gain
-  try {
-    if (state?.players?.[side]){
-      state.players[side].hand = [];
-    }
-  } catch(e){}
-  await render();
+  return arr;
+}
+function reshuffleFromDiscard(side = "player"){
+  const p = state?.players?.[side];
+  if (!p) return;
+  const deck = p.deck || (p.deck = []);
+  const disc = p.discard || (p.discard = []);
+  if (deck.length === 0 && disc.length > 0){
+    deck.push(...disc.splice(0, disc.length));
+    shuffleInPlace(deck);
+  }
 }
 
-// Simple AI turn: start -> draw to 5 -> (future: play) -> end
-async function doAiTurn(){
-  state = startTurn(state);
-  const need = Math.max(0, 5 - (state.players.ai?.hand?.length || 0));
-  if (need) state = drawN(state, "ai", need);
-  await render();
 
-  // (hook real AI plays here later)
-
-  state = endTurn(state);
-  await render();
-}
 
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
   const active = state.activePlayer;
-  const need   = Math.max(0, 5 - (state.players[active].hand?.length||0));
-  if (need) state = drawN(state, active, need);
+
+  // ensure we can draw (deck auto-reshuffle from discard if needed)
+  reshuffleFromDiscard(active);
+
+  const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
+  if (need){
+    // if we still need more and deck is empty, reshuffle again (handles multi-draw)
+    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
+    state = drawN(state, active, need);
+  }
   await render();
 }
 
-
-// Full “end turn” that discards hand, runs AI, then returns to player with a fresh draw
-async function doEndTurn(){
-  // 1) player discards entire hand (no aether gain)
-  await discardHandAndAnimate("player");
-
-  // 2) pass to AI and run its turn
-  state = endTurn(state);      // give priority to AI
-  await doAiTurn();            // AI draws to 5 and ends turn
-
-  // 3) back to player: start and draw a NEW hand up to 5
-  await doStartTurn();
-}
-
+async function doEndTurn(){ state = endTurn(state); await doStartTurn(); }
 
 /* ---------- events ---------- */
 $("btn-start-turn")?.addEventListener("click", doStartTurn);
