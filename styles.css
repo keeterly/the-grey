@@ -261,72 +261,72 @@ html,body{height:100%}
 
 
 
-/* ==== AETHER FLOW board containment + centered title (v2.6 tweak) ==== */
-.flow-board {
-  position: relative;
-  padding: 18px 22px;
-  border-radius: 14px;
-  overflow: hidden;                 /* <- keeps cards inside the board */
-  isolation: isolate;               /* paints children above the glow */
-}
-.flow-row {
-  display: flex;
-  gap: 18px;
-  align-items: stretch;
-}
-.flow-row .flow-card {
-  flex: 0 0 240px;                  /* matches your card width */
-  list-style: none;
-}
-.flow-row .flow-card .card.market {
-  width: 100%;
-  height: 100%;
-}
 
-/* Title rail lives at the left; center its label vertically */
-.flow-title-rail {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 52px;                      /* thin rail */
-  display: grid;
-  place-items: center;              /* <- centers the title */
-  pointer-events: none;
+
+/* === Aetherflow scaffold (title & board) === */
+.flow-wrap{
+  /* title rail + board side-by-side */
+  display:flex; gap:14px; align-items:stretch;
 }
-.flow-title-rail .flow-title {
+.flow-title-rail{
+  /* keep title centered vertically */
+  display:flex; align-items:center; justify-content:center;
+  padding:6px 0;
+}
+.flow-title{
   writing-mode: vertical-rl;
-  letter-spacing: .28em;
-  opacity: .85;
+  text-orientation: mixed;
+  letter-spacing: .25em;
   font-variant: small-caps;
-  transform: translateY(0);         /* make sure it’s truly centered */
+  opacity:.85;
+  /* center align: the flex in .flow-title-rail does the heavy lifting */
 }
 
-/* Price badges under each flow card stay inside the board */
-.flow-row .price-label {
+/* ensure cards are visually "inside" the board */
+.flow-board{
+  position: relative;
+  overflow: hidden;                 /* trap children inside */
+  padding: 14px 18px 22px;          /* breathing room for price labels */
+}
+#flow-row{
+  position: relative;
+  display: flex; gap: 18px;
+  margin: 0; padding: 0;
+}
+#flow-row > .flow-card{ list-style: none; }
+#flow-row > .flow-card > .card.market{
+  position: relative;
+  will-change: transform, opacity;
+}
+
+/* gentle fall-off polish */
+.flow-fall{
+  transform: translateY(18px) scale(.98);
+  opacity: .0;
+  transition: transform .22s ease, opacity .22s ease;
+}
+
+/* disable purchase when unaffordable */
+.card.market[aria-disabled="true"]{
+  opacity: .5;
+  filter: grayscale(.15);
+  pointer-events: none;            /* click is ignored */
+}
+
+/* price labels tuck under cards */
+.price-label{
   margin-top: 8px;
   text-align: center;
+  font-size: .9rem;
   opacity: .9;
 }
 
-/* Small “not enough aether” feedback (shake+dim) */
-.flow-card.unaffordable .card.market {
-  filter: saturate(.6) brightness(.85);
+/* === Playable pulse on glowing cards === */
+@keyframes runePulse {
+  0%   { box-shadow: 0 0 0px rgba(160,180,255,.0); transform: translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,0)); }
+  50%  { box-shadow: 0 0 22px rgba(160,180,255,.35); }
+  100% { box-shadow: 0 0 0px rgba(160,180,255,.0);  transform: translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,0)); }
 }
-@keyframes flow-shake {
-  0% { transform: translateX(0); }
-  25% { transform: translateX(-3px); }
-  50% { transform: translateX(3px); }
-  75% { transform: translateX(-2px); }
-  100% { transform: translateX(0); }
-}
-.flow-card.shake .card.market { animation: flow-shake 260ms linear; }
-
-/* ==== Hand: pulse for already-glowing playable cards ==== */
-@keyframes playable-pulse {
-  from { box-shadow: 0 0 0 0 rgba(180, 200, 255, 0.55); }
-  to   { box-shadow: 0 0 22px 6px rgba(180, 200, 255, 0.15); }
-}
-.hand .card.pulse {
-  animation: playable-pulse 1.2s ease-in-out infinite alternate;
-}
+.hand .card.pulse-spell   { animation: runePulse 1.6s ease-in-out infinite; }
+.hand .card.pulse-glyph   { animation: runePulse 1.6s ease-in-out infinite; }
+.hand .card.pulse-instant { animation: runePulse 1.6s ease-in-out infinite; }
