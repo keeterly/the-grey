@@ -335,112 +335,112 @@ html,body{height:100%}
 .hand .card.pulse-instant{ animation: runePulse 1.6s ease-in-out infinite; }
 
 /* ==========================================================
-   Mobile (phone) — Landscape overrides (v2.1, tighter)
+   Mobile (phone) — Landscape overrides (v2.2 tighter/no-overlap)
    ========================================================== */
 
 body.mobile-landscape{
-  /* Smaller cards/slots so rows never collide */
-  --card-w: clamp(62px, 14.4vw, 92px);
+  /* Cards/slots small enough to keep 3 bands separate (AI slots / Flow / Hand) */
+  --card-w: clamp(56px, 13.5vw, 88px);
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 10px;
 
   --card-scale: calc(var(--card-w) / 150px);
-  --slot-scale: calc(var(--card-scale) * .78);
+  --slot-scale: calc(var(--card-scale) * .76);
 
   /* Portrait + gem smaller */
-  --gem-size: 52px;
-  --card-gem: calc(28px * var(--card-scale));
+  --gem-size: 50px;
+  --card-gem: calc(26px * var(--card-scale));
 }
 
-/* Grid spacing trimmed so there’s vertical breathing room */
+/* Grid spacing: more room between rows, smaller bottom pad for hand */
 body.mobile-landscape #board-grid.grid{
   row-gap: 8px;
-  /* bottom padding matches the shorter hand lane below */
-  padding: 6px 8px calc(16vh + 6px);
+  padding: 6px 8px calc(15vh + 6px);
 }
 
-/* Portraits mini */
-body.mobile-landscape .portrait img{ width:60px; height:60px; border-radius:10px }
-body.mobile-landscape .hearts svg{ width:18px; height:18px }
+/* Portraits mini + pushed farther into corners */
+body.mobile-landscape .row.player .portrait{ left:8px; bottom:8px }
+body.mobile-landscape .row.ai     .portrait{ right:8px; top:8px }
+body.mobile-landscape .portrait img{ width:56px; height:56px; border-radius:10px }
+body.mobile-landscape .hearts svg{ width:16px; height:16px }
 body.mobile-landscape .aether-display{ gap:6px; margin-top:2px }
-body.mobile-landscape .aether-display .temp-ae{ min-width:16px; height:16px; font-size:.68rem }
+body.mobile-landscape .aether-display .temp-ae{ min-width:16px; height:16px; font-size:.64rem }
 
-/* Slot rows (4 spells + 1 glyph) with tighter width/gaps */
+/* Slot rows (4 spells + glyph) tighter width/gap so they never touch Flow */
 body.mobile-landscape #ai-slots.slot-row,
 body.mobile-landscape #player-slots.slot-row{
   gap: 6px !important;
-  width: calc(var(--card-w)*4 + 6px*3) !important;
+  width: calc(var(--card-w) * 4 + 6px * 3) !important;
 }
 
-/* Slot visuals + titles scale with card size */
+/* Slot visuals + titles scale and clip safely */
 body.mobile-landscape .slot{ box-shadow: inset 0 0 10px rgba(0,0,0,.5), 0 3px 10px rgba(0,0,0,.22) }
 body.mobile-landscape .slot::after{ inset:6px; border-radius: calc(var(--card-radius) - 4px) }
-
-/* Force slot/glyph label to fit the panel */
 body.mobile-landscape .slot .slot-title{
-  font-size: clamp(.58rem, .86rem * var(--slot-scale), .88rem);
+  font-size: clamp(.56rem, .82rem * var(--slot-scale), .84rem);
   line-height: 1.05;
-  transform-origin:center;
-  opacity:.95;
-  white-space:nowrap;
-  text-overflow:ellipsis;
-  overflow:hidden;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* Glyph slot rune faint + centered title */
-body.mobile-landscape .slot.glyph .slot-rune{ opacity:.40 }
-body.mobile-landscape .slot.glyph .slot-rune svg{ width:70%; height:70%; }
+/* Glyph slot runic backdrop trimmed */
+body.mobile-landscape .slot.glyph .slot-rune{ opacity:.38 }
+body.mobile-landscape .slot.glyph .slot-rune svg{ width:68%; height:68% }
 body.mobile-landscape .slot.glyph .slot-title{ top:8px }
 
-/* Aether Flow board: compact, never overlaps */
-body.mobile-landscape .flow-wrap{ gap:6px; align-items:center }
-body.mobile-landscape .flow-title-rail{ min-width:28px }
-body.mobile-landscape .flow-title{ letter-spacing:.16em; opacity:.6; font-size:.8rem }
+/* ---- Aether Flow: hide tall rail on phones; clamp width so it can't hit HUD ---- */
+body.mobile-landscape .flow-title-rail{ display:none }
+body.mobile-landscape .flow-wrap{ grid-template-columns: 1fr; gap:8px; align-items:center }
+
 body.mobile-landscape .flow-board{
   padding:8px 8px 14px;
   border-radius:10px;
-  z-index: 3;                      /* under hand */
+  /* leave room for the HUD column on the right (≈ 60px + gutters) */
+  width: min(
+    calc(100vw - 76px),
+    calc(var(--card-w) * 5 + 6px * 4 + 12px)
+  );
+  margin: 0 auto;
+  z-index: 3;               /* under slots/hand */
 }
+
 body.mobile-landscape #flow-row{ gap:6px }
 
-/* Price labels pulled in tight */
-body.mobile-landscape .price-label{
-  bottom:-10px; font-size:.66rem;
-}
+/* Flow price badges smaller */
+body.mobile-landscape .price-label{ bottom:-10px; font-size:.64rem }
 
-/* Hand area shorter to avoid hitting the flow board */
-body.mobile-landscape .hand-wrap{ height:16vh }
-body.mobile-landscape .hand{ height:14vh; bottom:1.2vh }
+/* Hand lane shorter and a bit lower so it never overlaps the Flow board */
+body.mobile-landscape .hand-wrap{ height:15vh }
+body.mobile-landscape .hand{ height:13vh; bottom:1.1vh; width:min(980px, 96vw) }
 
 /* Always keep hover pop tiny on phones (some iOS ignores pointer:coarse) */
 body.mobile-landscape .card:hover{
-  transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-4px) scale(1.01);
+  transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-3px) scale(1.008);
 }
 
-/* Deal/Discard tuned for small screens */
-body.mobile-landscape .card.deal-in{ animation-duration:.12s }
-body.mobile-landscape .card.discarding{ animation-duration:.20s }
+/* Faster deal/discard on small screens */
+body.mobile-landscape .card.deal-in{ animation-duration:.10s }
+body.mobile-landscape .card.discarding{ animation-duration:.18s }
 
-/* HUD buttons a touch smaller and nudged inward */
+/* HUD column smaller and lifted slightly */
 body.mobile-landscape .hud{ right:6px; bottom:10vh; gap:6px }
-body.mobile-landscape .hud-btn{ width:50px; height:50px; border-radius:10px }
+body.mobile-landscape .hud-btn{ width:48px; height:48px; border-radius:10px }
 
 /* Peek/zoom smaller */
 body.mobile-landscape #peek-card.card.peek,
 body.mobile-landscape #zoom-card.card.zoom{
-  width: calc(var(--card-w) * 1.55);
-  height: calc(var(--card-h) * 1.55);
+  width: calc(var(--card-w) * 1.5);
+  height: calc(var(--card-h) * 1.5);
 }
 
-/* Layer safety: hand above everything, flow under slots */
+/* Layer order: hand > slots > flow */
 body.mobile-landscape .hand{ z-index: 6 }
 body.mobile-landscape #player-slots.slot-row,
 body.mobile-landscape #ai-slots.slot-row{ z-index: 5 }
 body.mobile-landscape .flow-board{ z-index: 4 }
 
-/* Last-mile guard for extra-short browser chrome (URL bars showing) */
+/* Extra short viewport guard (URL bars visible) */
 @media (max-height: 380px){
-  body.mobile-landscape{ --card-w: clamp(58px, 13.8vw, 88px); }
-  body.mobile-landscape .hand-wrap{ height:15vh }
-  body.mobile-landscape .hand{ height:13vh }
+  body.mobile-landscape{ --card-w: clamp(52px, 13vw, 82px); }
+  body.mobile-landscape .hand-wrap{ height:14vh }
+  body.mobile-landscape .hand{ height:12vh }
 }
