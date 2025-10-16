@@ -4,7 +4,6 @@
   --card-h: calc(var(--card-w) * 1.38);
   --card-radius: 16px;
 
-  /* Scale factor for all card internals (keeps text/UI scaling with card size) */
   --card-scale: calc(var(--card-w) / 150px);
 
   /* Theme */
@@ -12,13 +11,13 @@
   --gold:#c6a56a; --rune:#796447; --aether:#7eb6ff; --stone:#3a3125;
 
   /* Types */
-  --type-spell:#7eb6ff;    /* blue */
-  --type-instant:#93d39c;  /* green */
-  --type-glyph:#c7a0ff;    /* purple */
+  --type-spell:#7eb6ff;
+  --type-instant:#93d39c;
+  --type-glyph:#c7a0ff;
 
   /* Portrait UI */
   --gem-blue:#7eb6ff;
-  --gem-size: 96px;   /* portrait gem size (2×) */
+  --gem-size: 96px;
   --heart:#e27a7a;
 
   /* In-card gem */
@@ -57,7 +56,7 @@ html,body{height:100%}
 .trance .level{opacity:.5}
 .trance .level.active{opacity:1}
 
-/* Portrait Aether – gem to right of hearts, value inside gem (kept small) */
+/* Portrait Aether */
 .aether-display{display:flex;align-items:center;gap:10px;justify-content:center;margin-top:8px;color:var(--gem-blue);font-weight:700}
 .aether-display .gem{
   width:var(--gem-size);height:var(--gem-size);
@@ -66,7 +65,6 @@ html,body{height:100%}
 }
 .aether-display .gem svg{width:100%;height:100%;fill:currentColor}
 .aether-display .gem svg text{
-  /* JS also sets a safe size; this is a fallback */
   font-weight:900; font-size:12px; fill:#0d0a07; text-anchor:middle; dominant-baseline:central
 }
 .aether-display .val{display:none}
@@ -97,71 +95,120 @@ html,body{height:100%}
 .slot.drag-over{outline:2px dashed var(--aether); outline-offset:6px; filter:drop-shadow(0 0 10px rgba(126,182,255,.45))}
 .slot .card{position:absolute; left:0; top:0; width:100%; height:100%; border-radius:var(--card-radius)}
 
-/* Glyph slot: darker + hint icon */
+/* Glyph slot visuals: centered title + large faint rune behind */
 .slot.glyph{
   background:linear-gradient(180deg,#231c15,#17120f);
   border-color:#4a3a2b;
+  position:relative;
 }
-.slot-glyph-hint{
-  position:absolute; inset:auto 0 8px 0; margin:auto; width:max-content;
-  color:#9d8d76; opacity:.75; display:flex; align-items:center; gap:6px;
-  font-size:.9rem;
+.slot.glyph .slot-title{
+  position:absolute; left:50%; top:14px; transform:translateX(-50%);
+  text-align:center;
 }
-.slot-glyph-hint .lbl{font-variant:small-caps; letter-spacing:.06em}
+.slot.glyph .slot-rune{
+  position:absolute; inset:0; display:grid; place-items:center; pointer-events:none; opacity:.5;
+}
+.slot.glyph .slot-rune svg{ width:75%; height:75%; }
 
-/* ====== Aether Flow board (centered like slots) ====== */
-.flow-wrap{ position:relative; width:100%; display:block; }
+/* ====== Aether Flow (board + title rail) ====== */
+.flow-wrap{
+  position:relative;
+  display:grid;
+  grid-template-columns:auto 1fr; /* title rail | board */
+  gap:16px;
+  align-items:center;
+}
 .flow-title-rail{
-  position:absolute;
-  left:calc(50% - (var(--flow-width, 0px))/2 - 36px);
-  top:12px;
-  width:36px; display:flex; justify-content:center; pointer-events:none;
+  height:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center; /* center aligned */
+  min-width:48px;
 }
-.flow-title{writing-mode:vertical-rl; transform:rotate(180deg); letter-spacing:.28em; color:#b6a98e; user-select:none; text-align:center}
+.flow-title{
+  writing-mode:vertical-rl;
+  text-orientation:mixed;
+  letter-spacing:.25em;
+  text-align:center;
+  opacity:.7;
+}
 
-#flow-row.flow-row{
-  --flow-width: calc(var(--card-w)*5 + 14px*4 + 24px);
-  list-style:none;margin:0 auto;padding:12px;
-  width:var(--flow-width) !important;
-  display:grid !important; grid-template-columns:repeat(5, var(--card-w)) !important; gap:14px !important;
-  background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
-  position: relative;
-  overflow: visible;
+.flow-board{
+  position:relative;
+  border-radius:14px;
+  background:linear-gradient(180deg,#241d15,#1a140f);
+  border:1px solid #3b3126;
+  box-shadow:0 0 32px #000 inset, 0 12px 28px rgba(0,0,0,.35);
+  padding:16px 18px 28px;
+  overflow:hidden; /* keep cards inside */
 }
-.flow-card{display:block;width:var(--card-w);height:var(--card-h); position:relative}
-.flow-card .card{position:relative}
+
+#flow-row{
+  list-style:none;
+  margin:0;
+  padding:0;
+  display:flex;
+  gap:16px;
+  align-items:flex-start;
+  justify-content:space-between;
+}
+.flow-card{
+  position:relative;
+  width:var(--card-w);
+  height:var(--card-h);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.flow-card > .card.market{
+  position:relative;
+  width:100%;
+}
 .price-label{
-  position:absolute; left:8px; bottom:-18px; color:#b6a98e; font-size:.85rem; opacity:.9; pointer-events:none;
+  position:absolute;
+  left:50%;
+  bottom:-18px;
+  transform:translateX(-50%);
+  color:#b6a98e;
+  font-size:.85rem;
+  opacity:.9;
+  pointer-events:none;
 }
 
-/* Flow fall-off animation */
+/* Buy animation + disabled state */
 @keyframes flowFall { 0%{transform:translateY(0) scale(1);opacity:1} 100%{transform:translateY(50px) rotate(6deg) scale(.95);opacity:0} }
-.flow-fall{ animation:flowFall .28s ease forwards }
+.flow-fall{ animation:flowFall .18s ease forwards }
+.card.market[aria-disabled="true"]{
+  filter:grayscale(.35) brightness(.9);
+  opacity:.75;
+  cursor:not-allowed;
+  pointer-events:none;
+}
 
-/* Hand */
+/* Hand area */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px, 96vw); height:24vh; perspective:1200px; pointer-events:auto;}
 .hand.dealing .card:hover{transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg))} /* suppress hover pop during deal */
 
 /* Card */
 .card{
-  position:absolute; top:0; left:50%; transform-origin:50% 95%;
+  position:absolute; top:0; left:50%;
+  transform-origin:50% 95%;
   width:var(--card-w); height:var(--card-h); border-radius:var(--card-radius);
   background:linear-gradient(180deg,#30271f,#211b15);
   border:1px solid #5a4b37; color:var(--ink);
-  box-shadow:0 14px 24px #000; transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
+  box-shadow:0 14px 24px #000;
+  transition:transform .18s ease, box-shadow .18s ease, z-index .1s, opacity .12s;
   pointer-events:auto; display:flex; flex-direction:column;
 
-  /* Make the whole interior scale with --card-w */
   font-size: calc(1rem * var(--card-scale));
 
-  /* ✅ Base fan transform (was missing) */
+  /* Base fan transform (ensures hand fanning works) */
   transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));
-  
 }
 .card:hover{
   z-index:9999 !important;
-  transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.07)
+  transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.07);
 }
 
 /* Header */
@@ -174,14 +221,14 @@ html,body{height:100%}
 /* Divider */
 .card .divider{height:1px; margin:calc(6px * var(--card-scale)) calc(10px * var(--card-scale)) 0 calc(10px * var(--card-scale)); opacity:.35; background:linear-gradient(90deg, transparent, #b6a98e55, transparent);}
 
-/* Pip track – centered empty circles */
+/* Pip track */
 .card .pip-track{display:flex; justify-content:center; gap:calc(8px * var(--card-scale)); padding:calc(6px * var(--card-scale)) calc(12px * var(--card-scale)) calc(2px * var(--card-scale)) calc(12px * var(--card-scale));}
 .card .pip{width:calc(12px * var(--card-scale));height:calc(12px * var(--card-scale));border-radius:50%; border:calc(2px * var(--card-scale)) solid #b6a98e; background:transparent}
 
 /* Rules text */
 .card .textbox{flex:1; padding:calc(8px * var(--card-scale)) calc(12px * var(--card-scale)) calc(48px * var(--card-scale)) calc(12px * var(--card-scale)); opacity:.92; line-height:1.2}
 
-/* Top-right play cost — centered */
+/* Play cost */
 .card .play-cost-badge{
   position:absolute; top:calc(8px * var(--card-scale)); right:calc(8px * var(--card-scale));
   width:calc(23px * var(--card-scale)); height:calc(23px * var(--card-scale)); border-radius:999px;
@@ -192,27 +239,29 @@ html,body{height:100%}
 }
 .card .play-cost-badge .v{ font-size:calc(1.25rem * var(--card-scale)); line-height:1; font-weight:900 }
 
-/* Bottom-left Aether gem with value inside */
+/* In-card aether gem */
 .card .aether-chip{position:absolute; left:calc(10px * var(--card-scale)); bottom:calc(10px * var(--card-scale)); z-index:3; filter:drop-shadow(0 1px 2px #000)}
 .card .aether-chip svg{width:var(--card-gem); height:var(--card-gem); fill:var(--gem-blue)}
 .card .aether-chip svg text{font-weight:800; font-size:calc(var(--card-gem) * 0.46); fill:#0d0a07; text-anchor:middle; dominant-baseline:central}
 
-/* Deal/Discard helpers */
-/* 2× faster than the old .28s: use .14s */
-@keyframes dealIn{0%{opacity:0; transform:translateY(60px) scale(.9) rotate(var(--rot,0deg));}
-100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}}
-.card.deal-in{animation:dealIn .14s ease forwards}
+/* Deal/Discard helpers (snappy) */
+@keyframes dealIn{
+  0%{opacity:0; transform:translateY(60px) scale(.92) rotate(var(--rot,0deg));}
+  100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
+}
+.card.deal-in{animation:dealIn .20s ease-out both}
 .grey-hide-during-flight{opacity:0 !important}
 
-@keyframes discardOut{0%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
-100%{opacity:0; transform:translateY(80px) rotate(6deg) scale(.94);}}
-.card.discarding{animation:discardOut .32s ease forwards}
+@keyframes discardOut{
+  0%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
+  100%{opacity:0; transform:translateY(80px) rotate(8deg) scale(.94);}
+}
+.card.discarding{animation:discardOut .28s ease-in forwards}
 
-/* HUD / preview / toast */
+/* HUD / preview / toast / action popover (unchanged) */
 .hud{position:fixed; right:14px; bottom:14vh; display:flex; flex-direction:column; gap:14px; z-index:30}
 .hud-btn{width:72px;height:72px;border-radius:12px;border:1px solid #4a3d2f;background:#2a211a;color:var(--ink);box-shadow:0 4px 10px #000;font-weight:700;display:grid;place-items:center;position:relative}
 
-/* Deck counter on HUD */
 .hud-deck-wrap{position:relative; display:grid; place-items:center}
 .hud-deck-wrap .deck-count{
   position:absolute; right:-6px; bottom:-6px; min-width:22px; height:22px; padding:0 6px;
@@ -220,10 +269,10 @@ html,body{height:100%}
   color:#0d0a07; background:#c6a56a; box-shadow:0 2px 6px rgba(0,0,0,.35);
 }
 
-/* Peek preview centered */
+/* Peek/Zoom */
 #preview-layer{position:fixed; inset:0; z-index:50; pointer-events:none}
 #peek-card.card.peek{
-  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%); 
+  position:fixed; left:50%; top:50%; transform:translate(-50%,-50%);
   width:calc(var(--card-w)*2); height:calc(var(--card-h)*2);
   display:none; opacity:0; transition:opacity .12s ease;
   border-radius:22px;
@@ -235,11 +284,9 @@ html,body{height:100%}
 #zoom-overlay[data-open="true"]{display:grid}
 #zoom-card.card.zoom{position:relative; transform:none; width:calc(var(--card-w)*2); height:calc(var(--card-h)*2); border-radius:22px}
 
-/* Toast */
 .toast{position:fixed; left:50%; bottom:18vh; transform:translateX(-50%); background:#2a211a; color:var(--ink); border:1px solid #4a3d2f; padding:10px 14px; border-radius:10px; box-shadow:0 8px 16px #000; opacity:0; transition:opacity .2s ease; z-index:70}
 .toast.show{opacity:1}
 
-/* Action popover */
 .action-pop{
   position:fixed; transform:translate(-50%,-100%); z-index:80; display:flex; gap:8px;
   background:linear-gradient(180deg,#2a211a,#1f1914); border:1px solid #4a3d2f; border-radius:10px;
@@ -253,131 +300,12 @@ html,body{height:100%}
 .action-pop.t-glyph .rune-btn{ background:var(--type-glyph); color:#0b0b16 }
 .action-pop.t-instant .rune-btn{ background:var(--type-instant); color:#0b160e }
 
-/* Playable pulse per type */
-@keyframes pulse { 0%{box-shadow:0 0 0 0 rgba(255,255,255,0);} 50%{box-shadow:0 0 18px 6px currentColor;} 100%{box-shadow:0 0 0 0 rgba(255,255,255,0);} }
-.pulse-spell{ color:var(--type-spell); animation:pulse 1.6s ease-in-out infinite }
-.pulse-glyph{ color:var(--type-glyph); animation:pulse 1.6s ease-in-out infinite }
-.pulse-instant{ color:var(--type-instant); animation:pulse 1.6s ease-in-out infinite }
-
-
-
-
-
-/* === Aetherflow scaffold (title & board) === */
-.flow-wrap{
-  /* title rail + board side-by-side */
-  display:flex; gap:14px; align-items:stretch;
-}
-.flow-title-rail{
-  /* keep title centered vertically */
-  display:flex; align-items:center; justify-content:center;
-  padding:6px 0;
-}
-.flow-title{
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  letter-spacing: .25em;
-  font-variant: small-caps;
-  opacity:.85;
-  /* center align: the flex in .flow-title-rail does the heavy lifting */
-}
-
-/* ensure cards are visually "inside" the board */
-.flow-board{
-  position: relative;
-  overflow: hidden;                 /* trap children inside */
-  padding: 14px 18px 22px;          /* breathing room for price labels */
-}
-#flow-row{
-  position: relative;
-  display: flex; gap: 18px;
-  margin: 0; padding: 0;
-}
-#flow-row > .flow-card{ list-style: none; }
-#flow-row > .flow-card > .card.market{
-  position: relative;
-  will-change: transform, opacity;
-}
-
-/* gentle fall-off polish */
-.flow-fall{
-  transform: translateY(18px) scale(.98);
-  opacity: .0;
-  transition: transform .22s ease, opacity .22s ease;
-}
-
-/* disable purchase when unaffordable */
-.card.market[aria-disabled="true"]{
-  opacity: .5;
-  filter: grayscale(.15);
-  pointer-events: none;            /* click is ignored */
-}
-
-/* price labels tuck under cards */
-.price-label{
-  margin-top: 8px;
-  text-align: center;
-  font-size: .9rem;
-  opacity: .9;
-}
-
-/* === Playable pulse on glowing cards === */
-@keyframes runePulse {
-  0%   { box-shadow: 0 0 0px rgba(160,180,255,.0); transform: translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,0)); }
-  50%  { box-shadow: 0 0 22px rgba(160,180,255,.35); }
-  100% { box-shadow: 0 0 0px rgba(160,180,255,.0);  transform: translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,0)); }
-}
-.hand .card.pulse-spell   { animation: runePulse 1.6s ease-in-out infinite; }
-.hand .card.pulse-glyph   { animation: runePulse 1.6s ease-in-out infinite; }
-.hand .card.pulse-instant { animation: runePulse 1.6s ease-in-out infinite; }
-
-
-
-/* Make #flow-row the "board" container */
-#flow-row.flow-board{
-  position: relative;
-  display: flex;
-  gap: 18px;
-  padding: 14px 18px 22px 66px; /* left pad for title rail */
-  overflow: hidden;            /* cards stay inside the panel */
-}
-
-/* Vertical title centered inside the lane */
-#flow-row .flow-title-rail{
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: calc(100% - 28px);
-  pointer-events: none;
-}
-#flow-row .flow-title{
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  letter-spacing: .25em;
-  font-variant: small-caps;
-  opacity: .85;
-}
-
-/* Price label + “inside the board” visuals */
-#flow-row .flow-card{ list-style: none; }
-#flow-row .card.market{ position:relative; will-change: transform, opacity; }
-.price-label{ margin-top: 8px; text-align: center; font-size: .9rem; opacity: .9; }
-
-/* Buy animation + disabled state (unaffordable) */
-.flow-fall{ transform: translateY(18px) scale(.98); opacity: 0; transition: transform .22s ease, opacity .22s ease; }
-.card.market[aria-disabled="true"]{ opacity: .5; filter: grayscale(.15); pointer-events: none; }
-
-/* Playable pulse (uses the classes you already toggle) */
+/* Playable pulse (gentle) */
 @keyframes runePulse{
-  0%{ box-shadow: 0 0 0 rgba(160,180,255,0); }
-  50%{ box-shadow: 0 0 22px rgba(160,180,255,.35); }
-  100%{ box-shadow: 0 0 0 rgba(160,180,255,0); }
+  0%{ box-shadow:0 0 0 rgba(160,180,255,0); }
+  50%{ box-shadow:0 0 22px rgba(160,180,255,.35); }
+  100%{ box-shadow:0 0 0 rgba(160,180,255,0); }
 }
 .hand .card.pulse-spell,
 .hand .card.pulse-glyph,
 .hand .card.pulse-instant{ animation: runePulse 1.6s ease-in-out infinite; }
-
