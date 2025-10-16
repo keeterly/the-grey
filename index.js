@@ -245,13 +245,16 @@ function findValidDropTarget(node, cardType){
   if (hudDiscardBtn && node.closest("#btn-discard-hud")) return hudDiscardBtn;
   return null;
 }
-function markDropTargets(cardType, on){
-  document.querySelectorAll(".row.player .slot.spell")
-    .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
-  const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
-  hudDiscardBtn?.classList.toggle("drop-ready", !!on);
-}
+ function markDropTargets(cardType, on){
+   document.querySelectorAll(".row.player .slot.spell")
+     .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
+-  const g = document.querySelector(".row.player .slot.glyph");
+-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
++  const g = document.querySelector(".row.player .slot.glyph");
++  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
+   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
+ }
+
 function applyDrop(target, cardId, cardType){
   if (!target || !cardId) return;
   try {
