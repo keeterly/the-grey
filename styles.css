@@ -125,6 +125,8 @@ html,body{height:100%}
   width:var(--flow-width) !important;
   display:grid !important; grid-template-columns:repeat(5, var(--card-w)) !important; gap:14px !important;
   background:linear-gradient(180deg,#241d15,#1a140f); border:1px solid #3b3126; border-radius:12px; box-shadow:0 0 32px #000 inset;
+  position: relative;
+  overflow: visible;
 }
 .flow-card{display:block;width:var(--card-w);height:var(--card-h); position:relative}
 .flow-card .card{position:relative}
@@ -152,6 +154,10 @@ html,body{height:100%}
 
   /* Make the whole interior scale with --card-w */
   font-size: calc(1rem * var(--card-scale));
+
+  /* ✅ Base fan transform (was missing) */
+  transform: translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));
+  
 }
 .card:hover{
   z-index:9999 !important;
