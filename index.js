@@ -67,7 +67,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem text (12.5% viewBox) ---------- */
+/* ---------- portrait Aether gem: SAFE small text (12.5% viewBox) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -82,7 +82,7 @@ function setAetherDisplay(el, v=0){
   `;
 }
 
-/* ---------- hand layout (tight fan) ---------- */
+/* ---------- hand layout (tight fan; cards sit side-by-side) ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
@@ -109,6 +109,7 @@ function layoutHand(container, cards) {
 }
 
 /* ---------- card shell / preview ---------- */
+function closeZoom(){ document.getElementById("zoom-overlay")?.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
 function cardShellHTML(c){
   const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
@@ -133,6 +134,7 @@ function cardShellHTML(c){
 }
 function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
+/* centered hover + press-and-hold preview */
 let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
@@ -246,7 +248,7 @@ function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell")
     .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -493,7 +495,7 @@ async function renderFlow(flowArray){
     if (c){
       card.addEventListener("click", async ()=>{
         Emit('aetherflow:bought', { node: card });
-        await animateFlowFall(card);
+        await animateFlowFall(card);   // smoother (waits for transition)
         try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
     }
@@ -535,7 +537,15 @@ function ensureTranceUI(){
       el.classList.toggle('active', (level|0) >= n);
     });
 
-    holder.appendChild(t); // sits beneath gem because gem markup is before it
+    // ensure it's under the aether display
+    const aeWrap = holder.querySelector('.aether-display');
+    if (aeWrap && t.parentNode !== holder){
+      holder.appendChild(t);
+    } else if (aeWrap){
+      holder.appendChild(t); // move to end (beneath gem)
+    } else {
+      holder.appendChild(t);
+    }
   };
   const pub = serializePublic(state) || {};
   apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
@@ -610,6 +620,7 @@ async function render(){
 
   ensureTranceUI();
 
+  // HUD
   if (hudDeckBtn){
     const deckCount = (state?.players?.player?.deck?.length ?? 0);
     hudDeckBtn.innerHTML = `
@@ -660,6 +671,7 @@ async function render(){
       wireDesktopDrag(el, c);
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
+
       el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
 
       handEl.appendChild(el); domCards.push(el);
@@ -697,7 +709,6 @@ async function render(){
 async function doStartTurn(){
   state = startTurn(state);
   const active = state.activePlayer;
-
   reshuffleFromDiscard(active);
 
   const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
@@ -708,13 +719,15 @@ async function doStartTurn(){
   await render();
 }
 
-// Discard visible hand, AI takes its turn, then player draws a new hand.
+// End turn: discard visible hand, then hand control to AI for one auto-turn,
+// then return to player and draw.
 async function doEndTurn(){
+  // discard animation on current player's hand
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(n=> n.classList.add('discarding'));
   await sleep(220);
 
-  state = endTurn(state);      // to AI
+  state = endTurn(state);      // pass to AI
   await doStartTurn();         // AI start/draw
   state = endTurn(state);      // AI passes back
   await doStartTurn();         // Player start/draw
@@ -724,9 +737,9 @@ async function doEndTurn(){
 $("btn-start-turn")?.addEventListener("click", doStartTurn);
 $("btn-end-turn")?.addEventListener("click", doEndTurn);
 $("btn-endturn-hud")?.addEventListener("click", doEndTurn);
-document.getElementById("zoom-overlay")?.addEventListener("click", ()=> document.getElementById("zoom-overlay")?.setAttribute("data-open","false"));
+document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
-document.addEventListener("keydown", (e)=> { if (e.key === "Escape") document.getElementById("zoom-overlay")?.setAttribute("data-open","false"); });
+document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
