@@ -475,14 +475,13 @@ function ensureFlowTitle(){
     wrap.appendChild(rail);
   }
 
-   // ✅ Tell the wrapper how wide the flow grid is (so title aligns)
-  // Run after the cards are in the DOM so width is accurate.
+  // Tell the wrapper how wide the flow grid is (so title aligns)
   queueMicrotask(()=>{
     const w = row.getBoundingClientRect().width || 0;
     wrap.style.setProperty("--flow-width", `${Math.round(w)}px`);
-    });
-  }
+  });
 }
+
 
 /* --- Small fall-off animation for bought flow cards --- */
 async function animateFlowFall(node){
@@ -494,7 +493,6 @@ async function animateFlowFall(node){
 /* ---------- Flow (no End Turn card) ---------- */
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
-  
 
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
   flowRowEl.replaceChildren();
@@ -524,14 +522,14 @@ async function renderFlow(flowArray){
     li.appendChild(priceLbl);
 
     flowRowEl.appendChild(li);
-  );
+  }); // <-- correct close of forEach
 
   prevFlowIds = nextIds;
 
-   /* ✅ align the rail AFTER the row is built */
-    ensureFlowTitle();
-  
+  // align the rail AFTER the row is built
+  ensureFlowTitle();
 }
+
 
 /* ---------- trance + playable pulse ---------- */
 function ensureTranceUI(){
