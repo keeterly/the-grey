@@ -3,9 +3,9 @@
   const Grey = (function ensureBus() {
     if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
     const listeners = new Map();
-    const on = (n, fn) => { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(fn); };
+    const on  = (n, fn) => { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(fn); };
     const off = (n, fn) => listeners.get(n)?.delete(fn);
-    const emit = (n, d) => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
+    const emit= (n, d)  => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
     return (window.Grey = { on, off, emit });
   })();
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
@@ -21,8 +21,7 @@ import {
   setGlyphFromHand,
   buyFromFlow,
   discardForAether,
-  withAetherText,
-  aiTakeTurn
+  withAetherText
 } from "./GameLogic.js";
 
 /* ---------- utils ---------- */
@@ -32,6 +31,19 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 const nextFrame = () => new Promise(requestAnimationFrame);
 const onTransitionEnd = (node) => new Promise(res => node.addEventListener("transitionend", res, {once:true}));
+
+/* ----- Aether helpers (temp aether is spent first) ----- */
+function getTempAe(p){ return Math.max(0, p?.tempAether|0); }
+function getAe(p){ return Math.max(0, p?.aether|0); }
+function canPay(p, cost=0){ return (getTempAe(p) + getAe(p)) >= Math.max(0, cost|0); }
+function spendAe(p, cost=0){
+  let n = Math.max(0, cost|0);
+  if (n===0 || !p) return;
+  const useTemp = Math.min(getTempAe(p), n);
+  p.tempAether = getTempAe(p) - useTemp;
+  n -= useTemp;
+  if (n>0) p.aether = Math.max(0, getAe(p) - n);
+}
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -69,10 +81,11 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: SAFE small text (12.5% viewBox) ---------- */
-function setAetherDisplay(el, v=0){
+/* ---------- portrait Aether gem with temp-aether badge ---------- */
+function setAetherDisplay(el, v=0, temp=0){
   if (!el) return;
   const val = v|0;
+  const tv  = Math.max(0, temp|0);
   el.innerHTML = `
     <span class="gem">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -80,6 +93,7 @@ function setAetherDisplay(el, v=0){
         <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="3">${val}</text>
       </svg>
     </span>
+    ${tv>0 ? `<span class="temp-ae" title="Turn-only Aether">+${tv}</span>` : ``}
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
 }
@@ -181,7 +195,9 @@ function canSetGlyph(pub, card){
 }
 function canCastInstant(pub, card){
   if (card?.type!=="INSTANT") return false;
-  return typeof window.castInstantFromHand === "function";
+  const p = state?.players?.player;
+  const cost = Math.max(0, card.cost|0);
+  return canPay(p, cost);
 }
 function showToast(msg, ms=1400){
   let t = document.querySelector(".toast");
@@ -209,7 +225,10 @@ function showCardOptions(cardEl, cardData){
       try{
         if (o.k === "play"){
           const idx = firstOpenSpellSlotIndex(serializePublic(state)||{});
-          if (idx>=0){ state = playCardToSpellSlot(state, "player", cardData.id, idx); }
+          if (idx>=0){
+            state = playCardToSpellSlot(state, "player", cardData.id, idx);
+            Emit("spell:played", { side:"player", card: cardData });
+          }
         } else if (o.k === "set"){
           state = setGlyphFromHand(state, "player", cardData.id);
         } else if (o.k === "channel"){
@@ -246,17 +265,13 @@ function findValidDropTarget(node, cardType){
   if (hudDiscardBtn && node.closest("#btn-discard-hud")) return hudDiscardBtn;
   return null;
 }
- function markDropTargets(cardType, on){
-  document
-    .querySelectorAll(".row.player .slot.spell")
-    .forEach(s => s.classList.toggle("drag-over", !!on && cardType === "SPELL"));
-
+function markDropTargets(cardType, on){
+  document.querySelectorAll(".row.player .slot.spell")
+    .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType === "GLYPH");
-
-  if (hudDiscardBtn) hudDiscardBtn.classList.toggle("drop-ready", !!on);
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
+  hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
-
 function applyDrop(target, cardId, cardType){
   if (!target || !cardId) return;
   try {
@@ -270,7 +285,9 @@ function applyDrop(target, cardId, cardType){
     }
     if (target.classList.contains("spell") && cardType==="SPELL"){
       const idx = Number(target.dataset.slotIndex||0);
-      state = playCardToSpellSlot(state, "player", cardId, idx); render(); return;
+      state = playCardToSpellSlot(state, "player", cardId, idx);
+      Emit("spell:played", { side:"player", cardId });
+      render(); return;
     }
   } catch(e){}
 }
@@ -395,7 +412,11 @@ function renderSlots(container, snapshot, isPlayer){
         const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
-        try { state = playCardToSpellSlot(state, "player", id, i); render(); } catch {}
+        try {
+          state = playCardToSpellSlot(state, "player", id, i);
+          Emit("spell:played", { side:"player", cardId:id });
+          render();
+        } catch {}
       };
       d.addEventListener("dragenter", enter);
       d.addEventListener("dragover", over);
@@ -511,6 +532,7 @@ async function renderFlow(flowArray){
   row.replaceChildren();
 
   const playerAe = (state?.players?.player?.aether ?? 0);
+  const playerTemp = (state?.players?.player?.tempAether ?? 0);
 
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li");
@@ -523,7 +545,7 @@ async function renderFlow(flowArray){
 
     // Price / affordability gate
     const price = FLOW_PRICE_BY_POS[idx] || 0;
-    const canAfford = !!c && playerAe >= price;
+    const canAfford = !!c && (playerAe + playerTemp) >= price;
 
     if (!canAfford) card.setAttribute("aria-disabled", "true");
     if (c) attachPeekAndZoom(card, c);
@@ -532,7 +554,11 @@ async function renderFlow(flowArray){
       card.addEventListener("click", async ()=>{
         card.classList.add("flow-fall");
         await new Promise(r=>setTimeout(r, 180));
-        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
+        try {
+          state = buyFromFlow(state, "player", idx);
+          Emit("flow:buy", { side:"player", index: idx });
+          await render();
+        } catch {}
       });
     }
 
@@ -599,10 +625,10 @@ function highlightPlayableCards(){
     const id = node.dataset.cardId;
     const c = hand.find(h=> h.id===id);
     if (!c) return;
-    if (c.type==="SPELL"   && openSpell)               node.classList.add("pulse-spell");
-    else if (c.type==="GLYPH" && glyphOpen)           node.classList.add("pulse-glyph");
-    else if (c.type==="INSTANT" && canCastInstant(pub,c)) node.classList.add("pulse-instant");
-    else if (canChannel(c))                           node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
+    if (c.type==="SPELL"   && openSpell)                    node.classList.add("pulse-spell");
+    else if (c.type==="GLYPH" && glyphOpen)                node.classList.add("pulse-glyph");
+    else if (c.type==="INSTANT" && canCastInstant(pub,c))  node.classList.add("pulse-instant");
+    else if (canChannel(c))                                node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
   });
 }
 
@@ -625,10 +651,71 @@ function reshuffleFromDiscard(side = "player"){
   }
 }
 
+/* ---------- Glyph triggers ---------- */
+function glyphInPlayOf(side){
+  const slot = state?.players?.[side]?.slots?.[3];
+  return (slot?.hasCard && slot.card) ? slot.card : null;
+}
+function processGlyphTriggers(ev, payload){
+  ["player","ai"].forEach(owner=>{
+    const g = glyphInPlayOf(owner);
+    if (!g) return;
+
+    // Soulglass — draw 1 when YOU buy from flow
+    if (g.name?.includes("Soulglass") && ev==="flow:buy" && payload?.side===owner){
+      state = drawN(state, owner, 1);
+    }
+
+    // Withering Light — opponent loses 1 vitality when they play a spell
+    if (g.name?.includes("Withering Light") && ev==="spell:played"){
+      const opp = owner === "player" ? "ai" : "player";
+      if (payload?.side===opp){
+        state.players[opp].vitality = Math.max(0, (state.players[opp].vitality|0) - 1);
+      }
+    }
+
+    // Remnant Light — when YOUR spell resolves, gain 1 aether
+    if (g.name?.includes("Remnant Light") && ev==="spell:resolve" && payload?.side===owner){
+      state.players[owner].aether = (state.players[owner].aether|0) + 1;
+    }
+  });
+  render();
+}
+Grey.on("flow:buy",      p => processGlyphTriggers("flow:buy", p));
+Grey.on("spell:played",  p => processGlyphTriggers("spell:played", p));
+Grey.on("spell:resolve", p => processGlyphTriggers("spell:resolve", p));
+Grey.on("instant:cast",  p => processGlyphTriggers("instant:cast", p)); // keep UI fresh
+
+/* ---------- Cast Instants from hand (cost check, temp Æ first) ---------- */
+window.castInstantFromHand = async function(currentState, side, cardId){
+  const st = currentState;
+  const p  = st?.players?.[side];
+  if (!p) return st;
+
+  const i = (p.hand||[]).findIndex(c=> c.id===cardId);
+  if (i<0) return st;
+  const card = p.hand[i];
+  if (card.type !== "INSTANT") return st;
+
+  const cost = Math.max(0, card.cost|0);
+  if (!canPay(p, cost)){ showToast("Not enough Æ to cast this Instant."); return st; }
+
+  // pay cost (temp Æ first), then move to discard
+  spendAe(p, cost);
+  const [played] = p.hand.splice(i,1);
+  (p.discard ||= []).unshift(played);
+
+  // Fire events for glyphs/other systems
+  Emit("instant:cast", { side, card: played });
+  Emit("spell:resolve", { side, source: "INSTANT", card: played });
+
+  return st;
+};
+
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
-  if (!s.player) s.player = {aether:0, vitality:5, hand:[], slots:[]};
+  if (!s.player) s.player = {aether:0, tempAether:0, vitality:5, hand:[], slots:[]};
   if (!Array.isArray(s.player.hand)) s.player.hand=[];
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
     s.player.slots = [
@@ -636,7 +723,7 @@ function ensureSafetyShape(s){
       {isGlyph:true,hasCard:false,card:null}
     ];
   }
-  if (!s.ai) s.ai = {aether:0, vitality:5, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
+  if (!s.ai) s.ai = {aether:0, tempAether:0, vitality:5, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
   return s;
 }
 
@@ -649,8 +736,8 @@ async function render(){
   playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
-  setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0);
-  setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0);
+  setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
+  setAetherDisplay(aiAeEl,     s.players?.ai?.aether     ?? 0, s.players?.ai?.tempAether     ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
@@ -723,7 +810,7 @@ async function render(){
       setTimeout(()=>{
         addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 400); // 2× speed
+      }, 400);
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
       handEl.classList.add('dealing');
@@ -752,17 +839,16 @@ async function doStartTurn(){
     shuffledOnce = true;
   }
 
+  // reset temp Æ at start of the active player's turn
   const active = state.activePlayer;
+  state.players[active].tempAether = 0;
+
   reshuffleFromDiscard(active);
 
   const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
   if (need){
     if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
     state = drawN(state, active, need);
-  }
-  
-  if (state.activePlayer === 'ai') {
-    try { state = aiTakeTurn(state); } catch (e) {}
   }
   await render();
 }
