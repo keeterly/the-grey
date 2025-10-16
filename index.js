@@ -477,43 +477,100 @@ async function animateFlowFall(node){
   await onTransitionEnd(node);
 }
 
-/* ---------- Flow (no End Turn card) ---------- */
+// Map flow-slot index → price (aligns with your 4,3,3,2,2 rule)
+const FLOW_PRICE_BY_POS = [4,3,3,2,2];
+
+// Ensure the DOM scaffold exists:  [flow-title-rail]  [flow-board(#flow-row)]
+function ensureFlowScaffold(){
+  const row = document.getElementById("flow-row");
+  if (!row) return null;
+
+  // Make sure the row lives in a .flow-board
+  let board = row.closest(".flow-board");
+  if (!board){
+    board = document.createElement("div");
+    board.className = "flow-board";
+    row.parentNode.insertBefore(board, row);
+    board.appendChild(row);
+  }
+
+  // Wrap board with a .flow-wrap so the vertical title can sit beside it
+  let wrap = board.closest(".flow-wrap");
+  if (!wrap){
+    wrap = document.createElement("div");
+    wrap.className = "flow-wrap";
+    board.parentNode.insertBefore(wrap, board);
+    wrap.appendChild(board);
+  }
+
+  // Add the vertical title rail if missing
+  let rail = wrap.querySelector(".flow-title-rail");
+  if (!rail){
+    rail = document.createElement("div");
+    rail.className = "flow-title-rail";
+    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
+    wrap.insertBefore(rail, board);
+  }
+
+  return { wrap, board, row };
+}
+
+
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
+  const scaffold = ensureFlowScaffold();
+  if (!scaffold) return;
 
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
+
   flowRowEl.replaceChildren();
 
+  const playerAe = (state?.players?.player?.aether ?? 0);
+
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li"); li.className = "flow-card";
+    const li = document.createElement("li"); 
+    li.className = "flow-card";
+
     const card = document.createElement("article");
     card.className = "card market";
     card.dataset.flowIndex = String(idx);
     card.innerHTML = cardHTML(c);
+
+    // Price / affordability gate
+    const price = FLOW_PRICE_BY_POS[idx] || 0;
+    const canAfford = (c && playerAe >= price);
+
+    if (!canAfford) card.setAttribute("aria-disabled", "true");
+
     if (c) attachPeekAndZoom(card, c);
 
-    if (c){
+    if (c && canAfford){
       card.addEventListener("click", async ()=>{
-        Emit('aetherflow:bought', { node: card });
-        await animateFlowFall(card);   // smoother (waits for transition)
-        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
+        // quick visual fall
+        card.classList.add("flow-fall");
+        await new Promise(r=>setTimeout(r, 220));
+        try { 
+          state = buyFromFlow(state, "player", idx); 
+          await render(); 
+        } catch {}
       });
     }
 
     li.appendChild(card);
 
+    // price label under each slot
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
-    const PRICE_BY_POS = [4,3,3,2,2];
-    priceLbl.innerHTML = `${withAetherText("Æ")} ${PRICE_BY_POS[idx]||0} to buy`;
+    priceLbl.innerHTML = `${withAetherText("Æ")} ${price} to buy`;
     li.appendChild(priceLbl);
 
     flowRowEl.appendChild(li);
   });
 
+  // keep book-keeping
   prevFlowIds = nextIds;
-  ensureFlowTitle();
 }
+
 
 /* ---------- trance under gem + pulse ---------- */
 function ensureTranceUI(){
