@@ -285,7 +285,6 @@ hudDiscardBtn?.addEventListener('drop', (e)=>{
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
 /* ---------- slots / flow ---------- */
-function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
