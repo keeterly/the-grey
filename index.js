@@ -54,6 +54,7 @@ let state = initState();
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
+let shuffledOnce = false; // shuffle decks only once at the very first start
 
 /* ---------- portraits ---------- */
 function heartSVG(size=36){
@@ -248,7 +249,7 @@ function markDropTargets(cardType, on){
   document.querySelectorAll(".row.player .slot.spell")
     .forEach(s=> s.classList.toggle("drag-over", !!on && cardType==="SPELL"));
   const g = document.querySelector(".row.player .slot.glyph");
-  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH");
+  if (g) g.classList.toggle("drag-over", !!on && cardType==="GLYPH"));
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
@@ -446,8 +447,6 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-
-
 /* --- Flow fall-off animation helper --- */
 async function animateFlowFall(node){
   if (!node) return;
@@ -455,44 +454,61 @@ async function animateFlowFall(node){
   await onTransitionEnd(node);
 }
 
-// Map flow-slot index → price (aligns with your 4,3,3,2,2 rule)
+// Map flow-slot index → price (4,3,3,2,2)
 const FLOW_PRICE_BY_POS = [4,3,3,2,2];
 
-// Keep #flow-row as the grid child. Add a title rail INSIDE it.
+/* Build the Aetherflow scaffold:
+   .flow-wrap (grid) → [.flow-title-rail][.flow-board → #flow-row]
+*/
 function ensureFlowScaffold(){
   const row = document.getElementById("flow-row");
   if (!row) return null;
 
-  // Make the row itself act as the board container.
-  row.classList.add("flow-board");   // purely styling; no DOM moves
+  // Ensure .flow-board wrapper around the row
+  let board = row.closest(".flow-board");
+  if (!board){
+    board = document.createElement("div");
+    board.className = "flow-board";
+    row.parentNode.insertBefore(board, row);
+    board.appendChild(row);
+  }
 
-  // Add/keep the vertical title rail (as a child of row)
-  let rail = row.querySelector(".flow-title-rail");
+  // Ensure .flow-wrap around the board
+  let wrap = board.closest(".flow-wrap");
+  if (!wrap){
+    wrap = document.createElement("div");
+    wrap.className = "flow-wrap";
+    board.parentNode.insertBefore(wrap, board);
+    wrap.appendChild(board);
+  }
+
+  // Ensure title rail exists (sibling of board)
+  let rail = wrap.querySelector(".flow-title-rail");
   if (!rail){
     rail = document.createElement("div");
     rail.className = "flow-title-rail";
     rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
-    row.appendChild(rail);
+    wrap.insertBefore(rail, board);
   }
 
-  return { row };
+  return { wrap, board, row };
 }
-
-
 
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
   const scaffold = ensureFlowScaffold();
   if (!scaffold) return;
 
+  const { wrap, board, row } = scaffold;
+
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
 
-  flowRowEl.replaceChildren();
+  row.replaceChildren();
 
   const playerAe = (state?.players?.player?.aether ?? 0);
 
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li"); 
+    const li = document.createElement("li");
     li.className = "flow-card";
 
     const card = document.createElement("article");
@@ -502,39 +518,36 @@ async function renderFlow(flowArray){
 
     // Price / affordability gate
     const price = FLOW_PRICE_BY_POS[idx] || 0;
-    const canAfford = (c && playerAe >= price);
+    const canAfford = !!c && playerAe >= price;
 
     if (!canAfford) card.setAttribute("aria-disabled", "true");
-
     if (c) attachPeekAndZoom(card, c);
 
     if (c && canAfford){
       card.addEventListener("click", async ()=>{
-        // quick visual fall
         card.classList.add("flow-fall");
-        await new Promise(r=>setTimeout(r, 220));
-        try { 
-          state = buyFromFlow(state, "player", idx); 
-          await render(); 
-        } catch {}
+        await new Promise(r=>setTimeout(r, 180));
+        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
     }
 
     li.appendChild(card);
 
-    // price label under each slot
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
     priceLbl.innerHTML = `${withAetherText("Æ")} ${price} to buy`;
     li.appendChild(priceLbl);
 
-    flowRowEl.appendChild(li);
+    row.appendChild(li);
   });
 
-  // keep book-keeping
   prevFlowIds = nextIds;
-}
 
+  // Size title rail to board width (for centering)
+  queueMicrotask(()=>{
+    wrap.style.setProperty("--flow-width", `${Math.round(board.getBoundingClientRect().width)}px`);
+  });
+}
 
 /* ---------- trance under gem + pulse ---------- */
 function ensureTranceUI(){
@@ -558,12 +571,9 @@ function ensureTranceUI(){
       el.classList.toggle('active', (level|0) >= n);
     });
 
-    // ensure it's under the aether display
     const aeWrap = holder.querySelector('.aether-display');
     if (aeWrap && t.parentNode !== holder){
       holder.appendChild(t);
-    } else if (aeWrap){
-      holder.appendChild(t); // move to end (beneath gem)
     } else {
       holder.appendChild(t);
     }
@@ -729,6 +739,14 @@ async function render(){
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
+
+  // one-time randomize both decks at the very start of the match
+  if (!shuffledOnce){
+    shuffleInPlace(state.players.player.deck || []);
+    shuffleInPlace(state.players.ai.deck || []);
+    shuffledOnce = true;
+  }
+
   const active = state.activePlayer;
   reshuffleFromDiscard(active);
 
@@ -740,15 +758,13 @@ async function doStartTurn(){
   await render();
 }
 
-// End turn: discard visible hand, then hand control to AI for one auto-turn,
-// then return to player and draw.
+// End turn: discard visible hand, AI auto-turn, then back to player
 async function doEndTurn(){
-  // discard animation on current player's hand
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(n=> n.classList.add('discarding'));
   await sleep(220);
 
-  state = endTurn(state);      // pass to AI
+  state = endTurn(state);      // to AI
   await doStartTurn();         // AI start/draw
   state = endTurn(state);      // AI passes back
   await doStartTurn();         // Player start/draw
