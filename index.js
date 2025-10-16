@@ -940,3 +940,18 @@ document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); });
+
+/* ---------- mobile-landscape mode ---------- */
+(function mobileLandscapeMode(){
+  const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
+  const apply = () => {
+    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+    // small edge: treat very short viewports as landscape-like too
+    const shortSide = Math.min(window.innerWidth, window.innerHeight);
+    const enable = isPhone && (isLandscape || shortSide <= 420);
+    document.body.classList.toggle("mobile-landscape", !!enable);
+  };
+  window.addEventListener("resize", apply, {passive:true});
+  window.addEventListener("orientationchange", apply, {passive:true});
+  document.addEventListener("DOMContentLoaded", apply);
+})();
