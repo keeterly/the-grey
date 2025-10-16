@@ -442,42 +442,7 @@ async function renderFlow(flowArray){
 }
 
 
-async function renderFlow(flowArray){
-  if (!flowRowEl) return;
-  ensureFlowTitle();
 
-  const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
-  flowRowEl.replaceChildren();
-
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li"); li.className = "flow-card";
-    const card = document.createElement("article");
-    card.className = "card market";
-    card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
-    if (c) attachPeekAndZoom(card, c);
-
-    if (c){
-      card.addEventListener("click", async ()=>{
-        Emit('aetherflow:bought', { node: card });
-        await animateFlowFall(card);            // smooth fall-off
-        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
-      });
-    }
-
-    li.appendChild(card);
-
-    const priceLbl = document.createElement("div");
-    priceLbl.className = "price-label";
-    const PRICE_BY_POS = [4,3,3,2,2];
-    priceLbl.innerHTML = `${withAetherText("Æ")} ${PRICE_BY_POS[idx]||0} to buy`;
-    li.appendChild(priceLbl);
-
-    flowRowEl.appendChild(li);
-  });
-
-  prevFlowIds = nextIds;
-}
 
 
 /* ---------- render root ---------- */
