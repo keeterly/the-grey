@@ -3,9 +3,9 @@
   const Grey = (function ensureBus() {
     if (window.Grey && window.Grey.emit && window.Grey.on) return window.Grey;
     const listeners = new Map();
-    const on  = (n, fn) => { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(fn); };
+    const on = (n, fn) => { if (!listeners.has(n)) listeners.set(n, new Set()); listeners.get(n).add(fn); };
     const off = (n, fn) => listeners.get(n)?.delete(fn);
-    const emit= (n, d)  => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
+    const emit = (n, d) => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
     return (window.Grey = { on, off, emit });
   })();
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
@@ -24,6 +24,9 @@ import {
   withAetherText
 } from "./GameLogic.js";
 
+let AI = null;
+(async ()=> { try { AI = await import('./ai.js'); } catch {} })();
+
 /* ---------- utils ---------- */
 const $ = id => document.getElementById(id);
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
@@ -31,19 +34,6 @@ const sleep = ms => new Promise(r=>setTimeout(r,ms));
 const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 const nextFrame = () => new Promise(requestAnimationFrame);
 const onTransitionEnd = (node) => new Promise(res => node.addEventListener("transitionend", res, {once:true}));
-
-/* ----- Aether helpers (temp aether is spent first) ----- */
-function getTempAe(p){ return Math.max(0, p?.tempAether|0); }
-function getAe(p){ return Math.max(0, p?.aether|0); }
-function canPay(p, cost=0){ return (getTempAe(p) + getAe(p)) >= Math.max(0, cost|0); }
-function spendAe(p, cost=0){
-  let n = Math.max(0, cost|0);
-  if (n===0 || !p) return;
-  const useTemp = Math.min(getTempAe(p), n);
-  p.tempAether = getTempAe(p) - useTemp;
-  n -= useTemp;
-  if (n>0) p.aether = Math.max(0, getAe(p) - n);
-}
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -67,7 +57,20 @@ let state = initState();
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
-let shuffledOnce = false; // shuffle decks only once at the very first start
+let shuffledOnce = false;
+
+/* ---------- basic event helpers ---------- */
+const Bus = window.Grey;
+const Events = {
+  TURN_START: 'turn.start',
+  TURN_END:   'turn.end',
+  CARD_PLAYED:'card.played',
+  CARD_SET:   'card.set',
+  CARD_CAST:  'card.cast',
+  CHANNEL:    'card.channel',
+  BUY:        'flow.buy',
+  AETHER_GAIN:'aether.gain'
+};
 
 /* ---------- portraits ---------- */
 function heartSVG(size=36){
@@ -81,11 +84,10 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem with temp-aether badge ---------- */
+/* ---------- portrait Aether gem + TEMP overlay ---------- */
 function setAetherDisplay(el, v=0, temp=0){
   if (!el) return;
-  const val = v|0;
-  const tv  = Math.max(0, temp|0);
+  const val = v|0, tv = temp|0;
   el.innerHTML = `
     <span class="gem">
       <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -93,20 +95,23 @@ function setAetherDisplay(el, v=0, temp=0){
         <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="3">${val}</text>
       </svg>
     </span>
-    ${tv>0 ? `<span class="temp-ae" title="Turn-only Aether">+${tv}</span>` : ``}
-    <strong class="val" aria-hidden="true">${val}</strong>
+    ${tv>0 ? `
+    <span class="gem temp" title="Turn-only Aether">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2l6 6-6 14-6-14 6-6z" opacity=".65"/>
+        <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="3">${tv}</text>
+      </svg>
+    </span>` : ``}
   `;
 }
 
-/* ---------- hand layout (tight fan; cards sit side-by-side) ---------- */
+/* ---------- hand layout ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-
   const MAX_ANGLE = 22, MIN_ANGLE = 8;
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
-
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
   const stepX = cw * 0.98;
   const startX = -stepX * (N-1) / 2;
@@ -181,13 +186,14 @@ function attachPeekAndZoom(el, data){
 
 /* ---------- action popover ---------- */
 function clearAllActionMenus(){ document.querySelectorAll(".action-pop").forEach(n => n.remove()); }
-function firstOpenSpellSlotIndex(pub){
-  const slots = pub.players?.player?.slots || [];
+function firstOpenSpellSlotIndexFor(side, pub){
+  const slots = pub.players?.[side]?.slots || [];
   for (let i=0;i<3;i++) if (!slots[i]?.hasCard) return i;
   return -1;
 }
+function firstOpenSpellSlot(pub){ return firstOpenSpellSlotIndexFor("player", pub); }
 function canChannel(card){ return (card?.aetherValue|0) > 0; }
-function canPlaySpell(pub, card){ return card?.type==="SPELL" && firstOpenSpellSlotIndex(pub) >= 0; }
+function canPlaySpell(pub, card){ return card?.type==="SPELL" && firstOpenSpellSlot(pub) >= 0; }
 function canSetGlyph(pub, card){
   if (card?.type!=="GLYPH") return false;
   const slot = (pub.players?.player?.slots || [])[3];
@@ -195,9 +201,7 @@ function canSetGlyph(pub, card){
 }
 function canCastInstant(pub, card){
   if (card?.type!=="INSTANT") return false;
-  const p = state?.players?.player;
-  const cost = Math.max(0, card.cost|0);
-  return canPay(p, cost);
+  return typeof window.castInstantFromHand === "function";
 }
 function showToast(msg, ms=1400){
   let t = document.querySelector(".toast");
@@ -225,19 +229,18 @@ function showCardOptions(cardEl, cardData){
       try{
         if (o.k === "play"){
           const idx = firstOpenSpellSlotIndex(serializePublic(state)||{});
-          if (idx>=0){
-            state = playCardToSpellSlot(state, "player", cardData.id, idx);
-            Emit("spell:played", { side:"player", card: cardData });
-          }
+          if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
         } else if (o.k === "set"){
-          state = setGlyphFromHand(state, "player", cardData.id);
+          await setGlyphFromHandWithTemp("player", cardData.id);
         } else if (o.k === "channel"){
-          cardEl.classList.add("discarding"); await sleep(220);
+          const before = getAe("player");
           state = discardForAether(state, "player", cardData.id);
+          const gained = getAe("player") - before;
+          // move gained into temp only
+          adjustAe("player", -gained); addTemp("player", gained);
+          Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
         } else if (o.k === "cast"){
-          if (typeof window.castInstantFromHand === "function"){
-            state = await window.castInstantFromHand(state, "player", cardData.id);
-          } else { showToast("Casting for Instants not available yet."); }
+          state = await window.castInstantFromHand(state, "player", cardData.id);
         }
       } catch(e){}
       clearAllActionMenus();
@@ -278,16 +281,19 @@ function applyDrop(target, cardId, cardType){
     if (target === hudDiscardBtn){
       const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
       if (el){ el.classList.add("discarding"); setTimeout(()=>{}, 0); }
-      state = discardForAether(state, "player", cardId); render(); return;
+      const before = getAe("player");
+      state = discardForAether(state, "player", cardId);
+      const gained = getAe("player") - before;
+      adjustAe("player", -gained); addTemp("player", gained);
+      Emit(Events.CHANNEL, {side:"player", cardId, gained});
+      render(); return;
     }
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
-      state = setGlyphFromHand(state, "player", cardId); render(); return;
+      setGlyphFromHandWithTemp("player", cardId); render(); return;
     }
     if (target.classList.contains("spell") && cardType==="SPELL"){
       const idx = Number(target.dataset.slotIndex||0);
-      state = playCardToSpellSlot(state, "player", cardId, idx);
-      Emit("spell:played", { side:"player", cardId });
-      render(); return;
+      playSpellFromHandWithTemp("player", cardId, idx); render(); return;
     }
   } catch(e){}
 }
@@ -412,11 +418,7 @@ function renderSlots(container, snapshot, isPlayer){
         const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
         const type = payload.type || ev.dataTransfer?.getData("text/card-type");
         if (type!=="SPELL" || !id) return;
-        try {
-          state = playCardToSpellSlot(state, "player", id, i);
-          Emit("spell:played", { side:"player", cardId:id });
-          render();
-        } catch {}
+        try { playSpellFromHandWithTemp("player", id, i); render(); } catch {}
       };
       d.addEventListener("dragenter", enter);
       d.addEventListener("dragover", over);
@@ -463,7 +465,7 @@ function renderSlots(container, snapshot, isPlayer){
       const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
       const type = payload.type || ev.dataTransfer?.getData("text/card-type");
       if (type!=="GLYPH" || !id) return;
-      try { state = setGlyphFromHand(state, "player", id); render(); } catch {}
+      try { setGlyphFromHandWithTemp("player", id); render(); } catch {}
     };
     g.addEventListener("dragenter", enter);
     g.addEventListener("dragover", over);
@@ -483,14 +485,11 @@ async function animateFlowFall(node){
 // Map flow-slot index → price (4,3,3,2,2)
 const FLOW_PRICE_BY_POS = [4,3,3,2,2];
 
-/* Build the Aetherflow scaffold:
-   .flow-wrap (grid) → [.flow-title-rail][.flow-board → #flow-row]
-*/
+/* Flow scaffold: .flow-wrap → [title-rail][.flow-board → #flow-row] */
 function ensureFlowScaffold(){
   const row = document.getElementById("flow-row");
   if (!row) return null;
 
-  // Ensure .flow-board wrapper around the row
   let board = row.closest(".flow-board");
   if (!board){
     board = document.createElement("div");
@@ -499,7 +498,6 @@ function ensureFlowScaffold(){
     board.appendChild(row);
   }
 
-  // Ensure .flow-wrap around the board
   let wrap = board.closest(".flow-wrap");
   if (!wrap){
     wrap = document.createElement("div");
@@ -508,7 +506,6 @@ function ensureFlowScaffold(){
     wrap.appendChild(board);
   }
 
-  // Ensure title rail exists (sibling of board)
   let rail = wrap.querySelector(".flow-title-rail");
   if (!rail){
     rail = document.createElement("div");
@@ -522,17 +519,13 @@ function ensureFlowScaffold(){
 
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
-  const scaffold = ensureFlowScaffold();
-  if (!scaffold) return;
-
+  const scaffold = ensureFlowScaffold(); if (!scaffold) return;
   const { wrap, board, row } = scaffold;
 
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
-
   row.replaceChildren();
 
-  const playerAe = (state?.players?.player?.aether ?? 0);
-  const playerTemp = (state?.players?.player?.tempAether ?? 0);
+  const playerAe = getTotal("player");
 
   (flowArray || []).slice(0,5).forEach((c, idx)=>{
     const li = document.createElement("li");
@@ -543,22 +536,29 @@ async function renderFlow(flowArray){
     card.dataset.flowIndex = String(idx);
     card.innerHTML = cardHTML(c);
 
-    // Price / affordability gate
     const price = FLOW_PRICE_BY_POS[idx] || 0;
-    const canAfford = !!c && (playerAe + playerTemp) >= price;
+    const canAfford = !!c && playerAe >= price;
 
     if (!canAfford) card.setAttribute("aria-disabled", "true");
     if (c) attachPeekAndZoom(card, c);
 
     if (c && canAfford){
       card.addEventListener("click", async ()=>{
-        card.classList.add("flow-fall");
-        await new Promise(r=>setTimeout(r, 180));
+        // top-up permanent with temp just before purchase (so GameLogic sees enough),
+        // then reduce temp by the amount we virtually topped up.
+        const useTemp = Math.min(price, (state.players.player.tempAether|0));
+        adjustAe("player", useTemp); // virtual top-up
         try {
+          card.classList.add("flow-fall");
+          await new Promise(r=>setTimeout(r, 160));
           state = buyFromFlow(state, "player", idx);
-          Emit("flow:buy", { side:"player", index: idx });
-          await render();
-        } catch {}
+          addTemp("player", -useTemp); // spend temp
+        } catch(e){
+          // undo top-up on failure
+          adjustAe("player", -useTemp);
+        }
+        Emit(Events.BUY, {side:"player", idx, price});
+        await render();
       });
     }
 
@@ -574,7 +574,6 @@ async function renderFlow(flowArray){
 
   prevFlowIds = nextIds;
 
-  // Size title rail to board width (for centering)
   queueMicrotask(()=>{
     wrap.style.setProperty("--flow-width", `${Math.round(board.getBoundingClientRect().width)}px`);
   });
@@ -592,22 +591,13 @@ function ensureTranceUI(){
     if (!holder) return;
 
     let t = holder.querySelector('.trance');
-    if (!t){
-      t = document.createElement('div');
-      t.className = 'trance';
-    }
+    if (!t){ t = document.createElement('div'); t.className = 'trance'; }
     t.innerHTML = templateHTML;
     Array.from(t.querySelectorAll('.level')).forEach(el=>{
       const n = Number(el.getAttribute('data-level'));
       el.classList.toggle('active', (level|0) >= n);
     });
-
-    const aeWrap = holder.querySelector('.aether-display');
-    if (aeWrap && t.parentNode !== holder){
-      holder.appendChild(t);
-    } else {
-      holder.appendChild(t);
-    }
+    holder.appendChild(t);
   };
   const pub = serializePublic(state) || {};
   apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
@@ -617,7 +607,7 @@ function ensureTranceUI(){
 function highlightPlayableCards(){
   const pub = serializePublic(state) || {};
   const hand = pub.players?.player?.hand || [];
-  const openSpell = firstOpenSpellSlotIndex(pub) >= 0;
+  const openSpell = firstOpenSpellSlot(pub) >= 0;
   const glyphOpen = canSetGlyph(pub, {type:"GLYPH"});
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(node=>{
@@ -625,10 +615,10 @@ function highlightPlayableCards(){
     const id = node.dataset.cardId;
     const c = hand.find(h=> h.id===id);
     if (!c) return;
-    if (c.type==="SPELL"   && openSpell)                    node.classList.add("pulse-spell");
-    else if (c.type==="GLYPH" && glyphOpen)                node.classList.add("pulse-glyph");
-    else if (c.type==="INSTANT" && canCastInstant(pub,c))  node.classList.add("pulse-instant");
-    else if (canChannel(c))                                node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
+    if (c.type==="SPELL"   && openSpell)               node.classList.add("pulse-spell");
+    else if (c.type==="GLYPH" && glyphOpen)           node.classList.add("pulse-glyph");
+    else if (c.type==="INSTANT" && canCastInstant(pub,c)) node.classList.add("pulse-instant");
+    else if (canChannel(c))                           node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
   });
 }
 
@@ -651,71 +641,83 @@ function reshuffleFromDiscard(side = "player"){
   }
 }
 
-/* ---------- Glyph triggers ---------- */
-function glyphInPlayOf(side){
-  const slot = state?.players?.[side]?.slots?.[3];
-  return (slot?.hasCard && slot.card) ? slot.card : null;
+/* ---------- temp aether helpers ---------- */
+function sideObj(side){ return state?.players?.[side] || {}; }
+function getAe(side){ return sideObj(side).aether|0; }
+function getTemp(side){ return sideObj(side).tempAether|0; }
+function adjustAe(side, delta){ sideObj(side).aether = Math.max(0, getAe(side)+ (delta|0)); }
+function addTemp(side, delta){ sideObj(side).tempAether = Math.max(0, getTemp(side)+ (delta|0)); }
+function getTotal(side){ return getAe(side) + getTemp(side); }
+
+/* ---------- wrappers that honor temp aether + trance ---------- */
+function tranceDiscount(side, cost){
+  const lvl = sideObj(side).tranceLevel|0;
+  if (lvl >= 2) return Math.max(0, (cost|0) - 1);
+  return cost|0;
 }
-function processGlyphTriggers(ev, payload){
-  ["player","ai"].forEach(owner=>{
-    const g = glyphInPlayOf(owner);
-    if (!g) return;
-
-    // Soulglass — draw 1 when YOU buy from flow
-    if (g.name?.includes("Soulglass") && ev==="flow:buy" && payload?.side===owner){
-      state = drawN(state, owner, 1);
-    }
-
-    // Withering Light — opponent loses 1 vitality when they play a spell
-    if (g.name?.includes("Withering Light") && ev==="spell:played"){
-      const opp = owner === "player" ? "ai" : "player";
-      if (payload?.side===opp){
-        state.players[opp].vitality = Math.max(0, (state.players[opp].vitality|0) - 1);
-      }
-    }
-
-    // Remnant Light — when YOUR spell resolves, gain 1 aether
-    if (g.name?.includes("Remnant Light") && ev==="spell:resolve" && payload?.side===owner){
-      state.players[owner].aether = (state.players[owner].aether|0) + 1;
-    }
-  });
-  render();
+async function playSpellFromHandWithTemp(side, cardId, slotIndex){
+  const pub = serializePublic(state)||{};
+  const hand = pub.players?.[side]?.hand||[];
+  const card = hand.find(c=> c.id===cardId);
+  const rawCost = card?.cost|0;
+  const cost = tranceDiscount(side, rawCost);
+  const useTemp = Math.min(cost, getTemp(side));
+  adjustAe(side, useTemp); // virtual top-up (GameLogic checks aether)
+  try {
+    state = playCardToSpellSlot(state, side, cardId, slotIndex);
+    if (useTemp) addTemp(side, -useTemp);
+    Emit(Events.CARD_PLAYED, {side, cardId, cost});
+  } catch(e){
+    if (useTemp) adjustAe(side, -useTemp); // undo on failure
+    throw e;
+  }
 }
-Grey.on("flow:buy",      p => processGlyphTriggers("flow:buy", p));
-Grey.on("spell:played",  p => processGlyphTriggers("spell:played", p));
-Grey.on("spell:resolve", p => processGlyphTriggers("spell:resolve", p));
-Grey.on("instant:cast",  p => processGlyphTriggers("instant:cast", p)); // keep UI fresh
+async function setGlyphFromHandWithTemp(side, cardId){
+  // Assume glyphs have no play cost for now; if they do, mirror playSpell logic.
+  state = setGlyphFromHand(state, side, cardId);
+  Emit(Events.CARD_SET, {side, cardId});
+}
 
-/* ---------- Cast Instants from hand (cost check, temp Æ first) ---------- */
-window.castInstantFromHand = async function(currentState, side, cardId){
-  const st = currentState;
-  const p  = st?.players?.[side];
-  if (!p) return st;
-
-  const i = (p.hand||[]).findIndex(c=> c.id===cardId);
-  if (i<0) return st;
-  const card = p.hand[i];
-  if (card.type !== "INSTANT") return st;
-
-  const cost = Math.max(0, card.cost|0);
-  if (!canPay(p, cost)){ showToast("Not enough Æ to cast this Instant."); return st; }
-
-  // pay cost (temp Æ first), then move to discard
-  spendAe(p, cost);
-  const [played] = p.hand.splice(i,1);
-  (p.discard ||= []).unshift(played);
-
-  // Fire events for glyphs/other systems
-  Emit("instant:cast", { side, card: played });
-  Emit("spell:resolve", { side, source: "INSTANT", card: played });
-
-  return st;
+/* Instant casting surface available to UI + AI */
+window.castInstantFromHand = async function(_state, side, cardId){
+  const pub = serializePublic(state)||{};
+  const hand = pub.players?.[side]?.hand||[];
+  const card = hand.find(c=> c.id===cardId);
+  if (!card || card.type!=="INSTANT") return state;
+  const rawCost = card.cost|0;
+  const cost = tranceDiscount(side, rawCost);
+  if (getTotal(side) < cost){ showToast("Not enough Æther."); return state; }
+  const useTemp = Math.min(cost, getTemp(side));
+  adjustAe(side, useTemp);
+  try{
+    // If you have a concrete resolver in GameLogic, call it here.
+    // For now: simulate by discarding the Instant (gain no aether) and emitting event.
+    // If your GameLogic has discardFromHand(state, side, cardId) use that; otherwise play to stack/resolve.
+    // Here we reuse discardForAether with a zero gain hack: measure, then roll back gain to temp zero.
+    const before = getAe(side);
+    state = discardForAether(state, side, cardId);
+    const gained = getAe(side) - before;
+    if (gained>0){ adjustAe(side, -gained); } // Instants shouldn't generate aether here
+    if (useTemp) addTemp(side, -useTemp);
+    Emit(Events.CARD_CAST, {side, cardId, cost});
+  }catch(e){
+    if (useTemp) adjustAe(side, -useTemp);
+    throw e;
+  }
+  return state;
 };
 
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
+  // add temp pools + trance level defaults
+  for (const who of ["player","ai"]){
+    s.players = s.players || {};
+    s.players[who] = s.players[who] || {};
+    if (typeof s.players[who].tempAether !== "number") s.players[who].tempAether = 0;
+    if (typeof s.players[who].tranceLevel !== "number") s.players[who].tranceLevel = 0;
+  }
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
-  if (!s.player) s.player = {aether:0, tempAether:0, vitality:5, hand:[], slots:[]};
+  if (!s.player) s.player = {aether:0, vitality:5, hand:[], slots:[]};
   if (!Array.isArray(s.player.hand)) s.player.hand=[];
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
     s.player.slots = [
@@ -723,7 +725,7 @@ function ensureSafetyShape(s){
       {isGlyph:true,hasCard:false,card:null}
     ];
   }
-  if (!s.ai) s.ai = {aether:0, tempAether:0, vitality:5, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
+  if (!s.ai) s.ai = {aether:0, vitality:5, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
   return s;
 }
 
@@ -737,7 +739,7 @@ async function render(){
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
-  setAetherDisplay(aiAeEl,     s.players?.ai?.aether     ?? 0, s.players?.ai?.tempAether     ?? 0);
+  setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
@@ -828,41 +830,100 @@ async function render(){
   highlightPlayableCards();
 }
 
+/* ---------- trance progression (simple placeholder) ---------- */
+function updateTranceFor(side){
+  // Example trigger: if player spent ≥6 total aether this turn => Level 1; ≥10 => Level 2.
+  // Track spend on the bus; here we just keep the state value stable.
+  // Hook: If desired, attach bus .on handlers accumulating per-turn spend.
+}
+
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
 
-  // one-time randomize both decks at the very start of the match
+  // one-time randomize both decks at the very start
   if (!shuffledOnce){
     shuffleInPlace(state.players.player.deck || []);
     shuffleInPlace(state.players.ai.deck || []);
     shuffledOnce = true;
   }
 
-  // reset temp Æ at start of the active player's turn
-  const active = state.activePlayer;
-  state.players[active].tempAether = 0;
+  // clear temp aether at TURN START
+  state.players.player.tempAether = 0;
+  state.players.ai.tempAether = 0;
 
+  // Trance L1: +1 opening draw for active player
+  const side = state.activePlayer;
+  const tranceL = (state.players[side].tranceLevel|0);
+  const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
+  const bonus = tranceL >= 1 ? 1 : 0;
+  const need = baseNeed + bonus;
+
+  const active = side;
   reshuffleFromDiscard(active);
-
-  const need = Math.max(0, 5 - (state.players[active].hand?.length||0));
   if (need){
     if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
     state = drawN(state, active, need);
   }
+
+  Emit(Events.TURN_START, {side});
   await render();
 }
 
-// End turn: discard visible hand, AI auto-turn, then back to player
 async function doEndTurn(){
+  // discard animation on current player's hand
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(n=> n.classList.add('discarding'));
   await sleep(220);
 
-  state = endTurn(state);      // to AI
-  await doStartTurn();         // AI start/draw
-  state = endTurn(state);      // AI passes back
-  await doStartTurn();         // Player start/draw
+  Emit(Events.TURN_END, {side: state.activePlayer});
+
+  // Pass to AI
+  state = endTurn(state);
+  await doStartTurn(); // AI start/draw
+
+  // Let AI act (one action per AI turn keeps things snappy)
+  if (AI?.runAiTurn){
+    const api = {
+      getPublic: ()=> serializePublic(state)||{},
+      getSideState: (side)=> state.players[side],
+      findFirstOpenSpellSlot: (side)=> firstOpenSpellSlotIndexFor(side, serializePublic(state)||{}),
+      canPay: (side, cost)=> getTotal(side) >= tranceDiscount(side, cost|0),
+      pay: (side, cost)=> {
+        const c = tranceDiscount(side, cost|0);
+        const useTemp = Math.min(c, getTemp(side));
+        adjustAe(side, useTemp);
+        addTemp(side, -useTemp);
+        adjustAe(side, -(c - useTemp));
+      },
+      playSpellFromHand: (side, id, i)=> (playSpellFromHandWithTemp(side, id, i), state),
+      setGlyphFromHand:  (side, id)=> (setGlyphFromHandWithTemp(side, id), state),
+      castInstantFromHand: (side, id)=> window.castInstantFromHand(state, side, id),
+      channelFromHand: (side, id)=> {
+        const before = getAe(side);
+        state = discardForAether(state, side, id);
+        const gained = getAe(side) - before;
+        adjustAe(side, -gained); addTemp(side, gained);
+        Emit(Events.CHANNEL, {side, cardId:id, gained});
+        return state;
+      },
+      buyFromFlowIndex: (side, idx, price)=>{
+        const useTemp = Math.min(price, getTemp(side));
+        adjustAe(side, useTemp);
+        state = buyFromFlow(state, side, idx);
+        addTemp(side, -useTemp);
+        Emit(Events.BUY, {side, idx, price});
+        return state;
+      },
+      flowPriceAt: (i)=> FLOW_PRICE_BY_POS[i]||0
+    };
+    try { state = await AI.runAiTurn(state, api); } catch {}
+    await render();
+  }
+
+  // Pass back to player
+  state = endTurn(state);
+  await doStartTurn();
 }
 
 /* ---------- events ---------- */
