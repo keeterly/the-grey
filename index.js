@@ -285,6 +285,8 @@ hudDiscardBtn?.addEventListener('drop', (e)=>{
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
 /* ---------- slots / flow ---------- */
+function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
+
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -325,35 +327,6 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
-/* --- Flow title helper (left of board, outside grid) --- */
-function ensureFlowTitle(){
-  const row = document.getElementById("flow-row");
-  if (!row) return;
-
-  // Ensure we have a .flow-wrap parent (so title can live outside the grid)
-  let wrap = row.closest(".flow-wrap");
-  if (!wrap){
-    wrap = document.createElement("div");
-    wrap.className = "flow-wrap";
-    // insert wrap and move the row into it
-    row.parentNode.insertBefore(wrap, row);
-    wrap.appendChild(row);
-  }
-
-  // Add (or keep) the vertical title rail
-  let rail = wrap.querySelector(".flow-title-rail");
-  if (!rail){
-    rail = document.createElement("div");
-    rail.className = "flow-title-rail";
-    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
-    wrap.appendChild(rail);
-  }
-}
-
-
-
-
-  
   const g = document.createElement("div");
   g.className = "slot glyph";
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
@@ -364,7 +337,7 @@ function ensureFlowTitle(){
     art.innerHTML = cardHTML(glyphSlot.card);
     attachPeekAndZoom(art, glyphSlot.card);
     g.appendChild(art);
-    } else {
+  } else {
     g.textContent = "";
     const hint = document.createElement("div");
     hint.className = "slot-glyph-hint";
@@ -377,7 +350,6 @@ function ensureFlowTitle(){
     `;
     g.appendChild(hint);
   }
-
 
   if (isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -398,7 +370,77 @@ function ensureFlowTitle(){
     g.addEventListener("drop", drop);
   }
   container.appendChild(g);
+} // <-- IMPORTANT: renderSlots ends here
+
+/* --- Flow title helper (left of board, outside grid) --- */
+function ensureFlowTitle(){
+  const row = document.getElementById("flow-row");
+  if (!row) return;
+
+  // ensure a .flow-wrap parent so the title can sit outside the grid
+  let wrap = row.closest(".flow-wrap");
+  if (!wrap){
+    wrap = document.createElement("div");
+    wrap.className = "flow-wrap";
+    row.parentNode.insertBefore(wrap, row);
+    wrap.appendChild(row);
+  }
+
+  // add / keep the vertical title rail
+  let rail = wrap.querySelector(".flow-title-rail");
+  if (!rail){
+    rail = document.createElement("div");
+    rail.className = "flow-title-rail";
+    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
+    wrap.appendChild(rail);
+  }
 }
+
+/* --- Small fall-off animation for bought flow cards --- */
+async function animateFlowFall(node){
+  if (!node) return;
+  node.classList.add("flow-fall");
+  await sleep(280);
+}
+
+/* Uses ensureFlowTitle + animateFlowFall */
+async function renderFlow(flowArray){
+  if (!flowRowEl) return;
+  ensureFlowTitle();
+
+  const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
+  flowRowEl.replaceChildren();
+
+  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+    const li = document.createElement("li"); li.className = "flow-card";
+    const card = document.createElement("article");
+    card.className = "card market";
+    card.dataset.flowIndex = String(idx);
+    card.innerHTML = cardHTML(c);
+    if (c) attachPeekAndZoom(card, c);
+
+    if (c){
+      card.addEventListener("click", async ()=>{
+        Emit('aetherflow:bought', { node: card });
+        await animateFlowFall(card);
+        try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
+      });
+    }
+
+    li.appendChild(card);
+
+    const priceLbl = document.createElement("div");
+    priceLbl.className = "price-label";
+    const PRICE_BY_POS = [4,3,3,2,2];
+    priceLbl.innerHTML = `${withAetherText("Æ")} ${PRICE_BY_POS[idx]||0} to buy`;
+    li.appendChild(priceLbl);
+
+    flowRowEl.appendChild(li);
+  });
+
+  prevFlowIds = nextIds;
+}
+
 
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
