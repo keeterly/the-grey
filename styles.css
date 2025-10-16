@@ -69,6 +69,23 @@ html,body{height:100%}
 }
 .aether-display .val{display:none}
 
+/* Turn-only aether badge next to gem */
+.aether-display .temp-ae{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:22px;
+  height:22px;
+  padding:0 8px;
+  margin-left:6px;
+  border-radius:999px;
+  font-weight:800;
+  font-size:.9rem;
+  color:#0d0a07;
+  background:#93c6ff;           /* lighter blue than main gem */
+  box-shadow:0 2px 6px rgba(0,0,0,.35);
+}
+
 /* Corners */
 .row.player .portrait{position:absolute;left:16px;bottom:16px}
 .row.ai     .portrait{position:absolute;right:16px;top:16px}
