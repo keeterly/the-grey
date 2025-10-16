@@ -524,7 +524,7 @@ async function renderFlow(flowArray){
     li.appendChild(priceLbl);
 
     flowRowEl.appendChild(li);
-  });
+  );
 
   prevFlowIds = nextIds;
 
