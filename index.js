@@ -11,6 +11,9 @@
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
+
+import './device-profile.js';
+
 import {
   initState,
   serializePublic,
