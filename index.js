@@ -132,6 +132,38 @@ function layoutHand(container, cards) {
   });
 }
 
+function isMobileLandscape(){
+  return document.body.classList?.contains('mobile-landscape');
+}
+
+function layoutHand(container, cards) {
+  const N = cards.length; if (!N || !container) return;
+
+  // Mobile: denser step, lower rotation, a bit more lift for visibility
+  const MAX_ANGLE = isMobileLandscape() ? 14 : 22;
+  const MIN_ANGLE = isMobileLandscape() ? 4  : 8;
+
+  const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
+  const stepA  = N===1 ? 0 : totalAngle/(N-1);
+  const startA = -totalAngle/2;
+
+  const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
+  const stepX = isMobileLandscape() ? cw * 0.86 : cw * 0.98; // tighter spacing on mobile
+  const startX = -stepX * (N-1) / 2;
+  const LIFT = isMobileLandscape() ? 38 : 44;
+
+  cards.forEach((el,i)=>{
+    const a = startA + stepA*i;
+    const rad = a * Math.PI/180;
+    const x = startX + stepX*i;
+    const y = LIFT - Math.cos(rad)*(LIFT*0.78);
+    el.style.setProperty("--tx", `${x}px`);
+    el.style.setProperty("--ty", `${y}px`);
+    el.style.setProperty("--rot", `${a}deg`);
+    el.style.zIndex = String(400+i);
+  });
+}
+
 /* ---------- card shell / preview ---------- */
 function closeZoom(){ document.getElementById("zoom-overlay")?.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
