@@ -325,6 +325,35 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
+/* --- Flow title helper (left of board, outside grid) --- */
+function ensureFlowTitle(){
+  const row = document.getElementById("flow-row");
+  if (!row) return;
+
+  // Ensure we have a .flow-wrap parent (so title can live outside the grid)
+  let wrap = row.closest(".flow-wrap");
+  if (!wrap){
+    wrap = document.createElement("div");
+    wrap.className = "flow-wrap";
+    // insert wrap and move the row into it
+    row.parentNode.insertBefore(wrap, row);
+    wrap.appendChild(row);
+  }
+
+  // Add (or keep) the vertical title rail
+  let rail = wrap.querySelector(".flow-title-rail");
+  if (!rail){
+    rail = document.createElement("div");
+    rail.className = "flow-title-rail";
+    rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
+    wrap.appendChild(rail);
+  }
+}
+
+
+
+
+  
   const g = document.createElement("div");
   g.className = "slot glyph";
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
