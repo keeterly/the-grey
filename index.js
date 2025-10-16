@@ -28,8 +28,8 @@ import {
 const $ = id => document.getElementById(id);
 const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
 const sleep = ms => new Promise(r=>setTimeout(r,ms));
-const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 const nextFrame = () => new Promise(requestAnimationFrame);
+const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -52,9 +52,6 @@ const zoomCardEl    = $("zoom-card");
 
 /* ---------- state ---------- */
 let state = initState();
-/* Ensure the river starts empty on fresh boot (non-destructive if already set) */
-if (!Array.isArray(state.flow)) state.flow = [null,null,null,null,null];
-if (!Array.isArray(state.flow) || state.flow.length !== 5) state.flow = [null,null,null,null,null];
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
@@ -71,7 +68,7 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem: text sized to ~12.5% of viewBox ---------- */
+/* ---------- portrait Aether gem: value scaled way down (fits) ---------- */
 function setAetherDisplay(el, v=0){
   if (!el) return;
   const val = v|0;
@@ -85,10 +82,11 @@ function setAetherDisplay(el, v=0){
     <strong class="val" aria-hidden="true">${val}</strong>
   `;
   const t = el.querySelector("svg text");
-  if (t) t.setAttribute("font-size", "3"); // 12.5% of 24 viewBox
+  // keep tiny so it always sits inside the faceted gem nicely
+  if (t) t.setAttribute("font-size", "3"); // ~12.5% of 24 viewBox
 }
 
-/* ---------- hand layout (tight fan; cards sit side-by-side) ---------- */
+/* ---------- hand layout (tight fan; contents scale with card) ---------- */
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
@@ -115,14 +113,14 @@ function layoutHand(container, cards) {
   });
 }
 
-/* ---------- preview / zoom & card HTML ---------- */
+/* ---------- preview / zoom ---------- */
 function closeZoom(){ if (zoomOverlayEl) zoomOverlayEl.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
 function cardShellHTML(c){
-  const pip = Number.isFinite(c?.pip) ? Math.max(0, c.pip|0) : 0;
+  const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
   const pipDots = `<div class="pip-track">${pip>0 ? Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("") : ""}</div>`;
-  const playCost = (c?.cost|0) > 0 ? (c.cost|0) : null;
-  const aetherChip = (c?.aetherValue>0)
+  const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
+  const aetherChip = (c.aetherValue>0)
     ? `<div class="aether-chip">
          <svg viewBox="0 0 24 24" aria-hidden="true">
            <path d="M12 2l6 6-6 14-6-14 6-6z"/>
@@ -130,12 +128,12 @@ function cardShellHTML(c){
          </svg>
        </div>` : "";
   return `
-    <div class="title">${c?.name ?? ""}</div>
-    <div class="type" data-k="${c?.type||""}">${c?.type||""}</div>
+    <div class="title">${c.name}</div>
+    <div class="type" data-k="${c.type||""}">${c.type||""}</div>
     ${playCost ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
     <div class="divider"></div>
     ${pipDots}
-    <div class="textbox">${withAetherText(cleanRulesText(c?.text||""))}</div>
+    <div class="textbox">${withAetherText(cleanRulesText(c.text||""))}</div>
     ${aetherChip}
   `;
 }
@@ -189,7 +187,7 @@ function canSetGlyph(pub, card){
 }
 function canCastInstant(pub, card){
   if (card?.type!=="INSTANT") return false;
-  return typeof window.castInstantFromHand === "function"; // optional engine hook
+  return typeof window.castInstantFromHand === "function"; // optional hook
 }
 function showToast(msg, ms=1400){
   let t = document.querySelector(".toast");
@@ -209,6 +207,7 @@ function showCardOptions(cardEl, cardData){
 
   const pop = document.createElement("div");
   pop.className = `action-pop t-${(cardData.type||'X').toLowerCase()}`;
+
   opts.forEach(o=>{
     const b = document.createElement("button");
     b.type="button"; b.className = `rune-btn act-${o.k}`; b.textContent = o.label;
@@ -222,7 +221,7 @@ function showCardOptions(cardEl, cardData){
           state = setGlyphFromHand(state, "player", cardData.id);
         } else if (o.k === "channel"){
           cardEl.classList.add("discarding");
-          await sleep(320);
+          await sleep(220);
           state = discardForAether(state, "player", cardData.id);
         } else if (o.k === "cast"){
           if (typeof window.castInstantFromHand === "function"){
@@ -283,7 +282,7 @@ function applyDrop(target, cardId, cardType){
   } catch(e){}
 }
 
-/* Desktop drag wiring */
+/* desktop */
 function wireDesktopDrag(el, data){
   el.draggable = true;
   el.addEventListener("dragstart", (ev)=>{
@@ -308,8 +307,7 @@ function wireDesktopDrag(el, data){
   });
   el.addEventListener("click", (e)=>{ e.stopPropagation(); showCardOptions(el, data); });
 }
-
-/* Touch drag wiring */
+/* touch */
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   const start = (ev)=>{
@@ -349,6 +347,7 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchcancel", end, {passive:false});
 }
 
+/* global listeners */
 document.addEventListener('dragover', (e)=>{
   const el = document.elementFromPoint(e.clientX, e.clientY);
   const tgt = findValidDropTarget(el, "SPELL");
@@ -365,35 +364,28 @@ document.addEventListener('drop', (ev)=>{
 }, true);
 document.addEventListener("click", clearAllActionMenus);
 
-/* ---------- card html ---------- */
+/* ---------- card html helper ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
-/* ---------- slots / flow ---------- */
+/* ---------- slots ---------- */
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
 
-  // --- Spell slots (3) ---
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
     d.dataset.slotIndex = String(i);
-
-    // Title
-    const title = document.createElement("div");
-    title.className = "slot-title";
-    title.textContent = "Spell Slot";
-    d.appendChild(title);
-
     const slot = safe[i] || {hasCard:false, card:null};
+
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
       art.className = "card";
       art.innerHTML = cardHTML(slot.card);
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
-    }
+    } else { d.innerHTML = `<div class="slot-title">Spell Slot</div>`; }
 
     if (isPlayer){
       const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -416,32 +408,24 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // --- Glyph slot ---
   const g = document.createElement("div");
   g.className = "slot glyph";
-
-  // Glyph title + big rune
-  const gLabel = document.createElement("div");
-  gLabel.className = "slot-title";
-  gLabel.textContent = "Glyph Slot";
-  g.appendChild(gLabel);
-
-  const rune = document.createElement("div");
-  rune.className = "slot-rune";
-  rune.innerHTML = `
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20"
-            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>`;
-  g.appendChild(rune);
-
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
+
   if (glyphSlot.hasCard && glyphSlot.card){
     const art = document.createElement("article");
     art.className = "card";
     art.innerHTML = cardHTML(glyphSlot.card);
     attachPeekAndZoom(art, glyphSlot.card);
     g.appendChild(art);
+  } else {
+    g.innerHTML = `
+      <div class="slot-title">Glyph Slot</div>
+      <svg class="glyph-back-rune" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3l3 4-3 7-3-7 3-4zM5 10l4-1m6 1l4-1M7 16h10"
+              fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+      </svg>
+    `;
   }
 
   if (isPlayer){
@@ -465,10 +449,12 @@ function renderSlots(container, snapshot, isPlayer){
   container.appendChild(g);
 }
 
-/* --- Flow title helper (left of board, centered to row width) --- */
+/* --- Flow title helper (left rail, centered) --- */
 function ensureFlowTitle(){
   const row = document.getElementById("flow-row");
   if (!row) return;
+
+  // Ensure a .flow-wrap parent so the title can sit outside the grid
   let wrap = row.closest(".flow-wrap");
   if (!wrap){
     wrap = document.createElement("div");
@@ -476,6 +462,8 @@ function ensureFlowTitle(){
     row.parentNode.insertBefore(wrap, row);
     wrap.appendChild(row);
   }
+
+  // Add/keep the vertical title rail
   let rail = wrap.querySelector(".flow-title-rail");
   if (!rail){
     rail = document.createElement("div");
@@ -483,22 +471,25 @@ function ensureFlowTitle(){
     rail.innerHTML = `<div class="flow-title" aria-hidden="true">AETHER FLOW</div>`;
     wrap.appendChild(rail);
   }
+
+  // width sync for centering the rail alongside the board
   queueMicrotask(()=>{
     const w = row.getBoundingClientRect().width || 0;
     wrap.style.setProperty("--flow-width", `${Math.round(w)}px`);
   });
 }
 
-/* --- Small fall-off animation for bought/shifted flow cards --- */
+/* --- Small fall-off animation for bought/advanced flow cards --- */
 async function animateFlowFall(node){
   if (!node) return;
   node.classList.add("flow-fall");
   await sleep(220);
 }
 
-/* ---------- Aetherflow river rendering (no End Turn card) ---------- */
+/* ---------- Flow (river, inside board) ---------- */
 async function renderFlow(flowArray){
   if (!flowRowEl) return;
+  ensureFlowTitle();
 
   const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
   flowRowEl.replaceChildren();
@@ -513,7 +504,7 @@ async function renderFlow(flowArray){
 
     if (c){
       card.addEventListener("click", async ()=>{
-        // Smooth remove (buy) then mutate
+        Emit('aetherflow:bought', { node: card });
         await animateFlowFall(card);
         try { state = buyFromFlow(state, "player", idx); await render(); } catch {}
       });
@@ -531,10 +522,9 @@ async function renderFlow(flowArray){
   });
 
   prevFlowIds = nextIds;
-  ensureFlowTitle();
 }
 
-/* ---------- trance + playable pulse ---------- */
+/* ---------- trance (beneath Aethergem) & playable pulse ---------- */
 function ensureTranceUI(){
   const templateHTML = `
     <div class="level" data-level="1">◇ I — Runic Surge</div>
@@ -548,13 +538,13 @@ function ensureTranceUI(){
     if (!t){
       t = document.createElement('div');
       t.className = 'trance';
+      holder.appendChild(t);
     }
     t.innerHTML = templateHTML;
     Array.from(t.querySelectorAll('.level')).forEach(el=>{
       const n = Number(el.getAttribute('data-level'));
       el.classList.toggle('active', (level|0) >= n);
     });
-    holder.appendChild(t); // ensure sits beneath gem by appending last
   };
   const pub = serializePublic(state) || {};
   apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
@@ -573,14 +563,14 @@ function highlightPlayableCards(){
     const id = node.dataset.cardId;
     const c = hand.find(h=> h.id===id);
     if (!c) return;
-    if (c.type==="SPELL"   && openSpell)               node.classList.add("pulse-spell");
-    else if (c.type==="GLYPH" && glyphOpen)           node.classList.add("pulse-glyph");
-    else if (c.type==="INSTANT" && canCastInstant(pub,c)) node.classList.add("pulse-instant");
-    else if (canChannel(c))                           node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
+    if (c.type==="SPELL"   && openSpell)                   node.classList.add("pulse-spell");
+    else if (c.type==="GLYPH" && glyphOpen)               node.classList.add("pulse-glyph");
+    else if (c.type==="INSTANT" && canCastInstant(pub,c))  node.classList.add("pulse-instant");
+    else if (canChannel(c))                                node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
   });
 }
 
-/* ---------- deck helpers ---------- */
+/* ---------- deck helpers (for draw at start & reshuffle) ---------- */
 function shuffleInPlace(arr){
   for (let i = arr.length - 1; i > 0; i--){
     const j = (Math.random() * (i + 1)) | 0;
@@ -599,29 +589,17 @@ function reshuffleFromDiscard(side = "player"){
   }
 }
 
-/* ---------- Aetherflow river advance (reveal 1, shift right, fall off) ---------- */
-/* If GameLogic exposes window.advanceAetherflow, we use it. Otherwise do a safe UI-side shift using state.flowDeck (if present). */
-function uiAdvanceAetherflow(s){
+/* optional: river reveal per round if state exposes a flowDeck */
+function advanceAetherflowLocal(s){
   try{
-    if (typeof window.advanceAetherflow === "function") return window.advanceAetherflow(s);
+    if (!s.flow) s.flow = [null,null,null,null,null];
+    const deck = s.flowDeck;
+    if (!Array.isArray(deck) || !deck.length) return s;
+    // shift right; drop off last
+    for (let i=4; i>0; i--) s.flow[i] = s.flow[i-1] || null;
+    s.flow[0] = deck.shift() || null;
   }catch{}
-  const ns = {...s};
-  const flow = Array.isArray(ns.flow) ? ns.flow.slice(0,5) : [null,null,null,null,null];
-  const deck = ns.flowDeck || []; // optional deck for flow; if missing we just shift in null
-
-  // shift right
-  const falling = flow[4] || null;
-  for (let i=4;i>0;i--) flow[i] = flow[i-1];
-  // reveal one from flow deck if available
-  let revealed = null;
-  if (Array.isArray(deck) && deck.length){
-    revealed = deck.shift();
-  }
-  flow[0] = revealed;
-  ns.flow = flow;
-  ns.flowDeck = deck;
-  // we could stash falling into ns.flowGrave if needed; optional
-  return ns;
+  return s;
 }
 
 /* ---------- render root ---------- */
@@ -708,6 +686,9 @@ async function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
+      // quick-tap on touch also opens menu
+      el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
+
       handEl.appendChild(el); domCards.push(el);
     });
 
@@ -717,11 +698,11 @@ async function render(){
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
       handEl.classList.add('dealing');
-      addedNodes.forEach(n => { n.classList.add('deal-in'); });   // animate actual cards (2× speed in CSS)
+      addedNodes.forEach(n => { n.classList.add('deal-in'); });   // animate actual cards
       setTimeout(()=>{
         addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 280);
+      }, 300); // 2× speed
       bootDealt = true;
     } else if (!bootDealt && domCards.length){
       handEl.classList.add('dealing');
@@ -729,7 +710,7 @@ async function render(){
       setTimeout(()=>{
         domCards.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
-      }, 280);
+      }, 300);
       bootDealt = true;
     }
 
@@ -740,11 +721,17 @@ async function render(){
 }
 
 /* ---------- turn loop ---------- */
+async function discardPlayerHandAnim(){
+  const nodes = Array.from(handEl?.children || []);
+  nodes.forEach(n => n.classList.add("discarding"));
+  await sleep(220);
+}
 async function doStartTurn(){
-  // Advance the Aetherflow river once per round (on player-turn start)
-  state = uiAdvanceAetherflow(state);
-
   state = startTurn(state);
+
+  // flow river advances once per round (if deck provided by engine)
+  state = advanceAetherflowLocal(state);
+
   const active = state.activePlayer;
 
   // ensure we can draw (deck auto-reshuffle from discard if needed)
@@ -757,29 +744,11 @@ async function doStartTurn(){
   }
   await render();
 }
-
 async function doEndTurn(){
-  // Discard animation for the current player's hand
-  const nodes = Array.from(handEl?.children || []);
-  nodes.forEach(n=> n.classList.add('discarding'));
-  await sleep(220);
-
-  // Player -> AI
+  await discardPlayerHandAnim();
   state = endTurn(state);
-  state = startTurn(state);
-
-  // AI draws up to 5 (safe with reshuffle)
-  const needAI = Math.max(0, 5 - (state.players.ai.hand?.length||0));
-  if (needAI){
-    if ((state.players.ai.deck?.length||0) < needAI) reshuffleFromDiscard("ai");
-    state = drawN(state, "ai", needAI);
-  }
-
-  // (Optional) hook: window.aiTakeTurn?.(state)
-
-  // AI -> Player
-  state = endTurn(state);
-  await doStartTurn(); // this also advances the river + draws for player
+  // (placeholder) AI does its stuff here if you wire it in later
+  await doStartTurn();
 }
 
 /* ---------- events ---------- */
@@ -789,13 +758,6 @@ $("btn-endturn-hud")?.addEventListener("click", doEndTurn);
 zoomOverlayEl?.addEventListener("click", closeZoom);
 window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
-document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
-document.addEventListener("DOMContentLoaded", async ()=>{
-  // Ensure river is empty at game start
-  if (!Array.isArray(state.flow) || state.flow.some(Boolean)){
-    state.flow = [null,null,null,null,null];
-  }
-  await doStartTurn();
-});
+document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); });
