@@ -11,8 +11,7 @@
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
-
-import './device-profile.js';
+// NOTE: removed static "import './device-profile.js';" because it 404s and breaks the module.
 
 import {
   initState,
@@ -108,38 +107,13 @@ function setAetherDisplay(el, v=0, temp=0){
   `;
 }
 
-/* ---------- hand layout ---------- */
-function layoutHand(container, cards) {
-  const N = cards.length; if (!N || !container) return;
-  const MAX_ANGLE = 22, MIN_ANGLE = 8;
-  const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
-  const stepA  = N===1 ? 0 : totalAngle/(N-1);
-  const startA = -totalAngle/2;
-  const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = cw * 0.98;
-  const startX = -stepX * (N-1) / 2;
-  const LIFT = 44;
-
-  cards.forEach((el,i)=>{
-    const a = startA + stepA*i;
-    const rad = a * Math.PI/180;
-    const x = startX + stepX*i;
-    const y = LIFT - Math.cos(rad)*(LIFT*0.78);
-    el.style.setProperty("--tx", `${x}px`);
-    el.style.setProperty("--ty", `${y}px`);
-    el.style.setProperty("--rot", `${a}deg`);
-    el.style.zIndex = String(400+i);
-  });
-}
-
+/* ---------- hand layout (single definition) ---------- */
 function isMobileLandscape(){
   return document.body.classList?.contains('mobile-landscape');
 }
-
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  // Mobile: denser step, lower rotation, a bit more lift for visibility
   const MAX_ANGLE = isMobileLandscape() ? 14 : 22;
   const MIN_ANGLE = isMobileLandscape() ? 4  : 8;
 
@@ -148,7 +122,7 @@ function layoutHand(container, cards) {
   const startA = -totalAngle/2;
 
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = isMobileLandscape() ? cw * 0.86 : cw * 0.98; // tighter spacing on mobile
+  const stepX = isMobileLandscape() ? cw * 0.86 : cw * 0.98;
   const startX = -stepX * (N-1) / 2;
   const LIFT = isMobileLandscape() ? 38 : 44;
 
@@ -263,7 +237,7 @@ function showCardOptions(cardEl, cardData){
       ev.stopPropagation();
       try{
         if (o.k === "play"){
-          const idx = firstOpenSpellSlotIndex(serializePublic(state)||{});
+          const idx = firstOpenSpellSlot(serializePublic(state)||{});
           if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
         } else if (o.k === "set"){
           await setGlyphFromHandWithTemp("player", cardData.id);
@@ -271,7 +245,6 @@ function showCardOptions(cardEl, cardData){
           const before = getAe("player");
           state = discardForAether(state, "player", cardData.id);
           const gained = getAe("player") - before;
-          // move gained into temp only
           adjustAe("player", -gained); addTemp("player", gained);
           Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
         } else if (o.k === "cast"){
@@ -359,7 +332,7 @@ function wireDesktopDrag(el, data){
   el.addEventListener("click", (e)=>{ e.stopPropagation(); showCardOptions(el, data); });
 }
 
-/* Touch drag wiring */
+/* Touch drag wiring (no tap-to-focus here) */
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   const start = (ev)=>{
@@ -383,30 +356,6 @@ function wireTouchDrag(el, data){
       currentHover = hoverTarget; currentHover?.classList.add("drag-over");
     }
   };
-  
-  
-  // inside the loop that creates each hand card:
-let focusTimer=null;
-const focusTapMs = 240;
-
-// Toggle a focus state on quick tap (not a drag)
-el.addEventListener("pointerdown", ()=>{
-  focusTimer = performance.now();
-}, {passive:true});
-
-el.addEventListener("pointerup", (e)=>{
-  const dt = performance.now() - (focusTimer||0);
-  if (dt < focusTapMs){           // quick tap
-    // clear focus on siblings
-    Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
-    el.classList.add("is-focus");
-    // tap again to release
-    const off = ()=>{ el.classList.remove("is-focus"); document.removeEventListener("pointerdown", off, true); };
-    document.addEventListener("pointerdown", off, true);
-  }
-}, {passive:true});
-  
-  
   const end = (ev)=>{
     if (!dragging) return; dragging=false;
     const t = ev.changedTouches ? ev.changedTouches[0] : ev;
@@ -603,8 +552,6 @@ async function renderFlow(flowArray){
 
     if (c && canAfford){
       card.addEventListener("click", async ()=>{
-        // top-up permanent with temp just before purchase (so GameLogic sees enough),
-        // then reduce temp by the amount we virtually topped up.
         const useTemp = Math.min(price, (state.players.player.tempAether|0));
         adjustAe("player", useTemp); // virtual top-up
         try {
@@ -613,7 +560,6 @@ async function renderFlow(flowArray){
           state = buyFromFlow(state, "player", idx);
           addTemp("player", -useTemp); // spend temp
         } catch(e){
-          // undo top-up on failure
           adjustAe("player", -useTemp);
         }
         Emit(Events.BUY, {side:"player", idx, price});
@@ -638,7 +584,7 @@ async function renderFlow(flowArray){
   });
 }
 
-/* ---------- trance under gem + pulse ---------- */
+/* ---------- trance UI ---------- */
 function ensureTranceUI(){
   const templateHTML = `
     <div class="level" data-level="1">◇ I — Runic Surge</div>
@@ -732,12 +678,11 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
   }
 }
 async function setGlyphFromHandWithTemp(side, cardId){
-  // Assume glyphs have no play cost for now; if they do, mirror playSpell logic.
   state = setGlyphFromHand(state, side, cardId);
   Emit(Events.CARD_SET, {side, cardId});
 }
 
-/* Instant casting surface available to UI + AI */
+/* Instant casting */
 window.castInstantFromHand = async function(_state, side, cardId){
   const pub = serializePublic(state)||{};
   const hand = pub.players?.[side]?.hand||[];
@@ -749,14 +694,10 @@ window.castInstantFromHand = async function(_state, side, cardId){
   const useTemp = Math.min(cost, getTemp(side));
   adjustAe(side, useTemp);
   try{
-    // If you have a concrete resolver in GameLogic, call it here.
-    // For now: simulate by discarding the Instant (gain no aether) and emitting event.
-    // If your GameLogic has discardFromHand(state, side, cardId) use that; otherwise play to stack/resolve.
-    // Here we reuse discardForAether with a zero gain hack: measure, then roll back gain to temp zero.
     const before = getAe(side);
-    state = discardForAether(state, side, cardId);
+    state = discardForAether(state, side, cardId); // placeholder resolve
     const gained = getAe(side) - before;
-    if (gained>0){ adjustAe(side, -gained); } // Instants shouldn't generate aether here
+    if (gained>0){ adjustAe(side, -gained); }
     if (useTemp) addTemp(side, -useTemp);
     Emit(Events.CARD_CAST, {side, cardId, cost});
   }catch(e){
@@ -768,7 +709,6 @@ window.castInstantFromHand = async function(_state, side, cardId){
 
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
-  // add temp pools + trance level defaults
   for (const who of ["player","ai"]){
     s.players = s.players || {};
     s.players[who] = s.players[who] || {};
@@ -856,6 +796,20 @@ async function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
+      // Tap-to-focus (MTG-style lift) — belongs here:
+      let focusTimer=null;
+      const focusTapMs = 240;
+      el.addEventListener("pointerdown", ()=>{ focusTimer = performance.now(); }, {passive:true});
+      el.addEventListener("pointerup", ()=>{
+        const dt = performance.now() - (focusTimer||0);
+        if (dt < focusTapMs){
+          Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
+          el.classList.add("is-focus");
+          const off = ()=>{ el.classList.remove("is-focus"); document.removeEventListener("pointerdown", off, true); };
+          document.addEventListener("pointerdown", off, true);
+        }
+      }, {passive:true});
+
       el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
 
       handEl.appendChild(el); domCards.push(el);
@@ -889,18 +843,15 @@ async function render(){
   highlightPlayableCards();
 }
 
-/* ---------- trance progression (simple placeholder) ---------- */
+/* ---------- trance progression (placeholder) ---------- */
 function updateTranceFor(side){
-  // Example trigger: if player spent ≥6 total aether this turn => Level 1; ≥10 => Level 2.
-  // Track spend on the bus; here we just keep the state value stable.
-  // Hook: If desired, attach bus .on handlers accumulating per-turn spend.
+  // hook for per-turn aether spend → level ups
 }
 
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
 
-  // one-time randomize both decks at the very start
   if (!shuffledOnce){
     shuffleInPlace(state.players.player.deck || []);
     shuffleInPlace(state.players.ai.deck || []);
@@ -911,7 +862,6 @@ async function doStartTurn(){
   state.players.player.tempAether = 0;
   state.players.ai.tempAether = 0;
 
-  // Trance L1: +1 opening draw for active player
   const side = state.activePlayer;
   const tranceL = (state.players[side].tranceLevel|0);
   const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
@@ -929,19 +879,17 @@ async function doStartTurn(){
   await render();
 }
 
+// End turn: player → AI (act) → player
 async function doEndTurn(){
-  // discard animation on current player's hand
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(n=> n.classList.add('discarding'));
   await sleep(220);
 
   Emit(Events.TURN_END, {side: state.activePlayer});
 
-  // Pass to AI
-  state = endTurn(state);
-  await doStartTurn(); // AI start/draw
+  state = endTurn(state);        // to AI
+  await doStartTurn();           // AI start/draw
 
-  // Let AI act (one action per AI turn keeps things snappy)
   if (AI?.runAiTurn){
     const api = {
       getPublic: ()=> serializePublic(state)||{},
@@ -980,9 +928,8 @@ async function doEndTurn(){
     await render();
   }
 
-  // Pass back to player
-  state = endTurn(state);
-  await doStartTurn();
+  state = endTurn(state);      // AI passes back
+  await doStartTurn();         // Player start/draw
 }
 
 /* ---------- events ---------- */
@@ -1002,7 +949,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); }
   const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
   const apply = () => {
     const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-    // small edge: treat very short viewports as landscape-like too
     const shortSide = Math.min(window.innerWidth, window.innerHeight);
     const enable = isPhone && (isLandscape || shortSide <= 420);
     document.body.classList.toggle("mobile-landscape", !!enable);
