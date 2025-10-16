@@ -330,3 +330,54 @@ html,body{height:100%}
 .hand .card.pulse-spell   { animation: runePulse 1.6s ease-in-out infinite; }
 .hand .card.pulse-glyph   { animation: runePulse 1.6s ease-in-out infinite; }
 .hand .card.pulse-instant { animation: runePulse 1.6s ease-in-out infinite; }
+
+
+
+/* Make #flow-row the "board" container */
+#flow-row.flow-board{
+  position: relative;
+  display: flex;
+  gap: 18px;
+  padding: 14px 18px 22px 66px; /* left pad for title rail */
+  overflow: hidden;            /* cards stay inside the panel */
+}
+
+/* Vertical title centered inside the lane */
+#flow-row .flow-title-rail{
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: calc(100% - 28px);
+  pointer-events: none;
+}
+#flow-row .flow-title{
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: .25em;
+  font-variant: small-caps;
+  opacity: .85;
+}
+
+/* Price label + “inside the board” visuals */
+#flow-row .flow-card{ list-style: none; }
+#flow-row .card.market{ position:relative; will-change: transform, opacity; }
+.price-label{ margin-top: 8px; text-align: center; font-size: .9rem; opacity: .9; }
+
+/* Buy animation + disabled state (unaffordable) */
+.flow-fall{ transform: translateY(18px) scale(.98); opacity: 0; transition: transform .22s ease, opacity .22s ease; }
+.card.market[aria-disabled="true"]{ opacity: .5; filter: grayscale(.15); pointer-events: none; }
+
+/* Playable pulse (uses the classes you already toggle) */
+@keyframes runePulse{
+  0%{ box-shadow: 0 0 0 rgba(160,180,255,0); }
+  50%{ box-shadow: 0 0 22px rgba(160,180,255,.35); }
+  100%{ box-shadow: 0 0 0 rgba(160,180,255,0); }
+}
+.hand .card.pulse-spell,
+.hand .card.pulse-glyph,
+.hand .card.pulse-instant{ animation: runePulse 1.6s ease-in-out infinite; }
+
