@@ -21,7 +21,8 @@ import {
   setGlyphFromHand,
   buyFromFlow,
   discardForAether,
-  withAetherText
+  withAetherText,
+  aiTakeTurn
 } from "./GameLogic.js";
 
 /* ---------- utils ---------- */
@@ -758,6 +759,10 @@ async function doStartTurn(){
   if (need){
     if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
     state = drawN(state, active, need);
+  }
+  
+  if (state.activePlayer === 'ai') {
+    try { state = aiTakeTurn(state); } catch (e) {}
   }
   await render();
 }
