@@ -746,6 +746,56 @@ async function setGlyphFromHandWithTemp(side, cardId){
   Emit(Events.CARD_SET, {side, cardId});
 }
 
+/* ---------- simple stack viewer modal ---------- */
+function openStackModal(title, cards){
+  let m = document.getElementById('stack-modal');
+  if (!m){
+    m = document.createElement('div');
+    m.id = 'stack-modal';
+    m.innerHTML = `
+      <div class="stack-backdrop"></div>
+      <div class="stack-sheet">
+        <header><h3></h3><button type="button" class="close">×</button></header>
+        <div class="stack-list"></div>
+      </div>`;
+    document.body.appendChild(m);
+    m.querySelector('.stack-backdrop').addEventListener('click', ()=> m.classList.remove('open'));
+    m.querySelector('.close').addEventListener('click', ()=> m.classList.remove('open'));
+  }
+  m.querySelector('h3').textContent = title;
+  const list = m.querySelector('.stack-list');
+  list.replaceChildren();
+  if (!cards.length){
+    const empty = document.createElement('div');
+    empty.className = 'stack-empty';
+    empty.textContent = 'Empty';
+    list.appendChild(empty);
+  } else {
+    cards.forEach(c=>{
+      const row = document.createElement('div');
+      row.className = 'stack-row';
+      row.innerHTML = `
+        <span class="nm">${c.name}</span>
+        <span class="meta">${c.type}${(c.cost|0)?` · cost ${c.cost}`:''}${(c.pip|0)?` · pips ${c.pip}`:''}</span>`;
+      list.appendChild(row);
+    });
+  }
+  m.classList.add('open');
+}
+
+/* ---------- HUD: wire buttons ---------- */
+import { getStack } from './GameLogic.js';
+
+hudDeckBtn?.addEventListener('click', ()=>{
+  const cards = getStack(state, 'player', 'deck');
+  openStackModal(`Deck (${cards.length})`, cards);
+});
+hudDiscardBtn?.addEventListener('click', ()=>{
+  const cards = getStack(state, 'player', 'discard');
+  openStackModal(`Discard (${cards.length})`, cards);
+});
+
+
 /* Instant casting surface available to UI + AI */
 window.castInstantFromHand = async function(_state, side, cardId){
   const pub = serializePublic(state)||{};
