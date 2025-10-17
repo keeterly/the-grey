@@ -11,6 +11,7 @@
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
+// add to imports from GameLogic.js
 import {
   initState,
   serializePublic,
@@ -21,7 +22,10 @@ import {
   setGlyphFromHand,
   buyFromFlow,
   discardForAether,
-  withAetherText
+  withAetherText,
+  advanceSpell,               // ← NEW
+  resolveInstantFromHand,     // ← NEW
+  drainEvents,                // ← NEW
 } from "./GameLogic.js";
 
 /* optional AI module (safe if missing) */
