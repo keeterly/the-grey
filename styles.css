@@ -514,3 +514,12 @@ body.mobile-landscape #zoom-card.card.zoom{
   background:#b6a98e;
   box-shadow:inset 0 0 0 1px #30271f80;
 }
+
+.card .pip {
+  width: calc(18px * var(--card-scale));
+  height: calc(18px * var(--card-scale));
+  border: calc(2px * var(--card-scale)) solid #b6a98e;
+  border-radius: 50%;
+  background: transparent;
+}
+
