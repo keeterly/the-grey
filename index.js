@@ -1024,20 +1024,24 @@ if (slot.hasCard && slot.card){
       };
       wireAdvance(); // initial state
 
-      const onAdvance = (ev)=>{
+      const onAdvance = (ev) => {
         ev.preventDefault();
         ev.stopPropagation();
+        const slotObj = state.players.player.slots[i];
         advanceSpellAt('player', i);
-        // quick repaint only this card (keeps frame budget small)
-        art.innerHTML = cardHTML(state.players.player.slots[i].card);
-        // re-find track and re-wire after repaint
+      
+        // Repaint immediately using the updated progress
+        art.innerHTML = cardHTML(slotObj.card);
+        attachPeekAndZoom(art, slotObj.card);
+      
+        // Restore pip track interactivity and pulse state
         const nt = art.querySelector('.pip-track');
-        if (nt){
-          nt.classList.toggle('can-advance', canAdvanceSpell('player', state.players.player.slots[i]));
-          // rebind events to the new node
+        if (nt) {
           bindTrack(nt);
+          nt.classList.toggle('can-advance', canAdvanceSpell('player', slotObj));
         }
       };
+
 
       const bindTrack = (node)=>{
         // Use pointer events + passive:false for reliable mobile taps
