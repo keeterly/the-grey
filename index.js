@@ -11,8 +11,6 @@
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
-// NOTE: removed static "import './device-profile.js';" because it 404s and breaks the module.
-
 import {
   initState,
   serializePublic,
@@ -26,6 +24,7 @@ import {
   withAetherText
 } from "./GameLogic.js";
 
+/* optional AI module (safe if missing) */
 let AI = null;
 (async ()=> { try { AI = await import('./ai.js'); } catch {} })();
 
@@ -61,8 +60,7 @@ let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let shuffledOnce = false;
 
-/* ---------- basic event helpers ---------- */
-const Bus = window.Grey;
+/* ---------- event keys ---------- */
 const Events = {
   TURN_START: 'turn.start',
   TURN_END:   'turn.end',
@@ -107,20 +105,17 @@ function setAetherDisplay(el, v=0, temp=0){
   `;
 }
 
-/* ---------- hand layout (single definition) ---------- */
+/* ---------- hand layout (with mobile tuning) ---------- */
 function isMobileLandscape(){
   return document.body.classList?.contains('mobile-landscape');
 }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-
   const MAX_ANGLE = isMobileLandscape() ? 14 : 22;
   const MIN_ANGLE = isMobileLandscape() ? 4  : 8;
-
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
-
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
   const stepX = isMobileLandscape() ? cw * 0.86 : cw * 0.98;
   const startX = -stepX * (N-1) / 2;
@@ -142,8 +137,13 @@ function layoutHand(container, cards) {
 function closeZoom(){ document.getElementById("zoom-overlay")?.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
 function cardShellHTML(c){
-  const pip = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
-  const pipDots = `<div class="pip-track">${pip>0 ? Array.from({length:pip}).map(()=>'<span class="pip"></span>').join("") : ""}</div>`;
+  const pipTotal = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
+  const prog = Math.min(Math.max(0, c.progress|0), pipTotal);
+  const pipDots = `<div class="pip-track">${
+    pipTotal>0
+      ? Array.from({length:pipTotal}).map((_,i)=>`<span class="pip${i<prog?' filled':''}"></span>`).join("")
+      : ""
+  }</div>`;
   const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
   const aetherChip = (c.aetherValue>0)
     ? `<div class="aether-chip">
@@ -164,7 +164,7 @@ function cardShellHTML(c){
 }
 function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
-/* centered hover + press-and-hold preview */
+/* centered hover + press-and-hhold preview */
 let longPressTimer=null, pressStart={x:0,y:0};
 const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
 function attachPeekAndZoom(el, data){
@@ -332,9 +332,22 @@ function wireDesktopDrag(el, data){
   el.addEventListener("click", (e)=>{ e.stopPropagation(); showCardOptions(el, data); });
 }
 
-/* Touch drag wiring (no tap-to-focus here) */
+/* Touch drag wiring (+tap to focus) */
 function wireTouchDrag(el, data){
-  let dragging=false, ghost=null, currentHover=null;
+  let dragging=false, ghost=null, currentHover=null, focusTimer=null;
+  const focusTapMs = 240;
+
+  el.addEventListener("pointerdown", ()=>{ focusTimer = performance.now(); }, {passive:true});
+  el.addEventListener("pointerup", ()=>{
+    const dt = performance.now() - (focusTimer||0);
+    if (dt < focusTapMs){
+      Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
+      el.classList.add("is-focus");
+      const off = ()=>{ el.classList.remove("is-focus"); document.removeEventListener("pointerdown", off, true); };
+      document.addEventListener("pointerdown", off, true);
+    }
+  }, {passive:true});
+
   const start = (ev)=>{
     clearAllActionMenus();
     const t = ev.touches ? ev.touches[0] : ev;
@@ -391,6 +404,29 @@ document.addEventListener("click", clearAllActionMenus);
 /* ---------- slot render ---------- */
 function cardHTML(c){ return c ? cardShellHTML(c) : `<div class="title">Empty</div><div class="type">—</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`; }
 
+/* spend uses temp first, then perm */
+function spendAe(side, amount){
+  const need = Math.max(0, amount|0);
+  const useTemp = Math.min(need, getTemp(side));
+  if (useTemp) addTemp(side, -useTemp);
+  const still = need - useTemp;
+  if (still) adjustAe(side, -still);
+  return need;
+}
+function getProgress(card){ return Math.max(0, card?.progress|0); }
+function setProgress(card, n){ if (card) card.progress = Math.max(0, n|0); }
+function advanceSpellAt(side, slotIndex){
+  const slot = state?.players?.[side]?.slots?.[slotIndex];
+  const c = slot?.card;
+  if (!slot?.hasCard || !c || c.type !== "SPELL") return;
+  const need = Math.max(0, (c.pip|0) - getProgress(c));
+  if (need <= 0) return;
+  if (getTotal(side) < 1) { showToast("Not enough Æther."); return; }
+  spendAe(side, 1);
+  setProgress(c, getProgress(c)+1);
+  Emit('spell.progress', {side, slotIndex, cardId:c.id, progress:getProgress(c), pip:c.pip|0});
+}
+
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
   container.replaceChildren();
@@ -413,6 +449,20 @@ function renderSlots(container, snapshot, isPlayer){
       art.innerHTML = cardHTML(slot.card);
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
+
+      // make pip track clickable to advance
+      if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
+        const track = art.querySelector('.pip-track');
+        if (track){
+          track.style.cursor = 'pointer';
+          track.title = 'Spend 1 Æther to advance';
+          track.addEventListener('click', (ev)=>{
+            ev.stopPropagation();
+            advanceSpellAt('player', i);
+            art.innerHTML = cardHTML(slot.card); // repaint pips fast
+          });
+        }
+      }
     }
 
     if (isPlayer){
@@ -558,9 +608,9 @@ async function renderFlow(flowArray){
           card.classList.add("flow-fall");
           await new Promise(r=>setTimeout(r, 160));
           state = buyFromFlow(state, "player", idx);
-          addTemp("player", -useTemp); // spend temp
+          addTemp("player", -useTemp); // spend temp first
         } catch(e){
-          adjustAe("player", -useTemp);
+          adjustAe("player", -useTemp); // undo on failure
         }
         Emit(Events.BUY, {side:"player", idx, price});
         await render();
@@ -584,7 +634,7 @@ async function renderFlow(flowArray){
   });
 }
 
-/* ---------- trance UI ---------- */
+/* ---------- trance stripe under gem (levels only) ---------- */
 function ensureTranceUI(){
   const templateHTML = `
     <div class="level" data-level="1">◇ I — Runic Surge</div>
@@ -670,6 +720,9 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
   adjustAe(side, useTemp); // virtual top-up (GameLogic checks aether)
   try {
     state = playCardToSpellSlot(state, side, cardId, slotIndex);
+    // reset progress on placed spell
+    const slot = state?.players?.[side]?.slots?.[slotIndex];
+    if (slot?.card && slot.card.type === "SPELL") setProgress(slot.card, 0);
     if (useTemp) addTemp(side, -useTemp);
     Emit(Events.CARD_PLAYED, {side, cardId, cost});
   } catch(e){
@@ -682,7 +735,7 @@ async function setGlyphFromHandWithTemp(side, cardId){
   Emit(Events.CARD_SET, {side, cardId});
 }
 
-/* Instant casting */
+/* Instant casting surface available to UI + AI */
 window.castInstantFromHand = async function(_state, side, cardId){
   const pub = serializePublic(state)||{};
   const hand = pub.players?.[side]?.hand||[];
@@ -695,9 +748,9 @@ window.castInstantFromHand = async function(_state, side, cardId){
   adjustAe(side, useTemp);
   try{
     const before = getAe(side);
-    state = discardForAether(state, side, cardId); // placeholder resolve
+    state = discardForAether(state, side, cardId);
     const gained = getAe(side) - before;
-    if (gained>0){ adjustAe(side, -gained); }
+    if (gained>0){ adjustAe(side, -gained); } // Instants shouldn't generate aether here
     if (useTemp) addTemp(side, -useTemp);
     Emit(Events.CARD_CAST, {side, cardId, cost});
   }catch(e){
@@ -796,20 +849,6 @@ async function render(){
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
 
-      // Tap-to-focus (MTG-style lift) — belongs here:
-      let focusTimer=null;
-      const focusTapMs = 240;
-      el.addEventListener("pointerdown", ()=>{ focusTimer = performance.now(); }, {passive:true});
-      el.addEventListener("pointerup", ()=>{
-        const dt = performance.now() - (focusTimer||0);
-        if (dt < focusTapMs){
-          Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
-          el.classList.add("is-focus");
-          const off = ()=>{ el.classList.remove("is-focus"); document.removeEventListener("pointerdown", off, true); };
-          document.addEventListener("pointerdown", off, true);
-        }
-      }, {passive:true});
-
       el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
 
       handEl.appendChild(el); domCards.push(el);
@@ -843,11 +882,6 @@ async function render(){
   highlightPlayableCards();
 }
 
-/* ---------- trance progression (placeholder) ---------- */
-function updateTranceFor(side){
-  // hook for per-turn aether spend → level ups
-}
-
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
@@ -858,10 +892,11 @@ async function doStartTurn(){
     shuffledOnce = true;
   }
 
-  // clear temp aether at TURN START
+  // clear temp aether at start
   state.players.player.tempAether = 0;
   state.players.ai.tempAether = 0;
 
+  // Trance L1: +1 opening draw
   const side = state.activePlayer;
   const tranceL = (state.players[side].tranceLevel|0);
   const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
@@ -879,7 +914,6 @@ async function doStartTurn(){
   await render();
 }
 
-// End turn: player → AI (act) → player
 async function doEndTurn(){
   const nodes = Array.from(handEl?.children || []);
   nodes.forEach(n=> n.classList.add('discarding'));
@@ -887,8 +921,9 @@ async function doEndTurn(){
 
   Emit(Events.TURN_END, {side: state.activePlayer});
 
-  state = endTurn(state);        // to AI
-  await doStartTurn();           // AI start/draw
+  // to AI
+  state = endTurn(state);
+  await doStartTurn();
 
   if (AI?.runAiTurn){
     const api = {
@@ -928,8 +963,9 @@ async function doEndTurn(){
     await render();
   }
 
-  state = endTurn(state);      // AI passes back
-  await doStartTurn();         // Player start/draw
+  // back to player
+  state = endTurn(state);
+  await doStartTurn();
 }
 
 /* ---------- events ---------- */
@@ -944,7 +980,7 @@ document.addEventListener("click", clearAllActionMenus);
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); });
 
-/* ---------- mobile-landscape mode ---------- */
+/* ---------- mobile-landscape mode (no external file) ---------- */
 (function mobileLandscapeMode(){
   const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
   const apply = () => {
