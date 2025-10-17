@@ -551,3 +551,12 @@ body.mobile-landscape #zoom-card.card.zoom{
 #stack-modal .stack-row .meta{color:#b6a98e; font-size:.9rem}
 #stack-modal .stack-empty{color:#b6a98e; padding:14px 10px}
 
+
+@keyframes slotSpot {
+  0% { box-shadow:0 0 0 rgba(198,165,106,0); }
+  25%{ box-shadow:0 0 28px rgba(198,165,106,.45); }
+  100%{ box-shadow:0 0 0 rgba(198,165,106,0); }
+}
+.slot.spell.spotlight{
+  animation: slotSpot .65s ease-out 1;
+}
