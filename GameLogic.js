@@ -1,5 +1,5 @@
 // GameLogic.js
-// v2.56 (v2.54 base + progress field + 10-card starting deck + counts)
+// v2.57 (v2.54 base + progress + resolve-to-discard + end-turn discard + events)
 
 /////////////////////////////
 // Constants & Helpers
@@ -8,9 +8,7 @@
 export const FLOW_COSTS = [4, 3, 3, 2, 2];
 export const STARTING_HAND = 5;
 export const STARTING_VITALITY = 5;
-export const STARTING_DECK_SIZE = 10;   // ← NEW
 
-// a tiny inline blue gem SVG you can inject into HTML strings
 export const AE_GEM_SVG =
   '<svg class="gem-inline" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/></svg>';
 
@@ -18,7 +16,6 @@ export function withAetherText(s = "") {
   return String(s).replaceAll("Æ", AE_GEM_SVG);
 }
 
-// Simple Fisher–Yates
 function shuffle(arr, rng = Math.random) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -34,39 +31,44 @@ function uid() {
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+// small internal event queue so UI can “spotlight” things that happened
+function pushEvt(state, e){
+  (state._events ||= []).push(e);
+}
+
 /////////////////////////////
 // Card Pools (Data)
 /////////////////////////////
 
 const BASE_DECK_LIST = [
-  { name: "Pulse of the Grey",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Draw 1, Gain 1 Æ",              aetherValue: 0, role: "Starter draw/flow",    qty: 3 },
-  { name: "Wispform Surge",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Chain enabler",        qty: 1 },
-  { name: "Greyfire Bloom",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Aggro chain",          qty: 1 },
-  { name: "Echoing Reservoir",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1",                     aetherValue: 2, role: "Aether generator",     qty: 2 },
-  { name: "Dormant Catalyst",        type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2",                     aetherValue: 1, role: "Ramp starter",         qty: 1 },
-  { name: "Ashen Focus",             type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1 and Draw 1",          aetherValue: 1, role: "Draw + Aether hybrid", qty: 1 },
-  { name: "Surge of Ash",            type: "INSTANT", cost: 1, pip: 0, text: "Target Spell advances 1 step free",         aetherValue: 0, role: "Tempo burst",          qty: 1 },
-  { name: "Veil of Dust",            type: "INSTANT", cost: 1, pip: 0, text: "Prevent 1 damage or negate a hostile Instant", aetherValue: 0, role: "Reactive defense",  qty: 1 },
-  { name: "Glyph of Remnant Light",  type: "GLYPH",   cost: 0, pip: 0, text: "When a Spell resolves → Gain 1 Æ",          aetherValue: 0, role: "Passive economy",      qty: 1 },
-  { name: "Glyph of Returning Echo", type: "GLYPH",   cost: 0, pip: 0, text: "When you Channel Aether → Draw 1 card",     aetherValue: 0, role: "Draw engine",          qty: 1 },
+  { name: "Pulse of the Grey",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Draw 1, Gain 1 Æ",           aetherValue: 0, role: "Starter draw/flow",    qty: 3 },
+  { name: "Wispform Surge",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Chain enabler",    qty: 1 },
+  { name: "Greyfire Bloom",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Aggro chain",      qty: 1 },
+  { name: "Echoing Reservoir",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1",                  aetherValue: 2, role: "Aether generator",   qty: 2 },
+  { name: "Dormant Catalyst",        type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2",                  aetherValue: 1, role: "Ramp starter",       qty: 1 },
+  { name: "Ashen Focus",             type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1 and Draw 1",       aetherValue: 1, role: "Draw + Aether",      qty: 1 },
+  { name: "Surge of Ash",            type: "INSTANT", cost: 1, pip: 0, text: "Target Spell advances 1 step free",      aetherValue: 0, role: "Tempo burst",        qty: 1 },
+  { name: "Veil of Dust",            type: "INSTANT", cost: 1, pip: 0, text: "Prevent 1 damage or negate a hostile Instant", aetherValue: 0, role: "Defense",       qty: 1 },
+  { name: "Glyph of Remnant Light",  type: "GLYPH",   cost: 0, pip: 0, text: "When a Spell resolves → Gain 1 Æ",       aetherValue: 0, role: "Passive economy",    qty: 1 },
+  { name: "Glyph of Returning Echo", type: "GLYPH",   cost: 0, pip: 0, text: "When you Channel Aether → Draw 1 card",  aetherValue: 0, role: "Draw engine",        qty: 1 },
 ];
 
 const AETHERFLOW_LIST = [
-  { name: "Surge of Cinders",         type: "INSTANT", cost: 2, pip: 0, text: "Deal 2 damage to any target",                                              aetherValue: 0, role: "Early aggression",  qty: 1 },
-  { name: "Pulse Feedback",           type: "INSTANT", cost: 3, pip: 0, text: "Advance all Spells you control by 1",                                      aetherValue: 0, role: "Momentum burst",    qty: 1 },
-  { name: "Refracted Will",           type: "INSTANT", cost: 2, pip: 0, text: "Counter an Instant or negate a Glyph trigger",                             aetherValue: 0, role: "Defensive answer",  qty: 1 },
-  { name: "Aether Impel",             type: "INSTANT", cost: 4, pip: 0, text: "Gain 3 Æ this turn",                                                       aetherValue: 0, role: "Temporary boost",   qty: 1 },
-  { name: "Cascade Insight",          type: "INSTANT", cost: 3, pip: 0, text: "Draw 2 cards, then discard 1",                                             aetherValue: 0, role: "Hand filter",       qty: 1 },
-  { name: "Resonant Chorus",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Gain 2 Æ and Channel 1",                                       aetherValue: 1, role: "Hybrid economy",    qty: 1 },
-  { name: "Emberline Pulse",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Deal 2 damage and Draw 1",                                      aetherValue: 0, role: "Core tempo",        qty: 1 },
-  { name: "Fractured Memory",         type: "SPELL",   cost: 0, pip: 2, text: "On Resolve: Draw 2 cards",                                                 aetherValue: 0, role: "Card advantage",    qty: 1 },
-  { name: "Obsidian Vault",           type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2 and Gain 1 Æ",                                       aetherValue: 1, role: "Long-term economy", qty: 1 },
-  { name: "Mirror Cascade",           type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Copy the next Instant you play this turn",                      aetherValue: 0, role: "Combo tool",        qty: 1 },
-  { name: "Sanguine Flow",            type: "SPELL",   cost: 2, pip: 1, text: "On Resolve: Lose 1 Vitality, Gain 3 Æ",                                     aetherValue: 0, role: "Risk/reward burst", qty: 1 },
-  { name: "Glyph of Withering Light", type: "GLYPH",   cost: 0, pip: 0, text: "When an opponent plays a Spell → They lose 1 Æ",                           aetherValue: 0, role: "Tempo tax",         qty: 1 },
-  { name: "Glyph of Vigilant Echo",   type: "GLYPH",   cost: 0, pip: 0, text: "At end of your turn → Channel 1",                                          aetherValue: 0, role: "Slow engine",       qty: 1 },
-  { name: "Glyph of Buried Heat",     type: "GLYPH",   cost: 0, pip: 0, text: "When you discard a card for Æ → Gain 1 extra Æ",                           aetherValue: 0, role: "Economy reward",    qty: 1 },
-  { name: "Glyph of Soulglass",       type: "GLYPH",   cost: 0, pip: 0, text: "When you buy a card from Aether Flow → Draw 1 card",                        aetherValue: 0, role: "Deck-growth loop",  qty: 1 },
+  { name: "Surge of Cinders",         type: "INSTANT", cost: 2, pip: 0, text: "Deal 2 damage to any target", aetherValue: 0, role: "Aggression", qty: 1 },
+  { name: "Pulse Feedback",           type: "INSTANT", cost: 3, pip: 0, text: "Advance all Spells you control by 1", aetherValue: 0, role: "Momentum", qty: 1 },
+  { name: "Refracted Will",           type: "INSTANT", cost: 2, pip: 0, text: "Counter an Instant or negate a Glyph trigger", aetherValue: 0, role: "Answer", qty: 1 },
+  { name: "Aether Impel",             type: "INSTANT", cost: 4, pip: 0, text: "Gain 3 Æ this turn", aetherValue: 0, role: "Boost", qty: 1 },
+  { name: "Cascade Insight",          type: "INSTANT", cost: 3, pip: 0, text: "Draw 2 cards, then discard 1", aetherValue: 0, role: "Filter", qty: 1 },
+  { name: "Resonant Chorus",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Gain 2 Æ and Channel 1", aetherValue: 1, role: "Hybrid", qty: 1 },
+  { name: "Emberline Pulse",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Deal 2 damage and Draw 1", aetherValue: 0, role: "Tempo", qty: 1 },
+  { name: "Fractured Memory",         type: "SPELL",   cost: 0, pip: 2, text: "On Resolve: Draw 2 cards", aetherValue: 0, role: "Advantage", qty: 1 },
+  { name: "Obsidian Vault",           type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2 and Gain 1 Æ", aetherValue: 1, role: "Economy", qty: 1 },
+  { name: "Mirror Cascade",           type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Copy the next Instant you play this turn", aetherValue: 0, role: "Combo", qty: 1 },
+  { name: "Sanguine Flow",            type: "SPELL",   cost: 2, pip: 1, text: "On Resolve: Lose 1 Vitality, Gain 3 Æ", aetherValue: 0, role: "Risk", qty: 1 },
+  { name: "Glyph of Withering Light", type: "GLYPH",   cost: 0, pip: 0, text: "When an opponent plays a Spell → They lose 1 Æ", aetherValue: 0, role: "Tax", qty: 1 },
+  { name: "Glyph of Vigilant Echo",   type: "GLYPH",   cost: 0, pip: 0, text: "At end of your turn → Channel 1", aetherValue: 0, role: "Engine", qty: 1 },
+  { name: "Glyph of Buried Heat",     type: "GLYPH",   cost: 0, pip: 0, text: "When you discard a card for Æ → Gain 1 extra Æ", aetherValue: 0, role: "Economy", qty: 1 },
+  { name: "Glyph of Soulglass",       type: "GLYPH",   cost: 0, pip: 0, text: "When you buy a card from Aether Flow → Draw 1 card", aetherValue: 0, role: "Growth", qty: 1 },
 ];
 
 function expandList(list) {
@@ -83,7 +85,7 @@ function expandList(list) {
         aetherValue: c.aetherValue || 0,
         role: c.role || "",
         price: c.cost || 0,
-        progress: 0,                 // ← NEW (UI pip fill)
+        progress: 0,        // ← track in-place progress for SPELLs
       });
     }
   });
@@ -95,22 +97,15 @@ function expandList(list) {
 /////////////////////////////
 
 export function initState(seed) {
-  // Build 10-card starting decks per player from the base pool
-  const basePoolP = shuffle(expandList(BASE_DECK_LIST));
-  const basePoolA = shuffle(expandList(BASE_DECK_LIST));
-  const playerDeck = basePoolP.slice(0, STARTING_DECK_SIZE);
-  const aiDeck     = basePoolA.slice(0, STARTING_DECK_SIZE);
-
-  // Market draw pile
+  const playerDeck = shuffle(expandList(BASE_DECK_LIST));
+  const aiDeck     = shuffle(expandList(BASE_DECK_LIST));
   const flowDraw   = shuffle(expandList(AETHERFLOW_LIST));
 
-  // Starting hands
   const handP = [];
   const handAI = [];
   for (let i = 0; i < STARTING_HAND && playerDeck.length; i++) handP.push(playerDeck.shift());
   for (let i = 0; i < STARTING_HAND && aiDeck.length; i++)     handAI.push(aiDeck.shift());
 
-  // Flow slots: 5 slots, only slot 0 reveals at game start
   const flow = [null, null, null, null, null];
   if (flowDraw.length) flow[0] = { ...flowDraw.shift() };
 
@@ -119,6 +114,7 @@ export function initState(seed) {
     activePlayer: "player",
     flow,
     flowDraw,
+    _events: [], // UI event queue
     players: {
       player: {
         vitality: STARTING_VITALITY,
@@ -152,9 +148,9 @@ export function serializePublic(state) {
   const s = clone(state);
   s.flow = (s.flow || []).map((c, idx) => c ? ({...c, price: FLOW_COSTS[idx]}) : null);
   s.players.player.deckCount    = s.players.player.deck.length;
-  s.players.player.discardCount = s.players.player.discard.length;   // ← NEW (for HUD)
+  s.players.player.discardCount = s.players.player.discard.length;
   s.players.ai.deckCount        = s.players.ai.deck.length;
-  s.players.ai.discardCount     = s.players.ai.discard.length;       // ← NEW
+  s.players.ai.discardCount     = s.players.ai.discard.length;
   return s;
 }
 
@@ -172,11 +168,27 @@ export function startTurn(state) {
   return state;
 }
 
+// END TURN:
+// 1) Discard *current* player's entire hand
+// 2) River shift (only when the player ends their turn — preserved)
+// 3) Swap active player (+ increment turn when returning to player)
+// 4) Reveal at the next turn start
 export function endTurn(state) {
   if (!state?.flow) return state;
 
   const endingPlayer = state.activePlayer;
+  const P = state.players[endingPlayer];
 
+  // (1) discard whole hand
+  if (P?.hand?.length){
+    while (P.hand.length) {
+      const c = P.hand.shift();
+      P.discard.push(c);
+      pushEvt(state, { t:"resolved", source:"hand-discard", side:endingPlayer, cardId:c.id, cardType:c.type });
+    }
+  }
+
+  // (2) shift river only when the human player ends turn (existing behavior)
   if (endingPlayer === "player") {
     for (let i = state.flow.length - 1; i > 0; i--) {
       state.flow[i] = state.flow[i] || state.flow[i - 1] ? state.flow[i - 1] : null;
@@ -184,15 +196,17 @@ export function endTurn(state) {
     state.flow[0] = null;
   }
 
+  // (3) swap active
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
+  // (4)
   startTurn(state);
   return state;
 }
 
 /////////////////////////////
-// Player actions
+// Player actions + resolve
 /////////////////////////////
 
 export function discardForAether(state, playerId, cardId){
@@ -210,7 +224,7 @@ export function discardForAether(state, playerId, cardId){
   return state;
 }
 
-// Play SPELL from hand into a spell slot (0..2)
+// Place SPELL to slot
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -224,15 +238,13 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
 
   P.hand.splice(i,1);
-  if (typeof card.progress !== "number") card.progress = 0;
   card.progress = 0;
-
   slot.card = card;
   slot.hasCard = true;
   return state;
 }
 
-// Set GLYPH from hand into glyph slot (index 3)
+// Set GLYPH to glyph slot (index 3)
 export function setGlyphFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -251,7 +263,7 @@ export function setGlyphFromHand(state, playerId, cardId){
   return state;
 }
 
-// Buy from the Aetherflow into discard if enough Æ
+// Buy → discard
 export function buyFromFlow(state, playerId, flowIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -262,13 +274,14 @@ export function buyFromFlow(state, playerId, flowIndex){
   if ((P.aether || 0) < price) throw new Error("Not enough Æ");
 
   P.aether -= price;
-  P.discard.push(card);       // ← to discard
+  P.discard.push(card);
   state.flow[flowIndex] = null;
+  pushEvt(state, { t:"resolved", source:"buy", side:playerId, cardId:card.id, cardType:card.type, flowIndex });
   return state;
 }
 
 /////////////////////////////
-// Draw helpers
+// Resolving helpers
 /////////////////////////////
 
 function restockIfEmpty(P){
@@ -281,7 +294,6 @@ function restockIfEmpty(P){
 export function drawOne(state, playerId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
-
   restockIfEmpty(P);
   if (!P.deck.length) return state;
   P.hand.push(P.deck.shift());
@@ -293,17 +305,52 @@ export function drawN(state, playerId, n){
   return state;
 }
 
-/////////////////////////////
-// Stack viewers (for UI)
-/////////////////////////////
-
-export function getStack(state, playerId, kind /* 'deck' | 'discard' */){
+// Advance a spell by N (default 1). If complete, MOVE TO DISCARD and emit event.
+export function advanceSpell(state, playerId, slotIndex, steps = 1){
   const P = state.players[playerId];
-  if (!P) throw new Error("bad player");
-  const arr = kind === 'discard' ? P.discard : P.deck;
-  return arr.map(c => ({ id:c.id, name:c.name, type:c.type, pip:c.pip, cost:c.cost }));
-}
+  const slot = P?.slots?.[slotIndex];
+  const c = slot?.card;
+  if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
 
-export function aiTakeTurn(state){
+  c.progress = Math.max(0, (c.progress|0) + (steps|0));
+  if ((c.progress|0) >= (c.pip|0)) {
+    // resolve & move to discard
+    slot.card = null;
+    slot.hasCard = false;
+    c.progress = 0;
+    P.discard.push(c);
+    pushEvt(state, { t:"resolved", source:"spell", side:playerId, cardId:c.id, cardType:"SPELL", slotIndex });
+  }
   return state;
 }
+
+// Instants: move from hand to discard and emit a resolve event
+export function resolveInstantFromHand(state, playerId, cardId){
+  const P = state.players[playerId];
+  const i = P.hand.findIndex(c => c.id === cardId && c.type==="INSTANT");
+  if (i < 0) return state;
+  const card = P.hand.splice(i,1)[0];
+  P.discard.push(card);
+  pushEvt(state, { t:"resolved", source:"instant", side:playerId, cardId:card.id, cardType:"INSTANT" });
+  return state;
+}
+
+// Glyphs: if you need to retire/resolve the glyph (optional utility)
+export function resolveGlyphFromSlot(state, playerId){
+  const P = state.players[playerId];
+  const slot = P.slots[3];
+  if (!slot?.isGlyph || !slot.hasCard) return state;
+  const g = slot.card;
+  slot.card = null; slot.hasCard=false;
+  P.discard.push(g);
+  pushEvt(state, { t:"resolved", source:"glyph", side:playerId, cardId:g.id, cardType:"GLYPH" });
+  return state;
+}
+
+// Let UI read & clear event queue
+export function drainEvents(state){
+  const evts = (state._events||[]).splice(0);
+  return evts;
+}
+
+export function aiTakeTurn(state){ return state; }
