@@ -354,3 +354,17 @@ export function drainEvents(state){
 }
 
 export function aiTakeTurn(state){ return state; }
+
+
+// --- ADD: utility so UI can show deck/discard/hand contents ---
+export function getStack(state, playerId, which){
+  const P = state.players?.[playerId];
+  if (!P) return [];
+  if (which === "deck")    return clone(P.deck    || []);
+  if (which === "discard") return clone(P.discard || []);
+  if (which === "hand")    return clone(P.hand    || []);
+  return [];
+}
+
+
+
