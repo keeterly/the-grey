@@ -721,7 +721,23 @@ function canAdvanceSpell(side, slot){
   return need > 0 && getTotal(side) >= 1;
 }
 
-
+function spotlightFromEvents(){
+  const evts = drainEvents(state);   // reads & clears GameLogic queue
+  evts.forEach(e=>{
+    if (e.source === "spell" && e.side === "player" && Number.isFinite(e.slotIndex)){
+      const slot = document.querySelector(`.row.player .slot.spell[data-slot-index="${e.slotIndex}"]`);
+      if (slot){
+        slot.classList.add('spotlight');
+        setTimeout(()=> slot.classList.remove('spotlight'), 650);
+      }
+    } else {
+      // gentler feedback for non-slot events
+      showToast("Card resolved.");
+    }
+    // also broadcast on the Grey bus if you want FX hooks elsewhere
+    Emit('card.resolved', e);
+  });
+}
 
 /* ---------- wrappers that honor temp aether + trance ---------- */
 function tranceDiscount(side, cost){
@@ -804,24 +820,24 @@ hudDiscardBtn?.addEventListener('click', ()=>{
 });
 
 
-/* Instant casting surface available to UI + AI */
 window.castInstantFromHand = async function(_state, side, cardId){
   const pub = serializePublic(state)||{};
   const hand = pub.players?.[side]?.hand||[];
   const card = hand.find(c=> c.id===cardId);
   if (!card || card.type!=="INSTANT") return state;
+
   const rawCost = card.cost|0;
   const cost = tranceDiscount(side, rawCost);
   if (getTotal(side) < cost){ showToast("Not enough Æther."); return state; }
+
   const useTemp = Math.min(cost, getTemp(side));
   adjustAe(side, useTemp);
   try{
-    const before = getAe(side);
-    state = discardForAether(state, side, cardId);
-    const gained = getAe(side) - before;
-    if (gained>0){ adjustAe(side, -gained); } // Instants shouldn't generate aether here
     if (useTemp) addTemp(side, -useTemp);
+    // resolve to discard + event for spotlight
+    state = resolveInstantFromHand(state, side, cardId);
     Emit(Events.CARD_CAST, {side, cardId, cost});
+    await render();
   }catch(e){
     if (useTemp) adjustAe(side, -useTemp);
     throw e;
