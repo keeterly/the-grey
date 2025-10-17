@@ -237,7 +237,22 @@ html,body{height:100%}
 
 /* Header */
 .card .title{padding:calc(10px * var(--card-scale)) calc(12px * var(--card-scale)) calc(2px * var(--card-scale)) calc(12px * var(--card-scale)); font-weight:600; font-size:.95em}
-.card .type{opacity:.9; padding:0 calc(12px * var(--card-scale)); font-size:.81rem}
+/* SCALE the type line with card size (replace your .card .type rule) */
+.card .type{
+  opacity:.9;
+  padding:0 calc(12px * var(--card-scale));
+  font-size: calc(.81rem * var(--card-scale));
+}
+
+/* Filled pip style (new) */
+.card .pip.filled{
+  background:#b6a98e;
+  box-shadow:inset 0 0 0 1px #30271f80;
+}
+
+
+
+
 .card .type[data-k="SPELL"]{color:var(--type-spell)}
 .card .type[data-k="INSTANT"]{color:var(--type-instant)}
 .card .type[data-k="GLYPH"]{color:var(--type-glyph)}
