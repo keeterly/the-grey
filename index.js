@@ -704,6 +704,17 @@ function adjustAe(side, delta){ sideObj(side).aether = Math.max(0, getAe(side)+ 
 function addTemp(side, delta){ sideObj(side).tempAether = Math.max(0, getTemp(side)+ (delta|0)); }
 function getTotal(side){ return getAe(side) + getTemp(side); }
 
+
+
+function canAdvanceSpell(side, slot){
+  const c = slot?.card;
+  if (!slot?.hasCard || !c || c.type !== "SPELL") return false;
+  const need = Math.max(0, (c.pip|0) - (c.progress|0));
+  return need > 0 && getTotal(side) >= 1;
+}
+
+
+
 /* ---------- wrappers that honor temp aether + trance ---------- */
 function tranceDiscount(side, cost){
   const lvl = sideObj(side).tranceLevel|0;
@@ -993,3 +1004,53 @@ document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); }
   window.addEventListener("orientationchange", apply, {passive:true});
   document.addEventListener("DOMContentLoaded", apply);
 })();
+
+
+if (slot.hasCard && slot.card){
+  const art = document.createElement("article");
+  art.className = "card";
+  art.innerHTML = cardHTML(slot.card);
+  attachPeekAndZoom(art, slot.card);
+  d.appendChild(art);
+
+  // ---> ADVANCEABLE PIPS (click/tap the pip track to spend 1 Æ and fill one pip)
+  if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
+    const track = art.querySelector('.pip-track');
+    if (track){
+      const wireAdvance = ()=>{
+        // always re-check (Æ and progress may have changed)
+        const adv = canAdvanceSpell('player', state.players.player.slots[i]);
+        track.classList.toggle('can-advance', adv);
+      };
+      wireAdvance(); // initial state
+
+      const onAdvance = (ev)=>{
+        ev.preventDefault();
+        ev.stopPropagation();
+        advanceSpellAt('player', i);
+        // quick repaint only this card (keeps frame budget small)
+        art.innerHTML = cardHTML(state.players.player.slots[i].card);
+        // re-find track and re-wire after repaint
+        const nt = art.querySelector('.pip-track');
+        if (nt){
+          nt.classList.toggle('can-advance', canAdvanceSpell('player', state.players.player.slots[i]));
+          // rebind events to the new node
+          bindTrack(nt);
+        }
+      };
+
+      const bindTrack = (node)=>{
+        // Use pointer events + passive:false for reliable mobile taps
+        node.addEventListener('pointerdown', e=>{ e.preventDefault(); }, {passive:false});
+        node.addEventListener('click',       onAdvance,               {passive:false});
+        node.addEventListener('touchend',    onAdvance,               {passive:false});
+      };
+
+      bindTrack(track);
+
+      // Keep pulse state fresh when Æ changes or after actions
+      // (cheap: re-evaluate right after each render tick)
+      queueMicrotask(wireAdvance);
+    }
+  }
+}
