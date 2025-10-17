@@ -483,3 +483,34 @@ body.mobile-landscape #zoom-card.card.zoom{
   body.mobile-landscape .hand-wrap{ height:15vh }
   body.mobile-landscape .hand{ height:13vh }
 }
+
+
+/* ---- Pip track: bigger hit-target + advanceable pulse ---- */
+.card .pip-track{
+  position:relative;
+  pointer-events:auto;
+}
+
+.card .pip-track.can-advance::before{
+  /* Invisible hit area so taps are easy on mobile */
+  content:"";
+  position:absolute; inset:-8px;
+  border-radius:10px;
+}
+
+/* Pulse any unfilled pip when the track is advanceable */
+@keyframes pipPulse {
+  0%   { box-shadow:0 0 0 rgba(198,165,106,0);   transform:scale(1);   }
+  50%  { box-shadow:0 0 14px rgba(198,165,106,.45); transform:scale(1.06); }
+  100% { box-shadow:0 0 0 rgba(198,165,106,0);   transform:scale(1);   }
+}
+
+.card .pip-track.can-advance .pip:not(.filled){
+  animation:pipPulse 1.6s ease-in-out infinite;
+}
+
+/* (you already have this; keep it) */
+.card .pip.filled{
+  background:#b6a98e;
+  box-shadow:inset 0 0 0 1px #30271f80;
+}
