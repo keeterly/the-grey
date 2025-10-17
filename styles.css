@@ -533,4 +533,21 @@ body.mobile-landscape #zoom-card.card.zoom{
   animation: pipPulse 1.5s ease-in-out infinite;
 }
 
+/* stack viewer */
+#stack-modal{position:fixed; inset:0; display:none; z-index:120}
+#stack-modal.open{display:block}
+#stack-modal .stack-backdrop{position:absolute; inset:0; background:rgba(0,0,0,.45); backdrop-filter:blur(1.5px)}
+#stack-modal .stack-sheet{
+  position:absolute; right:18px; bottom:18px; width:min(520px, 92vw); max-height:70vh;
+  background:#211a14; border:1px solid #4a3d2f; border-radius:12px; box-shadow:0 18px 36px #000;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+#stack-modal header{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #3b3126}
+#stack-modal header h3{margin:0; font-size:1.05rem; color:#e7dcc3}
+#stack-modal header .close{appearance:none; border:none; background:#c6a56a; color:#0d0a07; font-weight:800; border-radius:8px; padding:4px 8px; cursor:pointer}
+#stack-modal .stack-list{overflow:auto; padding:8px 10px; display:grid; gap:6px}
+#stack-modal .stack-row{display:flex; justify-content:space-between; gap:10px; padding:8px 10px; background:#2a211a; border:1px solid #4a3d2f; border-radius:8px}
+#stack-modal .stack-row .nm{color:#e7dcc3}
+#stack-modal .stack-row .meta{color:#b6a98e; font-size:.9rem}
+#stack-modal .stack-empty{color:#b6a98e; padding:14px 10px}
 
