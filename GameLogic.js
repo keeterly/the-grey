@@ -1,19 +1,19 @@
 // GameLogic.js
-// v2.55 logic foundation (v2.54 + pip progress field)
+// v2.56 (v2.54 base + progress field + 10-card starting deck + counts)
 
 /////////////////////////////
 // Constants & Helpers
 /////////////////////////////
 
-export const FLOW_COSTS = [4, 3, 2, 2, 2];
+export const FLOW_COSTS = [4, 3, 3, 2, 2];
 export const STARTING_HAND = 5;
 export const STARTING_VITALITY = 5;
+export const STARTING_DECK_SIZE = 10;   // ← NEW
 
 // a tiny inline blue gem SVG you can inject into HTML strings
 export const AE_GEM_SVG =
   '<svg class="gem-inline" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/></svg>';
 
-// replace the glyph Æ with the inline gem SVG (call this in your UI when rendering text)
 export function withAetherText(s = "") {
   return String(s).replaceAll("Æ", AE_GEM_SVG);
 }
@@ -28,7 +28,6 @@ function shuffle(arr, rng = Math.random) {
 }
 
 function uid() {
-  // lightweight uid; browsers with crypto get UUIDs
   if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
   return "id_" + Math.random().toString(36).slice(2);
 }
@@ -39,7 +38,6 @@ function clone(o) { return JSON.parse(JSON.stringify(o)); }
 // Card Pools (Data)
 /////////////////////////////
 
-// Shared starting deck (for both players)
 const BASE_DECK_LIST = [
   { name: "Pulse of the Grey",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Draw 1, Gain 1 Æ",              aetherValue: 0, role: "Starter draw/flow",    qty: 3 },
   { name: "Wispform Surge",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Chain enabler",        qty: 1 },
@@ -53,7 +51,6 @@ const BASE_DECK_LIST = [
   { name: "Glyph of Returning Echo", type: "GLYPH",   cost: 0, pip: 0, text: "When you Channel Aether → Draw 1 card",     aetherValue: 0, role: "Draw engine",          qty: 1 },
 ];
 
-// Aetherflow deck (river-style market)
 const AETHERFLOW_LIST = [
   { name: "Surge of Cinders",         type: "INSTANT", cost: 2, pip: 0, text: "Deal 2 damage to any target",                                              aetherValue: 0, role: "Early aggression",  qty: 1 },
   { name: "Pulse Feedback",           type: "INSTANT", cost: 3, pip: 0, text: "Advance all Spells you control by 1",                                      aetherValue: 0, role: "Momentum burst",    qty: 1 },
@@ -79,15 +76,14 @@ function expandList(list) {
       out.push({
         id: uid(),
         name: c.name,
-        type: c.type,         // "SPELL" | "INSTANT" | "GLYPH"
-        cost: c.cost || 0,    // resource to play
-        pip: c.pip || 0,      // number of stages to resolve (pips)
+        type: c.type,
+        cost: c.cost || 0,
+        pip: c.pip || 0,
         text: c.text || "",
-        aetherValue: c.aetherValue || 0, // gained when discarding
+        aetherValue: c.aetherValue || 0,
         role: c.role || "",
-        price: c.cost || 0,   // for market labeling fallback
-        // NEW: progress field so the UI can update pips immediately
-        progress: 0
+        price: c.cost || 0,
+        progress: 0,                 // ← NEW (UI pip fill)
       });
     }
   });
@@ -99,9 +95,13 @@ function expandList(list) {
 /////////////////////////////
 
 export function initState(seed) {
-  // Build decks
-  const playerDeck = shuffle(expandList(BASE_DECK_LIST));
-  const aiDeck     = shuffle(expandList(BASE_DECK_LIST));
+  // Build 10-card starting decks per player from the base pool
+  const basePoolP = shuffle(expandList(BASE_DECK_LIST));
+  const basePoolA = shuffle(expandList(BASE_DECK_LIST));
+  const playerDeck = basePoolP.slice(0, STARTING_DECK_SIZE);
+  const aiDeck     = basePoolA.slice(0, STARTING_DECK_SIZE);
+
+  // Market draw pile
   const flowDraw   = shuffle(expandList(AETHERFLOW_LIST));
 
   // Starting hands
@@ -112,24 +112,23 @@ export function initState(seed) {
 
   // Flow slots: 5 slots, only slot 0 reveals at game start
   const flow = [null, null, null, null, null];
-  // reveal one into slot 0 if available
   if (flowDraw.length) flow[0] = { ...flowDraw.shift() };
 
   return {
     turn: 1,
     activePlayer: "player",
-    flow,                 // array of 5 or nulls/card objects
-    flowDraw,             // facedown river deck
+    flow,
+    flowDraw,
     players: {
       player: {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
-          { hasCard:false, card:null }, // spell
-          { hasCard:false, card:null }, // spell
-          { hasCard:false, card:null }, // spell
-          { isGlyph:true, hasCard:false, card:null }, // glyph
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { isGlyph:true, hasCard:false, card:null },
         ],
         weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
       },
@@ -151,11 +150,11 @@ export function initState(seed) {
 
 export function serializePublic(state) {
   const s = clone(state);
-  // add price rails for flow (derived from position)
   s.flow = (s.flow || []).map((c, idx) => c ? ({...c, price: FLOW_COSTS[idx]}) : null);
-  // reduce deck arrays to counts for UI if you prefer (left as full arrays for flexibility)
-  s.players.player.deckCount = s.players.player.deck.length;
-  s.players.ai.deckCount     = s.players.ai.deck.length;
+  s.players.player.deckCount    = s.players.player.deck.length;
+  s.players.player.discardCount = s.players.player.discard.length;   // ← NEW (for HUD)
+  s.players.ai.deckCount        = s.players.ai.deck.length;
+  s.players.ai.discardCount     = s.players.ai.discard.length;       // ← NEW
   return s;
 }
 
@@ -163,28 +162,21 @@ export function serializePublic(state) {
 // Turn / Flow mechanics
 /////////////////////////////
 
-// Start of active player's turn:
-// - reveal into slot 0 if empty (river head)
 export function startTurn(state) {
   if (!state) return state;
   const hd = state.flowDraw || [];
   if (!state.flow) state.flow = [null,null,null,null,null];
-
   if (!state.flow[0] && hd.length) {
     state.flow[0] = { ...hd.shift() };
   }
   return state;
 }
 
-// End of turn:
-// - river shift happens ONLY when the PLAYER ends their turn
-// - swap active player; auto-start next player's turn with a reveal if needed
 export function endTurn(state) {
   if (!state?.flow) return state;
 
   const endingPlayer = state.activePlayer;
 
-  // Shift the river only when the player ends their turn
   if (endingPlayer === "player") {
     for (let i = state.flow.length - 1; i > 0; i--) {
       state.flow[i] = state.flow[i] || state.flow[i - 1] ? state.flow[i - 1] : null;
@@ -192,11 +184,9 @@ export function endTurn(state) {
     state.flow[0] = null;
   }
 
-  // Switch active player
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
-  // Reveal at the start of whoever's new turn
   startTurn(state);
   return state;
 }
@@ -205,7 +195,6 @@ export function endTurn(state) {
 // Player actions
 /////////////////////////////
 
-// Discard from hand for aether (gain equals card.aetherValue)
 export function discardForAether(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -235,7 +224,6 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
 
   P.hand.splice(i,1);
-  // Defensive: ensure progress field exists and resets when entering play
   if (typeof card.progress !== "number") card.progress = 0;
   card.progress = 0;
 
@@ -274,27 +262,28 @@ export function buyFromFlow(state, playerId, flowIndex){
   if ((P.aether || 0) < price) throw new Error("Not enough Æ");
 
   P.aether -= price;
-  // into discard
-  P.discard.push(card);
-  // remove from flow (slot stays empty until future shifts/reveals)
+  P.discard.push(card);       // ← to discard
   state.flow[flowIndex] = null;
   return state;
 }
 
 /////////////////////////////
-// Draw helpers (for future)
+// Draw helpers
 /////////////////////////////
+
+function restockIfEmpty(P){
+  if (!P.deck.length && P.discard.length){
+    shuffle(P.discard);
+    P.deck = P.discard.splice(0);
+  }
+}
 
 export function drawOne(state, playerId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
-  if (!P.deck.length) {
-    // shuffle discard into deck if empty
-    if (P.discard.length){
-      P.deck = shuffle(P.discard.splice(0));
-    }
-  }
-  if (!P.deck.length) return state; // no cards to draw
+
+  restockIfEmpty(P);
+  if (!P.deck.length) return state;
   P.hand.push(P.deck.shift());
   return state;
 }
@@ -305,11 +294,16 @@ export function drawN(state, playerId, n){
 }
 
 /////////////////////////////
-// Optional: minimal AI stub
+// Stack viewers (for UI)
 /////////////////////////////
 
+export function getStack(state, playerId, kind /* 'deck' | 'discard' */){
+  const P = state.players[playerId];
+  if (!P) throw new Error("bad player");
+  const arr = kind === 'discard' ? P.discard : P.deck;
+  return arr.map(c => ({ id:c.id, name:c.name, type:c.type, pip:c.pip, cost:c.cost }));
+}
+
 export function aiTakeTurn(state){
-  // Placeholder: AI currently just ends turn.
-  // (Hook in your future logic here.)
   return state;
 }
