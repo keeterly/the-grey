@@ -1,11 +1,11 @@
 // GameLogic.js
-// v2.54 logic foundation (built atop v2.53 baseline)
+// v2.55 logic foundation (v2.54 + pip progress field)
 
 /////////////////////////////
 // Constants & Helpers
 /////////////////////////////
 
-export const FLOW_COSTS = [4, 3, 3, 2, 2];
+export const FLOW_COSTS = [4, 3, 2, 2, 2];
 export const STARTING_HAND = 5;
 export const STARTING_VITALITY = 5;
 
@@ -41,16 +41,16 @@ function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
 // Shared starting deck (for both players)
 const BASE_DECK_LIST = [
-  { name: "Pulse of the Grey",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Draw 1, Gain 1 Æ",           aetherValue: 0, role: "Starter draw/flow",    qty: 3 },
+  { name: "Pulse of the Grey",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Draw 1, Gain 1 Æ",              aetherValue: 0, role: "Starter draw/flow",    qty: 3 },
   { name: "Wispform Surge",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Chain enabler",        qty: 1 },
   { name: "Greyfire Bloom",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Aggro chain",          qty: 1 },
-  { name: "Echoing Reservoir",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1",                  aetherValue: 2, role: "Aether generator",     qty: 2 },
-  { name: "Dormant Catalyst",        type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2",                  aetherValue: 1, role: "Ramp starter",         qty: 1 },
-  { name: "Ashen Focus",             type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1 and Draw 1",       aetherValue: 1, role: "Draw + Aether hybrid", qty: 1 },
-  { name: "Surge of Ash",            type: "INSTANT", cost: 1, pip: 0, text: "Target Spell advances 1 step free",      aetherValue: 0, role: "Tempo burst",          qty: 1 },
-  { name: "Veil of Dust",            type: "INSTANT", cost: 1, pip: 0, text: "Prevent 1 damage or negate a hostile Instant", aetherValue: 0, role: "Reactive defense", qty: 1 },
-  { name: "Glyph of Remnant Light",  type: "GLYPH",   cost: 0, pip: 0, text: "When a Spell resolves → Gain 1 Æ",       aetherValue: 0, role: "Passive economy",      qty: 1 },
-  { name: "Glyph of Returning Echo", type: "GLYPH",   cost: 0, pip: 0, text: "When you Channel Aether → Draw 1 card",  aetherValue: 0, role: "Draw engine",          qty: 1 },
+  { name: "Echoing Reservoir",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1",                     aetherValue: 2, role: "Aether generator",     qty: 2 },
+  { name: "Dormant Catalyst",        type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2",                     aetherValue: 1, role: "Ramp starter",         qty: 1 },
+  { name: "Ashen Focus",             type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1 and Draw 1",          aetherValue: 1, role: "Draw + Aether hybrid", qty: 1 },
+  { name: "Surge of Ash",            type: "INSTANT", cost: 1, pip: 0, text: "Target Spell advances 1 step free",         aetherValue: 0, role: "Tempo burst",          qty: 1 },
+  { name: "Veil of Dust",            type: "INSTANT", cost: 1, pip: 0, text: "Prevent 1 damage or negate a hostile Instant", aetherValue: 0, role: "Reactive defense",  qty: 1 },
+  { name: "Glyph of Remnant Light",  type: "GLYPH",   cost: 0, pip: 0, text: "When a Spell resolves → Gain 1 Æ",          aetherValue: 0, role: "Passive economy",      qty: 1 },
+  { name: "Glyph of Returning Echo", type: "GLYPH",   cost: 0, pip: 0, text: "When you Channel Aether → Draw 1 card",     aetherValue: 0, role: "Draw engine",          qty: 1 },
 ];
 
 // Aetherflow deck (river-style market)
@@ -80,12 +80,14 @@ function expandList(list) {
         id: uid(),
         name: c.name,
         type: c.type,         // "SPELL" | "INSTANT" | "GLYPH"
-        cost: c.cost || 0,    // resource to play (FYI; not enforced yet)
+        cost: c.cost || 0,    // resource to play
         pip: c.pip || 0,      // number of stages to resolve (pips)
         text: c.text || "",
         aetherValue: c.aetherValue || 0, // gained when discarding
         role: c.role || "",
         price: c.cost || 0,   // for market labeling fallback
+        // NEW: progress field so the UI can update pips immediately
+        progress: 0
       });
     }
   });
@@ -199,7 +201,6 @@ export function endTurn(state) {
   return state;
 }
 
-
 /////////////////////////////
 // Player actions
 /////////////////////////////
@@ -234,6 +235,10 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
 
   P.hand.splice(i,1);
+  // Defensive: ensure progress field exists and resets when entering play
+  if (typeof card.progress !== "number") card.progress = 0;
+  card.progress = 0;
+
   slot.card = card;
   slot.hasCard = true;
   return state;
