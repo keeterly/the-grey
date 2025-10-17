@@ -423,12 +423,16 @@ function advanceSpellAt(side, slotIndex){
   const slot = state?.players?.[side]?.slots?.[slotIndex];
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return;
-  const need = Math.max(0, (c.pip|0) - getProgress(c));
-  if (need <= 0) return;
-  if (getTotal(side) < 1) { showToast("Not enough Æther."); return; }
+
+  // spend 1 Æ (temp first) — same as before
+  if (getTotal(side) < 1){ showToast("Not enough Æther."); return; }
   spendAe(side, 1);
-  setProgress(c, getProgress(c)+1);
-  Emit('spell.progress', {side, slotIndex, cardId:c.id, progress:getProgress(c), pip:c.pip|0});
+
+  // advance in logic; it will auto-discard when complete and enqueue an event
+  state = advanceSpell(state, side, slotIndex, 1);
+
+  // re-render quickly so the pip fills immediately
+  render();
 }
 
 function renderSlots(container, snapshot, isPlayer){
