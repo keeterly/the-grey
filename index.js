@@ -760,8 +760,9 @@ function spotlightFromEvents(state){
         slot.classList.add('spotlight');
         slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
-
-     // Vitality damage → pulse the hearts UI
+    }
+     
+    // Vitality damage → pulse the hearts UI
       if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
         const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
         const hearts = document.getElementById(id);
@@ -771,8 +772,6 @@ function spotlightFromEvents(state){
         }
       }
 
-      
-    }
 
     // Glyph slot spotlight (index 3)
     if (e.t === 'resolved' && e.source === 'glyph'){
