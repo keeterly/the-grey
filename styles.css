@@ -284,6 +284,55 @@ html,body{height:100%}
 .card .pip-track{display:flex; justify-content:center; gap:calc(8px * var(--card-scale)); padding:calc(6px * var(--card-scale)) calc(12px * var(--card-scale)) calc(2px * var(--card-scale)) calc(12px * var(--card-scale));}
 .card .pip{width:calc(12px * var(--card-scale));height:calc(12px * var(--card-scale));border-radius:50%; border:calc(2px * var(--card-scale)) solid #b6a98e; background:transparent}
 
+
+/* --- Clickable, focusable pip track (even while pulsing) --- */
+.card .pip-track {
+  position: relative;
+  z-index: 2;              /* sit above decorative overlays */
+  pointer-events: auto;    /* allow click on self */
+}
+
+/* When a spell can advance, make it feel actionable */
+.card .pip-track.can-advance {
+  cursor: pointer;
+}
+
+/* The glowing “ring” lives under the track so it never steals clicks */
+.card .pip-track.can-advance::before {
+  content: "";
+  position: absolute;
+  inset: -6px;             /* slightly bigger than the track */
+  border-radius: 999px;
+  box-shadow: 0 0 18px 6px rgba(255, 240, 180, 0.18),
+              0 0 8px 2px rgba(255, 240, 180, 0.22) inset;
+  opacity: 0.7;
+  pointer-events: none;
+  z-index: -1;
+}
+
+/* Optional: on hover/focus, intensify the glow slightly */
+.card .pip-track.can-advance:hover::before,
+.card .pip-track.can-advance:focus-visible::before {
+  box-shadow: 0 0 20px 8px rgba(255, 240, 180, 0.23),
+              0 0 10px 3px rgba(255, 240, 180, 0.28) inset;
+}
+
+/* Make the individual pips real click targets */
+.card .pip-track .pip {
+  display: inline-block;
+  min-width: 18px;         /* ensure a minimum hit area */
+  min-height: 18px;
+  pointer-events: auto;    /* clicks pass through to the track or the pip */
+}
+
+/* Ensure any card overlay never blocks input */
+.card::before,
+.card::after {
+  pointer-events: none;
+}
+
+
+
 /* Rules text */
 .card .textbox{flex:1; padding:calc(8px * var(--card-scale)) calc(12px * var(--card-scale)) calc(48px * var(--card-scale)) calc(12px * var(--card-scale)); opacity:.92; line-height:1.2}
 
