@@ -41,6 +41,13 @@ const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 const nextFrame = () => new Promise(requestAnimationFrame);
 const onTransitionEnd = (node) => new Promise(res => node.addEventListener("transitionend", res, {once:true}));
 
+// --- cinematic helper: find the live DOM node for a hand card and emit
+function cineFromHandCard(cardId, toSel = '#btn-discard-hud', pose = '') {
+  const node = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
+  if (node) Emit('spotlight:cine', { node, to: toSel, pose });
+}
+
+
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
 const playerSlotsEl = $("player-slots");
@@ -253,11 +260,17 @@ function showCardOptions(cardEl, cardData){
         } else if (o.k === "set"){
           await setGlyphFromHandWithTemp("player", cardData.id);
         } else if (o.k === "channel"){
+          } else if (o.k === "channel"){
+          // cinematic from the clicked hand card → discard HUD
+          cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
+        
           const before = getAe("player");
           state = discardForAether(state, "player", cardData.id);
           const gained = getAe("player") - before;
-          adjustAe("player", -gained); addTemp("player", gained);
+          adjustAe("player", -gained); 
+          addTemp("player", gained);
           Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
+
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
         }
@@ -295,18 +308,22 @@ function markDropTargets(cardType, on){
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
-  if (!target || !cardId) return;
-  try {
-    if (target === hudDiscardBtn){
+      if (target === hudDiscardBtn){
+      // cinematic from the dragged hand card → discard HUD
+      cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
+    
       const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
       if (el){ el.classList.add("discarding"); setTimeout(()=>{}, 0); }
       const before = getAe("player");
       state = discardForAether(state, "player", cardId);
       const gained = getAe("player") - before;
-      adjustAe("player", -gained); addTemp("player", gained);
+      adjustAe("player", -gained); 
+      addTemp("player", gained);
       Emit(Events.CHANNEL, {side:"player", cardId, gained});
-      render(); return;
+      render(); 
+      return;
     }
+
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
       setGlyphFromHandWithTemp("player", cardId); render(); return;
     }
@@ -895,6 +912,13 @@ function spotlightFromEvents(state){
       const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
       if (slot){
         slot.classList.add('spotlight');
+
+        // cinematic: clone the slot's card to center, then to discard
+        const cardNode = slot?.querySelector('.card');
+        if (cardNode) {
+          Emit('spotlight:cine', { node: cardNode, to: '#btn-discard-hud', pose: 'spell-resolve' });
+        }
+        
         slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
     }
@@ -953,6 +977,13 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
   const cost = tranceDiscount(side, rawCost);
   const useTemp = Math.min(cost, getTemp(side));
   adjustAe(side, useTemp); // virtual top-up (GameLogic checks aether)
+
+    // BEFORE state = playCardToSpellSlot(...)
+  const dest = document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"] .card`) 
+            || document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"]`);
+  cineFromHandCard(cardId, dest, 'play-spell');
+
+  
   try {
     state = playCardToSpellSlot(state, side, cardId, slotIndex);
     // reset progress on placed spell
@@ -1034,14 +1065,19 @@ window.castInstantFromHand = async function(_state, side, cardId){
   adjustAe(side, useTemp);
   try{
     if (useTemp) addTemp(side, -useTemp);
+  
+    // cinematic from the hand card → discard HUD
+    cineFromHandCard(cardId, '#btn-discard-hud', 'instant');
+  
     // resolve to discard + event for spotlight
     state = resolveInstantFromHand(state, side, cardId);
     Emit(Events.CARD_CAST, {side, cardId, cost});
     await render();
-  }catch(e){
+  } catch(e) {
     if (useTemp) adjustAe(side, -useTemp);
     throw e;
   }
+
   return state;
 };
 
