@@ -752,6 +752,7 @@ function canAdvanceSpell(side, slot){
 function spotlightFromEvents(state){
   const evts = drainEvents(state) || [];
   evts.forEach(e => {
+
     // Spell slot spotlight
     if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
       const rowSel = `.row.${e.side || 'player'}`;
@@ -761,19 +762,18 @@ function spotlightFromEvents(state){
         slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
     }
-     
-    // Vitality damage → pulse the hearts UI
-      if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
-        const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
-        const hearts = document.getElementById(id);
-        if (hearts) {
-          hearts.classList.add('hit');
-          hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
-        }
+
+    // ✅ Damage pulse (moved out, so it actually runs)
+    if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
+      const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
+      const hearts = document.getElementById(id);
+      if (hearts) {
+        hearts.classList.add('hit');
+        hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
       }
+    }
 
-
-    // Glyph slot spotlight (index 3)
+    // Glyph slot spotlight
     if (e.t === 'resolved' && e.source === 'glyph'){
       const rowSel = `.row.${e.side || 'player'}`;
       const slot = document.querySelector(`${rowSel} .slot.glyph`);
@@ -783,7 +783,7 @@ function spotlightFromEvents(state){
       }
     }
 
-    // Hand→discard conversions (discard-aether/hand-discard) – pulse discard HUD
+    // Hand→discard pulse
     if (e.t === 'resolved' && (e.source === 'discard-aether' || e.source === 'hand-discard')){
       const discardHud = document.getElementById('btn-discard-hud');
       if (discardHud){
@@ -792,7 +792,7 @@ function spotlightFromEvents(state){
       }
     }
 
-    // Flow reveal — pulse the new flow slot’s price label/card
+    // Flow reveal pulse
     if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)){
       const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
       if (flowCard){
@@ -802,6 +802,7 @@ function spotlightFromEvents(state){
     }
   });
 }
+
 
 /* ---------- wrappers that honor temp aether + trance ---------- */
 function tranceDiscount(side, cost){
