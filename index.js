@@ -753,6 +753,18 @@ function spotlightFromEvents(state){
         slot.classList.add('spotlight');
         slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
+
+     // Vitality damage → pulse the hearts UI
+      if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
+        const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
+        const hearts = document.getElementById(id);
+        if (hearts) {
+          hearts.classList.add('hit');
+          hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
+        }
+      }
+
+      
     }
 
     // Glyph slot spotlight (index 3)
