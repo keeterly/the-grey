@@ -389,11 +389,30 @@ function wireTouchDrag(el, data){
   el.addEventListener("touchcancel", end, {passive:false});
 }
 
-document.addEventListener('dragover', (e)=>{
+document.addEventListener('dragover', (e) => {
   const el = document.elementFromPoint(e.clientX, e.clientY);
-  const tgt = findValidDropTarget(el, "SPELL");
-  if (tgt){ e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }
+
+  // Try to detect the real card type from the drag payload
+  let draggedType = e.dataTransfer?.getData('text/card-type') || '';
+  if (!draggedType) {
+    try {
+      const payload = JSON.parse(e.dataTransfer?.getData('application/x-card') || '{}');
+      draggedType = payload.type || '';
+    } catch {}
+  }
+
+  // Fallback: probe both types if we couldn't read it yet
+  const tgt = draggedType
+    ? findValidDropTarget(el, draggedType)
+    : (findValidDropTarget(el, "SPELL") || findValidDropTarget(el, "GLYPH"));
+
+  if (tgt) {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+  }
 }, true);
+
+
 document.addEventListener('drop', (ev)=>{
   const json = ev.dataTransfer?.getData('application/x-card') || '{}';
   let payload={}; try{ payload=JSON.parse(json); }catch{}
