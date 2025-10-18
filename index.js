@@ -726,7 +726,8 @@ function canAdvanceSpell(side, slot){
 function spotlightFromEvents(state){
   const evts = drainEvents(state) || [];
   evts.forEach(e => {
-    if (e.t === 'resolved' && e.source === 'spell' && typeof e.slotIndex === 'number'){
+    // Spell slot spotlight
+    if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
       const rowSel = `.row.${e.side || 'player'}`;
       const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
       if (slot){
@@ -734,7 +735,34 @@ function spotlightFromEvents(state){
         slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
     }
-    // (you can extend here for glyph/instant toasts, etc.)
+
+    // Glyph slot spotlight (index 3)
+    if (e.t === 'resolved' && e.source === 'glyph'){
+      const rowSel = `.row.${e.side || 'player'}`;
+      const slot = document.querySelector(`${rowSel} .slot.glyph`);
+      if (slot){
+        slot.classList.add('spotlight');
+        slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
+      }
+    }
+
+    // Hand→discard conversions (discard-aether/hand-discard) – pulse discard HUD
+    if (e.t === 'resolved' && (e.source === 'discard-aether' || e.source === 'hand-discard')){
+      const discardHud = document.getElementById('btn-discard-hud');
+      if (discardHud){
+        discardHud.classList.add('spotlight');
+        discardHud.addEventListener('animationend', () => discardHud.classList.remove('spotlight'), { once:true });
+      }
+    }
+
+    // Flow reveal — pulse the new flow slot’s price label/card
+    if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)){
+      const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
+      if (flowCard){
+        flowCard.classList.add('spotlight');
+        flowCard.addEventListener('animationend', () => flowCard.classList.remove('spotlight'), { once:true });
+      }
+    }
   });
 }
 
@@ -1083,13 +1111,6 @@ document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); }
   document.addEventListener("DOMContentLoaded", apply);
 })();
 
-
-if (slot.hasCard && slot.card){
-  const art = document.createElement("article");
-  art.className = "card";
-  art.innerHTML = cardHTML(slot.card);
-  attachPeekAndZoom(art, slot.card);
-  d.appendChild(art);
 
   // ---> ADVANCEABLE PIPS (click/tap the pip track to spend 1 Æ and fill one pip)
   if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
