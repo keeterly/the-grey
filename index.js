@@ -723,21 +723,18 @@ function canAdvanceSpell(side, slot){
   return need > 0 && getTotal(side) >= 1;
 }
 
-function spotlightFromEvents(){
-  const evts = drainEvents(state);   // reads & clears GameLogic queue
-  evts.forEach(e=>{
-    if (e.source === "spell" && e.side === "player" && Number.isFinite(e.slotIndex)){
-      const slot = document.querySelector(`.row.player .slot.spell[data-slot-index="${e.slotIndex}"]`);
+function spotlightFromEvents(state){
+  const evts = drainEvents(state) || [];
+  evts.forEach(e => {
+    if (e.t === 'resolved' && e.source === 'spell' && typeof e.slotIndex === 'number'){
+      const rowSel = `.row.${e.side || 'player'}`;
+      const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
       if (slot){
         slot.classList.add('spotlight');
-        setTimeout(()=> slot.classList.remove('spotlight'), 650);
+        slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
-    } else {
-      // gentler feedback for non-slot events
-      showToast("Card resolved.");
     }
-    // also broadcast on the Grey bus if you want FX hooks elsewhere
-    Emit('card.resolved', e);
+    // (you can extend here for glyph/instant toasts, etc.)
   });
 }
 
@@ -916,6 +913,7 @@ async function render(){
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
 
+  
   /* ----- HAND ----- */
   if (handEl){
     const oldIds = prevHandIds.slice();
@@ -967,6 +965,10 @@ async function render(){
   }
 
   highlightPlayableCards();
+
+  // inside your async function render() { ... } — at the very end, after all sub-renders:
+spotlightFromEvents(state);
+  
 }
 
 /* ---------- turn loop ---------- */
