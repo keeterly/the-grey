@@ -574,13 +574,26 @@ function renderSlots(container, snapshot, isPlayer){
       if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
         const track = art.querySelector('.pip-track');
         if (track){
-          track.style.cursor = 'pointer';
-          track.title = 'Spend 1 Æther to advance';
-          track.addEventListener('click', (ev)=>{
+          const canAdv = canAdvanceSpell('player', slot);
+      
+          track.classList.toggle('can-advance', canAdv);
+          track.title = canAdv ? 'Spend 1 Æther to advance' : '';
+          track.tabIndex = canAdv ? 0 : -1;  // focusable only if actionable
+          track.setAttribute('role', canAdv ? 'button' : 'presentation');
+      
+          // replace any previous handlers to avoid duplicates across re-renders
+          track.onclick = canAdv ? (ev) => {
             ev.stopPropagation();
             advanceSpellAt('player', i);
             art.innerHTML = cardHTML(slot.card); // repaint pips fast
-          });
+          } : null;
+      
+          track.onkeydown = canAdv ? (ev) => {
+            if (ev.key === 'Enter' || ev.key === ' ') {
+              ev.preventDefault();
+              track.click();
+            }
+          } : null;
         }
       }
     }
