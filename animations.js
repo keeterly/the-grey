@@ -165,3 +165,121 @@
     node.classList.remove('grey-anim-spot');
   });
 })();
+
+
+
+
+
+(function(){
+  const Grey = window.Grey;
+
+  // --- CSS for cinematic animation and magical glow ---
+  const css = `
+  .cine-clone {
+    position: fixed;
+    left: 0; top: 0;
+    z-index: 999999;
+    pointer-events: none;
+    will-change: transform, opacity, filter;
+    transform-origin: center center;
+    transition: transform 240ms cubic-bezier(.2,.8,.2,1), opacity 180ms linear, filter 240ms ease;
+    filter: drop-shadow(0 8px 16px rgba(0,0,0,.45));
+  }
+  .cine-glow {
+    /* Magical edge glow effect */
+    box-shadow:
+      0 0 0 0 rgba(140,180,255,.0),
+      0 0 12px 2px rgba(140,180,255,.35) inset,
+      0 0 24px 6px rgba(90,160,255,.35);
+    animation: cinePulse 900ms ease-in-out 0s 1,
+               cineBreath 2.4s ease-in-out .9s infinite;
+    border-radius: 14px;
+  }
+  @keyframes cinePulse {
+    0%   { box-shadow: 0 0 0 0 rgba(140,180,255,.0), 0 0 8px 1px rgba(140,180,255,.2) inset, 0 0 12px 2px rgba(90,160,255,.2); }
+    30%  { box-shadow: 0 0 0 2px rgba(170,210,255,.35), 0 0 22px 3px rgba(170,210,255,.45) inset, 0 0 34px 8px rgba(120,190,255,.55); }
+    100% { box-shadow: 0 0 0 0 rgba(140,180,255,.0), 0 0 12px 2px rgba(140,180,255,.35) inset, 0 0 24px 6px rgba(90,160,255,.35); }
+  }
+  @keyframes cineBreath {
+    0%,100% { filter: drop-shadow(0 8px 16px rgba(0,0,0,.45)) }
+    50%     { filter: drop-shadow(0 10px 22px rgba(0,0,0,.55)) }
+  }`;
+
+  if (!document.getElementById('cine-style')) {
+    const tag = document.createElement('style');
+    tag.id = 'cine-style';
+    tag.textContent = css;
+    document.head.appendChild(tag);
+  }
+
+  // --- Utility functions ---
+  function rectOf(el){
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return {x:r.left, y:r.top, w:r.width, h:r.height};
+  }
+
+  function centerOfViewport(){
+    return { cx: window.innerWidth/2, cy: window.innerHeight/2 };
+  }
+
+  function placeCloneAtRect(clone, r){
+    clone.style.width  = r.w + 'px';
+    clone.style.height = r.h + 'px';
+    clone.style.transform = `translate(${r.x}px, ${r.y}px)`;
+  }
+
+  async function stageCinematic(node, {to, holdMs=420, scale=1.18}={}){
+    if (!node) return;
+
+    const fromR = rectOf(node);
+    const clone = node.cloneNode(true);
+    clone.classList.add('cine-clone','cine-glow');
+    document.body.appendChild(clone);
+    placeCloneAtRect(clone, fromR);
+
+    await new Promise(r=> requestAnimationFrame(r));
+
+    // Move to screen center and enlarge slightly
+    const {cx, cy} = centerOfViewport();
+    const targetX = cx - fromR.w/2;
+    const targetY = cy - fromR.h/2;
+    clone.style.transform = `translate(${targetX}px, ${targetY}px) scale(${scale})`;
+
+    await new Promise(r=> setTimeout(r, holdMs));
+
+    // Fly to destination (discard HUD or given target)
+    let destR = null;
+    if (to) {
+      const destEl = (typeof to === 'string') ? document.querySelector(to) : to;
+      if (destEl) {
+        const r = destEl.getBoundingClientRect();
+        destR = {
+          x: r.x + r.width/2 - fromR.w/2,
+          y: r.y + r.height/2 - fromR.h/2,
+          w: fromR.w,
+          h: fromR.h
+        };
+      }
+    }
+    if (destR){
+      clone.style.transform = `translate(${destR.x}px, ${destR.y}px) scale(.86)`;
+      clone.style.opacity = '0.0';
+      await new Promise(r=> setTimeout(r, 240));
+    }
+
+    clone.remove();
+  }
+
+  // --- Hook into Grey events ---
+  Grey?.on?.('spotlight:cine', ({node, to}) => {
+    try { stageCinematic(node, {to}); } catch(e){ console.error(e); }
+  });
+
+  Grey?.on?.('aetherflow:bought', ({node}) => {
+    try { stageCinematic(node, {to:'#btn-discard-hud', holdMs:360, scale:1.14}); } catch(e){ console.error(e); }
+  });
+
+})();
+
+
