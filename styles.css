@@ -677,3 +677,14 @@ body.mobile-landscape #zoom-card.card.zoom{
   box-shadow: 0 0 12px rgba(255,255,255,0.5);
 }
 
+
+/* Pips that can be advanced should pulse */
+.pip-track.can-advance .pip:last-child {
+  animation: pipPulse 1.3s infinite ease-in-out;
+}
+
+@keyframes pipPulse {
+  0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
+  50% { transform: scale(1.2); filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); }
+}
+
