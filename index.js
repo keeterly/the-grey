@@ -963,11 +963,7 @@ function spotlightFromEvents(state){
 
     } catch (_) {}
 
-    // keep your small pulse feedback:
-    if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
-      const rowSel = `.row.${e.side || 'player'}`;
-      const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
-    }
+  
 
     if (e.t === 'resolved' && e.source === 'glyph'){
       const rowSel = `.row.${e.side || 'player'}`;
