@@ -59,9 +59,9 @@ function rectOfAny(target, fallback) {
 }
 
 // Node-driven cinematics: PLAY/CHANNEL/INSTANT from hand, and Flow buys
-Grey?.on?.('spotlight:cine', ({ node, to, pose, slotIndex }) => {
+Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
   try {
-    // find the card data by id so the ghost has rules text, pips, etc.
+    // find data for the ghost
     const id = node?.dataset?.cardId;
     const pub = serializePublic(state) || {};
     const hand = pub.players?.player?.hand || [];
@@ -71,17 +71,22 @@ Grey?.on?.('spotlight:cine', ({ node, to, pose, slotIndex }) => {
 
     const startRect = rectOf(node) || centerRect();
 
-    // if we're playing to a slot, prefer the SLOT rect even if no card is there yet
+    // prefer SLOT rect when playing to a slot
     let destRect;
     if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
       const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
-      destRect = rectOfAny(sel, rectOfAny(to));
+      destRect = rectOf(document.querySelector(sel)) || rectOfAny(to) || centerRect();
     } else {
-      destRect = rectOfAny(to);
+      destRect = rectOfAny(to) || centerRect();
     }
 
-    // match board resolve size
-    playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
+    // 🔒 hide the real node so you don't see two
+    node.classList.add('grey-hide-during-flight');
+
+    await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
+
+    // if the node still exists (wasn't removed by render), unhide it
+    if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
   } catch {}
 });
 
@@ -361,21 +366,23 @@ function markDropTargets(cardType, on){
 }
 function applyDrop(target, cardId, cardType){
   try {
-    if (target === hudDiscardBtn){
-      // cinematic from the dragged hand card → discard HUD
-      cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
+     if (target === hudDiscardBtn){
+        // cinematic from the dragged hand card → discard HUD
+        const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
+        if (el) el.classList.add('grey-hide-during-flight'); // hide the real node (no local motion)
+        cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
+      
+        const before = getAe("player");
+        state = discardForAether(state, "player", cardId);
+        const gained = getAe("player") - before;
+        adjustAe("player", -gained);
+        addTemp("player", gained);
+        Emit(Events.CHANNEL, { side:"player", cardId, gained });
+        render();
+        return;
+      }
 
-      const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
-      if (el){ el.classList.add("discarding"); setTimeout(()=>{}, 0); }
-      const before = getAe("player");
-      state = discardForAether(state, "player", cardId);
-      const gained = getAe("player") - before;
-      adjustAe("player", -gained);
-      addTemp("player", gained);
-      Emit(Events.CHANNEL, { side:"player", cardId, gained });
-      render();
-      return;
-    }
+
 
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
       setGlyphFromHandWithTemp("player", cardId); render(); return;
