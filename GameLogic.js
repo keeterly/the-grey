@@ -184,7 +184,16 @@ export function endTurn(state) {
     while (P.hand.length) {
       const c = P.hand.shift();
       P.discard.push(c);
-      pushEvt(state, { t:"resolved", source:"hand-discard", side:endingPlayer, cardId:c.id, cardType:c.type });
+     // --- optional: in endTurn(), when discarding hand, enrich those events too
+      pushEvt(state, {
+        t: "resolved",
+        source: "hand-discard",
+        side: endingPlayer,
+        cardId: c.id,
+        cardType: c.type,
+        cardData: { ...c }
+      });
+
     }
   }
 
@@ -276,7 +285,17 @@ export function buyFromFlow(state, playerId, flowIndex){
   P.aether -= price;
   P.discard.push(card);
   state.flow[flowIndex] = null;
-  pushEvt(state, { t:"resolved", source:"buy", side:playerId, cardId:card.id, cardType:card.type, flowIndex });
+  // --- optional: in buyFromFlow(), enrich event (useful if you animate purchases)
+    pushEvt(state, {
+      t: "resolved",
+      source: "buy",
+      side: playerId,
+      cardId: card.id,
+      cardType: card.type,
+      flowIndex,
+      cardData: { ...card }
+    });
+
   return state;
 }
 
@@ -319,7 +338,17 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1){
     slot.hasCard = false;
     c.progress = 0;
     P.discard.push(c);
-    pushEvt(state, { t:"resolved", source:"spell", side:playerId, cardId:c.id, cardType:"SPELL", slotIndex });
+    // --- in advanceSpell(), inside the "if complete" block, replace pushEvt(...) with:
+      pushEvt(state, {
+        t: "resolved",
+        source: "spell",
+        side: playerId,
+        cardId: c.id,
+        cardType: "SPELL",
+        slotIndex,           // used by index.js to spotlight the slot
+        cardData: { ...c }   // lets UI render a ghost of the resolved card
+      });
+
   }
   return state;
 }
@@ -331,7 +360,16 @@ export function resolveInstantFromHand(state, playerId, cardId){
   if (i < 0) return state;
   const card = P.hand.splice(i,1)[0];
   P.discard.push(card);
-  pushEvt(state, { t:"resolved", source:"instant", side:playerId, cardId:card.id, cardType:"INSTANT" });
+      // --- in resolveInstantFromHand(), replace pushEvt(...) with:
+    pushEvt(state, {
+      t: "resolved",
+      source: "instant",
+      side: playerId,
+      cardId: card.id,
+      cardType: "INSTANT",
+      cardData: { ...card }  // for ghosting in the UI
+    });
+
   return state;
 }
 
@@ -343,7 +381,16 @@ export function resolveGlyphFromSlot(state, playerId){
   const g = slot.card;
   slot.card = null; slot.hasCard=false;
   P.discard.push(g);
-  pushEvt(state, { t:"resolved", source:"glyph", side:playerId, cardId:g.id, cardType:"GLYPH" });
+  // --- in resolveGlyphFromSlot(), replace pushEvt(...) with:
+    pushEvt(state, {
+      t: "resolved",
+      source: "glyph",
+      side: playerId,
+      cardId: g.id,
+      cardType: "GLYPH",
+      slotIndex: 3,         // glyph slot (helps future spotlighting)
+      cardData: { ...g }    // for ghosting in the UI
+    });
   return state;
 }
 
