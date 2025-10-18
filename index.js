@@ -770,6 +770,11 @@ function makeFloatingCard(cardData) {
 async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const layer = ensureCinematicLayer();
   const ghost = makeFloatingCard(cardData);
+  ghost.style.position = "absolute";
+  ghost.style.width = "240px";
+  ghost.style.height = "336px";
+  
+  
   layer.appendChild(ghost);
 
   // size the ghost to match startRect
@@ -859,7 +864,11 @@ function spotlightFromEvents(state){
         // start from the player's hand area (approximate)
         const startRect = rectOf(handEl) || centerRect();
         const destRect = domRectOfDiscardHud();
-        await playCinematic(e.cardData, startRect, destRect, { centerScale: 1.14, holdMs: 260 });
+        await playCinematic(e.cardData, startRect, destRect, {
+          centerScale: 1.2,   // not 3.0–4.0
+          holdMs: 300,
+          outMs: 280
+        });
       }
 
       if (e.t === 'resolved' && e.source === 'buy' && Number.isFinite(e.flowIndex)) {
