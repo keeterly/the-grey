@@ -213,6 +213,22 @@ html,body{height:100%}
   pointer-events:none;
 }
 
+/* === Cinematic card === */
+.cinematic-layer { 
+  position: fixed; left: 0; top: 0; width: 100vw; height: 100vh; 
+  pointer-events: none; z-index: 999999; 
+}
+.cinematic-card {
+  position: fixed; will-change: transform, opacity;
+  transition: transform 260ms ease, opacity 260ms ease;
+  transform-origin: center center;
+  opacity: 0.001;
+}
+.cinematic-card.pose {
+  transition: transform 220ms ease, opacity 160ms ease;
+}
+
+
 /* Hand area */
 .hand-wrap{position:fixed;left:0;right:0;bottom:0;height:26vh;z-index:20}
 .hand{position:absolute; left:50%; bottom:2vh; transform:translateX(-50%); width:min(1200px, 96vw); height:24vh; perspective:1200px; pointer-events:auto;}
