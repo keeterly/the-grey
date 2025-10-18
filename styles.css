@@ -562,6 +562,7 @@ body.mobile-landscape #zoom-card.card.zoom{
 .card .pip-track{
   position:relative;
   pointer-events:auto;
+  padding: 4px; /* or margin enlarge */
 }
 
 .card .pip-track.can-advance::before{
