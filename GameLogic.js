@@ -238,6 +238,30 @@ export function discardForAether(state, playerId, cardId){
   if (gain > 0){
     P.aether = (P.aether || 0) + gain;
   }
+
+
+  // Deal damage and emit a UI event
+  export function dealDamage(state, targetSide, amount = 1, meta = {}) {
+    const P = state.players?.[targetSide];
+    if (!P) return state;
+    const n = Math.max(0, amount | 0);
+    if (n <= 0) return state;
+  
+    const before = P.vitality | 0;
+    P.vitality = Math.max(0, before - n);
+  
+    pushEvt(state, {
+      t: "damage",
+      source: meta.source || "effect",
+      side: targetSide,
+      amount: n
+    });
+  
+    return state;
+  }
+
+
+  
   // Spotlight discard-for-Aether
   try {
     pushEvt(state, {
