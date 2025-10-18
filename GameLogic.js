@@ -205,8 +205,12 @@ export function endTurn(state) {
   }
 
   if (endingPlayer === "player") {
+    // Slide cards right into empty slots; do not overwrite occupied slots.
     for (let i = state.flow.length - 1; i > 0; i--) {
-      state.flow[i] = state.flow[i] || state.flow[i - 1] ? state.flow[i - 1] : null;
+      if (!state.flow[i] && state.flow[i - 1]) {
+        state.flow[i] = state.flow[i - 1];
+        state.flow[i - 1] = null;
+      }
     }
     state.flow[0] = null;
   }
