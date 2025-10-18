@@ -42,10 +42,63 @@ const nextFrame = () => new Promise(requestAnimationFrame);
 const onTransitionEnd = (node) => new Promise(res => node.addEventListener("transitionend", res, {once:true}));
 
 // --- cinematic helper: find the live DOM node for a hand card and emit
-function cineFromHandCard(cardId, toSel = '#btn-discard-hud', pose = '') {
+// to can be a selector string or an Element. meta lets us pass slotIndex, etc.
+function cineFromHandCard(cardId, to, pose = '', meta = {}) {
   const node = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
-  if (node) Emit('spotlight:cine', { node, to: toSel, pose });
+  if (node) Emit('spotlight:cine', { node, to, pose, ...meta });
 }
+
+// --- helpers for slot/node targeting
+function rectOfAny(target, fallback) {
+  if (!target) return fallback || centerRect();
+  if (typeof target === 'string') {
+    const n = document.querySelector(target);
+    return rectOf(n) || fallback || centerRect();
+  }
+  return rectOf(target) || fallback || centerRect();
+}
+
+// Node-driven cinematics: PLAY/CHANNEL/INSTANT from hand, and Flow buys
+Grey?.on?.('spotlight:cine', ({ node, to, pose, slotIndex }) => {
+  try {
+    // find the card data by id so the ghost has rules text, pips, etc.
+    const id = node?.dataset?.cardId;
+    const pub = serializePublic(state) || {};
+    const hand = pub.players?.player?.hand || [];
+    const flow = (pub.flow || []).filter(Boolean);
+    const data = [...hand, ...flow].find(c => c.id === id);
+    if (!data) return;
+
+    const startRect = rectOf(node) || centerRect();
+
+    // if we're playing to a slot, prefer the SLOT rect even if no card is there yet
+    let destRect;
+    if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
+      const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+      destRect = rectOfAny(sel, rectOfAny(to));
+    } else {
+      destRect = rectOfAny(to);
+    }
+
+    // match board resolve size
+    playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
+  } catch {}
+});
+
+// keep the flow “buy” cinematic consistent if you emit it
+Grey?.on?.('aetherflow:bought', ({ node }) => {
+  try {
+    const flowIndex = Number(node?.dataset?.flowIndex || -1);
+    const pub = serializePublic(state) || {};
+    const c = (pub.flow || [])[flowIndex];
+    if (!c) return;
+
+    const startRect = rectOf(node) || centerRect();
+    const destRect = domRectOfDiscardHud();
+    playCinematic(c, startRect, destRect, { centerScale: 1.10, holdMs: 220, outMs: 260 });
+  } catch {}
+});
+
 
 
 /* ---------- refs ---------- */
@@ -790,7 +843,6 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const layer = ensureCinematicLayer();
   const ghost = makeFloatingCard(cardData);
 
-  // deterministic viewport positioning
   ghost.style.position = "fixed";
   ghost.style.left = `${startRect?.x ?? (innerWidth - 240)/2}px`;
   ghost.style.top  = `${startRect?.y ?? (innerHeight - 336)/2}px`;
@@ -798,12 +850,13 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   ghost.style.height = `${startRect?.h ?? 336}px`;
   ghost.style.transformOrigin = "top left";
   ghost.style.willChange = "transform, opacity";
-  ghost.classList.add("cine-glow"); // glow ring (see CSS below)
+  ghost.classList.add("cine-glow");
 
   layer.appendChild(ghost);
   await nextFrame();
 
-  const scaleMid = opts.centerScale ?? 1.18;
+  // 👇 unify with board resolves
+  const scaleMid = opts.centerScale ?? 1.16;
   const pose = centerRect((startRect?.w ?? 240) * scaleMid, (startRect?.h ?? 336) * scaleMid);
   ghost.style.transform = `translate(${(pose.x - (startRect?.x ?? pose.x))}px, ${(pose.y - (startRect?.y ?? pose.y))}px) scale(${scaleMid})`;
   ghost.style.opacity = '1';
@@ -815,15 +868,16 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const endX = (destRect?.x ?? pose.x);
   const endY = (destRect?.y ?? pose.y);
   const scaleOut = opts.endScale ?? 0.78;
+
   ghost.classList.remove('pose');
   await nextFrame();
-
   ghost.style.transform = `translate(${endX - (startRect?.x ?? pose.x)}px, ${endY - (startRect?.y ?? pose.y)}px) scale(${scaleOut})`;
   ghost.style.opacity = '0.001';
 
   await sleep(opts.outMs ?? 260);
   ghost.remove();
 }
+
 
 
 /** convenience */
@@ -938,24 +992,22 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
   const useTemp = Math.min(cost, getTemp(side));
   adjustAe(side, useTemp); // virtual top-up (GameLogic checks aether)
 
-    // BEFORE state = playCardToSpellSlot(...)
-  const dest = document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"] .card`) 
-            || document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"]`);
-  cineFromHandCard(cardId, dest, 'play-spell');
+  // 🔸 Use the SLOT as the destination (selector), not the inner .card
+  const destSel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+  cineFromHandCard(cardId, destSel, 'play-spell', { slotIndex });
 
-  
   try {
     state = playCardToSpellSlot(state, side, cardId, slotIndex);
-    // reset progress on placed spell
     const slot = state?.players?.[side]?.slots?.[slotIndex];
     if (slot?.card && slot.card.type === "SPELL") setProgress(slot.card, 0);
     if (useTemp) addTemp(side, -useTemp);
     Emit(Events.CARD_PLAYED, {side, cardId, cost});
   } catch(e){
-    if (useTemp) adjustAe(side, -useTemp); // undo on failure
+    if (useTemp) adjustAe(side, -useTemp);
     throw e;
   }
 }
+
 async function setGlyphFromHandWithTemp(side, cardId){
   state = setGlyphFromHand(state, side, cardId);
   Emit(Events.CARD_SET, {side, cardId});
