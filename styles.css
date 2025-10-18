@@ -657,3 +657,23 @@ body.mobile-landscape #zoom-card.card.zoom{
   }
 }
 
+
+/* Board cards should not lift or fan like hand cards */
+.row.player .slot .card:hover,
+.row.ai .slot .card:hover {
+  transform: none !important;
+  z-index: auto !important;
+  box-shadow: 0 0 8px rgba(255,255,255,0.25);
+  outline: 2px solid rgba(255,255,255,0.25);
+  transition: outline 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Visual focus (hover or keyboard focus) */
+.row.player .slot .card:focus,
+.row.ai .slot .card:focus,
+.row.player .slot .card:hover:focus,
+.row.ai .slot .card:hover:focus {
+  outline: 2px solid rgba(255,255,255,0.55);
+  box-shadow: 0 0 12px rgba(255,255,255,0.5);
+}
+
