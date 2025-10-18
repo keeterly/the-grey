@@ -594,3 +594,13 @@ body.mobile-landscape #zoom-card.card.zoom{
 
 /* make sure drops hit the .slot.glyph container, not the rune SVG */
 .slot-rune { pointer-events: none; }
+
+.cinematic-layer .card {
+  width: 240px !important;
+  height: 336px !important;
+  max-width: none !important;
+  max-height: none !important;
+  transform-origin: center center;
+  position: absolute !important;
+}
+
