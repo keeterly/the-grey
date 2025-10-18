@@ -1112,48 +1112,4 @@ document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); }
 })();
 
 
-  // ---> ADVANCEABLE PIPS (click/tap the pip track to spend 1 Æ and fill one pip)
-  if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
-    const track = art.querySelector('.pip-track');
-    if (track){
-      const wireAdvance = ()=>{
-        // always re-check (Æ and progress may have changed)
-        const adv = canAdvanceSpell('player', state.players.player.slots[i]);
-        track.classList.toggle('can-advance', adv);
-      };
-      wireAdvance(); // initial state
-
-      const onAdvance = (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        const slotObj = state.players.player.slots[i];
-        advanceSpellAt('player', i);
-      
-        // Repaint immediately using the updated progress
-        art.innerHTML = cardHTML(slotObj.card);
-        attachPeekAndZoom(art, slotObj.card);
-      
-        // Restore pip track interactivity and pulse state
-        const nt = art.querySelector('.pip-track');
-        if (nt) {
-          bindTrack(nt);
-          nt.classList.toggle('can-advance', canAdvanceSpell('player', slotObj));
-        }
-      };
-
-
-      const bindTrack = (node)=>{
-        // Use pointer events + passive:false for reliable mobile taps
-        node.addEventListener('pointerdown', e=>{ e.preventDefault(); }, {passive:false});
-        node.addEventListener('click',       onAdvance,               {passive:false});
-        node.addEventListener('touchend',    onAdvance,               {passive:false});
-      };
-
-      bindTrack(track);
-
-      // Keep pulse state fresh when Æ changes or after actions
-      // (cheap: re-evaluate right after each render tick)
-      queueMicrotask(wireAdvance);
-    }
-  }
-}
+  
