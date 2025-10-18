@@ -947,10 +947,6 @@ function spotlightFromEvents(state){
     if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
       const rowSel = `.row.${e.side || 'player'}`;
       const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
-      if (slot){
-        slot.classList.add('spotlight');
-        slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
-      }
     }
 
     if (e.t === 'resolved' && e.source === 'glyph'){
