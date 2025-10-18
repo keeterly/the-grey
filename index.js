@@ -260,7 +260,6 @@ function showCardOptions(cardEl, cardData){
         } else if (o.k === "set"){
           await setGlyphFromHandWithTemp("player", cardData.id);
         } else if (o.k === "channel"){
-          } else if (o.k === "channel"){
           // cinematic from the clicked hand card → discard HUD
           cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
         
@@ -308,31 +307,34 @@ function markDropTargets(cardType, on){
   hudDiscardBtn?.classList.toggle("drop-ready", !!on);
 }
 function applyDrop(target, cardId, cardType){
-      if (target === hudDiscardBtn){
+  try {
+    if (target === hudDiscardBtn){
       // cinematic from the dragged hand card → discard HUD
       cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
-    
+
       const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
       if (el){ el.classList.add("discarding"); setTimeout(()=>{}, 0); }
       const before = getAe("player");
       state = discardForAether(state, "player", cardId);
       const gained = getAe("player") - before;
-      adjustAe("player", -gained); 
+      adjustAe("player", -gained);
       addTemp("player", gained);
-      Emit(Events.CHANNEL, {side:"player", cardId, gained});
-      render(); 
+      Emit(Events.CHANNEL, { side:"player", cardId, gained });
+      render();
       return;
     }
 
     if (target.classList.contains("glyph") && cardType==="GLYPH"){
       setGlyphFromHandWithTemp("player", cardId); render(); return;
     }
+
     if (target.classList.contains("spell") && cardType==="SPELL"){
       const idx = Number(target.dataset.slotIndex||0);
       playSpellFromHandWithTemp("player", cardId, idx); render(); return;
     }
-  } catch(e){}
+  } catch (e) {}
 }
+
 
 /* Desktop drag wiring */
 function wireDesktopDrag(el, data){
@@ -907,21 +909,15 @@ function spotlightFromEvents(state){
     } catch (_) {}
 
     // --- Lightweight pulses you already had ---
-    if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
-      const rowSel = `.row.${e.side || 'player'}`;
-      const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
-      if (slot){
-        slot.classList.add('spotlight');
-
-        // cinematic: clone the slot's card to center, then to discard
-        const cardNode = slot?.querySelector('.card');
-        if (cardNode) {
-          Emit('spotlight:cine', { node: cardNode, to: '#btn-discard-hud', pose: 'spell-resolve' });
+      if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
+        const rowSel = `.row.${e.side || 'player'}`;
+        const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
+        if (slot){
+          slot.classList.add('spotlight');
+          slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
         }
-        
-        slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
-    }
+
 
     if (e.t === 'resolved' && e.source === 'glyph'){
       const rowSel = `.row.${e.side || 'player'}`;
