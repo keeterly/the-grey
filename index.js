@@ -609,18 +609,20 @@ async function renderFlow(flowArray){
     if (c) attachPeekAndZoom(card, c);
 
     if (c && canAfford){
+      // inside the click handler in renderFlow()
       card.addEventListener("click", async ()=>{
         const useTemp = Math.min(price, (state.players.player.tempAether|0));
         adjustAe("player", useTemp); // virtual top-up
         try {
-          card.classList.add("flow-fall");
-          await new Promise(r=>setTimeout(r, 160));
+          // 🔸 Tell animations to spotlight & fly this exact DOM node
+          Emit('aetherflow:bought', { node: card });
+      
+          // proceed with game logic
           state = buyFromFlow(state, "player", idx);
-          addTemp("player", -useTemp); // spend temp first
-        } catch(e){
-          adjustAe("player", -useTemp); // undo on failure
+          addTemp("player", -useTemp);
+        } catch (e) {
+          adjustAe("player", -useTemp);
         }
-        Emit(Events.BUY, {side:"player", idx, price});
         await render();
       });
     }
