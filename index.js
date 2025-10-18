@@ -732,6 +732,91 @@ function reshuffleFromDiscard(side = "player"){
   }
 }
 
+
+
+// ---------- cinematic helpers ----------
+function ensureCinematicLayer() {
+  let layer = document.querySelector('.cinematic-layer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.className = 'cinematic-layer';
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+function rectOf(el) {
+  if (!el) return null;
+  const r = el.getBoundingClientRect();
+  return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width/2, cy: r.top + r.height/2 };
+}
+function rectOfSelector(sel) {
+  const node = document.querySelector(sel);
+  return rectOf(node);
+}
+function centerRect(w = 260, h = 360) {
+  const vw = innerWidth, vh = innerHeight;
+  return { x: (vw - w)/2, y: (vh - h)/2, w, h, cx: vw/2, cy: vh/2 };
+}
+function makeFloatingCard(cardData) {
+  const el = document.createElement('article');
+  el.className = 'card cinematic-card';
+  el.innerHTML = cardHTML(cardData);
+  return el;
+}
+
+/**
+ * Animate: startRect → center pose → destRect
+ */
+async function playCinematic(cardData, startRect, destRect, opts = {}) {
+  const layer = ensureCinematicLayer();
+  const ghost = makeFloatingCard(cardData);
+  layer.appendChild(ghost);
+
+  // size the ghost to match startRect
+  const startW = startRect?.w || 240;
+  const startH = startRect?.h || 336;
+  ghost.style.width = `${startW}px`;
+  ghost.style.height = `${startH}px`;
+  ghost.style.left = `${(startRect?.x ?? (innerWidth - startW)/2)}px`;
+  ghost.style.top  = `${(startRect?.y ?? (innerHeight - startH)/2)}px`;
+
+  await nextFrame();
+
+  // fly to center & fade in
+  const pose = centerRect(startW * (opts.centerScale || 1.18), startH * (opts.centerScale || 1.18));
+  ghost.style.transform = `translate(${pose.x - (startRect?.x ?? pose.x)}px, ${pose.y - (startRect?.y ?? pose.y)}px) scale(${(opts.centerScale || 1.18)})`;
+  ghost.style.opacity = '1';
+
+  await sleep(opts.poseInMs ?? 240); // arrive at center
+  ghost.classList.add('pose');
+  await sleep(opts.holdMs ?? 360);   // hold/“pose”
+
+  // then fly to destination (shrink slightly)
+  const endX = (destRect?.x ?? pose.x);
+  const endY = (destRect?.y ?? pose.y);
+  const scaleOut = opts.endScale ?? 0.78;
+
+  ghost.classList.remove('pose');
+  await nextFrame(); // ensure transition timing resets
+  ghost.style.transform = `translate(${endX - (startRect?.x ?? pose.x)}px, ${endY - (startRect?.y ?? pose.y)}px) scale(${scaleOut})`;
+  ghost.style.opacity = '0.001';
+
+  await sleep(opts.outMs ?? 260);
+  ghost.remove();
+}
+
+/** convenience */
+function domRectOfDiscardHud() {
+  const node = document.getElementById('btn-discard-hud');
+  if (!node) return centerRect(); // fallback
+  const r = node.getBoundingClientRect();
+  const w = Math.min(r.width * 0.9, 220);
+  const h = Math.min(r.height * 1.4, 300);
+  return { x: r.left + (r.width - w)/2, y: r.top + (r.height - h)/2, w, h, cx: r.left + r.width/2, cy: r.top + r.height/2 };
+}
+
+
+
 /* ---------- temp aether helpers ---------- */
 function sideObj(side){ return state?.players?.[side] || {}; }
 function getAe(side){ return sideObj(side).aether|0; }
