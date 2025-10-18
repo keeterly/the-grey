@@ -683,8 +683,28 @@ body.mobile-landscape #zoom-card.card.zoom{
   animation: pipPulse 1.3s infinite ease-in-out;
 }
 
+
 @keyframes pipPulse {
   0%, 100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
   50% { transform: scale(1.2); filter: drop-shadow(0 0 6px rgba(255,255,255,0.6)); }
 }
 
+/* Keep pips clickable even when pulsing */
+.pip-track.can-advance {
+  cursor: pointer;
+  position: relative;
+  z-index: 2; /* sit above card overlays */
+}
+
+.pip-track.can-advance .pip {
+  pointer-events: auto; /* allow clicking directly on the pips */
+}
+
+/* Ensure any glow/pulse visuals don’t block input */
+.pip-track.can-advance::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1; /* glow stays under actual elements */
+  pointer-events: none;
+}
