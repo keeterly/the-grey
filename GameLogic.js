@@ -1,5 +1,5 @@
 // GameLogic.js
-// v2.57 (v2.54 base + progress + resolve-to-discard + end-turn discard + events)
+// v2.61 (v2.57 base + spotlight reveal + discard-for-Aether + non-destructive enrich events)
 
 /////////////////////////////
 // Constants & Helpers
@@ -85,7 +85,7 @@ function expandList(list) {
         aetherValue: c.aetherValue || 0,
         role: c.role || "",
         price: c.cost || 0,
-        progress: 0,        // ← track in-place progress for SPELLs
+        progress: 0,
       });
     }
   });
@@ -114,7 +114,7 @@ export function initState(seed) {
     activePlayer: "player",
     flow,
     flowDraw,
-    _events: [], // UI event queue
+    _events: [],
     players: {
       player: {
         vitality: STARTING_VITALITY,
@@ -164,27 +164,35 @@ export function startTurn(state) {
   if (!state.flow) state.flow = [null,null,null,null,null];
   if (!state.flow[0] && hd.length) {
     state.flow[0] = { ...hd.shift() };
+    // Spotlight: reveal into Aetherflow
+    try {
+      const c = state.flow[0];
+      if (c) {
+        pushEvt(state, {
+          t: "reveal",
+          source: "flow",
+          side: state.activePlayer,
+          flowIndex: 0,
+          cardId: c.id,
+          cardType: c.type,
+          cardData: { ...c }
+        });
+      }
+    } catch(_) {}
   }
   return state;
 }
 
-// END TURN:
-// 1) Discard *current* player's entire hand
-// 2) River shift (only when the player ends their turn — preserved)
-// 3) Swap active player (+ increment turn when returning to player)
-// 4) Reveal at the next turn start
+// END TURN
 export function endTurn(state) {
   if (!state?.flow) return state;
-
   const endingPlayer = state.activePlayer;
   const P = state.players[endingPlayer];
 
-  // (1) discard whole hand
   if (P?.hand?.length){
     while (P.hand.length) {
       const c = P.hand.shift();
       P.discard.push(c);
-     // --- optional: in endTurn(), when discarding hand, enrich those events too
       pushEvt(state, {
         t: "resolved",
         source: "hand-discard",
@@ -193,11 +201,9 @@ export function endTurn(state) {
         cardType: c.type,
         cardData: { ...c }
       });
-
     }
   }
 
-  // (2) shift river only when the human player ends turn (existing behavior)
   if (endingPlayer === "player") {
     for (let i = state.flow.length - 1; i > 0; i--) {
       state.flow[i] = state.flow[i] || state.flow[i - 1] ? state.flow[i - 1] : null;
@@ -205,11 +211,9 @@ export function endTurn(state) {
     state.flow[0] = null;
   }
 
-  // (3) swap active
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
-  // (4)
   startTurn(state);
   return state;
 }
@@ -230,10 +234,21 @@ export function discardForAether(state, playerId, cardId){
   if (gain > 0){
     P.aether = (P.aether || 0) + gain;
   }
+  // Spotlight discard-for-Aether
+  try {
+    pushEvt(state, {
+      t: "resolved",
+      source: "discard-aether",
+      side: playerId,
+      cardId: card.id,
+      cardType: card.type,
+      cardData: { ...card }
+    });
+  } catch(_) {}
   return state;
 }
 
-// Place SPELL to slot
+// Play Spell to slot
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -253,7 +268,7 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   return state;
 }
 
-// Set GLYPH to glyph slot (index 3)
+// Set Glyph to slot 3
 export function setGlyphFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -285,17 +300,16 @@ export function buyFromFlow(state, playerId, flowIndex){
   P.aether -= price;
   P.discard.push(card);
   state.flow[flowIndex] = null;
-  // --- optional: in buyFromFlow(), enrich event (useful if you animate purchases)
-    pushEvt(state, {
-      t: "resolved",
-      source: "buy",
-      side: playerId,
-      cardId: card.id,
-      cardType: card.type,
-      flowIndex,
-      cardData: { ...card }
-    });
 
+  pushEvt(state, {
+    t: "resolved",
+    source: "buy",
+    side: playerId,
+    cardId: card.id,
+    cardType: card.type,
+    flowIndex,
+    cardData: { ...card }
+  });
   return state;
 }
 
@@ -324,7 +338,7 @@ export function drawN(state, playerId, n){
   return state;
 }
 
-// Advance a spell by N (default 1). If complete, MOVE TO DISCARD and emit event.
+// Advance spell
 export function advanceSpell(state, playerId, slotIndex, steps = 1){
   const P = state.players[playerId];
   const slot = P?.slots?.[slotIndex];
@@ -333,47 +347,42 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1){
 
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
   if ((c.progress|0) >= (c.pip|0)) {
-    // resolve & move to discard
     slot.card = null;
     slot.hasCard = false;
     c.progress = 0;
     P.discard.push(c);
-    // --- in advanceSpell(), inside the "if complete" block, replace pushEvt(...) with:
-      pushEvt(state, {
-        t: "resolved",
-        source: "spell",
-        side: playerId,
-        cardId: c.id,
-        cardType: "SPELL",
-        slotIndex,           // used by index.js to spotlight the slot
-        cardData: { ...c }   // lets UI render a ghost of the resolved card
-      });
-
+    pushEvt(state, {
+      t: "resolved",
+      source: "spell",
+      side: playerId,
+      cardId: c.id,
+      cardType: "SPELL",
+      slotIndex,
+      cardData: { ...c }
+    });
   }
   return state;
 }
 
-// Instants: move from hand to discard and emit a resolve event
+// Resolve Instant
 export function resolveInstantFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   const i = P.hand.findIndex(c => c.id === cardId && c.type==="INSTANT");
   if (i < 0) return state;
   const card = P.hand.splice(i,1)[0];
   P.discard.push(card);
-      // --- in resolveInstantFromHand(), replace pushEvt(...) with:
-    pushEvt(state, {
-      t: "resolved",
-      source: "instant",
-      side: playerId,
-      cardId: card.id,
-      cardType: "INSTANT",
-      cardData: { ...card }  // for ghosting in the UI
-    });
-
+  pushEvt(state, {
+    t: "resolved",
+    source: "instant",
+    side: playerId,
+    cardId: card.id,
+    cardType: "INSTANT",
+    cardData: { ...card }
+  });
   return state;
 }
 
-// Glyphs: if you need to retire/resolve the glyph (optional utility)
+// Resolve Glyph
 export function resolveGlyphFromSlot(state, playerId){
   const P = state.players[playerId];
   const slot = P.slots[3];
@@ -381,20 +390,19 @@ export function resolveGlyphFromSlot(state, playerId){
   const g = slot.card;
   slot.card = null; slot.hasCard=false;
   P.discard.push(g);
-  // --- in resolveGlyphFromSlot(), replace pushEvt(...) with:
-    pushEvt(state, {
-      t: "resolved",
-      source: "glyph",
-      side: playerId,
-      cardId: g.id,
-      cardType: "GLYPH",
-      slotIndex: 3,         // glyph slot (helps future spotlighting)
-      cardData: { ...g }    // for ghosting in the UI
-    });
+  pushEvt(state, {
+    t: "resolved",
+    source: "glyph",
+    side: playerId,
+    cardId: g.id,
+    cardType: "GLYPH",
+    slotIndex: 3,
+    cardData: { ...g }
+  });
   return state;
 }
 
-// Let UI read & clear event queue
+// Drain UI events
 export function drainEvents(state){
   const evts = (state._events||[]).splice(0);
   return evts;
@@ -402,8 +410,6 @@ export function drainEvents(state){
 
 export function aiTakeTurn(state){ return state; }
 
-
-// --- ADD: utility so UI can show deck/discard/hand contents ---
 export function getStack(state, playerId, which){
   const P = state.players?.[playerId];
   if (!P) return [];
@@ -412,6 +418,3 @@ export function getStack(state, playerId, which){
   if (which === "hand")    return clone(P.hand    || []);
   return [];
 }
-
-
-
