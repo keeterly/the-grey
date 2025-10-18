@@ -563,6 +563,13 @@ function renderSlots(container, snapshot, isPlayer){
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
 
+      // Highlight advanceable spells
+      if (canAdvanceSpell(isPlayer ? "player" : "ai", slot)) {
+        const track = art.querySelector(".pip-track");
+        if (track) track.classList.add("can-advance");
+      }
+
+
       // make pip track clickable to advance
       if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
         const track = art.querySelector('.pip-track');
