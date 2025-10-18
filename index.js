@@ -26,6 +26,7 @@ import {
   advanceSpell,               // ← NEW
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
+  dealDamage,
 } from "./GameLogic.js";
 
 /* optional AI module (safe if missing) */
@@ -63,6 +64,12 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let shuffledOnce = false;
+
+// manual damage tester — lets you do: window.dealDamage("ai", 2)
+window.dealDamage = async (side, n = 1) => {
+  state = dealDamage(state, side, n, { source: "manual" });
+  await render();
+};
 
 /* ---------- event keys ---------- */
 const Events = {
