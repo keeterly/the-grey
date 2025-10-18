@@ -309,7 +309,11 @@ html,body{height:100%}
   100%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
 }
 .card.deal-in{animation:dealIn .20s ease-out both}
-.grey-hide-during-flight{opacity:0 !important}
+.grey-hide-during-flight {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 
 @keyframes discardOut{
   0%{opacity:1; transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg));}
