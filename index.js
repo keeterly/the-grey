@@ -836,9 +836,51 @@ function canAdvanceSpell(side, slot){
 
 function spotlightFromEvents(state){
   const evts = drainEvents(state) || [];
-  evts.forEach(e => {
 
-    // Spell slot spotlight
+  evts.forEach(async (e) => {
+    // --- Cinematic routing ---
+    try {
+      if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
+        // start: the spell slot rect (card is already gone from DOM)
+        const rowSel = `.row.${e.side || 'player'}`;
+        const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
+        const destRect = domRectOfDiscardHud();
+        await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.16, holdMs: 300 });
+      }
+
+      if (e.t === 'resolved' && e.source === 'glyph') {
+        const rowSel = `.row.${e.side || 'player'}`;
+        const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
+        const destRect = domRectOfDiscardHud();
+        await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.12, holdMs: 300 });
+      }
+
+      if (e.t === 'resolved' && e.source === 'instant') {
+        // start from the player's hand area (approximate)
+        const startRect = rectOf(handEl) || centerRect();
+        const destRect = domRectOfDiscardHud();
+        await playCinematic(e.cardData, startRect, destRect, { centerScale: 1.14, holdMs: 260 });
+      }
+
+      if (e.t === 'resolved' && e.source === 'buy' && Number.isFinite(e.flowIndex)) {
+        // We can't rely on the card still being in the flow after render,
+        // so use the flow slot rect as the start.
+        const startRect = rectOfSelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`) ||
+                          rectOfSelector(`.flow-card:nth-child(${e.flowIndex + 1})`) ||
+                          centerRect();
+        const destRect = domRectOfDiscardHud();
+        await playCinematic(e.cardData, startRect, destRect, { centerScale: 1.10, holdMs: 220 });
+      }
+
+      if (e.t === 'resolved' && (e.source === 'discard-aether' || e.source === 'hand-discard')) {
+        // center flash then shrink into discard to reinforce where it went
+        const startRect = rectOf(handEl) || centerRect();
+        const destRect  = domRectOfDiscardHud();
+        await playCinematic(e.cardData, startRect, destRect, { centerScale: 1.08, holdMs: 180 });
+      }
+    } catch (_) {}
+
+    // --- Lightweight pulses you already had ---
     if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
       const rowSel = `.row.${e.side || 'player'}`;
       const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
@@ -848,17 +890,6 @@ function spotlightFromEvents(state){
       }
     }
 
-    // ✅ Damage pulse (moved out, so it actually runs)
-    if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
-      const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
-      const hearts = document.getElementById(id);
-      if (hearts) {
-        hearts.classList.add('hit');
-        hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
-      }
-    }
-
-    // Glyph slot spotlight
     if (e.t === 'resolved' && e.source === 'glyph'){
       const rowSel = `.row.${e.side || 'player'}`;
       const slot = document.querySelector(`${rowSel} .slot.glyph`);
@@ -868,7 +899,6 @@ function spotlightFromEvents(state){
       }
     }
 
-    // Hand→discard pulse
     if (e.t === 'resolved' && (e.source === 'discard-aether' || e.source === 'hand-discard')){
       const discardHud = document.getElementById('btn-discard-hud');
       if (discardHud){
@@ -877,7 +907,6 @@ function spotlightFromEvents(state){
       }
     }
 
-    // Flow reveal pulse
     if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)){
       const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
       if (flowCard){
@@ -885,8 +914,20 @@ function spotlightFromEvents(state){
         flowCard.addEventListener('animationend', () => flowCard.classList.remove('spotlight'), { once:true });
       }
     }
+
+    // 🔧 (Bugfix) damage pulses were nested under "spell" before; unreachable. Keep it top-level.
+    if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
+      const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
+      const hearts = document.getElementById(id);
+      if (hearts) {
+        hearts.classList.add('hit');
+        hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
+      }
+    }
   });
+
 }
+
 
 
 /* ---------- wrappers that honor temp aether + trance ---------- */
