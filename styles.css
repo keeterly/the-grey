@@ -185,8 +185,12 @@ html,body{height:100%}
   align-items:center;
 }
 .flow-card > .card.market{
-  position:relative;
-  width:100%;
+ position: relative;   /* you already have this */
+  width: 100%;          /* you already have this */
+  left: 0;              /* override base .card left:50% */
+  top: 0;               /* override any offset */
+  transform: none;      /* turn off the hand fanning transform */
+  margin: 0 auto;       /* keep it centered within the li, if desired */
 }
 .price-label{
   position:absolute;
