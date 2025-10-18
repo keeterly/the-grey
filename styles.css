@@ -604,3 +604,52 @@ body.mobile-landscape #zoom-card.card.zoom{
   position: absolute !important;
 }
 
+
+/* Cinematic layer */
+.cinematic-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 99999;
+}
+
+/* The floating card ghost */
+.card.cinematic-card {
+  opacity: 0;
+  transition: transform 220ms cubic-bezier(.2,.8,.2,1), opacity 200ms ease-out;
+  filter: drop-shadow(0 18px 28px rgba(0,0,0,.45));
+  border-radius: 14px;
+  overflow: visible;
+}
+
+/* Pose state slightly exaggerates the glow */
+.card.cinematic-card.pose::after {
+  animation-duration: 700ms;
+}
+
+/* Subtle magical rim glow */
+.card.cinematic-card.cine-glow::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border-radius: 16px;
+  pointer-events: none;
+  box-shadow:
+    0 0 14px 6px rgba(140, 210, 255, .18),
+    inset 0 0 30px rgba(140, 210, 255, .12);
+  animation: cine-glow-pulse 900ms ease-in-out infinite alternate;
+}
+
+@keyframes cine-glow-pulse {
+  from {
+    box-shadow:
+      0 0 10px 4px rgba(140, 210, 255, .15),
+      inset 0 0 22px rgba(140, 210, 255, .10);
+  }
+  to {
+    box-shadow:
+      0 0 22px 10px rgba(160, 230, 255, .35),
+      inset 0 0 42px rgba(160, 230, 255, .22);
+  }
+}
+
