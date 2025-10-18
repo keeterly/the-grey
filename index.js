@@ -789,45 +789,42 @@ function makeFloatingCard(cardData) {
 async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const layer = ensureCinematicLayer();
   const ghost = makeFloatingCard(cardData);
-  ghost.style.position = "absolute";
-  ghost.style.width = "240px";
-  ghost.style.height = "336px";
-  
-  
+
+  // deterministic viewport positioning
+  ghost.style.position = "fixed";
+  ghost.style.left = `${startRect?.x ?? (innerWidth - 240)/2}px`;
+  ghost.style.top  = `${startRect?.y ?? (innerHeight - 336)/2}px`;
+  ghost.style.width = `${startRect?.w ?? 240}px`;
+  ghost.style.height = `${startRect?.h ?? 336}px`;
+  ghost.style.transformOrigin = "top left";
+  ghost.style.willChange = "transform, opacity";
+  ghost.classList.add("cine-glow"); // glow ring (see CSS below)
+
   layer.appendChild(ghost);
-
-  // size the ghost to match startRect
-  const startW = startRect?.w || 240;
-  const startH = startRect?.h || 336;
-  ghost.style.width = `${startW}px`;
-  ghost.style.height = `${startH}px`;
-  ghost.style.left = `${(startRect?.x ?? (innerWidth - startW)/2)}px`;
-  ghost.style.top  = `${(startRect?.y ?? (innerHeight - startH)/2)}px`;
-
   await nextFrame();
 
-  // fly to center & fade in
-  const pose = centerRect(startW * (opts.centerScale || 1.18), startH * (opts.centerScale || 1.18));
-  ghost.style.transform = `translate(${pose.x - (startRect?.x ?? pose.x)}px, ${pose.y - (startRect?.y ?? pose.y)}px) scale(${(opts.centerScale || 1.18)})`;
+  const scaleMid = opts.centerScale ?? 1.18;
+  const pose = centerRect((startRect?.w ?? 240) * scaleMid, (startRect?.h ?? 336) * scaleMid);
+  ghost.style.transform = `translate(${(pose.x - (startRect?.x ?? pose.x))}px, ${(pose.y - (startRect?.y ?? pose.y))}px) scale(${scaleMid})`;
   ghost.style.opacity = '1';
 
-  await sleep(opts.poseInMs ?? 240); // arrive at center
+  await sleep(opts.poseInMs ?? 240);
   ghost.classList.add('pose');
-  await sleep(opts.holdMs ?? 360);   // hold/“pose”
+  await sleep(opts.holdMs ?? 360);
 
-  // then fly to destination (shrink slightly)
   const endX = (destRect?.x ?? pose.x);
   const endY = (destRect?.y ?? pose.y);
   const scaleOut = opts.endScale ?? 0.78;
-
   ghost.classList.remove('pose');
-  await nextFrame(); // ensure transition timing resets
+  await nextFrame();
+
   ghost.style.transform = `translate(${endX - (startRect?.x ?? pose.x)}px, ${endY - (startRect?.y ?? pose.y)}px) scale(${scaleOut})`;
   ghost.style.opacity = '0.001';
 
   await sleep(opts.outMs ?? 260);
   ghost.remove();
 }
+
 
 /** convenience */
 function domRectOfDiscardHud() {
@@ -862,10 +859,9 @@ function spotlightFromEvents(state){
   const evts = drainEvents(state) || [];
 
   evts.forEach(async (e) => {
-    // --- Cinematic routing ---
     try {
+      // ✅ Board-originated cards: we don’t have a node, so we use the slot rect.
       if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
-        // start: the spell slot rect (card is already gone from DOM)
         const rowSel = `.row.${e.side || 'player'}`;
         const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
         const destRect = domRectOfDiscardHud();
@@ -879,45 +875,22 @@ function spotlightFromEvents(state){
         await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.12, holdMs: 300 });
       }
 
-      if (e.t === 'resolved' && e.source === 'instant') {
-        // start from the player's hand area (approximate)
-        const startRect = rectOf(handEl) || centerRect();
-        const destRect = domRectOfDiscardHud();
-        await playCinematic(e.cardData, startRect, destRect, {
-          centerScale: 1.2,   // not 3.0–4.0
-          holdMs: 300,
-          outMs: 280
-        });
-      }
+      // ❌ Remove/skip these because we already emit `spotlight:cine` with a real node:
+      // - (e.source === 'instant')
+      // - (e.source === 'buy')
+      // - (e.source === 'discard-aether' || e.source === 'hand-discard')
 
-      if (e.t === 'resolved' && e.source === 'buy' && Number.isFinite(e.flowIndex)) {
-        // We can't rely on the card still being in the flow after render,
-        // so use the flow slot rect as the start.
-        const startRect = rectOfSelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`) ||
-                          rectOfSelector(`.flow-card:nth-child(${e.flowIndex + 1})`) ||
-                          centerRect();
-        const destRect = domRectOfDiscardHud();
-        await playCinematic(e.cardData, startRect, destRect, { centerScale: 1.10, holdMs: 220 });
-      }
-
-      if (e.t === 'resolved' && (e.source === 'discard-aether' || e.source === 'hand-discard')) {
-        // center flash then shrink into discard to reinforce where it went
-        const startRect = rectOf(handEl) || centerRect();
-        const destRect  = domRectOfDiscardHud();
-        await playCinematic(e.cardData, startRect, destRect, { centerScale: 1.08, holdMs: 180 });
-      }
     } catch (_) {}
 
-    // --- Lightweight pulses you already had ---
-      if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
-        const rowSel = `.row.${e.side || 'player'}`;
-        const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
-        if (slot){
-          slot.classList.add('spotlight');
-          slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
-        }
+    // keep your small pulse feedback:
+    if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)){
+      const rowSel = `.row.${e.side || 'player'}`;
+      const slot = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`);
+      if (slot){
+        slot.classList.add('spotlight');
+        slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
       }
-
+    }
 
     if (e.t === 'resolved' && e.source === 'glyph'){
       const rowSel = `.row.${e.side || 'player'}`;
@@ -925,14 +898,6 @@ function spotlightFromEvents(state){
       if (slot){
         slot.classList.add('spotlight');
         slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
-      }
-    }
-
-    if (e.t === 'resolved' && (e.source === 'discard-aether' || e.source === 'hand-discard')){
-      const discardHud = document.getElementById('btn-discard-hud');
-      if (discardHud){
-        discardHud.classList.add('spotlight');
-        discardHud.addEventListener('animationend', () => discardHud.classList.remove('spotlight'), { once:true });
       }
     }
 
@@ -944,7 +909,6 @@ function spotlightFromEvents(state){
       }
     }
 
-    // 🔧 (Bugfix) damage pulses were nested under "spell" before; unreachable. Keep it top-level.
     if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
       const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
       const hearts = document.getElementById(id);
@@ -954,8 +918,8 @@ function spotlightFromEvents(state){
       }
     }
   });
-
 }
+
 
 
 
