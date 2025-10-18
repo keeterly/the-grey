@@ -238,9 +238,22 @@ export function discardForAether(state, playerId, cardId){
   if (gain > 0){
     P.aether = (P.aether || 0) + gain;
   }
+  
+  // Spotlight discard-for-Aether
+  try {
+    pushEvt(state, {
+      t: "resolved",
+      source: "discard-aether",
+      side: playerId,
+      cardId: card.id,
+      cardType: card.type,
+      cardData: { ...card }
+    });
+  } catch(_) {}
+  return state;
+}
 
-
-  // Deal damage and emit a UI event
+// Deal damage and emit a UI event
   export function dealDamage(state, targetSide, amount = 1, meta = {}) {
     const P = state.players?.[targetSide];
     if (!P) return state;
@@ -259,22 +272,6 @@ export function discardForAether(state, playerId, cardId){
   
     return state;
   }
-
-
-  
-  // Spotlight discard-for-Aether
-  try {
-    pushEvt(state, {
-      t: "resolved",
-      source: "discard-aether",
-      side: playerId,
-      cardId: card.id,
-      cardType: card.type,
-      cardData: { ...card }
-    });
-  } catch(_) {}
-  return state;
-}
 
 // Play Spell to slot
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
