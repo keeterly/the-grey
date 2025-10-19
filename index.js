@@ -29,6 +29,110 @@ import {
   dealDamage,
 } from "./GameLogic.js";
 
+// ===== Version / Menu + Log UI =====
+export const BRANCH_VERSION = "v2.61";
+window.__BRANCH_VERSION__ = BRANCH_VERSION;
+
+let LogStore = [];
+const MAX_LOG = 80;
+let logEls = { wrap: null, list: null, menuBtn: null, sheet: null };
+
+function ensureTopLeftUI() {
+  if (logEls.wrap) return logEls;
+
+  const wrap = document.createElement("div");
+  wrap.className = "tl-wrap";
+
+  // Menu button
+  const btn = document.createElement("button");
+  btn.className = "menu-btn";
+  btn.type = "button";
+  btn.innerHTML = `
+    <span class="hamburger" aria-hidden="true"></span>
+    <span class="lbl">Menu</span>
+    <span class="ver">${BRANCH_VERSION}</span>
+  `;
+  btn.addEventListener("click", () => {
+    sheet.classList.toggle("open");
+  });
+
+  // Menu sheet
+  const sheet = document.createElement("div");
+  sheet.className = "menu-sheet";
+  sheet.innerHTML = `
+    <header>
+      <strong>Game Menu</strong>
+      <span class="ver-badge">Branch ${BRANCH_VERSION}</span>
+      <button class="close" type="button" aria-label="Close">×</button>
+    </header>
+    <div class="menu-body">
+      <div class="hint">Debug helpers (safe to ignore):</div>
+      <div class="menu-row">
+        <button class="mini" type="button" id="dbg-dmg-ai">Hit AI -1</button>
+        <button class="mini" type="button" id="dbg-dmg-player">Hit You -1</button>
+        <button class="mini" type="button" id="dbg-draw1">Draw 1</button>
+      </div>
+    </div>
+  `;
+  sheet.querySelector(".close")?.addEventListener("click", () => sheet.classList.remove("open"));
+
+  // Hook debug buttons (optional, for testing damage + draw)
+  sheet.querySelector("#dbg-dmg-ai")?.addEventListener("click", async () => { 
+    state = dealDamage(state, "ai", 1, { source: "debug" }); 
+    await render(); 
+  });
+  sheet.querySelector("#dbg-dmg-player")?.addEventListener("click", async () => { 
+    state = dealDamage(state, "player", 1, { source: "debug" }); 
+    await render(); 
+  });
+  sheet.querySelector("#dbg-draw1")?.addEventListener("click", async () => {
+    state = drawN(state, "player", 1);
+    await render();
+  });
+
+  // Log panel
+  const log = document.createElement("div");
+  log.className = "game-log";
+  log.innerHTML = `
+    <div class="log-title">Game Log</div>
+    <div class="log-list" role="log" aria-live="polite"></div>
+  `;
+
+  wrap.appendChild(btn);
+  wrap.appendChild(sheet);
+  wrap.appendChild(log);
+  document.body.appendChild(wrap);
+
+  logEls = { wrap, list: log.querySelector(".log-list"), menuBtn: btn, sheet };
+  return logEls;
+}
+
+function logLine(text) {
+  ensureTopLeftUI();
+  const ts = new Date();
+  const hh = String(ts.getHours()).padStart(2,"0");
+  const mm = String(ts.getMinutes()).padStart(2,"0");
+  const ss = String(ts.getSeconds()).padStart(2,"0");
+  const line = `[${hh}:${mm}:${ss}] ${text}`;
+  LogStore.push(line);
+  if (LogStore.length > MAX_LOG) LogStore.shift();
+  renderLogList();
+}
+
+function renderLogList() {
+  if (!logEls.list) return;
+  logEls.list.replaceChildren();
+  LogStore.slice(-48).forEach(s => {
+    const row = document.createElement("div");
+    row.className = "log-row";
+    row.textContent = s;
+    logEls.list.appendChild(row);
+  });
+  logEls.list.scrollTop = logEls.list.scrollHeight;
+}
+
+
+
 /* optional AI module (safe if missing) */
 let AI = null;
 (async ()=> { try { AI = await import('./ai.js'); } catch {} })();
@@ -147,6 +251,18 @@ const Events = {
   BUY:        'flow.buy',
   AETHER_GAIN:'aether.gain'
 };
+
+
+// ===== Log Grey bus events to the Game Log =====
+Grey.on?.(Events.TURN_START, ({side}) => logLine(`Turn start → ${side}`));
+Grey.on?.(Events.TURN_END,   ({side}) => logLine(`Turn end   → ${side}`));
+Grey.on?.(Events.CARD_PLAYED, ({side, cardId, cost}) => logLine(`${side} PLAY spell ${cardId} (cost ${cost ?? 0})`));
+Grey.on?.(Events.CARD_SET,    ({side, cardId}) => logLine(`${side} SET glyph ${cardId}`));
+Grey.on?.(Events.CARD_CAST,   ({side, cardId, cost}) => logLine(`${side} CAST instant ${cardId} (cost ${cost ?? 0})`));
+Grey.on?.(Events.CHANNEL,     ({side, cardId, gained}) => logLine(`${side} CHANNEL ${cardId} → +${gained} Æ (temp)`));
+Grey.on?.(Events.BUY,         ({side, idx, price}) => logLine(`${side} BOUGHT flow[${idx}] for ${price} Æ`));
+Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => logLine(`${side} +${amount} Æ (${source||"effect"})`));
+
 
 /* ---------- portraits ---------- */
 function heartSVG(size=36){
@@ -956,10 +1072,25 @@ function spotlightFromEvents(state){
         await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.12, holdMs: 300 });
       }
 
-      // ❌ Remove/skip these because we already emit `spotlight:cine` with a real node:
-      // - (e.source === 'instant')
-      // - (e.source === 'buy')
-      // - (e.source === 'discard-aether' || e.source === 'hand-discard')
+      if (e.t === "reveal" && e.source === "flow") {
+      logLine(`Flow reveal → ${e.cardData?.name || e.cardId}`);
+    } else if (e.t === "resolved" && e.source === "spell") {
+      logLine(`${e.side} RESOLVED spell → ${e.cardData?.name || e.cardId}`);
+    } else if (e.t === "resolved" && e.source === "instant") {
+      logLine(`${e.side} RESOLVED instant → ${e.cardData?.name || e.cardId}`);
+    } else if (e.t === "resolved" && e.source === "glyph") {
+      logLine(`${e.side} RESOLVED glyph → ${e.cardData?.name || e.cardId}`);
+    } else if (e.t === "resolved" && e.source === "buy") {
+      logLine(`${e.side} BOUGHT → ${e.cardData?.name || e.cardId}`);
+    } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
+      logLine(`${e.side} DISCARD → ${e.cardData?.name || e.cardId}`);
+    } else if (e.t === "damage") {
+      logLine(`DAMAGE → ${e.side} -${e.amount}`);
+    } else if (e.t === "draw") {
+      logLine(`${e.side} draws ${e.amount}`);
+    } else if (e.t === "aether") {
+      logLine(`${e.side} gains ${e.amount} Æ`);
+    }
 
     } catch (_) {}
 
@@ -1335,7 +1466,10 @@ document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom()
 document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
-document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); });
+document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); ensureTopLeftUI();
+logLine(`Boot on ${BRANCH_VERSION}`);
+});
+
 
 /* ---------- mobile-landscape mode (no external file) ---------- */
 (function mobileLandscapeMode(){
