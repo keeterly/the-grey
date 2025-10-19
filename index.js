@@ -1566,7 +1566,7 @@ document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom()
 document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
-document.addEventListener("DOMContentLoaded", async ()=>{ await doStartTurn(); ensureTopLeftUI();
+document.addEventListener("DOMContentLoaded", async ()=>{ ensureTopMenu(); await doStartTurn(); ensureTopLeftUI();
 logLine(`Boot on ${BRANCH_VERSION}`);
 });
 
