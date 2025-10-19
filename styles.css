@@ -809,3 +809,39 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 .game-log .log-row{ opacity:.92; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
 
+
+
+/* ==== Fullscreen Weaver Backdrop ==== */
+#board.theme-dark.parchment { position: relative; z-index: 0; }
+
+.weaver-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0;                 /* stay behind board & HUD */
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.weaver-backdrop.active { opacity: 1; }
+
+/* two images layered so we can control them independently */
+.weaver-backdrop .aria,
+.weaver-backdrop .morr {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  max-width: min(90vw, 1200px);
+  max-height: 96vh;
+  opacity: .16;               /* soft by default */
+  filter: drop-shadow(0 10px 24px rgba(0,0,0,.6));
+}
+
+.weaver-backdrop .aria { right: auto; }
+.weaver-backdrop .morr { right: auto; }
+
+/* make sure game layers are above */
+#board-grid, .hud, .cinematic-layer, #preview-layer, #zoom-overlay { z-index: 1; position: relative; }
+
+
