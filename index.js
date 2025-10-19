@@ -286,14 +286,13 @@ function ensureWeaverBackdrop() {
 
 function updateWeaverBackdrop() {
   const layer = ensureWeaverBackdrop();
-  const aria = layer.querySelector('.aria');
-  const morr = layer.querySelector('.morr');
-
-  // use the transparent PNGs you mentioned
+  const aria = layer.querySelector(".aria");
+  const morr = layer.querySelector(".morr");
   aria.src = WEAVER_ART.player;
   morr.src = WEAVER_ART.ai;
-
-  layer.classList.toggle('active', !!backdropOn);
+  requestAnimationFrame(() => {
+    layer.classList.toggle("active", backdropOn);
+  });
 }
 
 function toggleWeaverBackdrop() {
