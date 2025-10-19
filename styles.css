@@ -845,3 +845,48 @@ body.mobile-landscape #zoom-card.card.zoom{
 #board-grid, .hud, .cinematic-layer, #preview-layer, #zoom-overlay { z-index: 1; position: relative; }
 
 
+/* --- Weaver fullscreen backdrop --- */
+.weaver-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 0; /* behind UI */
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.4s ease-in-out;
+}
+
+.weaver-backdrop.active {
+  opacity: 1;
+}
+
+.weaver-backdrop img {
+  max-width: 50vw;
+  height: auto;
+  opacity: 0.18;
+  object-fit: contain;
+  filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.4));
+}
+
+.weaver-backdrop img.aria { margin-left: 3%; }
+.weaver-backdrop img.morr {
+  margin-right: 3%;
+  transform: scaleX(-1);
+}
+
+/* --- Ensure game UI stays above --- */
+.tl-wrap,
+#game-menu,
+.board-root,
+.row,
+.hud,
+.cinematic-layer,
+.game-log {
+  position: relative;
+  z-index: 1;
+}
+
+
+
