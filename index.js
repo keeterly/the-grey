@@ -262,9 +262,10 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
 /* ==== Weaver Backdrop Toggle ==== */
 let backdropOn = false;
 const WEAVER_ART = {
-  player: "weaver_aria_Transparent.png",
-  ai:     "weaver_morr_Transparent.png",
+  player: "./assets/weaver_aria_Transparent.png",
+  ai: "./assets/weaver_morr_Transparent.png",
 };
+
 
 function ensureWeaverBackdrop() {
   let layer = document.getElementById('weaver-backdrop');
