@@ -602,14 +602,13 @@ body.mobile-landscape #zoom-card.card.zoom{
 /* make sure drops hit the .slot.glyph container, not the rune SVG */
 .slot-rune { pointer-events: none; }
 
-.cinematic-layer .card {
-  width: 240px !important;
-  height: 336px !important;
-  max-width: none !important;
-  max-height: none !important;
+/* Only target the cinematic ghost, and keep it fixed (JS sets size inline) */
+.cinematic-layer .cinematic-card {
+  position: fixed !important;
   transform-origin: center center;
-  position: absolute !important;
+  /* no width/height here — startRect/destRect set them inline */
 }
+
 
 
 /* Cinematic layer */
