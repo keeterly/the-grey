@@ -488,8 +488,21 @@ function parseEffectsFromText(raw) {
   // Draw N
   { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
 
-  // Gain N Æ / Aether
-  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\b/i); if (m) fx.push({t:"aether", n:+m[1]}); }
+
+
+// Gain N Æ / Aether (but NOT "... this turn")
+{ 
+  const m = t.match(/\b(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)\b(?!\s*this\s+turn)/i);
+  if (m) fx.push({ t: "aether", n: +m[1] });
+}
+
+// "Gain N Æ this turn" → treat as normal gain for now (no double count)
+{
+  const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn\b/i);
+  if (m) fx.push({ t: "aether", n: +m[1] });
+}
+  
+  
 
   // Channel N
   { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
@@ -505,9 +518,6 @@ function parseEffectsFromText(raw) {
   if (/\badvance\s+another\s+spell\b/.test(t)) fx.push({t:"advanceOther", n:1});
   if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) fx.push({t:"advanceTarget", n:1});
 
-  // (simple tempo) "Gain N Æ this turn" → treat as normal gain for now
-  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn/);
-    if (m) fx.push({t:"aether", n:+m[1]}); }
 
   return fx;
 }
