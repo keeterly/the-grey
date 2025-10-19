@@ -1567,9 +1567,14 @@ document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom()
 document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
-document.addEventListener("DOMContentLoaded", async ()=>{ ensureTopMenu(); await doStartTurn(); ensureTopLeftUI();
-logLine(`Boot on ${BRANCH_VERSION}`);
+document.addEventListener("DOMContentLoaded", async () => {
+  ensureTopMenu(); 
+  ensureWeaverBackdrop(); // make sure the backdrop exists before first render
+  await doStartTurn();
+  ensureTopLeftUI();
+  logLine(`Boot on ${BRANCH_VERSION}`);
 });
+
 
 
 /* ---------- mobile-landscape mode (no external file) ---------- */
