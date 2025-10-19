@@ -133,6 +133,56 @@ function renderLogList() {
 
 
 
+function ensureTopMenu() {
+  let m = document.getElementById('game-menu');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'game-menu';
+    m.className = 'game-menu';
+    // minimal styling if you don’t have it already
+    m.style.position = 'fixed';
+    m.style.left = '10px';
+    m.style.top = '10px';
+    m.style.zIndex = 50;
+    m.style.display = 'grid';
+    m.style.gap = '6px';
+    document.body.appendChild(m);
+  }
+
+  // version pill
+  let v = document.getElementById('branch-version');
+  if (!v) {
+    v = document.createElement('div');
+    v.id = 'branch-version';
+    v.className = 'menu-pill';
+    v.textContent = 'v2.61';
+    m.appendChild(v);
+  }
+
+  // backdrop toggle
+  let b = document.getElementById('btn-toggle-backdrop');
+  if (!b) {
+    b = document.createElement('button');
+    b.id = 'btn-toggle-backdrop';
+    b.type = 'button';
+    b.className = 'menu-btn';
+    b.textContent = 'Show Character Backdrop';
+    b.style.padding = '6px 10px';
+    b.style.borderRadius = '8px';
+    b.style.border = '1px solid #4a3d2f';
+    b.style.background = '#2a211a';
+    b.style.color = '#e7dcc3';
+    b.style.cursor = 'pointer';
+    b.addEventListener('click', toggleWeaverBackdrop);
+    m.appendChild(b);
+  }
+}
+
+
+
+
+
+
 /* optional AI module (safe if missing) */
 let AI = null;
 (async ()=> { try { AI = await import('./ai.js'); } catch {} })();
