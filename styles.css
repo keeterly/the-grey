@@ -536,10 +536,25 @@ body.mobile-landscape #zoom-card.card.zoom{
   animation:pipPulse 1.6s ease-in-out infinite;
 }
 
+/* (you already have this; keep it) */
+.card .pip.filled{
+  background:#b6a98e;
+  box-shadow:inset 0 0 0 1px #30271f80;
+}
 
+.card .pip {
+  width: calc(18px * var(--card-scale));
+  height: calc(18px * var(--card-scale));
+  border: calc(2px * var(--card-scale)) solid #b6a98e;
+  border-radius: 50%;
+  background: transparent;
+}
 
-
-
+@keyframes pipPulse {
+  0% { box-shadow: 0 0 0 rgba(198,165,106,0); transform: scale(1); }
+  50% { box-shadow: 0 0 12px rgba(198,165,106,.5); transform: scale(1.15); }
+  100% { box-shadow: 0 0 0 rgba(198,165,106,0); transform: scale(1); }
+}
 
 .card .pip-track.can-advance .pip:not(.filled) {
   animation: pipPulse 1.5s ease-in-out infinite;
@@ -587,13 +602,14 @@ body.mobile-landscape #zoom-card.card.zoom{
 /* make sure drops hit the .slot.glyph container, not the rune SVG */
 .slot-rune { pointer-events: none; }
 
-/* Only target the cinematic ghost, and keep it fixed (JS sets size inline) */
-.cinematic-layer .cinematic-card {
-  position: fixed !important;
+.cinematic-layer .card {
+  width: 240px !important;
+  height: 336px !important;
+  max-width: none !important;
+  max-height: none !important;
   transform-origin: center center;
-  /* no width/height here — startRect/destRect set them inline */
+  position: absolute !important;
 }
-
 
 
 /* Cinematic layer */
@@ -695,10 +711,3 @@ body.mobile-landscape #zoom-card.card.zoom{
   z-index: -1; /* glow stays under actual elements */
   pointer-events: none;
 }
-
-
-/* Regular (non-glyph) slot title shouldn’t eat clicks */
-.slot .slot-title { pointer-events: none; }
-
-/* Play-cost bubble should not block clicks on nearby pips */
-.card .play-cost-badge { pointer-events: none; }
