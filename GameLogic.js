@@ -16,6 +16,25 @@ export function withAetherText(s = "") {
   return String(s).replaceAll("Æ", AE_GEM_SVG);
 }
 
+
+
+function otherSide(side){ return side === "player" ? "ai" : "player"; }
+
+function pushEvt(state, evt){
+  (state._events || (state._events = [])).push(evt);
+  return state;
+}
+
+// If you don't already export this:
+export function drainEvents(state){
+  const q = state._events || [];
+  state._events = [];
+  return q;
+}
+
+
+
+
 function shuffle(arr, rng = Math.random) {
   for (let i = arr.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
@@ -31,10 +50,7 @@ function uid() {
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
-// small internal event queue so UI can “spotlight” things that happened
-function pushEvt(state, e){
-  (state._events ||= []).push(e);
-}
+
 
 /////////////////////////////
 // Card Pools (Data)
@@ -234,24 +250,28 @@ export function discardForAether(state, playerId, cardId){
   const card = P.hand[idx];
   P.hand.splice(idx, 1);
   P.discard.push(card);
+
   const gain = Number(card.aetherValue || 0);
   if (gain > 0){
     P.aether = (P.aether || 0) + gain;
+    // glyph: "When you discard a card for Æ → Gain 1 extra Æ"
+    state = applyGlyphPassives(state, playerId, "discardForAe");
+    // glyph: "When you Channel Aether → Draw 1"
+    state = applyGlyphPassives(state, playerId, "channel");
+    pushEvt(state, { t: "aether", side: playerId, amount: gain, by: card.id });
   }
-  
-  // Spotlight discard-for-Aether
-  try {
-    pushEvt(state, {
-      t: "resolved",
-      source: "discard-aether",
-      side: playerId,
-      cardId: card.id,
-      cardType: card.type,
-      cardData: { ...card }
-    });
-  } catch(_) {}
+
+  pushEvt(state, {
+    t: "resolved",
+    source: "discard-aether",
+    side: playerId,
+    cardId: card.id,
+    cardType: card.type,
+    cardData: { ...card }
+  });
   return state;
 }
+
 
 // Deal damage and emit a UI event
   export function dealDamage(state, targetSide, amount = 1, meta = {}) {
@@ -335,6 +355,9 @@ export function buyFromFlow(state, playerId, flowIndex){
     flowIndex,
     cardData: { ...card }
   });
+  
+   state = applyGlyphPassives(state, playerId, "buy");
+  
   return state;
 }
 
@@ -372,6 +395,10 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1){
 
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
   if ((c.progress|0) >= (c.pip|0)) {
+    // 🔸 apply effects from the text
+    state = applyParsedEffects(state, playerId, c);
+
+    // move to discard & emit
     slot.card = null;
     slot.hasCard = false;
     c.progress = 0;
@@ -385,9 +412,13 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1){
       slotIndex,
       cardData: { ...c }
     });
+
+    // 🔸 glyph passive: "When a Spell resolves → Gain 1 Æ"
+    state = applyGlyphPassives(state, playerId, "spell_resolved");
   }
   return state;
 }
+
 
 // Resolve Instant
 export function resolveInstantFromHand(state, playerId, cardId){
@@ -395,6 +426,10 @@ export function resolveInstantFromHand(state, playerId, cardId){
   const i = P.hand.findIndex(c => c.id === cardId && c.type==="INSTANT");
   if (i < 0) return state;
   const card = P.hand.splice(i,1)[0];
+
+  // 🔸 apply card text effects (handles draw/gain/channel/advance-target/etc.)
+  state = applyParsedEffects(state, playerId, card);
+
   P.discard.push(card);
   pushEvt(state, {
     t: "resolved",
@@ -406,6 +441,7 @@ export function resolveInstantFromHand(state, playerId, cardId){
   });
   return state;
 }
+
 
 // Resolve Glyph
 export function resolveGlyphFromSlot(state, playerId){
@@ -427,11 +463,7 @@ export function resolveGlyphFromSlot(state, playerId){
   return state;
 }
 
-// Drain UI events
-export function drainEvents(state){
-  const evts = (state._events||[]).splice(0);
-  return evts;
-}
+
 
 export function aiTakeTurn(state){ return state; }
 
@@ -443,3 +475,154 @@ export function getStack(state, playerId, which){
   if (which === "hand")    return clone(P.hand    || []);
   return [];
 }
+
+
+
+
+function parseEffectsFromText(raw) {
+  if (!raw) return [];
+  const t = String(raw).toLowerCase();
+
+  const fx = [];
+
+  // Draw N
+  { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
+
+  // Gain N Æ / Aether
+  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\b/i); if (m) fx.push({t:"aether", n:+m[1]}); }
+
+  // Channel N
+  { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
+
+  // Deal N damage
+  { const m = t.match(/\bdeal\s+(\d+)\s+damage/); if (m) fx.push({t:"damage", n:+m[1]}); }
+
+  // Heal / Lose N vitality
+  { const m = t.match(/\bheal\s+(\d+)/); if (m) fx.push({t:"heal", n:+m[1]}); }
+  { const m = t.match(/\blose\s+(\d+)\s+vitality/); if (m) fx.push({t:"selfLose", n:+m[1]}); }
+
+  // Advance another spell / target spell advances 1
+  if (/\badvance\s+another\s+spell\b/.test(t)) fx.push({t:"advanceOther", n:1});
+  if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) fx.push({t:"advanceTarget", n:1});
+
+  // (simple tempo) "Gain N Æ this turn" → treat as normal gain for now
+  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn/);
+    if (m) fx.push({t:"aether", n:+m[1]}); }
+
+  return fx;
+}
+
+// Fire passive glyph hooks on specific triggers
+function applyGlyphPassives(state, side, trigger){
+  const slot = state.players?.[side]?.slots?.[3];
+  const text = slot?.hasCard ? (slot.card?.text || "").toLowerCase() : "";
+
+  // When a Spell resolves → Gain 1 Æ
+  if (trigger === "spell_resolved" && /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text)) {
+    state.players[side].aether = (state.players[side].aether|0) + 1;
+    pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
+  }
+
+  // When you Channel Aether → Draw 1
+  if (trigger === "channel" && /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text)) {
+    state = drawN(state, side, 1);
+    pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
+  }
+
+  // When you discard a card for Æ → Gain 1 extra Æ
+  if (trigger === "discardForAe" && /when\s+you\s+discard\s+a\s+card\s+for\s*æ.*gain\s+1\s+extra\s*æ/i.test(text)) {
+    state.players[side].aether = (state.players[side].aether|0) + 1;
+    pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
+  }
+
+  // When you buy from Aether Flow → Draw 1
+  if (trigger === "buy" && /when\s+you\s+buy\s+a\s+card\s+from\s+aether\s+flow\s*→?\s*draw\s+1/.test(text)) {
+    state = drawN(state, side, 1);
+    pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
+  }
+
+  return state;
+}
+
+function applyParsedEffects(state, side, card, opts = {}) {
+  const rival = otherSide(side);
+  const effects = parseEffectsFromText(card?.text || "");
+
+  // Allow instant text like "Target Spell advances 1" to pick a target:
+  const pickOwnAdvancableSlot = () => {
+    const slots = state.players[side]?.slots || [];
+    for (let i=0;i<3;i++){
+      const s = slots[i];
+      const c = s?.card;
+      if (s?.hasCard && c?.type === "SPELL" && (c.progress|0) < (c.pip|0)) return i;
+    }
+    return -1;
+  };
+
+  for (const e of effects) {
+    switch (e.t) {
+      case "draw":
+        if (e.n > 0) { state = drawN(state, side, e.n); pushEvt(state,{t:"draw",side,amount:e.n,by:card.id}); }
+        break;
+
+      case "aether":
+        if (e.n > 0) { state.players[side].aether = (state.players[side].aether|0) + e.n; pushEvt(state,{t:"aether",side,amount:e.n,by:card.id}); }
+        break;
+
+      case "channel":
+        if (e.n > 0) {
+          state.players[side].aether = (state.players[side].aether|0) + e.n;
+          pushEvt(state,{t:"aether",side,amount:e.n,by:card.id});
+          state = applyGlyphPassives(state, side, "channel"); // trigger glyph “When you Channel…”
+        }
+        break;
+
+      case "damage":
+        if (e.n > 0) state = dealDamage(state, rival, e.n, { source: card.type?.toLowerCase?.() || "card", cardId: card.id });
+        break;
+
+      case "heal":
+        if (e.n > 0) {
+          const cur = state.players[side].vitality|0;
+          state.players[side].vitality = Math.max(0, cur + e.n);
+          pushEvt(state,{t:"heal",side,amount:e.n,by:card.id});
+        }
+        break;
+
+      case "selfLose":
+        if (e.n > 0) state = dealDamage(state, side, e.n, { source: "self", cardId: card.id });
+        break;
+
+      case "advanceOther": {
+        const slots = state.players[side]?.slots || [];
+        for (let i=0;i<3;i++){
+          const s = slots[i], c = s?.card;
+          if (s?.hasCard && c?.type === "SPELL" && c.id !== card.id && (c.progress|0) < (c.pip|0)) {
+            state = advanceSpell(state, side, i, 1);
+            break;
+          }
+        }
+        break;
+      }
+
+      case "advanceTarget": {
+        const idx = (opts.targetSlotIndex ?? pickOwnAdvancableSlot());
+        if (idx >= 0) state = advanceSpell(state, side, idx, 1);
+        break;
+      }
+
+      default: break;
+    }
+  }
+
+  return state;
+}
+
+
+
+
+
+
+
+
+
