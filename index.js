@@ -209,6 +209,56 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
 });
 
 
+/* ==== Weaver Backdrop Toggle ==== */
+let backdropOn = false;
+const WEAVER_ART = {
+  player: "weaver_aria_Transparent.png",
+  ai:     "weaver_morr_Transparent.png",
+};
+
+function ensureWeaverBackdrop() {
+  let layer = document.getElementById('weaver-backdrop');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'weaver-backdrop';
+    layer.className = 'weaver-backdrop';
+    const aria = document.createElement('img');
+    aria.className = 'aria';
+    const morr = document.createElement('img');
+    morr.className = 'morr';
+    layer.appendChild(aria);
+    layer.appendChild(morr);
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+
+function updateWeaverBackdrop() {
+  const layer = ensureWeaverBackdrop();
+  const aria = layer.querySelector('.aria');
+  const morr = layer.querySelector('.morr');
+
+  // use the transparent PNGs you mentioned
+  aria.src = WEAVER_ART.player;
+  morr.src = WEAVER_ART.ai;
+
+  layer.classList.toggle('active', !!backdropOn);
+}
+
+function toggleWeaverBackdrop() {
+  backdropOn = !backdropOn;
+  updateWeaverBackdrop();
+
+  // reflect state in the menu button label
+  const btn = document.getElementById('btn-toggle-backdrop');
+  if (btn) btn.textContent = backdropOn ? 'Hide Character Backdrop' : 'Show Character Backdrop';
+}
+
+
+
+
+
+
 
 /* ---------- refs ---------- */
 const aiSlotsEl     = $("ai-slots");
@@ -1311,7 +1361,7 @@ async function render(){
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
-
+  updateWeaverBackdrop();
   
   /* ----- HAND ----- */
   if (handEl){
