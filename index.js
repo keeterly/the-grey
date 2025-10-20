@@ -264,15 +264,6 @@ function mountRightHudStrip() {
 // run once now
 mountRightHudStrip();
 
-  // Reparent existing HUD buttons if/when they exist
-  ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud']
-    .map(id => document.getElementById(id))
-    .filter(Boolean)
-    .forEach(btn => { if (btn.parentElement !== strip) strip.appendChild(btn); });
-
-
-
-
 // --- helpers for slot/node targeting
 function rectOfAny(target, fallback) {
   if (!target) return fallback || centerRect();
@@ -1488,7 +1479,7 @@ async function render(){
         <path d="M34 22l12 10-12 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>`;
   }
-  ensureRightHudStrip(); // <-- add this line
+  ensureRightHudStrip()
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
@@ -1648,14 +1639,14 @@ document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  ensureTopMenu(); 
+  ensureTopMenu();
   ensureWeaverBackdrop();     // make sure the backdrop exists before first render
   mountRightHudStrip();
   await doStartTurn();
-  ensureRightHudStrip();      // <-- keep HUD on the bottom-right at first paint
   ensureTopLeftUI();
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
+
 
 
 
