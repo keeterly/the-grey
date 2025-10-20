@@ -1464,6 +1464,48 @@ async function setGlyphFromHandWithTemp(side, cardId){
 }
 
 
+function ensureGlyphFlipStyles(){
+  if (document.getElementById('glyph-flip-style')) return;
+  const s = document.createElement('style');
+  s.id = 'glyph-flip-style';
+  s.textContent = `
+    /* flip keyframes */
+    @keyframes glyphFlipIn {
+      0%   { transform: rotateY(0deg); }
+      50%  { transform: rotateY(90deg); }
+      100% { transform: rotateY(0deg); }
+    }
+    /* spotlight pulse already exists in your code; add a gentle outline for glyph sets */
+    .slot.glyph.flip-spotlight { box-shadow: 0 0 0 2px rgba(255,255,255,.12) inset; }
+
+    /* apply on the card node that just got set */
+    .card.glyph-flip-in {
+      transform-style: preserve-3d;
+      animation: glyphFlipIn .45s ease both;
+    }
+    /* small “card back” flash midway (pseudo) */
+    .card.glyph-flip-in::after {
+      content:"";
+      position:absolute; inset:0;
+      background: radial-gradient(120% 120% at 50% 50%, rgba(255,255,255,.06), rgba(0,0,0,.6));
+      border-radius: inherit;
+      opacity: 0;
+      animation: glyphBackReveal .45s ease both;
+      pointer-events:none;
+    }
+    @keyframes glyphBackReveal {
+      0%   { opacity: 0; }
+      40%  { opacity: .9; }
+      60%  { opacity: .9; }
+      100% { opacity: 0; }
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+
+
+
 /* ---------- simple stack viewer modal ---------- */
 function openStackModal(title, cards){
   let m = document.getElementById('stack-modal');
