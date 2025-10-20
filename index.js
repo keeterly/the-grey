@@ -169,12 +169,6 @@ function ensureTopMenu() {
 }
 
 
-// Backdrop toggle state (prevents ReferenceError during first render)
-let backdropOn = false;
-
-
-
-
 /* optional AI module (safe if missing) */
 let AI = null;
 (async ()=> { try { AI = await import('./ai.js'); } catch {} })();
