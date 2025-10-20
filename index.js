@@ -177,8 +177,8 @@ const PORTRAIT_SRC = {
 
 
 const WEAVER_ART = {
-  player: "./assets/weaver_aria_Transparent.png",
-  ai:     "./assets/weaver_morr_Transparent.png",
+  player: "./weaver_aria_Transparent.png",
+  ai:     "./weaver_morr_Transparent.png",
 };
 
 
