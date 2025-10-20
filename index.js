@@ -68,8 +68,20 @@ function ensureTopLeftUI() {
     <span class="ver">${BRANCH_VERSION}</span>
   `;
   btn.addEventListener("click", () => {
-    sheet.classList.toggle("open");
-  });
+  const nowOpen = !sheet.classList.contains("open");
+  sheet.classList.toggle("open", nowOpen);
+
+  if (nowOpen) {
+    // (re)bind the list node (in case the sheet was created earlier)
+    logEls.list = sheet.querySelector(".log-list");
+    renderLogList(); // paint current lines
+
+    // auto-scroll to newest after layout
+    requestAnimationFrame(() => {
+      if (logEls.list) logEls.list.scrollTop = logEls.list.scrollHeight;
+    });
+  }
+});
 
   // Menu sheet
   const sheet = document.createElement("div");
