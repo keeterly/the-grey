@@ -324,8 +324,8 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
 /* ==== Weaver Backdrop Toggle ==== */
 // === Backdrop ===
 const WEAVER_ART = {
-  player: "./assets/weaver_aria_Transparent.png",  // adjust path to where the files actually live
-  ai:     "./assets/weaver_morr_Transparent.png",
+  player: "./weaver_aria_Transparent.png",  // adjust path to where the files actually live
+  ai:     "./weaver_morr_Transparent.png",
 };
 
 function ensureWeaverBackdrop() {
