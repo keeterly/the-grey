@@ -1479,7 +1479,7 @@ async function render(){
         <path d="M34 22l12 10-12 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>`;
   }
-  ensureRightHudStrip()
+  mountRightHudStrip();
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
