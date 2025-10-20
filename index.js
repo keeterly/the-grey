@@ -90,6 +90,22 @@ function ensureTopLeftUI() {
     await render();
   });
 
+  // Add to the Menu sheet HTML (inside .menu-body)
+sheet.querySelector(".menu-body").insertAdjacentHTML("beforeend", `
+  <div class="menu-row">
+    <button class="mini" type="button" id="toggle-backdrop">
+      ${backdropOn ? 'Hide' : 'Show'} Character Backdrop
+    </button>
+  </div>
+`);
+sheet.querySelector('#toggle-backdrop')?.addEventListener('click', () => {
+  toggleWeaverBackdrop();
+  // keep the label in sync without closing the sheet
+  const b = sheet.querySelector('#toggle-backdrop');
+  if (b) b.textContent = (backdropOn ? 'Hide' : 'Show') + ' Character Backdrop';
+});
+
+
   // Log panel
   const log = document.createElement("div");
   log.className = "game-log";
@@ -149,33 +165,7 @@ function ensureTopMenu() {
     document.body.appendChild(m);
   }
 
-  // version pill
-  let v = document.getElementById('branch-version');
-  if (!v) {
-    v = document.createElement('div');
-    v.id = 'branch-version';
-    v.className = 'menu-pill';
-    v.textContent = 'v2.61';
-    m.appendChild(v);
-  }
-
-  // backdrop toggle
-  let b = document.getElementById('btn-toggle-backdrop');
-  if (!b) {
-    b = document.createElement('button');
-    b.id = 'btn-toggle-backdrop';
-    b.type = 'button';
-    b.className = 'menu-btn';
-    b.textContent = 'Show Character Backdrop';
-    b.style.padding = '6px 10px';
-    b.style.borderRadius = '8px';
-    b.style.border = '1px solid #4a3d2f';
-    b.style.background = '#2a211a';
-    b.style.color = '#e7dcc3';
-    b.style.cursor = 'pointer';
-    b.addEventListener('click', toggleWeaverBackdrop);
-    m.appendChild(b);
-  }
+ 
 }
 
 
@@ -230,19 +220,19 @@ function ensureRightHudStyles() {
   document.head.appendChild(s);
 }
 
-// Right-side HUD strip (re-parent + pin to bottom-right)
+// Right-side HUD strip (pin to bottom-right, vertical order)
 function mountRightHudStrip() {
   const stripId = 'hud-right-strip';
   let strip = document.getElementById(stripId);
   if (!strip) {
     strip = document.createElement('div');
     strip.id = stripId;
-    // inline layout so we don't rely on external CSS
     Object.assign(strip.style, {
       position: 'fixed',
       right: '16px',
       bottom: '16px',
       display: 'flex',
+      flexDirection: 'column',   // vertical stack
       gap: '12px',
       alignItems: 'center',
       zIndex: '1200'
@@ -250,16 +240,17 @@ function mountRightHudStrip() {
     document.body.appendChild(strip);
   }
 
-  // Collect existing HUD buttons by id (already in DOM)
-  const btnIds = ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud'];
-  const btns = btnIds.map(id => document.getElementById(id)).filter(Boolean);
-
-  // Reparent into the strip in a fixed order: deck, discard, end turn
-  btns.forEach(b => { if (b && b.parentElement !== strip) strip.appendChild(b); });
-
-  // make sure they are visible
-  btns.forEach(b => { b.style.display = ''; });
+  // Desired order: End Turn (top) → Discard → Deck (bottom)
+  const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
+  order
+    .map(id => document.getElementById(id))
+    .filter(Boolean)
+    .forEach(btn => {
+      if (btn.parentElement !== strip) strip.appendChild(btn);
+      btn.style.display = '';   // ensure visible
+    });
 }
+
 
 // run once now
 mountRightHudStrip();
