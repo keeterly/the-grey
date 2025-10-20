@@ -888,5 +888,26 @@ body.mobile-landscape #zoom-card.card.zoom{
   z-index: 1;
 }
 
+/* ——— Make sure the top-left debug UI is always on top ——— */
+.tl-wrap {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1000;        /* higher than #board-grid and friends */
+  pointer-events: auto; /* interactive */
+}
+
+.game-log {
+  max-height: 40vh;
+  overflow: auto;
+}
+
+/* If you want the small v2.61 + “Show Character Backdrop” pill visible too */
+#game-menu {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 1001;        /* one above tl-wrap if they overlap */
+}
 
 
