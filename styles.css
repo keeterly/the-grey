@@ -935,3 +935,26 @@ body.mobile-landscape #zoom-card.card.zoom{
 /* Transparent “backdrop” opponent art */
 #weaver-backdrop img.morr { transform: scaleX(-1); }
 
+
+/* Split aether display under portraits */
+.aether-display { display: grid; gap: 4px; }
+.ae-line { display: inline-flex; align-items: center; gap: 6px; opacity: .95; }
+.ae-line:not(.show) .ae-val.temp { opacity: .4; } /* when temp == 0 */
+.ae-ico { display: inline-grid; place-items: center; line-height: 0; }
+.ae-val { font-variant-numeric: tabular-nums; }
+
+/* Generic badge (temp + gem together) for costs */
+.ae-generic { display:inline-flex; align-items:center; gap:4px; vertical-align:-2px; }
+
+/* Make temp feel magical */
+.icon-aether-temp { filter: drop-shadow(0 0 4px currentColor); opacity:.9; }
+
+
+.ae-line .ae-val.temp.fade-out {
+  animation: aeTempFade .6s ease forwards;
+}
+@keyframes aeTempFade {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
+
