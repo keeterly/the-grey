@@ -984,8 +984,8 @@ body.mobile-landscape #zoom-card.card.zoom{
 
 
 
-#playerName,
-#aiName {
+#player-name,
+#ai-name {
   font-size: 2em; /* 2× current size */
   line-height: 1.2;
 }
