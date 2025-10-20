@@ -29,6 +29,21 @@ import {
   dealDamage,
 } from "./GameLogic.js";
 
+
+function withAetherIcons(txt){
+  if (!txt) return "";
+  return String(txt)
+    .replaceAll('[[G]]', svgAetherGem(16))
+    .replaceAll('[[A]]', svgAetherTemp(16))
+    .replaceAll('[[Æ]]', `
+      <span class="ae-generic" title="Aether (uses temporary first)">
+        ${svgAetherTemp(14)}${svgAetherGem(14)}
+      </span>
+    `);
+}
+
+
+
 // ===== Version / Menu + Log UI =====
 export const BRANCH_VERSION = "v2.61";
 window.__BRANCH_VERSION__ = BRANCH_VERSION;
@@ -209,6 +224,29 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
   if (node) Emit('spotlight:cine', { node, to, pose, ...meta });
 }
 
+
+
+function svgAetherTemp(size = 24){
+  return `
+  <svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" class="icon-aether-temp">
+    <defs>
+      <radialGradient id="aeGlow" cx="50%" cy="45%" r="60%">
+        <stop offset="0%" stop-color="currentColor" stop-opacity="1"/>
+        <stop offset="100%" stop-color="currentColor" stop-opacity="0.0"/>
+      </radialGradient>
+    </defs>
+    <circle cx="12" cy="12" r="10" fill="url(#aeGlow)" opacity=".35"/>
+    <path d="M7.5 14.5c2.4 2.2 5.7 1.7 7.3-.8 1.1-1.8.5-3.7-1.3-4.8-1.9-1.1-4.4-.7-5.7 1 .9-3.3 4.7-4.9 7.7-3.3 3.1 1.6 4 5.2 2.1 8-2.1 3.1-6.6 3.6-9.5 1.1l-.6-.6"
+          fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+  </svg>`;
+}
+
+function svgAetherGem(size = 24){
+  return `
+  <svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" class="icon-aether-gem">
+    <path d="M12 2l6 6-6 14-6-14 6-6z" fill="none" stroke="currentColor" stroke-width="1.8" />
+  </svg>`;
+}
 
 
 // --- helpers for slot/node targeting
@@ -416,26 +454,22 @@ function renderHearts(el, n=5){
   el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
 }
 
-/* ---------- portrait Aether gem + TEMP overlay ---------- */
-function setAetherDisplay(el, v=0, temp=0){
+/* ---------- portrait Aether readout: split permanent vs temporary ---------- */
+function setAetherDisplay(el, perm=0, temp=0){
   if (!el) return;
-  const val = v|0, tv = temp|0;
+  const p = perm|0, t = temp|0;
   el.innerHTML = `
-    <span class="gem">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 2l6 6-6 14-6-14 6-6z"/>
-        <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="3">${val}</text>
-      </svg>
-    </span>
-    ${tv>0 ? `
-    <span class="gem temp" title="Turn-only Aether">
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 2l6 6-6 14-6-14 6-6z" opacity=".65"/>
-        <text x="12" y="12" text-anchor="middle" dominant-baseline="central" font-size="3">${tv}</text>
-      </svg>
-    </span>` : ``}
+    <div class="ae-line">
+      <span class="ae-ico perm" title="Aether Gem (permanent)">${svgAetherGem(24)}</span>
+      <span class="ae-val perm">${p}</span>
+    </div>
+    <div class="ae-line ${t>0 ? 'show' : ''}">
+      <span class="ae-ico temp" title="Aether (temporary; clears at end of turn)">${svgAetherTemp(24)}</span>
+      <span class="ae-val temp">${t}</span>
+    </div>
   `;
 }
+
 
 /* ---------- hand layout (with mobile tuning) ---------- */
 function isMobileLandscape(){
@@ -490,7 +524,7 @@ function cardShellHTML(c){
     ${playCost ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
     <div class="divider"></div>
     ${pipDots}
-    <div class="textbox">${withAetherText(cleanRulesText(c.text||""))}</div>
+    <div class="textbox">${withAetherIcons(withAetherText(cleanRulesText(c.text||"")))}</div>
     ${aetherChip}
   `;
 }
@@ -1012,7 +1046,7 @@ async function renderFlow(flowArray){
 
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
-    priceLbl.innerHTML = `${withAetherText("Æ")} ${price} to buy`;
+    priceLbl.innerHTML = `${withAetherIcons('[[Æ]]')} ${price} to buy`;
     li.appendChild(priceLbl);
 
     row.appendChild(li);
