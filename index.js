@@ -169,12 +169,18 @@ function ensureTopMenu() {
 }
 
 
-// Portrait image sources (only declare this ONCE)
+// Portrait image sources (declare only once)
 const PORTRAIT_SRC = {
   player: "https://raw.githubusercontent.com/keeterly/the-grey/v2.61/weaver_aria_Portrait.jpg",
   ai:     "https://raw.githubusercontent.com/keeterly/the-grey/v2.61/weaver_morr_Portrait.jpg",
 };
 
+
+const WEAVER_ART = {
+  player: "./assets/weaver_aria_Transparent.png",
+  ai:     "./assets/weaver_morr_Transparent.png",
+};
+let backdropOn = false; // declare once
 
 
 
@@ -210,50 +216,39 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 
 
 // --- Right-side HUD strip (reparent existing HUD buttons & ensure styles)
-function ensureRightHudStyles() {
-  if (document.getElementById('hud-right-strip-style')) return;
-  const css = `
-    #hud-right-strip{
-      position: fixed;
-      right: 16px;
-      bottom: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      z-index: 900;
-    }
-    #hud-right-strip > button{
-      width: 52px; height: 52px;
-      border-radius: 12px;
-      display: grid; place-items: center;
-    }
-  `;
-  const s = document.createElement('style');
-  s.id = 'hud-right-strip-style';
-  s.textContent = css;
-  document.head.appendChild(s);
-}
-
-// Bottom-right HUD: End → Discard → Deck (reset any old positioning on buttons)
-function mountRightHudStrip() {
-  const stripId = 'hud-right-strip';
-  let strip = document.getElementById(stripId);
+function ensureRightHudStrip() {
+  const id = 'hud-right-strip';
+  let strip = document.getElementById(id);
   if (!strip) {
     strip = document.createElement('div');
-    strip.id = stripId;
+    strip.id = id;
     Object.assign(strip.style, {
       position: 'fixed',
       right: '16px',
       bottom: '16px',
       display: 'flex',
-      flexDirection: 'column',   // vertical stack
-      gap: '12px',
-      alignItems: 'center',
+      flexDirection: 'column',
+      gap: '10px',
       zIndex: '1200',
-      pointerEvents: 'none'      // wrapper ignores clicks...
     });
     document.body.appendChild(strip);
   }
+
+  // desired order: End (top), Discard, Deck (bottom)
+  const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
+  const nodes = order.map(id => document.getElementById(id)).filter(Boolean);
+
+  nodes.forEach(n => {
+    n.style.display = '';
+    n.style.width = '52px';
+    n.style.height = '52px';
+    n.style.borderRadius = '12px';
+    n.style.display = 'grid';
+    n.style.placeItems = 'center';
+    if (n.parentElement !== strip) strip.appendChild(n);
+  });
+}
+
 
   // desired order: top→bottom
   const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
