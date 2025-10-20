@@ -328,53 +328,76 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
 
 
 /* ==== Weaver Backdrop Toggle ==== */
-// === Backdrop ===
+/* ==== Weaver Backdrop (full opacity + side-aligned) ==== */
 const WEAVER_ART = {
-  player: "./weaver_aria_Transparent.png",  // adjust path to where the files actually live
-  ai:     "./weaver_morr_Transparent.png",
+  player: "./assets/weaver_aria_Transparent.png",
+  ai:     "./assets/weaver_morr_Transparent.png",
 };
 
+function ensureWeaverBackdropStyles() {
+  if (document.getElementById("weaver-backdrop-style")) return;
+  const css = `
+    /* container always behind board */
+    #weaver-backdrop {
+      position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      opacity: 0; transition: opacity .25s ease;
+    }
+    #weaver-backdrop.active { opacity: 1; }           /* full opacity when on */
+
+    /* each portrait pins to a side, full height, no dimming */
+    #weaver-backdrop img {
+      position: fixed; bottom: 0;
+      height: 100vh; width: auto; max-width: none;
+      opacity: 1; filter: none; mix-blend-mode: normal;
+      pointer-events: none; user-select: none;
+    }
+    #weaver-backdrop img.aria { left: 0; }            /* player → left */
+    #weaver-backdrop img.morr { right: 0; }           /* opponent → right */
+  `;
+  const s = document.createElement("style");
+  s.id = "weaver-backdrop-style";
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+
 function ensureWeaverBackdrop() {
-  let layer = document.getElementById('weaver-backdrop');
+  ensureWeaverBackdropStyles();
+  let layer = document.getElementById("weaver-backdrop");
   if (!layer) {
-    layer = document.createElement('div');
-    layer.id = 'weaver-backdrop';
-    layer.className = 'weaver-backdrop';
-    layer.style.pointerEvents = 'none';     // never intercept clicks
-    layer.style.zIndex = '0';               // always behind the board/hud
+    layer = document.createElement("div");
+    layer.id = "weaver-backdrop";
     layer.innerHTML = `
       <img class="aria" alt="Aria backdrop"/>
       <img class="morr" alt="Morr backdrop"/>
     `;
-    document.body.prepend(layer);           // ⬅️ make sure it’s the FIRST child of <body>
+    document.body.prepend(layer); // keep behind everything else
   }
   return layer;
 }
 
+let backdropOn = false; // state holder
+
 function updateWeaverBackdrop() {
   const layer = ensureWeaverBackdrop();
-  const aria = layer.querySelector('.aria');
-  const morr = layer.querySelector('.morr');
+  const aria = layer.querySelector(".aria");
+  const morr = layer.querySelector(".morr");
 
-  // Set sources with graceful fallback (use your existing JPGs if PNGs are missing)
   aria.src = WEAVER_ART.player;
   aria.onerror = () => { aria.onerror = null; aria.src = "./weaver_aria.jpg"; };
 
   morr.src = WEAVER_ART.ai;
   morr.onerror = () => { morr.onerror = null; morr.src = "./weaver_morr.jpg"; };
 
-  layer.classList.toggle('active', !!backdropOn);
+  layer.classList.toggle("active", !!backdropOn);  // full opacity when true
 }
-
 
 function toggleWeaverBackdrop() {
   backdropOn = !backdropOn;
   updateWeaverBackdrop();
-
-  // reflect state in the menu button label
-  const btn = document.getElementById('btn-toggle-backdrop');
-  if (btn) btn.textContent = backdropOn ? 'Hide Character Backdrop' : 'Show Character Backdrop';
+  const btn = document.getElementById("btn-toggle-backdrop");
+  if (btn) btn.textContent = backdropOn ? "Hide Character Backdrop" : "Show Character Backdrop";
 }
+
 
 
 
