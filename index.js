@@ -175,6 +175,12 @@ const PORTRAIT_SRC = {
   ai:     "/weaver_morr_Portrait.jpg",
 };
 
+// Safe setter (prevents infinite onerror loops)
+function setPortrait(imgEl, primaryUrl, fallbackUrl = primaryUrl) {
+  if (!imgEl) return;
+  imgEl.onerror = () => { imgEl.onerror = null; imgEl.src = fallbackUrl; };
+  imgEl.src = primaryUrl;
+}
 
 const WEAVER_ART = {
   player: "./weaver_aria_Transparent.png",
@@ -1445,16 +1451,16 @@ async function render(){
   const s = ensureSafetyShape(serializePublic(state) || {});
   turnIndicator && (turnIndicator.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
 
- setPortrait(
-  playerPortrait,
-  (s.players?.player?.weaver?.portrait) || PORTRAIT_SRC.player,
-  PORTRAIT_SRC.player
-);
-setPortrait(
-  aiPortrait,
-  (s.players?.ai?.weaver?.portrait) || PORTRAIT_SRC.ai,
-  PORTRAIT_SRC.ai
-);
+    setPortrait(
+      playerPortrait,
+      (s.players?.player?.weaver?.portrait) ?? PORTRAIT_SRC.player,
+      PORTRAIT_SRC.player
+    );
+    setPortrait(
+      aiPortrait,
+      (s.players?.ai?.weaver?.portrait) ?? PORTRAIT_SRC.ai,
+      PORTRAIT_SRC.ai
+    );
 
   playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
