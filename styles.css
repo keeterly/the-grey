@@ -929,4 +929,9 @@ body.mobile-landscape #zoom-card.card.zoom{
   display: grid; place-items: center;
 }
 
+/* Small opponent portrait (right side) */
+#ai-portrait { transform: scaleX(-1); }
+
+/* Transparent “backdrop” opponent art */
+#weaver-backdrop img.morr { transform: scaleX(-1); }
 
