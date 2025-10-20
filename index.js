@@ -237,15 +237,6 @@ function ensureRightHudStrip() {
   const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
   const nodes = order.map(id => document.getElementById(id)).filter(Boolean);
 
-  nodes.forEach(n => {
-    n.style.display = '';
-    n.style.width = '52px';
-    n.style.height = '52px';
-    n.style.borderRadius = '12px';
-    n.style.display = 'grid';
-    n.style.placeItems = 'center';
-    if (n.parentElement !== strip) strip.appendChild(n);
-  });
 }
 
 
@@ -1192,6 +1183,42 @@ function makeFloatingCard(cardData) {
   el.innerHTML = cardHTML(cardData);
   return el;
 }
+
+
+function ensureRightHudStrip() {
+  const id = 'hud-right-strip';
+  let strip = document.getElementById(id);
+  if (!strip) {
+    strip = document.createElement('div');
+    strip.id = id;
+    Object.assign(strip.style, {
+      position: 'fixed',
+      right: '16px',
+      bottom: '16px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px',
+      zIndex: '1200',
+    });
+    document.body.appendChild(strip);
+  }
+
+  // desired order: End (top), Discard, Deck (bottom)
+  const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
+  const nodes = order.map(id => document.getElementById(id)).filter(Boolean);
+
+  nodes.forEach(n => {
+    n.style.display = '';
+    n.style.width = '52px';
+    n.style.height = '52px';
+    n.style.borderRadius = '12px';
+    n.style.display = 'grid';
+    n.style.placeItems = 'center';
+    if (n.parentElement !== strip) strip.appendChild(n);
+  });
+}
+
+
 
 /**
  * Animate: startRect → center pose → destRect
