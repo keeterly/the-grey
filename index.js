@@ -397,10 +397,8 @@ function updateWeaverBackdrop() {
   const morr = layer.querySelector(".morr");
 
   aria.src = WEAVER_ART.player;
-  aria.onerror = () => { aria.onerror = null; aria.src = "./weaver_aria_Portrait.jpg"; };
-
   morr.src = WEAVER_ART.ai;
-  morr.onerror = () => { morr.onerror = null; morr.src = "./weaver_morr_Portrait.jpg"; };
+
 
   layer.classList.toggle("active", !!backdropOn);  // full opacity when true
 }
