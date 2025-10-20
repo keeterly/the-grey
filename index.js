@@ -220,7 +220,7 @@ function ensureRightHudStyles() {
   document.head.appendChild(s);
 }
 
-// Right-side HUD strip (pin to bottom-right, vertical order)
+// Bottom-right HUD: End → Discard → Deck (reset any old positioning on buttons)
 function mountRightHudStrip() {
   const stripId = 'hud-right-strip';
   let strip = document.getElementById(stripId);
@@ -235,21 +235,36 @@ function mountRightHudStrip() {
       flexDirection: 'column',   // vertical stack
       gap: '12px',
       alignItems: 'center',
-      zIndex: '1200'
+      zIndex: '1200',
+      pointerEvents: 'none'      // wrapper ignores clicks...
     });
     document.body.appendChild(strip);
   }
 
-  // Desired order: End Turn (top) → Discard → Deck (bottom)
+  // desired order: top→bottom
   const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
-  order
-    .map(id => document.getElementById(id))
-    .filter(Boolean)
-    .forEach(btn => {
-      if (btn.parentElement !== strip) strip.appendChild(btn);
-      btn.style.display = '';   // ensure visible
+
+  order.forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+
+    // let the button receive clicks
+    btn.style.pointerEvents = 'auto';
+
+    // hard reset any old layout/positioning that kept them from the bottom
+    Object.assign(btn.style, {
+      position: 'static',
+      margin: '0',
+      top: '', right: '', bottom: '', left: '',
+      transform: 'none',
+      display: ''     // ensure visible
     });
+
+    // move into our fixed strip
+    if (btn.parentElement !== strip) strip.appendChild(btn);
+  });
 }
+
 
 
 // run once now
