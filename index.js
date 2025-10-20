@@ -171,8 +171,8 @@ function ensureTopMenu() {
 
 // === Portrait sources (raw GitHub) ===
 const PORTRAIT_SRC = {
-  player: ./weaver_aria_Portrait.jpg,
-  ai:     ./weaver_aria_Portrait.jpg,
+  player: "./weaver_aria_Portrait.jpg",
+  ai:     "./weaver_aria_Portrait.jpg",
 };
 
 
