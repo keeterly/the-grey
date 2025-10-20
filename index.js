@@ -143,7 +143,7 @@ function ensureTopMenu() {
     m.style.position = 'fixed';
     m.style.left = '10px';
     m.style.top = '10px';
-    m.style.zIndex = 50;
+    m.style.zIndex = 3000;
     m.style.display = 'grid';
     m.style.gap = '6px';
     document.body.appendChild(m);
@@ -230,15 +230,40 @@ function ensureRightHudStyles() {
   document.head.appendChild(s);
 }
 
-function ensureRightHudStrip() {
-  ensureRightHudStyles();
+// Right-side HUD strip (re-parent + pin to bottom-right)
+function mountRightHudStrip() {
   const stripId = 'hud-right-strip';
   let strip = document.getElementById(stripId);
   if (!strip) {
     strip = document.createElement('div');
     strip.id = stripId;
+    // inline layout so we don't rely on external CSS
+    Object.assign(strip.style, {
+      position: 'fixed',
+      right: '16px',
+      bottom: '16px',
+      display: 'flex',
+      gap: '12px',
+      alignItems: 'center',
+      zIndex: '1200'
+    });
     document.body.appendChild(strip);
   }
+
+  // Collect existing HUD buttons by id (already in DOM)
+  const btnIds = ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud'];
+  const btns = btnIds.map(id => document.getElementById(id)).filter(Boolean);
+
+  // Reparent into the strip in a fixed order: deck, discard, end turn
+  btns.forEach(b => { if (b && b.parentElement !== strip) strip.appendChild(b); });
+
+  // make sure they are visible
+  btns.forEach(b => { b.style.display = ''; });
+}
+
+// run once now
+mountRightHudStrip();
+
   // Reparent existing HUD buttons if/when they exist
   ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud']
     .map(id => document.getElementById(id))
@@ -1625,6 +1650,7 @@ document.addEventListener("click", clearAllActionMenus);
 document.addEventListener("DOMContentLoaded", async () => {
   ensureTopMenu(); 
   ensureWeaverBackdrop();     // make sure the backdrop exists before first render
+  mountRightHudStrip();
   await doStartTurn();
   ensureRightHudStrip();      // <-- keep HUD on the bottom-right at first paint
   ensureTopLeftUI();
