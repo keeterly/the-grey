@@ -202,6 +202,27 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
   if (node) Emit('spotlight:cine', { node, to, pose, ...meta });
 }
 
+
+// Right-side HUD strip (non-invasive wrapper)
+(function ensureRightHudStrip() {
+  const stripId = 'hud-right-strip';
+  let strip = document.getElementById(stripId);
+  if (!strip) {
+    strip = document.createElement('div');
+    strip.id = stripId;
+    document.body.appendChild(strip);
+  }
+
+  // Collect existing HUD buttons by id (they already exist in the page)
+  const btns = ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+
+  // Only reparent if not already inside
+  btns.forEach(b => { if (b.parentElement !== strip) strip.appendChild(b); });
+})();
+
+
 // --- helpers for slot/node targeting
 function rectOfAny(target, fallback) {
   if (!target) return fallback || centerRect();
