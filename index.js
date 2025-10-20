@@ -1105,10 +1105,16 @@ function ensureCinematicLayer() {
   if (!layer) {
     layer = document.createElement('div');
     layer.className = 'cinematic-layer';
+    // make sure it always renders above board + HUD, but ignores clicks
+    layer.style.position = 'fixed';
+    layer.style.inset = '0';
+    layer.style.zIndex = '2000';
+    layer.style.pointerEvents = 'none';
     document.body.appendChild(layer);
   }
   return layer;
 }
+
 function rectOf(el) {
   if (!el) return null;
   const r = el.getBoundingClientRect();
