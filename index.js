@@ -171,8 +171,8 @@ function ensureTopMenu() {
 
 // Portrait image sources (declare only once)
 const PORTRAIT_SRC = {
-  player: "https://raw.githubusercontent.com/keeterly/the-grey/v2.61/weaver_aria_Portrait.jpg",
-  ai:     "https://raw.githubusercontent.com/keeterly/the-grey/v2.61/weaver_morr_Portrait.jpg",
+  player: "/weaver_aria_Portrait.jpg",
+  ai:     "/weaver_morr_Portrait.jpg",
 };
 
 
