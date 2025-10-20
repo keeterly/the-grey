@@ -1024,3 +1024,23 @@ body.mobile-landscape #zoom-card.card.zoom{
   margin-bottom: 6px;
   opacity: .9;
 }
+
+/* Hide the game log unless the menu is open */
+.menu-sheet .game-log { 
+  display: none; 
+  margin-top: 10px;
+  max-height: 40vh;
+  overflow: auto;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  background: rgba(0,0,0,.25);
+}
+.menu-sheet.open .game-log { display: block; }
+
+/* Keep the menu button visible on top-left */
+.tl-wrap .menu-btn {
+  position: relative; /* contained by tl-wrap (which is fixed) */
+  z-index: 1;
+}
+
