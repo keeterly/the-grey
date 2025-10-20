@@ -272,7 +272,7 @@ function ensureRightHudStrip() {
     // move into our fixed strip
     if (btn.parentElement !== strip) strip.appendChild(btn);
   });
-}
+
 
 
 
