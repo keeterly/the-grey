@@ -180,7 +180,6 @@ const WEAVER_ART = {
   player: "./assets/weaver_aria_Transparent.png",
   ai:     "./assets/weaver_morr_Transparent.png",
 };
-let backdropOn = false; // declare once
 
 
 
