@@ -1144,20 +1144,31 @@ function ensureRightHudStrip() {
     document.body.appendChild(strip);
   }
 
-  // desired order: End (top), Discard, Deck (bottom)
+  // desired order top→bottom
   const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
-  const nodes = order.map(id => document.getElementById(id)).filter(Boolean);
 
-  nodes.forEach(n => {
-    n.style.display = '';
-    n.style.width = '52px';
-    n.style.height = '52px';
-    n.style.borderRadius = '12px';
-    n.style.display = 'grid';
-    n.style.placeItems = 'center';
+  order.forEach(btnId => {
+    const n = document.getElementById(btnId);
+    if (!n) return;
+
+    // hard reset any legacy positioning so the flex strip controls layout
+    Object.assign(n.style, {
+      position: 'static',
+      top: '', right: '', bottom: '', left: '',
+      margin: '0',
+      transform: 'none',
+      display: 'grid',
+      placeItems: 'center',
+      width: '52px',
+      height: '52px',
+      borderRadius: '12px',
+      pointerEvents: 'auto'
+    });
+
     if (n.parentElement !== strip) strip.appendChild(n);
   });
 }
+
 
 
 
