@@ -214,60 +214,6 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 }
 
 
-// --- Right-side HUD strip (reparent existing HUD buttons & ensure styles)
-function ensureRightHudStrip() {
-  const id = 'hud-right-strip';
-  let strip = document.getElementById(id);
-  if (!strip) {
-    strip = document.createElement('div');
-    strip.id = id;
-    Object.assign(strip.style, {
-      position: 'fixed',
-      right: '16px',
-      bottom: '16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px',
-      zIndex: '1200',
-    });
-    document.body.appendChild(strip);
-  }
-
-  // desired order: End (top), Discard, Deck (bottom)
-  const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
-  const nodes = order.map(id => document.getElementById(id)).filter(Boolean);
-
-}
-
-
-  // desired order: top→bottom
-  const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
-
-  order.forEach(id => {
-    const btn = document.getElementById(id);
-    if (!btn) return;
-
-    // let the button receive clicks
-    btn.style.pointerEvents = 'auto';
-
-    // hard reset any old layout/positioning that kept them from the bottom
-    Object.assign(btn.style, {
-      position: 'static',
-      margin: '0',
-      top: '', right: '', bottom: '', left: '',
-      transform: 'none',
-      display: ''     // ensure visible
-    });
-
-    // move into our fixed strip
-    if (btn.parentElement !== strip) strip.appendChild(btn);
-  });
-
-
-
-
-// run once now
-mountRightHudStrip();
 
 // --- helpers for slot/node targeting
 function rectOfAny(target, fallback) {
@@ -1557,7 +1503,7 @@ setPortrait(
         <path d="M34 22l12 10-12 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>`;
   }
-  mountRightHudStrip();
+  ensureRightHudStrip();
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
@@ -1719,7 +1665,7 @@ document.addEventListener("click", clearAllActionMenus);
 document.addEventListener("DOMContentLoaded", async () => {
   ensureTopMenu();
   ensureWeaverBackdrop();     // make sure the backdrop exists before first render
-  mountRightHudStrip();
+  ensureRightHudStrip();
   await doStartTurn();
   ensureTopLeftUI();
   logLine(`Boot on ${BRANCH_VERSION}`);
