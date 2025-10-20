@@ -226,7 +226,7 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 
 
 
-function svgAetherTemp(size = 24){
+function svgAetherTemp(size = 36){
   return `
   <svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" class="icon-aether-temp">
     <defs>
@@ -241,7 +241,7 @@ function svgAetherTemp(size = 24){
   </svg>`;
 }
 
-function svgAetherGem(size = 24){
+function svgAetherGem(size = 36){
   return `
   <svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" class="icon-aether-gem">
     <path d="M12 2l6 6-6 14-6-14 6-6z" fill="none" stroke="currentColor" stroke-width="1.8" />
