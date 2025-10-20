@@ -260,12 +260,11 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
 
 
 /* ==== Weaver Backdrop Toggle ==== */
-let backdropOn = false;
+// === Backdrop ===
 const WEAVER_ART = {
-  player: "./assets/weaver_aria_Transparent.png",
-  ai: "./assets/weaver_morr_Transparent.png",
+  player: "./assets/weaver_aria_Transparent.png",  // adjust path to where the files actually live
+  ai:     "./assets/weaver_morr_Transparent.png",
 };
-
 
 function ensureWeaverBackdrop() {
   let layer = document.getElementById('weaver-backdrop');
@@ -273,27 +272,32 @@ function ensureWeaverBackdrop() {
     layer = document.createElement('div');
     layer.id = 'weaver-backdrop';
     layer.className = 'weaver-backdrop';
-    const aria = document.createElement('img');
-    aria.className = 'aria';
-    const morr = document.createElement('img');
-    morr.className = 'morr';
-    layer.appendChild(aria);
-    layer.appendChild(morr);
-    document.body.appendChild(layer);
+    layer.style.pointerEvents = 'none';     // never intercept clicks
+    layer.style.zIndex = '0';               // always behind the board/hud
+    layer.innerHTML = `
+      <img class="aria" alt="Aria backdrop"/>
+      <img class="morr" alt="Morr backdrop"/>
+    `;
+    document.body.prepend(layer);           // ⬅️ make sure it’s the FIRST child of <body>
   }
   return layer;
 }
 
 function updateWeaverBackdrop() {
   const layer = ensureWeaverBackdrop();
-  const aria = layer.querySelector(".aria");
-  const morr = layer.querySelector(".morr");
+  const aria = layer.querySelector('.aria');
+  const morr = layer.querySelector('.morr');
+
+  // Set sources with graceful fallback (use your existing JPGs if PNGs are missing)
   aria.src = WEAVER_ART.player;
+  aria.onerror = () => { aria.onerror = null; aria.src = "./weaver_aria.jpg"; };
+
   morr.src = WEAVER_ART.ai;
-  requestAnimationFrame(() => {
-    layer.classList.toggle("active", backdropOn);
-  });
+  morr.onerror = () => { morr.onerror = null; morr.src = "./weaver_morr.jpg"; };
+
+  layer.classList.toggle('active', !!backdropOn);
 }
+
 
 function toggleWeaverBackdrop() {
   backdropOn = !backdropOn;
