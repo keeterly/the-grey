@@ -1463,8 +1463,8 @@ async function render(){
   const s = ensureSafetyShape(serializePublic(state) || {});
   turnIndicator && (turnIndicator.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
 
-  playerPortrait && (playerPortrait.src = s.players?.player?.weaver?.portrait || "./weaver_aria.jpg");
-  aiPortrait     && (aiPortrait.src     = s.players?.ai?.weaver?.portrait     || "./weaver_morr.jpg");
+  playerPortrait && (playerPortrait.src = s.players?.player?.weaver?.portrait || "./weaver_aria_Portrait.jpg");
+  aiPortrait     && (aiPortrait.src     = s.players?.ai?.weaver?.portrait     || "./weaver_morr_Portrait.jpg");
   playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
