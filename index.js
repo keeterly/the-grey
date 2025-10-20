@@ -1109,7 +1109,7 @@ function ensureTranceUI(){
   };
   const pub = serializePublic(state) || {};
   apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
-  apply(aiPortrait,     pub.players?.ai?.tranceLevel ?? 0);
+  apply(aiPortrait, pub.players?.ai?.tranceLevel ?? 0);
 }
 
 function highlightPlayableCards(){
