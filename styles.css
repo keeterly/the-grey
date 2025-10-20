@@ -911,3 +911,22 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
+/* Right-side vertical HUD bar */
+#hud-right-strip {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 900; /* above board, below menus */
+}
+
+/* Make the buttons themselves presentable when floated */
+#hud-right-strip > button {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  display: grid; place-items: center;
+}
+
+
