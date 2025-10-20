@@ -269,7 +269,7 @@ mountRightHudStrip();
     .map(id => document.getElementById(id))
     .filter(Boolean)
     .forEach(btn => { if (btn.parentElement !== strip) strip.appendChild(btn); });
-}
+
 
 
 
