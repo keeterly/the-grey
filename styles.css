@@ -1008,3 +1008,19 @@ body.mobile-landscape #zoom-card.card.zoom{
   line-height: 1.4;
 }
 
+
+
+.menu-sheet .game-log {
+  margin-top: 10px;
+  background: rgba(0,0,0,.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  max-height: 220px;
+  overflow-y: auto;
+  font-size: .9rem;
+}
+.menu-sheet .log-title {
+  font-weight: 600;
+  margin-bottom: 6px;
+  opacity: .9;
+}
