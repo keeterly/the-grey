@@ -190,16 +190,6 @@ const WEAVER_ART = {
 
 
 
-// Safe setter with fallback (avoids infinite onerror loops)
-function setPortrait(imgEl, primaryUrl, fallbackUrl = primaryUrl) {
-  if (!imgEl) return;
-  imgEl.onerror = () => { imgEl.onerror = null; imgEl.src = fallbackUrl; };
-  imgEl.src = primaryUrl;
-}
-
-
-
-
 /* optional AI module (safe if missing) */
 let AI = null;
 (async ()=> { try { AI = await import('./ai.js'); } catch {} })();
