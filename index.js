@@ -134,19 +134,15 @@ sheet.querySelector('#toggle-backdrop')?.addEventListener('click', () => {
 
 
   // Log panel
-  const log = document.createElement("div");
-  log.className = "game-log";
-  log.innerHTML = `
-    <div class="log-title">Game Log</div>
-    <div class="log-list" role="log" aria-live="polite"></div>
-  `;
-
-  wrap.appendChild(btn);
-  wrap.appendChild(sheet);
-  wrap.appendChild(log);
+  
   document.body.appendChild(wrap);
 
-  logEls = { wrap, list: log.querySelector(".log-list"), menuBtn: btn, sheet };
+  logEls = {
+  wrap,
+  list: sheet.querySelector(".log-list"), // ⟵ list now lives in the menu
+  menuBtn: btn,
+  sheet
+};
   return logEls;
 }
 
