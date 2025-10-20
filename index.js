@@ -179,6 +179,8 @@ function ensureTopMenu() {
 }
 
 
+// Backdrop toggle state (prevents ReferenceError during first render)
+let backdropOn = false;
 
 
 
@@ -203,8 +205,33 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 }
 
 
-// Right-side HUD strip (non-invasive wrapper)
-(function ensureRightHudStrip() {
+// --- Right-side HUD strip (reparent existing HUD buttons & ensure styles)
+function ensureRightHudStyles() {
+  if (document.getElementById('hud-right-strip-style')) return;
+  const css = `
+    #hud-right-strip{
+      position: fixed;
+      right: 16px;
+      bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 900;
+    }
+    #hud-right-strip > button{
+      width: 52px; height: 52px;
+      border-radius: 12px;
+      display: grid; place-items: center;
+    }
+  `;
+  const s = document.createElement('style');
+  s.id = 'hud-right-strip-style';
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+
+function ensureRightHudStrip() {
+  ensureRightHudStyles();
   const stripId = 'hud-right-strip';
   let strip = document.getElementById(stripId);
   if (!strip) {
@@ -212,15 +239,13 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
     strip.id = stripId;
     document.body.appendChild(strip);
   }
-
-  // Collect existing HUD buttons by id (they already exist in the page)
-  const btns = ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud']
+  // Reparent existing HUD buttons if/when they exist
+  ['btn-deck-hud', 'btn-discard-hud', 'btn-endturn-hud']
     .map(id => document.getElementById(id))
-    .filter(Boolean);
+    .filter(Boolean)
+    .forEach(btn => { if (btn.parentElement !== strip) strip.appendChild(btn); });
+}
 
-  // Only reparent if not already inside
-  btns.forEach(b => { if (b.parentElement !== strip) strip.appendChild(b); });
-})();
 
 
 // --- helpers for slot/node targeting
@@ -1432,7 +1457,7 @@ async function render(){
         <path d="M34 22l12 10-12 10" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
       </svg>`;
   }
-
+  ensureRightHudStrip(); // <-- add this line
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   await renderFlow(s.flow);
@@ -1593,8 +1618,9 @@ document.addEventListener("click", clearAllActionMenus);
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   ensureTopMenu(); 
-  ensureWeaverBackdrop(); // make sure the backdrop exists before first render
+  ensureWeaverBackdrop();     // make sure the backdrop exists before first render
   await doStartTurn();
+  ensureRightHudStrip();      // <-- keep HUD on the bottom-right at first paint
   ensureTopLeftUI();
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
