@@ -460,11 +460,11 @@ function setAetherDisplay(el, perm=0, temp=0){
   const p = perm|0, t = temp|0;
   el.innerHTML = `
     <div class="ae-line">
-      <span class="ae-ico perm" title="Aether Gem (permanent)">${svgAetherGem(24)}</span>
+      <span class="ae-ico perm" title="Aether Gem (permanent)">${svgAetherGem(48)}</span>
       <span class="ae-val perm">${p}</span>
     </div>
     <div class="ae-line ${t>0 ? 'show' : ''}">
-      <span class="ae-ico temp" title="Aether (temporary; clears at end of turn)">${svgAetherTemp(24)}</span>
+      <span class="ae-ico temp" title="Aether (temporary; clears at end of turn)">${svgAetherTemp(48)}</span>
       <span class="ae-val temp">${t}</span>
     </div>
   `;
