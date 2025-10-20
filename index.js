@@ -342,11 +342,6 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
 
 
 /* ==== Weaver Backdrop Toggle ==== */
-/* ==== Weaver Backdrop (full opacity + side-aligned) ==== */
-const WEAVER_ART = {
-  player: "./weaver_aria_Transparent.png",
-  ai:     "./weaver_morr_Transparent.png",
-};
 
 function ensureWeaverBackdropStyles() {
   if (document.getElementById("weaver-backdrop-style")) return;
