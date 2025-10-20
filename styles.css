@@ -911,7 +911,7 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
-/* Right-side vertical HUD bar */
+/* Right-side vertical HUD bar 
 #hud-right-strip {
   position: fixed;
   top: 16px;
@@ -919,8 +919,8 @@ body.mobile-landscape #zoom-card.card.zoom{
   display: flex;
   flex-direction: column;
   gap: 10px;
-  z-index: 900; /* above board, below menus */
-}
+  z-index: 900;
+}*/
 
 /* Make the buttons themselves presentable when floated */
 #hud-right-strip > button {
