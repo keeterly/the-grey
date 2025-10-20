@@ -991,3 +991,20 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
+
+.ae-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ae-val {
+  font-size: 1.5em;
+}
+
+
+.trance-line,
+.portrait .trance {
+  font-size: 1.8em;
+  line-height: 1.4;
+}
+
