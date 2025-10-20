@@ -931,13 +931,28 @@ function renderSlots(container, snapshot, isPlayer){
   g.appendChild(rune);
 
   const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
-  if (glyphSlot.hasCard && glyphSlot.card){
-    const art = document.createElement("article");
-    art.className = "card";
-    art.innerHTML = cardHTML(glyphSlot.card);
-    attachPeekAndZoom(art, glyphSlot.card);
-    g.appendChild(art);
-  }
+     if (glyphSlot.hasCard && glyphSlot.card){
+      const art = document.createElement("article");
+      art.className = "card";
+      art.innerHTML = cardHTML(glyphSlot.card);
+      attachPeekAndZoom(art, glyphSlot.card);
+      g.appendChild(art);
+    
+      // If this glyph was just set for this side, flip + spotlight once.
+      if (isPlayer && lastGlyphJustSetFor === "player" ||
+          !isPlayer && lastGlyphJustSetFor === "ai") {
+        const slotNode = g;
+        slotNode.classList.add('flip-spotlight');
+        art.classList.add('glyph-flip-in');
+        art.addEventListener('animationend', () => {
+          slotNode.classList.remove('flip-spotlight');
+          art.classList.remove('glyph-flip-in');
+        }, { once:true });
+        // clear the flag so it only triggers once
+        lastGlyphJustSetFor = null;
+      }
+    }
+
 
   if (isPlayer){
     const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -1050,7 +1065,14 @@ async function renderFlow(flowArray){
 
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
-    priceLbl.innerHTML = `${withAetherIcons('[[Æ]]')} ${price} to buy`;
+    
+    priceLbl.innerHTML = `
+      <span class="flow-price" aria-label="${price} Aether to buy">
+        ${withAetherIcons('[[Æ]]')}
+        <span class="n">${price}</span>
+      </span>`;
+
+    
     li.appendChild(priceLbl);
 
     row.appendChild(li);
@@ -1105,6 +1127,46 @@ function highlightPlayableCards(){
     else if (canChannel(c))                           node.classList.add(`pulse-${c.type?.toLowerCase?.()||"spell"}`);
   });
 }
+
+
+function ensureFlowStyles(){
+  if (document.getElementById('flow-style')) return;
+  const s = document.createElement('style');
+  s.id = 'flow-style';
+  s.textContent = `
+    /* rotate the rail title */
+    .flow-title-rail .flow-title {
+      transform: rotate(180deg);
+      transform-origin: center;
+    }
+
+    /* cleaner price chip */
+    .flow-board .price-label {
+      margin-top: 6px;
+      font-size: 12px;
+      letter-spacing: .02em;
+      opacity: .95;
+      display: grid; place-items: center;
+    }
+    .flow-board .flow-price {
+      display: inline-grid;
+      grid-auto-flow: column;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.08);
+      line-height: 1;
+    }
+    .flow-board .flow-price svg { display:block; }
+    .flow-board .flow-price .n { font-size: 13px; }
+  `;
+  document.head.appendChild(s);
+}
+
+
+
 
 /* ---------- deck helpers ---------- */
 function shuffleInPlace(arr){
@@ -1389,10 +1451,18 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
   }
 }
 
+let lastGlyphJustSetFor = null;  // ← put near other module-level state
+
 async function setGlyphFromHandWithTemp(side, cardId){
+  // fly the card to the glyph slot
+  const destSel = `.row.${side} .slot.glyph`;
+  cineFromHandCard(cardId, destSel, 'set-glyph');
+
   state = setGlyphFromHand(state, side, cardId);
+  lastGlyphJustSetFor = side;               // remember for flip effect on next render
   Emit(Events.CARD_SET, {side, cardId});
 }
+
 
 /* ---------- simple stack viewer modal ---------- */
 function openStackModal(title, cards){
@@ -1711,6 +1781,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTopMenu();
   ensureWeaverBackdrop();     // make sure the backdrop exists before first render
   ensureRightHudStrip();
+  ensureFlowStyles();
+  ensureGlyphFlipStyles();   // ← add
   await doStartTurn();
   ensureTopLeftUI();
   logLine(`Boot on ${BRANCH_VERSION}`);
