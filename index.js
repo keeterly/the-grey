@@ -55,8 +55,14 @@ let logEls = { wrap: null, list: null, menuBtn: null, sheet: null };
 function ensureTopLeftUI() {
   if (logEls.wrap) return logEls;
 
+  // wrapper (never hide this; it holds the button)
   const wrap = document.createElement("div");
   wrap.className = "tl-wrap";
+  // Give it a z-index so HUD/flow layers won’t cover the button
+  wrap.style.position = "fixed";
+  wrap.style.left = "10px";
+  wrap.style.top = "10px";
+  wrap.style.zIndex = "4000"; // above HUD (1200) & cinematic (2000)
 
   // Menu button
   const btn = document.createElement("button");
@@ -67,21 +73,6 @@ function ensureTopLeftUI() {
     <span class="lbl">Menu</span>
     <span class="ver">${BRANCH_VERSION}</span>
   `;
-  btn.addEventListener("click", () => {
-  const nowOpen = !sheet.classList.contains("open");
-  sheet.classList.toggle("open", nowOpen);
-
-  if (nowOpen) {
-    // (re)bind the list node (in case the sheet was created earlier)
-    logEls.list = sheet.querySelector(".log-list");
-    renderLogList(); // paint current lines
-
-    // auto-scroll to newest after layout
-    requestAnimationFrame(() => {
-      if (logEls.list) logEls.list.scrollTop = logEls.list.scrollHeight;
-    });
-  }
-});
 
   // Menu sheet
   const sheet = document.createElement("div");
@@ -99,11 +90,20 @@ function ensureTopLeftUI() {
         <button class="mini" type="button" id="dbg-dmg-player">Hit You -1</button>
         <button class="mini" type="button" id="dbg-draw1">Draw 1</button>
       </div>
+
+      <!-- Game Log block lives inside menu (hidden until open) -->
+      <div class="game-log">
+        <div class="log-title">Game Log</div>
+        <div class="log-list" role="log" aria-live="polite"></div>
+      </div>
     </div>
   `;
+
+  // open/close handlers
+  btn.addEventListener("click", () => sheet.classList.toggle("open"));
   sheet.querySelector(".close")?.addEventListener("click", () => sheet.classList.remove("open"));
 
-  // Hook debug buttons (optional, for testing damage + draw)
+  // Debug button wiring (unchanged)
   sheet.querySelector("#dbg-dmg-ai")?.addEventListener("click", async () => { 
     state = dealDamage(state, "ai", 1, { source: "debug" }); 
     await render(); 
@@ -117,34 +117,30 @@ function ensureTopLeftUI() {
     await render();
   });
 
-  // Add to the Menu sheet HTML (inside .menu-body)
-sheet.querySelector(".menu-body").insertAdjacentHTML("beforeend", `
-  <div class="menu-row">
-    <button class="mini" type="button" id="toggle-backdrop">
-      ${backdropOn ? 'Hide' : 'Show'} Character Backdrop
-    </button>
-  </div>
-`);
-sheet.querySelector('#toggle-backdrop')?.addEventListener('click', () => {
-  toggleWeaverBackdrop();
-  // keep the label in sync without closing the sheet
-  const b = sheet.querySelector('#toggle-backdrop');
-  if (b) b.textContent = (backdropOn ? 'Hide' : 'Show') + ' Character Backdrop';
-});
+  // Backdrop toggle row (keep as you had)
+  sheet.querySelector(".menu-body").insertAdjacentHTML("beforeend", `
+    <div class="menu-row">
+      <button class="mini" type="button" id="toggle-backdrop">
+        ${backdropOn ? 'Hide' : 'Show'} Character Backdrop
+      </button>
+    </div>
+  `);
+  sheet.querySelector('#toggle-backdrop')?.addEventListener('click', () => {
+    toggleWeaverBackdrop();
+    const b = sheet.querySelector('#toggle-backdrop');
+    if (b) b.textContent = (backdropOn ? 'Hide' : 'Show') + ' Character Backdrop';
+  });
 
-
-  // Log panel
-  
+  // Mount
+  wrap.appendChild(btn);
+  wrap.appendChild(sheet);
   document.body.appendChild(wrap);
 
-  logEls = {
-  wrap,
-  list: sheet.querySelector(".log-list"), // ⟵ list now lives in the menu
-  menuBtn: btn,
-  sheet
-};
+  // cache refs to the list inside the menu
+  logEls = { wrap, list: sheet.querySelector(".log-list"), menuBtn: btn, sheet };
   return logEls;
 }
+
 
 function logLine(text) {
   ensureTopLeftUI();
