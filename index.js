@@ -33,11 +33,11 @@ import {
 function withAetherIcons(txt){
   if (!txt) return "";
   return String(txt)
-    .replaceAll('[[G]]', svgAetherGem(16))
-    .replaceAll('[[A]]', svgAetherTemp(16))
+    .replaceAll('[[G]]', svgAetherGem(24))
+    .replaceAll('[[A]]', svgAetherTemp(24))
     .replaceAll('[[Æ]]', `
       <span class="ae-generic" title="Aether (uses temporary first)">
-        ${svgAetherTemp(14)}${svgAetherGem(14)}
+        ${svgAetherTemp(21)}${svgAetherGem(21)}
       </span>
     `);
 }
