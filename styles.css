@@ -957,4 +957,30 @@ body.mobile-landscape #zoom-card.card.zoom{
   to { opacity: 0; transform: translateY(-4px); }
 }
 
+/* keep the two icons on one row under the portrait */
+#aether-display,
+.portrait .aether-display {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;    /* or flex-start if you prefer left-aligned */
+  gap: 10px;                  /* spacing between the two icons */
+  flex-wrap: nowrap;          /* <-- no wrapping */
+  white-space: nowrap;        /* belts & suspenders */
+}
+
+/* each icon container should not introduce baseline/line-height quirks */
+.aether-display .gem,
+.aether-display .temp {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;             /* remove inline baseline space */
+}
+
+/* make sure the SVGs don’t contribute extra line-box space */
+.aether-display svg {
+  display: block;
+}
+
+
 
