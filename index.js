@@ -296,6 +296,15 @@ function ensureWeaverBackdropStyles() {
   document.head.appendChild(s);
 }
 
+
+// one-time style for the small opponent portrait
+if (!document.getElementById("portrait-mirror-style")) {
+  const s = document.createElement("style");
+  s.id = "portrait-mirror-style";
+  s.textContent = `#ai-portrait{ transform: scaleX(-1); }`;
+  document.head.appendChild(s);
+}
+
 function ensureWeaverBackdrop() {
   ensureWeaverBackdropStyles();
   let layer = document.getElementById("weaver-backdrop");
