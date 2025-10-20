@@ -424,6 +424,18 @@ const hudDeckBtn    = $("btn-deck-hud");
 const hudEndBtn     = $("btn-endturn-hud");
 const peekEl        = $("peek-card");
 
+// --- portrait updates (attach or refresh in render) ---
+if (playerPortrait) {
+  playerPortrait.onerror = null;
+  playerPortrait.src = (state.players?.player?.weaver?.portrait) || PORTRAIT_SRC.player;
+}
+if (aiPortrait) {
+  aiPortrait.onerror = null;
+  aiPortrait.src = (state.players?.ai?.weaver?.portrait) || PORTRAIT_SRC.ai;
+}
+
+
+
 /* ---------- state ---------- */
 let state = initState();
 let bootDealt = false;
