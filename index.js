@@ -45,7 +45,7 @@ function withAetherIcons(txt){
 
 
 // ===== Version / Menu + Log UI =====
-export const BRANCH_VERSION = "v2.61";
+export const BRANCH_VERSION = "v2.63";
 window.__BRANCH_VERSION__ = BRANCH_VERSION;
 
 let LogStore = [];
@@ -230,20 +230,16 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 
 
 
-function svgAetherTemp(size = 36){
+function svgAetherTemp(size = 36) {
   return `
   <svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true" class="icon-aether-temp">
-    <defs>
-      <radialGradient id="aeGlow" cx="50%" cy="45%" r="60%">
-        <stop offset="0%" stop-color="currentColor" stop-opacity="1"/>
-        <stop offset="100%" stop-color="currentColor" stop-opacity="0.0"/>
-      </radialGradient>
-    </defs>
-    <circle cx="12" cy="12" r="10" fill="url(#aeGlow)" opacity=".35"/>
-    <path d="M7.5 14.5c2.4 2.2 5.7 1.7 7.3-.8 1.1-1.8.5-3.7-1.3-4.8-1.9-1.1-4.4-.7-5.7 1 .9-3.3 4.7-4.9 7.7-3.3 3.1 1.6 4 5.2 2.1 8-2.1 3.1-6.6 3.6-9.5 1.1l-.6-.6"
-          fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+    <path
+      d="M7.5 14.5c2.4 2.2 5.7 1.7 7.3-.8 1.1-1.8.5-3.7-1.3-4.8-1.9-1.1-4.4-.7-5.7 1
+         .9-3.3 4.7-4.9 7.7-3.3 3.1 1.6 4 5.2 2.1 8-2.1 3.1-6.6 3.6-9.5 1.1l-.6-.6"
+      fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
   </svg>`;
 }
+
 
 function svgAetherGem(size = 36){
   return `
@@ -1027,56 +1023,57 @@ async function renderFlow(flowArray){
 
   const playerAe = getTotal("player");
 
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
-    const li = document.createElement("li");
-    li.className = "flow-card";
+ (flowArray || []).slice(0,5).forEach((c, idx)=>{
+  const li = document.createElement("li");
+  li.className = "flow-card";
 
-    const card = document.createElement("article");
-    card.className = "card market";
-    card.dataset.flowIndex = String(idx);
-    card.innerHTML = cardHTML(c);
+  const card = document.createElement("article");
+  card.className = "card market";
+  card.dataset.flowIndex = String(idx);
+  card.innerHTML = cardHTML(c);
 
-    const price = FLOW_PRICE_BY_POS[idx] || 0;
-    const canAfford = !!c && playerAe >= price;
+  const price = FLOW_PRICE_BY_POS[idx] || 0;
+  const canAfford = !!c && playerAe >= price;
 
-    if (!canAfford) card.setAttribute("aria-disabled", "true");
-    if (c) attachPeekAndZoom(card, c);
+  if (!canAfford) card.setAttribute("aria-disabled", "true");
+  if (c) attachPeekAndZoom(card, c);
 
-    if (c && canAfford){
-      // inside the click handler in renderFlow()
-      card.addEventListener("click", async ()=>{
-        const useTemp = Math.min(price, (state.players.player.tempAether|0));
-        adjustAe("player", useTemp); // virtual top-up
-        try {
-          // 🔸 Tell animations to spotlight & fly this exact DOM node
-          Emit('aetherflow:bought', { node: card });
-      
-          // proceed with game logic
-          state = buyFromFlow(state, "player", idx);
-          addTemp("player", -useTemp);
-        } catch (e) {
-          adjustAe("player", -useTemp);
-        }
-        await render();
-      });
-    }
+  // 🔹 Step 4: add the buyable marker so CSS pulse runs
+  if (c && canAfford) {
+    card.classList.add("buyable");
+  }
 
-    li.appendChild(card);
+  if (c && canAfford){
+    card.addEventListener("click", async ()=>{
+      const useTemp = Math.min(price, (state.players.player.tempAether|0));
+      adjustAe("player", useTemp); // virtual top-up
+      try {
+        // Spotlight & fly this exact DOM node
+        Emit('aetherflow:bought', { node: card });
 
-    const priceLbl = document.createElement("div");
-    priceLbl.className = "price-label";
-    
-    priceLbl.innerHTML = `
-      <span class="flow-price" aria-label="${price} Aether to buy">
-        ${withAetherIcons('[[Æ]]')}
-        <span class="n">${price}</span>
-      </span>`;
+        // proceed with game logic
+        state = buyFromFlow(state, "player", idx);
+        addTemp("player", -useTemp);
+      } catch (e) {
+        adjustAe("player", -useTemp);
+      }
+      await render();
+    });
+  }
 
-    
-    li.appendChild(priceLbl);
+  li.appendChild(card);
 
-    row.appendChild(li);
-  });
+  const priceLbl = document.createElement("div");
+  priceLbl.className = "price-label";
+  priceLbl.innerHTML = `
+    <span class="flow-price" aria-label="${price} Aether to buy">
+      ${withAetherIcons('[[Æ]]')}
+      <span class="n">${price}</span>
+    </span>`;
+  li.appendChild(priceLbl);
+
+  row.appendChild(li);
+});
 
   prevFlowIds = nextIds;
 
@@ -1161,9 +1158,21 @@ function ensureFlowStyles(){
     }
     .flow-board .flow-price svg { display:block; }
     .flow-board .flow-price .n { font-size: 13px; }
+
+    /* pulse for buyable cards */
+    @keyframes buyablePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.22); transform: scale(1.00); }
+      70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0);  transform: scale(1.03); }
+      100% { box-shadow: 0 0 0 0 rgba(255,255,255,0);     transform: scale(1.00); }
+    }
+    .flow-card .card.buyable:not([aria-disabled="true"]) {
+      animation: buyablePulse 1.6s ease-out infinite;
+      will-change: transform, box-shadow;
+    }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
@@ -1187,6 +1196,76 @@ function reshuffleFromDiscard(side = "player"){
   }
 }
 
+
+function ensureOutcomeOverlayStyles() {
+  if (document.getElementById("outcome-style")) return;
+  const s = document.createElement("style");
+  s.id = "outcome-style";
+  s.textContent = `
+    #outcome-overlay {
+      position: fixed; inset: 0; z-index: 3500;
+      display: grid; place-items: center;
+      backdrop-filter: blur(6px);
+      background: rgba(0,0,0,.45);
+      opacity: 0; pointer-events: none;
+      transition: opacity .25s ease;
+    }
+    #outcome-overlay.open { opacity: 1; pointer-events: auto; }
+    #outcome-sheet {
+      min-width: 360px; max-width: 80vw;
+      padding: 28px 24px;
+      border-radius: 16px;
+      background: rgba(18,18,18,.92);
+      box-shadow: 0 10px 36px rgba(0,0,0,.55);
+      border: 1px solid rgba(255,255,255,.08);
+      text-align: center;
+    }
+    #outcome-title {
+      font-size: 42px; letter-spacing: .06em; margin: 8px 0 10px;
+    }
+    #outcome-title.win  { color: #b0ffd0; }
+    #outcome-title.lose { color: #ffd0d0; }
+    #outcome-btn {
+      margin-top: 16px; padding: 10px 16px;
+      border-radius: 10px;
+      background: rgba(255,255,255,.08);
+      color: #eee;
+      border: 1px solid rgba(255,255,255,.12);
+      cursor: pointer;
+    }`;
+  document.head.appendChild(s);
+}
+
+function ensureOutcomeOverlay() {
+  ensureOutcomeOverlayStyles();
+  let o = document.getElementById("outcome-overlay");
+  if (!o) {
+    o = document.createElement("div");
+    o.id = "outcome-overlay";
+    o.innerHTML = `
+      <div id="outcome-sheet">
+        <div id="outcome-title"></div>
+        <div id="outcome-sub">Tap Retry to start a fresh duel.</div>
+        <button id="outcome-btn" type="button">Retry?</button>
+      </div>`;
+    document.body.appendChild(o);
+    o.querySelector("#outcome-btn").addEventListener("click", async () => {
+      state = initState();
+      await doStartTurn();
+      o.classList.remove("open");
+    });
+  }
+  return o;
+}
+
+function showOutcome(type) { // "win" | "lose"
+  const o = ensureOutcomeOverlay();
+  const title = o.querySelector("#outcome-title");
+  title.className = "";
+  title.classList.add(type);
+  title.textContent = type === "win" ? "YOU WIN" : "YOU LOSE";
+  o.classList.add("open");
+}
 
 
 // ---------- cinematic helpers ----------
@@ -1632,6 +1711,18 @@ async function render(){
 
   ensureTranceUI();
 
+
+const pv = s.players?.player?.vitality | 0;
+const av = s.players?.ai?.vitality | 0;
+if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
+  showOutcome(av <= 0 ? "win" : "lose");
+}
+
+
+
+
+
+  
   // HUD
   if (hudDeckBtn){
     const deckCount = (state?.players?.player?.deck?.length ?? 0);
@@ -1820,13 +1911,13 @@ document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  ensureTopMenu();
+  ensureTopLeftUI();
   ensureWeaverBackdrop();     // make sure the backdrop exists before first render
   ensureRightHudStrip();
   ensureFlowStyles();
   ensureGlyphFlipStyles();   // ← add
   await doStartTurn();
-  ensureTopLeftUI();
+ 
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
 
