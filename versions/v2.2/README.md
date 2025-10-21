@@ -1,1 +1,0 @@
-Legacy branch placeholder. Use v2.3 or v2.4 to play.
