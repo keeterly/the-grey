@@ -1013,6 +1013,8 @@ function renderSlots(container, snapshot, isPlayer){
   container.replaceChildren();
   const safe = Array.isArray(snapshot) ? snapshot : [];
 
+  ensureGlyphPlaceholderStyles();
+  
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
     d.className = "slot spell";
@@ -1110,8 +1112,6 @@ ensureGlyphPlaceholderStyles();
   
 const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
 g.classList.toggle('has-card', !!(glyphSlot.hasCard && glyphSlot.card));
-  
-  if (glyphSlot.hasCard) g.classList.add('has-card'); else g.classList.remove('has-card');
 
   
 if (glyphSlot.hasCard && glyphSlot.card) {
