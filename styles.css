@@ -1105,7 +1105,3 @@ body.mobile-landscape #zoom-card.card.zoom{
 .trance[data-level="2"] .trance-line[data-lvl="1"],
 .trance[data-level="2"] .trance-line[data-lvl="2"] { opacity:1; }
 
-/* diamond button (unchanged gist) */
-.trance-diamond{appearance:none;border:none;background:transparent;position:relative;width:34px;height:34px;transform:rotate(45deg);border:1.8px solid var(--gold);border-radius:4px;color:var(--gold);cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.45)}
-.trance-diamond .rn{position:absolute;inset:0;display:grid;place-items:center;transform:rotate(-45deg);font-weight:800;font-size:.95rem;color:var(--gold)}
-
