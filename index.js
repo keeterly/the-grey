@@ -188,6 +188,36 @@ function ensureTopMenu() {
 }
 
 
+function ensureGlyphFlipStyles() {
+  if (document.getElementById("glyph-flip-style")) return;
+  const css = `
+    .glyph-holder{ position:relative; width:100%; height:100%; outline:0; }
+    .glyph-holder .face{
+      position:absolute; inset:0; border-radius:var(--card-radius);
+      backface-visibility:hidden; transform-style:preserve-3d;
+      transition: transform .28s ease, opacity .22s ease;
+    }
+    .glyph-holder .face.back{
+      display:grid; place-items:center; 
+      transform: rotateY(0deg); opacity:1;
+    }
+    .glyph-holder .face.front{
+      transform: rotateY(180deg); opacity:0; pointer-events:none;
+    }
+    .glyph-holder.reveal .face.back{ transform: rotateY(180deg); opacity:0; }
+    .glyph-holder.reveal .face.front{ transform: rotateY(0deg); opacity:1; pointer-events:auto; }
+
+    /* optional focus cue for keyboard users */
+    .glyph-holder:focus-visible{ outline:2px solid var(--type-glyph); outline-offset:3px; }
+  `;
+  const s = document.createElement("style");
+  s.id = "glyph-flip-style";
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+
+
+
 // Portrait image sources (declare only once)
 const PORTRAIT_SRC = {
   player: "/weaver_aria_Portrait.jpg",
