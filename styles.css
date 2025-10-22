@@ -602,6 +602,15 @@ body.mobile-landscape #zoom-card.card.zoom{
 /* make sure drops hit the .slot.glyph container, not the rune SVG */
 .slot-rune { pointer-events: none; }
 
+.cinematic-layer .card {
+  width: 240px !important;
+  height: 336px !important;
+  max-width: none !important;
+  max-height: none !important;
+  transform-origin: center center;
+  position: absolute !important;
+}
+
 
 /* Cinematic layer */
 .cinematic-layer {
@@ -833,7 +842,7 @@ body.mobile-landscape #zoom-card.card.zoom{
 .weaver-backdrop .morr { right: auto; }
 
 /* make sure game layers are above */
-#board-grid, .hud, #preview-layer, #zoom-overlay { z-index: 1; position: relative; }
+#board-grid, .hud, .cinematic-layer, #preview-layer, #zoom-overlay { z-index: 1; position: relative; }
 
 
 /* --- Weaver fullscreen backdrop --- */
@@ -1034,17 +1043,3 @@ body.mobile-landscape #zoom-card.card.zoom{
   position: relative; /* contained by tl-wrap (which is fixed) */
   z-index: 1;
 }
-
-
-/* === CINEMATIC HOTFIX (place at end) ====================== */
-.cinematic-layer{
-  position: fixed !important;
-  inset: 0 !important;
-  pointer-events: none !important;
-  z-index: 99999 !important;
-}
-
-.cinematic-card{
-  transform-origin: top left !important;
-}
-
