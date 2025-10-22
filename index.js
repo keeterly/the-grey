@@ -2720,4 +2720,54 @@ document.addEventListener("DOMContentLoaded", async () => {
   // Keep CSS so hide-during-flight truly hides the source (no flicker)
   (function ensureCSS(){
     if (document.getElementById('robust-cine-css')) return;
-    const s = document.createEl
+    const s = document.createElement('style');
+    s.id = 'robust-cine-css';
+    s.textContent = `
+      #hand .card.grey-hide-during-flight{
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
+      }
+    `.trim();
+    document.head.appendChild(s);
+  })();
+
+  Grey.emit = function(name, payload){
+    if (name !== 'spotlight:cine' || !payload || !payload.node) {
+      return _emit(name, payload);
+    }
+
+    const node = payload.node;
+
+    // MEASURE FIRST (no classes yet)
+    const startRect = rectWithoutTransforms(node) || rectOf(node) || centerRect();
+    const destRect  = destForPose(payload) || centerRect();
+
+    // Now mark the real node hidden so observers don't double-animate it.
+    node.classList.add('grey-hide-during-flight');
+    node.setAttribute('data-no-ghost','1');
+
+    // Run the cinematic in a queue to avoid overlap
+    cineQ = cineQ.then(async ()=>{
+      try {
+        if (typeof window.playCinematic === 'function'){
+          await window.playCinematic(payload.cardData || {}, startRect, destRect, {
+            centerScale:  payload.centerScale ?? 1.16,
+            poseInMs:     payload.poseInMs   ?? 240,
+            holdMs:       payload.holdMs     ?? 300,
+            outMs:        payload.outMs      ?? 260,
+            endScale:     payload.endScale   ?? 0.78,
+          });
+        }
+      } finally {
+        // allow the real node to be shown again if it still exists
+        if (document.body.contains(node)) {
+          node.classList.remove('grey-hide-during-flight');
+          node.removeAttribute('data-no-ghost');
+        }
+      }
+    }).catch(()=>{ /* keep queue alive */ });
+
+    return; // IMPORTANT: do not forward to the older cine handler
+  };
+})();
