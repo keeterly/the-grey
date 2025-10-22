@@ -1095,7 +1095,9 @@ rune.innerHTML = `
 g.appendChild(rune);
 
 const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
+if (glyphSlot.hasCard) g.classList.add('has-card'); else g.classList.remove('has-card');
 
+  
 if (glyphSlot.hasCard && glyphSlot.card) {
   // Only build flip UI when a glyph is set
   ensureGlyphFlipStyles();
@@ -1994,6 +1996,8 @@ if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
   ensureRightHudStrip();
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
+  ensureGlyphPlaceholderStyles();
+
   await renderFlow(s.flow);
   updateWeaverBackdrop();
   
