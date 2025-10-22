@@ -407,24 +407,6 @@ const peekEl        = $("peek-card");
 
 /* ---------- state ---------- */
 let state = initState();
-
-/* >>> STEP 1: add default trance ability texts per weaver <<< */
-state.players = state.players || {};
-state.players.player = state.players.player || {};
-state.players.player.weaver = state.players.player.weaver || {};
-state.players.player.weaver.tranceAbilities = {
-  1: { name: "Runic Surge",   effect: "+1 draw at the start of your turn." },
-  2: { name: "Spell Unbound", effect: "Your spells cost −1 Æ (min 0)." }
-};
-
-state.players.ai = state.players.ai || {};
-state.players.ai.weaver = state.players.ai.weaver || {};
-state.players.ai.weaver.tranceAbilities = {
-  1: { name: "Siphoned Wake", effect: "On turn start, foe loses 1 Æ (temp)." },
-  2: { name: "Gravecurrent",  effect: "Your first resolve each turn deals 1 damage." }
-};
-
-
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
@@ -1925,78 +1907,48 @@ const Trance = {
   ai: 0,
 };
 
+// Utility: set level, update UI, and log
+function setTranceLevel(side, lvl) {
+  const clamped = Math.max(0, Math.min(2, lvl|0));
+  Trance[side] = clamped;
 
-/* ---------- trance stripe under gem (levels + names) ---------- */
-function ensureTranceUI(){
-  // helper to mount/update one portrait’s trance block
-  const mount = (portraitImgEl, side, level) => {
-    if (!portraitImgEl) return;
-    const holder = portraitImgEl.closest('.portrait');
-    if (!holder) return;
-
-    // pull per-character copy (fallbacks if missing)
-    const abilities = (
-      state?.players?.[side]?.weaver?.tranceAbilities
-      || { 1:{name:"Trance I",effect:""}, 2:{name:"Trance II",effect:""} }
-    );
-
-    // create/refresh container
-    let root = holder.querySelector('.trance');
-    if (!root) {
-      root = document.createElement('div');
-      root.className = 'trance';
-      root.dataset.side = side;
-      holder.appendChild(root);
-    }
-
-    // diamond button with numeral inside
-    root.innerHTML = `
-      <button class="trance-diamond" type="button" aria-label="Trance level" data-level="${level|0}">
-        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false" class="diamond">
-          <path d="M24 4L42 24 24 44 6 24 24 4Z" fill="none" stroke="currentColor" stroke-width="2"/>
-        </svg>
-        <span class="rn">${(level|0) === 0 ? "0" : ((level|0) === 1 ? "I" : "II")}</span>
-      </button>
-
-      <div class="trance-lines" role="list">
-        <div class="level line" data-level="1" role="listitem" tabindex="0"
-             title="${abilities[1].name} — ${abilities[1].effect}">
-          ◇ <span class="rn">I</span> — <span class="nm">${abilities[1].name}</span>
-          <span class="fx"> — ${abilities[1].effect}</span>
-        </div>
-        <div class="level line" data-level="2" role="listitem" tabindex="0"
-             title="${abilities[2].name} — ${abilities[2].effect}">
-          ◇ <span class="rn">II</span> — <span class="nm">${abilities[2].name}</span>
-          <span class="fx"> — ${abilities[2].effect}</span>
-        </div>
-      </div>
-    `;
-
-    // grey out until active
-    root.querySelectorAll('.line').forEach(el => {
-      const n = +el.getAttribute('data-level');
-      el.classList.toggle('active', (level|0) >= n);
-      el.setAttribute('aria-pressed', (level|0) >= n ? 'true' : 'false');
-    });
-
-    // keep the diamond label in sync for keyboard tooltips and your bindTranceUI()
+  // Update diamond UI
+  const root = document.querySelector(`.trance[data-side="${side}"]`);
+  if (root) {
     const btn = root.querySelector('.trance-diamond');
-    const rn  = root.querySelector('.trance-diamond .rn');
-    if (btn && rn) {
-      btn.dataset.level = String(level|0);
-      rn.textContent = (level|0) === 0 ? '0' : ((level|0) === 1 ? 'I' : 'II');
-      btn.setAttribute('aria-label', `Trance level ${rn.textContent}`);
+    const txt = root.querySelector('.trance-diamond .rn');
+    if (btn && txt) {
+      btn.dataset.level = String(clamped);
+      const roman = clamped === 0 ? '0' : (clamped === 1 ? 'I' : 'II');
+      txt.textContent = roman;
+      btn.setAttribute('aria-label', `Trance level (${roman})`);
     }
-  };
+  }
 
-  const pub = serializePublic(state) || {};
-  const playerLvl = pub.players?.player?.tranceLevel ?? (Trance.player|0);
-  const aiLvl     = pub.players?.ai?.tranceLevel     ?? (Trance.ai|0);
-
-  mount(playerPortrait, 'player', playerLvl);
-  mount(aiPortrait,     'ai',     aiLvl);
+  logGame(`${side.toUpperCase()} Trance set to ${clamped === 0 ? '0' : (clamped === 1 ? 'I' : 'II')}`);
 }
 
+// Wire click/keyboard to cycle levels
+function bindTranceUI() {
+  document.querySelectorAll('.trance').forEach(tr => {
+    const side = tr.dataset.side;
+    const btn = tr.querySelector('.trance-diamond');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const next = (Trance[side] + 1) % 3;
+      setTranceLevel(side, next);
+    });
+    btn.addEventListener('keydown', (e) => {
+      if (e.key === ' ' || e.key === 'Enter') {
+        e.preventDefault();
+        const next = (Trance[side] + 1) % 3;
+        setTranceLevel(side, next);
+      }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setTranceLevel(side, Trance[side] + 1); }
+      if (e.key === 'ArrowDown') { e.preventDefault(); setTranceLevel(side, Trance[side] - 1); }
+    });
+  });
+}
 
 // --- Effects hooks ----------------------------------------------------------
 // Call this at the start of a turn to apply L1 (extra draw)
@@ -2056,6 +2008,7 @@ function logGame(msg) {
 
 // Init after DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+  bindTranceUI();
   // Optional defaults:
   setTranceLevel('player', 0);
   setTranceLevel('ai', 0);
