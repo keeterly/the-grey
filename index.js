@@ -933,7 +933,13 @@ function renderSlots(container, snapshot, isPlayer){
       art.innerHTML = cardHTML(glyphSlot.card);
       attachPeekAndZoom(art, glyphSlot.card);
       g.appendChild(art);
-    
+
+      // 🔹 Add a faint backplate for facedown state
+      const back = document.createElement('div');
+      back.className = 'glyph-back';
+      g.appendChild(back);
+
+       
       // If this glyph was just set for this side, flip + spotlight once.
       if (isPlayer && lastGlyphJustSetFor === "player" ||
           !isPlayer && lastGlyphJustSetFor === "ai") {
@@ -1469,11 +1475,14 @@ function spotlightFromEvents(state){
   
 
    if (e.t === 'resolved' && e.source === 'glyph') {
-  const side = e.side || 'player';
-  const rowSel = `.row.${side}`;
-  const slot = document.querySelector(`${rowSel} .slot.glyph`);
-  if (slot) {
-    const art = slot.querySelector('.card');
+      const side = e.side || 'player';
+      const rowSel = `.row.${side}`;
+      const slot = document.querySelector(`${rowSel} .slot.glyph`);
+      if (slot) {
+        slot.classList.add('flipping-up');
+        slot.addEventListener('animationend', () => slot.classList.remove('flipping-up'), { once: true });
+
+        const art = slot.querySelector('.card');
 
     // 🔮 Purple spell circle glow
     const pulse = document.createElement('div');
@@ -1559,8 +1568,16 @@ async function setGlyphFromHandWithTemp(side, cardId){
   cineFromHandCard(cardId, destSel, 'set-glyph');
 
   state = setGlyphFromHand(state, side, cardId);
-  lastGlyphJustSetFor = side;               // remember for flip effect on next render
-  Emit(Events.CARD_SET, {side, cardId});
+    lastGlyphJustSetFor = side;
+    
+    const slot = document.querySelector(`.row.${side} .slot.glyph`);
+    if (slot) {
+      slot.classList.add('flipping-down');
+      slot.addEventListener('animationend', () => slot.classList.remove('flipping-down'), { once: true });
+    }
+    
+    Emit(Events.CARD_SET, {side, cardId});
+
 }
 
 
@@ -1681,6 +1698,7 @@ function ensureGlyphFlipDownStyles() {
   `;
   document.head.appendChild(s);
 }
+
 
 
 /* ---------- simple stack viewer modal ---------- */
