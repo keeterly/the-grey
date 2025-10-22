@@ -1687,39 +1687,17 @@ function ensureGlyphFlipStyles(){
   const s = document.createElement('style');
   s.id = 'glyph-flip-style';
   s.textContent = `
-    /* flip keyframes */
-    @keyframes glyphFlipIn {
-      0%   { transform: rotateY(0deg); }
-      50%  { transform: rotateY(90deg); }
-      100% { transform: rotateY(0deg); }
-    }
-    /* spotlight pulse already exists in your code; add a gentle outline for glyph sets */
-    .slot.glyph.flip-spotlight { box-shadow: 0 0 0 2px rgba(255,255,255,.12) inset; }
-
-    /* apply on the card node that just got set */
-    .card.glyph-flip-in {
-      transform-style: preserve-3d;
-      animation: glyphFlipIn .45s ease both;
-    }
-    /* small “card back” flash midway (pseudo) */
-    .card.glyph-flip-in::after {
-      content:"";
-      position:absolute; inset:0;
-      background: radial-gradient(120% 120% at 50% 50%, rgba(255,255,255,.06), rgba(0,0,0,.6));
-      border-radius: inherit;
-      opacity: 0;
-      animation: glyphBackReveal .45s ease both;
-      pointer-events:none;
-    }
-    @keyframes glyphBackReveal {
-      0%   { opacity: 0; }
-      40%  { opacity: .9; }
-      60%  { opacity: .9; }
-      100% { opacity: 0; }
-    }
+    .glyph-holder { position: relative; width: 100%; height: 100%; perspective: 1000px; }
+    .glyph-holder .face { position:absolute; inset:0; backface-visibility: hidden; border-radius: var(--card-radius); }
+    .glyph-holder .front { transform: rotateY(180deg); overflow: hidden; }
+    .glyph-holder .back  { display:grid; place-items:center; background:linear-gradient(180deg,#231c15,#17120f); border:1px solid #4a3d2f; }
+    .glyph-holder.reveal .front { transform: rotateY(0deg); }
+    .glyph-holder.reveal .back  { transform: rotateY(180deg); }
+    .glyph-holder .rune-big { opacity:.28; }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
