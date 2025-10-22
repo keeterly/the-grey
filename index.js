@@ -191,52 +191,49 @@ function ensureGlyphPlaceholderStyles(){
   const s = document.createElement('style');
   s.id = 'glyph-placeholder-style';
   s.textContent = `
-    /* Empty-slot placeholder */
-    .slot.glyph { position: relative; overflow: visible; }
-    .slot.glyph:not(.has-card) { isolation: isolate; }
+    /* All slots form their own stacking context */
+    .row .slot { position: relative; z-index: 0; }
 
-    /* Title centered, in front of the rune (placeholder state only) */
-    .slot.glyph:not(.has-card) > .slot-title{
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      z-index: 2;
+    /* Empty glyph sits above neighbors so the title is never cropped */
+    .slot.glyph[data-empty] { z-index: 5; overflow: hidden; isolation: isolate; }
+
+    /* Placeholder wrapper fills the slot and centers children */
+    .slot.glyph .glyph-ph{
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
       pointer-events: none;
+    }
+
+    /* Title centered with full width so it can truly center text */
+    .slot.glyph .glyph-ph .ph-title{
+      z-index: 2;
+      width: 100%;
+      text-align: center;
       white-space: nowrap;
-      padding: 0 8px;
       line-height: 1;
       font-size: 16px;
       letter-spacing: .02em;
       opacity: .95;
       text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
-    .slot.glyph:not(.has-card) > .slot-rune{
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      z-index: 1;
-      pointer-events: none;
-      opacity: .20;
-      transform: scale(1.06);
+
+    /* Soft watermark rune behind title */
+    .slot.glyph .glyph-ph .ph-rune{
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      z-index: 1; opacity: .20;
       filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
+      transform: scale(1.06);
     }
-    .slot.glyph:not(.has-card) > .slot-rune svg{
-      width: 62%;
-      height: auto;
-      max-width: 70%;
+    .slot.glyph .glyph-ph .ph-rune svg{
+      width: 62%; height: auto; max-width: 70%;
     }
 
-    /* When a glyph is set, hide ONLY the placeholder layers */
-    .slot.glyph.has-card > .slot-title,
-    .slot.glyph.has-card > .slot-rune{
-      display: none !important;
-    }
+    /* Hide placeholder whenever a glyph card is present */
+    .slot.glyph.has-card .glyph-ph { display: none !important; }
   `;
   document.head.appendChild(s);
 }
-
 
 
 
