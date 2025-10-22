@@ -1923,7 +1923,7 @@ document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
 window.addEventListener("resize", () => {
   invalidateRectCache();
   layoutHand(handEl, Array.from(handEl?.children || []));
-});
+}, { passive: true });
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeZoom();
@@ -1931,16 +1931,60 @@ document.addEventListener("keydown", (e) => {
 
 document.addEventListener("click", clearAllActionMenus);
 
+
+
+
+/* ---------- hand hover style fix (compose transforms) ---------- */
+function ensureHandHoverStyles(){
+  if (document.getElementById('hand-hover-style')) return;
+  const s = document.createElement('style');
+  s.id = 'hand-hover-style';
+  s.textContent = `
+    /* Compose base transform with hover deltas so hover never resets layout */
+    .card {
+      --hoverY: 0px;
+      --hoverScale: 1;
+      transition: transform .18s ease, box-shadow .18s ease;
+      will-change: transform;
+      /* Keep any existing transform rules in CSS variables; this line composes them */
+      transform:
+        translate(var(--tx, 0px), var(--ty, 0px))
+        rotate(var(--rot, 0deg))
+        translateY(var(--hoverY))
+        scale(var(--hoverScale));
+    }
+
+    /* The class you add via makeAccessibleCard plus the focus class from touch */
+    .card.cine-hover:hover,
+    .card.is-focus {
+      --hoverY: -12px;
+      --hoverScale: 1.06;
+      z-index: 999; /* raise hovered item above neighbors */
+    }
+
+    /* Optional: don’t animate while dragging to reduce jitter */
+    .card.dragging { transition: none !important; }
+  `;
+  document.head.appendChild(s);
+}
+
+
+
+
+
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  ensureTopLeftUI();          // build menu + log UI
-  ensureWeaverBackdrop();     // ensure backdrop layer exists
-  ensureRightHudStrip();      // place HUD buttons on right edge
-  ensureFlowStyles();         // apply flow board styles
-  ensureGlyphFlipStyles();    // include glyph flip animation styles
-  await doStartTurn();        // start the first turn
+  ensureTopLeftUI();
+  ensureWeaverBackdrop();     // make sure the backdrop exists before first render
+  ensureRightHudStrip();
+  ensureFlowStyles();
+  ensureGlyphFlipStyles();    // ← existing
+  ensureHandHoverStyles();    // ← NEW: compose transforms on hover
+
+  await doStartTurn();
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
+
 
 /* ---------- mobile-landscape mode ---------- */
 (function mobileLandscapeMode() {
