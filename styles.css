@@ -1043,3 +1043,48 @@ body.mobile-landscape #zoom-card.card.zoom{
   position: relative; /* contained by tl-wrap (which is fixed) */
   z-index: 1;
 }
+
+
+:root { --trance-size: 46px; --trance-stroke:#c6a56a; --trance-fill:#211b15; }
+.trance { display:flex; flex-direction:column; align-items:center; gap:4px; }
+.trance-diamond {
+  appearance:none; border:0; background:transparent; padding:0; cursor:pointer;
+  width:var(--trance-size); height:var(--trance-size); line-height:0;
+}
+.trance-diamond svg { width:100%; height:100%; display:block; }
+.trance-diamond polygon {
+  fill: var(--trance-fill);
+  stroke: var(--trance-stroke);
+  stroke-width: 4;
+  filter: drop-shadow(0 2px 6px rgba(0,0,0,.45));
+}
+.trance-diamond .rn {
+  font-family: "Cormorant Garamond", serif;
+  font-weight: 700;
+  font-size: 42px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: var(--ink);
+  paint-order: stroke;
+  stroke: #0d0a07;
+  stroke-width: 2;
+}
+
+/* Tooltip (hover + focusable) */
+.tooltip {
+  position: absolute;
+  transform: translateY(calc(100% + 6px));
+  background: #2a211a;
+  color: var(--ink);
+  border: 1px solid #4a3d2f;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: .9rem;
+  box-shadow: 0 8px 16px rgba(0,0,0,.5);
+  white-space: nowrap;
+  opacity: 0; pointer-events: none; transition: opacity .12s ease;
+}
+.trance { position: relative; }
+.trance-diamond:focus + .tooltip,
+.trance-diamond:hover + .tooltip { opacity:1; pointer-events:auto; }
+
