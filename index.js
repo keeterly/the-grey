@@ -1301,6 +1301,16 @@ function rectOf(el) {
   const r = el.getBoundingClientRect();
   return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width/2, cy: r.top + r.height/2 };
 }
+
+// --- Cached rect lookup (performance patch)
+const rectCache = new WeakMap();
+function cachedRect(el) {
+  if (!el) return { x:0, y:0, w:0, h:0, cx:0, cy:0 };
+  if (!rectCache.has(el)) rectCache.set(el, rectOf(el));
+  return rectCache.get(el);
+}
+
+
 function rectOfSelector(sel) {
   const node = document.querySelector(sel);
   return rectOf(node);
