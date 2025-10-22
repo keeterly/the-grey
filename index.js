@@ -403,6 +403,50 @@ const hudDeckBtn    = $("btn-deck-hud");
 const hudEndBtn     = $("btn-endturn-hud");
 const peekEl        = $("peek-card");
 
+/* ---------- Pip track interactions (delegated, one-time) ---------- */
+let pipHandlersBound = false;
+
+function canAdvanceSlot(pub, slotIndex) {
+  const s = pub?.players?.player?.slots?.[slotIndex];
+  const c = s?.card;
+  return !!(s?.hasCard && c?.type === "SPELL" && (c.progress|0) < (c.pip|0));
+}
+
+function refreshPipAdvanceClasses() {
+  const pub = serializePublic(state) || {};
+  document
+    .querySelectorAll('.row.player .slot.spell')
+    .forEach((slot) => {
+      const i = Number(slot.dataset.slotIndex || -1);
+      const track = slot.querySelector('.pip-track');
+      if (track) track.classList.toggle('can-advance', canAdvanceSlot(pub, i));
+    });
+}
+
+function ensurePipHandlers() {
+  if (pipHandlersBound) return;
+  pipHandlersBound = true;
+
+  // Delegate from the player slots row so re-renders are safe
+  document.getElementById('player-slots')?.addEventListener('click', async (ev) => {
+    const track = ev.target.closest('.pip-track');
+    if (!track) return;
+
+    const slotEl = track.closest('.slot.spell');
+    const i = Number(slotEl?.dataset?.slotIndex ?? -1);
+    const pub = serializePublic(state) || {};
+
+    // Guard rails: only advance if it's your turn and the slot can advance
+    if (pub.activePlayer !== 'player') return;
+    if (!Number.isFinite(i) || i < 0 || i > 2) return;
+    if (!canAdvanceSlot(pub, i)) return;
+
+    try {
+      state = advanceSpell(state, "player", i, 1); // +1 pip
+      await render();
+    } catch (_) {}
+  }, { passive: true });
+}
 
 
 /* ---------- state ---------- */
@@ -1843,7 +1887,8 @@ async function render(){
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
-
+  ensurePipHandlers();
+  refreshPipAdvanceClasses();
   ensureTranceUI();
 
 
