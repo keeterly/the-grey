@@ -1049,7 +1049,7 @@ async function renderFlow(flowArray){
 
   if (!canAfford) card.setAttribute("aria-disabled", "true");
   if (c) attachPeekAndZoom(card, c);
-
+    makeAccessibleCard(card);
   // 🔹 Step 4: add the buyable marker so CSS pulse runs
   if (c && canAfford) {
     card.classList.add("buyable");
@@ -1788,6 +1788,7 @@ if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
       wireDesktopDrag(el, c);
       wireTouchDrag(el, c);
       attachPeekAndZoom(el, c);
+      makeAccessibleCard(el);
 
       el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
 
