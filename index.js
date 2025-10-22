@@ -2516,3 +2516,126 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 })();
 
+/* =====================================================================
+   The Grey — v2.63  |  Cine/Hand Animation Stability Patch (append-only)
+   Fixes: duplicate ghosts & flicker on PLAY / INSTANT / SET / CHANNEL / DISCARD
+   - Prefer fan-out ghosts, suppress old "to-dust" exits
+   - Mark in-flight hand nodes to prevent double-ghost
+   - Debounce same-card cine within a frame
+   - Serialize playCinematic to avoid overlap tearing
+   ===================================================================== */
+(function GreyCineStability_v263(){
+  if (window.__GREY_CINE_STABILITY__) return;
+  window.__GREY_CINE_STABILITY__ = true;
+
+  const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+  /* -------------------------------------------
+   * 1) Prefer fan-out; suppress older 'to-dust' ghosts
+   * ------------------------------------------- */
+  (function suppressToDustGhosts(){
+    const mo = new MutationObserver((muts)=>{
+      muts.forEach(m=>{
+        m.addedNodes && m.addedNodes.forEach(n=>{
+          if (!(n instanceof HTMLElement)) return;
+          // Any body-inserted ghost using the older class gets removed immediately
+          if (n.classList?.contains('card-ghost-exit') && n.classList?.contains('to-dust')) {
+            // Remove the old ghost (we rely on the fan-out variant from FanHandFX)
+            n.remove();
+          }
+        });
+      });
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  })();
+
+  /* -------------------------------------------
+   * 2) Mark hand node "in flight" before cine starts
+   *    so removal observers don't create yet another ghost.
+   *    (We intercept Grey.emit for spotlight:cine.)
+   * ------------------------------------------- */
+  (function tagInFlightOnEmit(){
+    const Grey = window.Grey || (window.Grey = { on(){}, off(){}, emit(){} });
+    const _emit = Grey.emit?.bind(Grey) || function(){};
+    // debounce per-card per-frame
+    const lastStampByCard = new Map();
+
+    Grey.emit = function(name, payload){
+      try{
+        if (name === 'spotlight:cine' && payload && payload.node instanceof HTMLElement){
+          const node = payload.node;
+          // Mark the real hand node so removal Observers will skip ghosting this one
+          node.classList.add('grey-hide-during-flight');
+          node.setAttribute('data-no-ghost', '1');
+
+          // Lightweight same-frame debounce by card id
+          const id = node.dataset?.cardId || '';
+          const now = performance.now();
+          const last = lastStampByCard.get(id) || 0;
+          if (id && (now - last) < 20) {
+            // Drop repeated cine for this card in the same frame burst
+            return;
+          }
+          lastStampByCard.set(id, now);
+        }
+      }catch{}
+      return _emit(name, payload);
+    };
+  })();
+
+  /* -------------------------------------------
+   * 3) Also kill any ghost that originates from a node with data-no-ghost
+   *    (covers cases where an observer already cloned it)
+   * ------------------------------------------- */
+  (function removeGhostsFromNoGhostSources(){
+    const mo = new MutationObserver((muts)=>{
+      muts.forEach(m=>{
+        m.addedNodes && m.addedNodes.forEach(n=>{
+          if (!(n instanceof HTMLElement)) return;
+          if (!n.classList?.contains('card-ghost-exit')) return;
+          // If the source had data-no-ghost, the clone will have it too
+          if (n.getAttribute('data-no-ghost') === '1') {
+            n.remove();
+          }
+        });
+      });
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+  })();
+
+  /* -------------------------------------------
+   * 4) Serialize playCinematic (queue) to avoid overlapping transforms
+   *    that can cause jitter when multiple resolves fire together.
+   * ------------------------------------------- */
+  (function serializePlayCinematic(){
+    if (typeof window.playCinematic !== 'function') return;
+    const _pc = window.playCinematic;
+    let q = Promise.resolve();
+    window.playCinematic = function(...args){
+      // Chain one after another; each awaits previous
+      q = q.then(()=>_pc.apply(this, args)).catch(()=>{}); // swallow to keep queue alive
+      return q;
+    };
+  })();
+
+  /* -------------------------------------------
+   * 5) Make sure hidden-in-flight cards really don't flash
+   * ------------------------------------------- */
+  (function ensureNoFlashCSS(){
+    if (document.getElementById('grey-cine-stability-css')) return;
+    const s = document.createElement('style');
+    s.id = 'grey-cine-stability-css';
+    s.textContent = `
+      /* Never show the real node while a cine/ghost is running */
+      #hand .card.grey-hide-during-flight {
+        opacity: 0 !important;
+        pointer-events: none !important;
+        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
+      }
+    `.trim();
+    document.head.appendChild(s);
+  })();
+
+})();
+
+
