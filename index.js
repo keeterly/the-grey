@@ -1435,7 +1435,7 @@ function spotlightFromEvents(state){
 
   evts.forEach(async (e) => {
     try {
-      // ✅ Board-originated cards: we don’t have a node, so we use the slot rect.
+      // SPELL: board → discard cinematic
       if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
         const rowSel = `.row.${e.side || 'player'}`;
         const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
@@ -1443,6 +1443,7 @@ function spotlightFromEvents(state){
         await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.16, holdMs: 300 });
       }
 
+      // GLYPH: board → discard cinematic (camera fly), we’ll also do the flip below
       if (e.t === 'resolved' && e.source === 'glyph') {
         const rowSel = `.row.${e.side || 'player'}`;
         const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
@@ -1450,88 +1451,86 @@ function spotlightFromEvents(state){
         await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.12, holdMs: 300 });
       }
 
+      // Logging
       if (e.t === "reveal" && e.source === "flow") {
-      logLine(`Flow reveal → ${e.cardData?.name || e.cardId}`);
-    } else if (e.t === "resolved" && e.source === "spell") {
-      logLine(`${e.side} RESOLVED spell → ${e.cardData?.name || e.cardId}`);
-    } else if (e.t === "resolved" && e.source === "instant") {
-      logLine(`${e.side} RESOLVED instant → ${e.cardData?.name || e.cardId}`);
-    } else if (e.t === "resolved" && e.source === "glyph") {
-      logLine(`${e.side} RESOLVED glyph → ${e.cardData?.name || e.cardId}`);
-    } else if (e.t === "resolved" && e.source === "buy") {
-      logLine(`${e.side} BOUGHT → ${e.cardData?.name || e.cardId}`);
-    } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
-      logLine(`${e.side} DISCARD → ${e.cardData?.name || e.cardId}`);
-    } else if (e.t === "damage") {
-      logLine(`DAMAGE → ${e.side} -${e.amount}`);
-    } else if (e.t === "draw") {
-      logLine(`${e.side} draws ${e.amount}`);
-    } else if (e.t === "aether") {
-      logLine(`${e.side} gains ${e.amount} Æ`);
-    }
-
+        logLine(`Flow reveal → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "resolved" && e.source === "spell") {
+        logLine(`${e.side} RESOLVED spell → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "resolved" && e.source === "instant") {
+        logLine(`${e.side} RESOLVED instant → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "resolved" && e.source === "glyph") {
+        logLine(`${e.side} RESOLVED glyph → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "resolved" && e.source === "buy") {
+        logLine(`${e.side} BOUGHT → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
+        logLine(`${e.side} DISCARD → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "damage") {
+        logLine(`DAMAGE → ${e.side} -${e.amount}`);
+      } else if (e.t === "draw") {
+        logLine(`${e.side} draws ${e.amount}`);
+      } else if (e.t === "aether") {
+        logLine(`${e.side} gains ${e.amount} Æ`);
+      }
     } catch (_) {}
 
-  
+    // ---- Visual-only reactions (DOM effects) ----
 
-   if (e.t === 'resolved' && e.source === 'glyph') {
-  const side = e.side || 'player';
-  const rowSel = `.row.${side}`;
-  const slot = document.querySelector(`${rowSel} .slot.glyph`);
-  if (slot) {
-    const art = slot.querySelector('.card');
+    // GLYPH flipdown + pulse + remove (single, canonical handler)
+    if (e.t === 'resolved' && e.source === 'glyph') {
+      const side = e.side || 'player';
+      const rowSel = `.row.${side}`;
+      const slot = document.querySelector(`${rowSel} .slot.glyph`);
+      if (slot) {
+        const art = slot.querySelector('.card');
 
-    // 🔮 Flipdown animation first
-    slot.classList.add('flipping-down');
-    // add the glyph backplate
-    if (!slot.querySelector('.glyph-back')) {
-      const back = document.createElement('div');
-      back.className = 'glyph-back';
-      slot.appendChild(back);
+        // Add backplate once
+        if (!slot.querySelector('.glyph-back')) {
+          const back = document.createElement('div');
+          back.className = 'glyph-back';
+          slot.appendChild(back);
+        }
+
+        // Flip down, then back up (so next set starts face-up)
+        slot.classList.add('flipping-down');
+        art?.addEventListener('animationend', () => {
+          slot.classList.remove('flipping-down');
+          slot.classList.add('flipping-up');
+          slot.addEventListener('animationend', () => {
+            slot.classList.remove('flipping-up');
+          }, { once: true });
+        }, { once: true });
+
+        // Purple pulse ring
+        const pulse = document.createElement('div');
+        pulse.className = 'glyph-trigger-circle';
+        slot.appendChild(pulse);
+        pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
+
+        // Brief purple highlight around the glyph card
+        art?.classList.add('purple-ring');
+        art?.addEventListener('animationend', () => art.classList.remove('purple-ring'), { once: true });
+
+        // Remove the glyph card node after the arc
+        setTimeout(() => {
+          art?.remove();
+          slot.classList.remove('has-card');
+        }, 800);
+      }
+
+      // Optional log for clarity (already logged above too)
+      logLine(`${side} → Glyph triggered & discarded.`);
     }
-    art.addEventListener('animationend', () => {
-      slot.classList.remove('flipping-down');
-      slot.classList.add('flipping-up');
-      slot.addEventListener('animationend', () => {
-        slot.classList.remove('flipping-up');
-      }, { once: true });
-    }, { once: true });
-  }
-}
 
-
-    // 🔮 Purple spell circle glow
-    const pulse = document.createElement('div');
-    pulse.className = 'glyph-trigger-circle';
-    slot.appendChild(pulse);
-    pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
-
-    // brief purple highlight around the glyph card
-    art?.classList.add('purple-ring');
-    art?.addEventListener('animationend', () => art.classList.remove('purple-ring'), { once: true });
-
-    // visually remove card after the animation ends
-    setTimeout(() => {
-      art?.remove();
-      slot.classList.remove('has-card');
-    }, 800);
-  }
-               }
-
-  // optional: log event
-  logLine(`${side} → Glyph triggered & discarded.`);
-}
-
-
-
-    if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)){
+    // FLOW reveal spotlight effect
+    if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)) {
       const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
-      if (flowCard){
+      if (flowCard) {
         flowCard.classList.add('spotlight');
         flowCard.addEventListener('animationend', () => flowCard.classList.remove('spotlight'), { once:true });
       }
     }
 
+    // Heart “hit” wiggle
     if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
       const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
       const hearts = document.getElementById(id);
