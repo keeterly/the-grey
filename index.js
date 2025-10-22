@@ -1468,14 +1468,35 @@ function spotlightFromEvents(state){
 
   
 
-    if (e.t === 'resolved' && e.source === 'glyph'){
-      const rowSel = `.row.${e.side || 'player'}`;
-      const slot = document.querySelector(`${rowSel} .slot.glyph`);
-      if (slot){
-        slot.classList.add('spotlight');
-        slot.addEventListener('animationend', () => slot.classList.remove('spotlight'), { once:true });
-      }
-    }
+   if (e.t === 'resolved' && e.source === 'glyph') {
+  const side = e.side || 'player';
+  const rowSel = `.row.${side}`;
+  const slot = document.querySelector(`${rowSel} .slot.glyph`);
+  if (slot) {
+    const art = slot.querySelector('.card');
+
+    // 🔮 Purple spell circle glow
+    const pulse = document.createElement('div');
+    pulse.className = 'glyph-trigger-circle';
+    slot.appendChild(pulse);
+    pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
+
+    // brief purple highlight around the glyph card
+    art?.classList.add('purple-ring');
+    art?.addEventListener('animationend', () => art.classList.remove('purple-ring'), { once: true });
+
+    // visually remove card after the animation ends
+    setTimeout(() => {
+      art?.remove();
+      slot.classList.remove('has-card');
+    }, 800);
+  }
+
+  // optional: log event
+  logLine(`${side} → Glyph triggered & discarded.`);
+}
+
+
 
     if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)){
       const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
@@ -1582,6 +1603,34 @@ function ensureGlyphFlipStyles(){
   document.head.appendChild(s);
 }
 
+function ensureGlyphResolveStyles() {
+  if (document.getElementById('glyph-resolve-style')) return;
+  const s = document.createElement('style');
+  s.id = 'glyph-resolve-style';
+  s.textContent = `
+    @keyframes purpleRing {
+      0%   { box-shadow: 0 0 0 0 rgba(180,120,255,.3); }
+      70%  { box-shadow: 0 0 0 14px rgba(180,120,255,0); }
+      100% { box-shadow: 0 0 0 0 rgba(180,120,255,0); }
+    }
+    @keyframes glyphTrigger {
+      0% { opacity: 0; transform: scale(0.4); }
+      40% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0; transform: scale(0.8); }
+    }
+    .card.purple-ring { animation: purpleRing 1.1s ease-out; }
+    .glyph-trigger-circle {
+      position: absolute;
+      inset: -10%;
+      border: 2px solid rgba(180,120,255,.5);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: glyphTrigger 1.2s ease-out forwards;
+      filter: drop-shadow(0 0 6px rgba(180,120,255,.4));
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 
 
@@ -1912,10 +1961,11 @@ document.addEventListener("click", clearAllActionMenus);
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   ensureTopLeftUI();
-  ensureWeaverBackdrop();     // make sure the backdrop exists before first render
+  ensureWeaverBackdrop();
   ensureRightHudStrip();
   ensureFlowStyles();
-  ensureGlyphFlipStyles();   // ← add
+  ensureGlyphFlipStyles();
+  ensureGlyphResolveStyles()
   await doStartTurn();
  
   logLine(`Boot on ${BRANCH_VERSION}`);
