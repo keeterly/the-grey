@@ -415,7 +415,6 @@ function ensureGlyphFlipStyles(){
       border-radius: var(--card-radius, 10px);
       backface-visibility: hidden;
       transform-style: preserve-3d;
-      z-index: 0;
     }
 
     /* Back (the face-down look) */
@@ -423,27 +422,29 @@ function ensureGlyphFlipStyles(){
       background: linear-gradient(180deg,#2f271f,#1f1914);
       border: 1px solid #5a4b37;
       color: #ccc;
-      z-index: 1;
     }
 
-    /* Front starts rotated 180°; keep real card inert so hover stays on slot */
+    /* Front starts rotated 180°, we keep the real card nested to isolate transforms */
     .slot.glyph .face.front { transform: rotateY(180deg); overflow: hidden; }
     .slot.glyph .face.front .front-inner { position:absolute; inset:0; }
-    .slot.glyph .face.front .front-inner .card { pointer-events: none; }
 
-    /* Pure-CSS reveal */
+    /* Reveal on hover/focus */
     .slot.glyph:hover .glyph-holder,
     .slot.glyph:focus-within .glyph-holder {
       transform: rotateY(180deg);
     }
 
-    /* Decorative bits must not steal hover */
+    /* Prevent hover flicker */
     .slot.glyph .slot-title,
     .slot.glyph .slot-rune,
     .slot::after { pointer-events: none; }
+
+    /* 🔒 When a glyph is present, hide any slot-title so it can’t appear on the revealed face */
+    .slot.glyph.has-card .slot-title { display: none !important; }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
