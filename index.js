@@ -1082,30 +1082,8 @@ async function renderFlow(flowArray){
   });
 }
 
-/* ---------- trance stripe under gem (levels only) ---------- */
-function ensureTranceUI(){
-  const templateHTML = `
-    <div class="level" data-level="1">◇ I — Runic Surge</div>
-    <div class="level" data-level="2">◇ II — Spell Unbound</div>
-  `;
-  const apply = (portraitImgEl, level=0)=>{
-    if (!portraitImgEl) return;
-    const holder = portraitImgEl.closest('.portrait');
-    if (!holder) return;
+/* ---------- highlight playable cards ---------- */
 
-    let t = holder.querySelector('.trance');
-    if (!t){ t = document.createElement('div'); t.className = 'trance'; }
-    t.innerHTML = templateHTML;
-    Array.from(t.querySelectorAll('.level')).forEach(el=>{
-      const n = Number(el.getAttribute('data-level'));
-      el.classList.toggle('active', (level|0) >= n);
-    });
-    holder.appendChild(t);
-  };
-  const pub = serializePublic(state) || {};
-  apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
-  apply(aiPortrait, pub.players?.ai?.tranceLevel ?? 0);
-}
 
 function highlightPlayableCards(){
   const pub = serializePublic(state) || {};
@@ -1709,7 +1687,7 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
-  ensureTranceUI();
+ 
 
 
 const pv = s.players?.player?.vitality | 0;
@@ -1830,7 +1808,7 @@ async function doStartTurn(){
 
   // Trance L1: +1 opening draw
   const side = state.activePlayer;
-  const tranceL = (state.players[side].tranceLevel|0);
+  const tranceL = (Trance[side]|0);
   const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
   const bonus = tranceL >= 1 ? 1 : 0;
   const need = baseNeed + bonus;
@@ -1917,7 +1895,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureFlowStyles();
   ensureGlyphFlipStyles();   // ← add
   await doStartTurn();
- 
+  bindTranceUI();
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
 
