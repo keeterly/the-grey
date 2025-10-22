@@ -191,19 +191,24 @@ function ensureGlyphPlaceholderStyles(){
   const s = document.createElement('style');
   s.id = 'glyph-placeholder-style';
   s.textContent = `
-    /* Only affect the empty glyph state */
-    .slot.glyph { position: relative; overflow: visible; }
-    .slot.glyph:not(.has-card) { isolation: isolate; }
+    /* Base glyph slot box */
+    .slot.glyph { position: relative; }
 
-    /* Title centered, in front of the rune */
-    .row.player .slot.glyph:not(.has-card) .slot-title{
-      position: absolute !important;
+    /* When EMPTY: clip children so nothing bleeds into neighbors */
+    .slot.glyph:not(.has-card){
+      overflow: hidden;          /* <-- prevent the title from spilling out */
+      isolation: isolate;        /* keep z-index stacking local */
+    }
+
+    /* Title centered, on top of the faded rune */
+    .slot.glyph:not(.has-card) .slot-title{
+      position: absolute;
       inset: 0;
       display: grid;
       place-items: center;
-      text-align: center;
       z-index: 2;
       pointer-events: none;
+      text-align: center;
       white-space: nowrap;
       padding: 0 8px;
       line-height: 1;
@@ -213,8 +218,8 @@ function ensureGlyphPlaceholderStyles(){
       text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
 
-    /* Rune as a soft background mark (behind the title) */
-    .row.player .slot.glyph:not(.has-card) .slot-rune{
+    /* Rune sits behind the title as a subtle watermark */
+    .slot.glyph:not(.has-card) .slot-rune{
       position: absolute;
       inset: 0;
       display: grid;
@@ -231,7 +236,7 @@ function ensureGlyphPlaceholderStyles(){
       max-width: 70%;
     }
 
-    /* When a glyph is set, hide placeholder */
+    /* When a glyph is set, the flip UI provides the faces; hide placeholder */
     .slot.glyph.has-card .slot-title,
     .slot.glyph.has-card .slot-rune{
       display: none !important;
@@ -239,6 +244,7 @@ function ensureGlyphPlaceholderStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 
 
