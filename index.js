@@ -1082,8 +1082,30 @@ async function renderFlow(flowArray){
   });
 }
 
-/* ---------- highlight playable cards ---------- */
+/* ---------- trance stripe under gem (levels only) ---------- */
+function ensureTranceUI(){
+  const templateHTML = `
+    <div class="level" data-level="1">◇ I — Runic Surge</div>
+    <div class="level" data-level="2">◇ II — Spell Unbound</div>
+  `;
+  const apply = (portraitImgEl, level=0)=>{
+    if (!portraitImgEl) return;
+    const holder = portraitImgEl.closest('.portrait');
+    if (!holder) return;
 
+    let t = holder.querySelector('.trance');
+    if (!t){ t = document.createElement('div'); t.className = 'trance'; }
+    t.innerHTML = templateHTML;
+    Array.from(t.querySelectorAll('.level')).forEach(el=>{
+      const n = Number(el.getAttribute('data-level'));
+      el.classList.toggle('active', (level|0) >= n);
+    });
+    holder.appendChild(t);
+  };
+  const pub = serializePublic(state) || {};
+  apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
+  apply(aiPortrait, pub.players?.ai?.tranceLevel ?? 0);
+}
 
 function highlightPlayableCards(){
   const pub = serializePublic(state) || {};
@@ -1687,7 +1709,7 @@ async function render(){
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
 
- 
+  ensureTranceUI();
 
 
 const pv = s.players?.player?.vitality | 0;
@@ -1808,7 +1830,7 @@ async function doStartTurn(){
 
   // Trance L1: +1 opening draw
   const side = state.activePlayer;
-  const tranceL = (Trance[side]|0);
+  const tranceL = (state.players[side].tranceLevel|0);
   const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
   const bonus = tranceL >= 1 ? 1 : 0;
   const need = baseNeed + bonus;
@@ -1895,123 +1917,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureFlowStyles();
   ensureGlyphFlipStyles();   // ← add
   await doStartTurn();
-  bindTranceUI();
+ 
   logLine(`Boot on ${BRANCH_VERSION}`);
-});
-
-
-
-// --- Trance state -----------------------------------------------------------
-const Trance = {
-  player: 0, // 0,1,2
-  ai: 0,
-};
-
-// Utility: set level, update UI, and log
-function setTranceLevel(side, lvl) {
-  const clamped = Math.max(0, Math.min(2, lvl|0));
-  Trance[side] = clamped;
-
-  // Update diamond UI
-  const root = document.querySelector(`.trance[data-side="${side}"]`);
-  if (root) {
-    const btn = root.querySelector('.trance-diamond');
-    const txt = root.querySelector('.trance-diamond .rn');
-    if (btn && txt) {
-      btn.dataset.level = String(clamped);
-      const roman = clamped === 0 ? '0' : (clamped === 1 ? 'I' : 'II');
-      txt.textContent = roman;
-      btn.setAttribute('aria-label', `Trance level (${roman})`);
-    }
-  }
-
-  logGame(`${side.toUpperCase()} Trance set to ${clamped === 0 ? '0' : (clamped === 1 ? 'I' : 'II')}`);
-}
-
-// Wire click/keyboard to cycle levels
-function bindTranceUI() {
-  document.querySelectorAll('.trance').forEach(tr => {
-    const side = tr.dataset.side;
-    const btn = tr.querySelector('.trance-diamond');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const next = (Trance[side] + 1) % 3;
-      setTranceLevel(side, next);
-    });
-    btn.addEventListener('keydown', (e) => {
-      if (e.key === ' ' || e.key === 'Enter') {
-        e.preventDefault();
-        const next = (Trance[side] + 1) % 3;
-        setTranceLevel(side, next);
-      }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setTranceLevel(side, Trance[side] + 1); }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setTranceLevel(side, Trance[side] - 1); }
-    });
-  });
-}
-
-// --- Effects hooks ----------------------------------------------------------
-// Call this at the start of a turn to apply L1 (extra draw)
-function onStartTurn(side) {
-  if (Trance[side] >= 1) {
-    // Replace with your actual draw function
-    drawCard(side, 1);
-    logGame(`${side.toUpperCase()} Trance I — drew +1 card`);
-  }
-}
-
-// Use this cost calculator when rendering/play-checking to apply L2 (−1)
-function computePlayCost(card, side) {
-  const base = card.baseCost ?? 0;
-  const mod = (Trance[side] >= 2) ? -1 : 0;
-  return Math.max(0, base + mod + (card.tempCostMod || 0));
-}
-
-// Example: refresh all hand badges after Trance change or at start of turn
-function refreshHandCosts(side) {
-  const handCards = document.querySelectorAll(`.hand .card[data-side="${side}"]`);
-  handCards.forEach(el => {
-    const base = Number(el.getAttribute('data-base-cost') || 0);
-    const card = { baseCost: base, tempCostMod: 0 };
-    const cost = computePlayCost(card, side);
-
-    // Update badge UI
-    let badge = el.querySelector('.play-cost-badge .v');
-    if (!badge) return;
-    badge.textContent = cost;
-
-    // Optional visual hint when discounted by Trance II
-    const discounted = Trance[side] >= 2 && cost < base;
-    el.toggleAttribute('data-trance-disc', discounted);
-  });
-}
-
-// --- Glue into your existing events ----------------------------------------
-// You already have a start-turn hook; call onStartTurn(side) there.
-// After any Trance change, call refreshHandCosts('player') etc.
-
-// Demo fallback: naive placeholders so this file is paste-and-go in isolation
-function drawCard(side, n = 1) {
-  // Replace with your engine’s draw implementation
-  logGame(`${side.toUpperCase()} draws ${n}`);
-}
-
-function logGame(msg) {
-  const log = document.querySelector('.game-log .log-list');
-  if (!log) return;
-  const row = document.createElement('div');
-  row.className = 'log-row';
-  row.textContent = msg;
-  log.appendChild(row);
-  log.scrollTop = log.scrollHeight;
-}
-
-// Init after DOM ready
-document.addEventListener('DOMContentLoaded', () => {
-  bindTranceUI();
-  // Optional defaults:
-  setTranceLevel('player', 0);
-  setTranceLevel('ai', 0);
 });
 
 
