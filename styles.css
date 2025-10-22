@@ -1043,3 +1043,51 @@ body.mobile-landscape #zoom-card.card.zoom{
   position: relative; /* contained by tl-wrap (which is fixed) */
   z-index: 1;
 }
+
+
+/* --- Make decorative slot border non-interactive --- */
+.slot::after { pointer-events: none; }
+
+/* --- Glyph face-down placement + hover/focus preview (fallback if JS didn't inject) --- */
+.slot.glyph {
+  perspective: 900px;            /* gives the flip some depth */
+}
+
+.slot.glyph .glyph-holder {
+  position: absolute; inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 280ms ease;
+  will-change: transform;
+  border-radius: var(--card-radius);
+}
+
+/* Front/back faces */
+.slot.glyph .glyph-face {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  border-radius: var(--card-radius);
+  backface-visibility: hidden;
+}
+
+/* Back = card back (what you see in-slot) */
+.slot.glyph .glyph-back {
+  background: linear-gradient(180deg,#2f271f,#1f1914);
+  border: 1px solid #5a4b37;
+}
+
+/* Front = real card face (revealed on preview) */
+.slot.glyph .glyph-front {
+  transform: rotateY(180deg);
+  background: linear-gradient(180deg,#30271f,#211b15);
+  border: 1px solid #5a4b37;
+}
+
+/* Reveal when hovering the slot or focusing via keyboard */
+.slot.glyph:hover .glyph-holder,
+.slot.glyph:focus-within .glyph-holder {
+  transform: rotateY(180deg);
+}
+
+/* Keep the title/rune visible but non-blocking */
+.slot.glyph .slot-title { pointer-events: none; }
+.slot.glyph .slot-rune  { pointer-events: none; } /* already set; safe to repeat */
