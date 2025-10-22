@@ -3311,3 +3311,139 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (node) Grey.emit(CINE_EVT, { node, to, pose, ...meta });
   };
 })();
+
+
+/* ======================================================================
+   v2.63 — CINE KILL-SWITCH + DIRECT FLIGHT (append-only, final patch)
+   ====================================================================== */
+(() => {
+  const Grey = (window.Grey ||= { on(){}, off(){}, emit(){} });
+
+  // 1) Kill any spotlight handlers (old or private). They will not run anymore.
+  const NOOP = () => {};
+  Grey.on  = ((origOn) => (evt, fn) => {
+    if (evt === 'spotlight:cine' || evt === 'spotlight:cine:v263') return; // ignore registrations
+    return origOn?.call(Grey, evt, fn);
+  })(Grey.on);
+  Grey.emit = ((origEmit) => (evt, payload) => {
+    if (evt === 'spotlight:cine' || evt === 'spotlight:cine:v263') return; // swallow emits
+    return origEmit?.call(Grey, evt, payload);
+  })(Grey.emit);
+
+  // 2) Measurement helpers (robust)
+  const isValid = r => !!r && Number.isFinite(r.x) && Number.isFinite(r.y) &&
+                       Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 1 && r.h > 1;
+
+  const centerRect = (w=260,h=360) => {
+    const vw = innerWidth, vh = innerHeight;
+    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
+  };
+
+  const liveRect = (el) => {
+    if (!(el instanceof Element)) return null;
+    const r = el.getBoundingClientRect();
+    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+  };
+
+  const rectNoTf = (node) => {
+    if (!(node instanceof HTMLElement)) return null;
+    const tf = node.style.transform, tr = node.style.transition;
+    node.style.transition = 'none'; node.style.transform = 'none';
+    // force layout
+    // eslint-disable-next-line no-unused-expressions
+    node.offsetWidth;
+    const r = liveRect(node);
+    node.style.transform = tf; node.style.transition = tr;
+    return r;
+  };
+
+  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  async function stableRect(node, retries=2) {
+    let r = rectNoTf(node);           if (isValid(r)) return r;
+    r = liveRect(node);               if (isValid(r)) return r;
+    for (let i=0;i<retries;i++) { await next2(); r = liveRect(node); if (isValid(r)) return r; }
+    return null;
+  }
+
+  function discardHudRect(){
+    const n = document.getElementById('btn-discard-hud');
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    const w = Math.min(r.width*0.9, 220), h = Math.min(r.height*1.4, 300);
+    return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  }
+
+  // 3) Last-line guard around playCinematic
+  if (typeof window.playCinematic === 'function' && !window.__pc_guard_final__) {
+    window.__pc_guard_final__ = true;
+    const _pc = window.playCinematic;
+    window.playCinematic = async function(cardData, S, D, opts={}){
+      const s = isValid(S) ? S : centerRect();
+      const d = isValid(D) ? D : (discardHudRect() || centerRect());
+      return _pc.call(this, cardData || {}, s, d, opts);
+    };
+  }
+
+  // 4) Direct flight (replaces ANY event-driven cine)
+  async function directFlightFromHand(cardId, to, pose='', slotIndex){
+    // source node
+    const src = document.querySelector(`#hand .card[data-card-id="${cardId}"]`);
+    // find card data (hand or flow)
+    const pub = (typeof serializePublic === 'function' ? serializePublic(window.state) : {}) || {};
+    const data = (pub.players?.player?.hand || []).concat((pub.flow || []).filter(Boolean)).find(c => c.id === cardId) || {};
+
+    // START rect (robust)
+    let S = await stableRect(src);
+    if (!isValid(S)) S = centerRect();
+
+    // DEST rect (pose-aware)
+    let D = null;
+    if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
+      D = liveRect(document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"]`));
+    }
+    if (!isValid(D) && to) {
+      const t = typeof to === 'string' ? document.querySelector(to) : to;
+      D = liveRect(t);
+    }
+    if (!isValid(D)) D = discardHudRect();
+    if (!isValid(D)) D = centerRect();
+
+    // Hide the real node during flight (no flicker)
+    if (src && document.body.contains(src)) {
+      src.classList.add('grey-hide-during-flight');
+      src.setAttribute('data-no-ghost','1');
+    }
+
+    try {
+      await window.playCinematic(data, S, D, { centerScale: 1.16, holdMs: 300, outMs: 260 });
+    } finally {
+      if (src && document.body.contains(src)) {
+        src.classList.remove('grey-hide-during-flight');
+        src.removeAttribute('data-no-ghost');
+      }
+    }
+  }
+
+  // 5) Export: everything in your code calls cineFromHandCard → we hijack it here
+  window.cineFromHandCard = function(cardId, to, pose='', meta={}) {
+    directFlightFromHand(cardId, to, pose, meta?.slotIndex);
+  };
+
+  // 6) Make sure CSS truly hides in-flight sources
+  if (!document.getElementById('cine-final-hide-style')) {
+    const s = document.createElement('style'); s.id = 'cine-final-hide-style';
+    s.textContent = `
+      #hand .card.grey-hide-during-flight {
+        opacity: 0 !important; pointer-events: none !important;
+        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+})();
+
+
+
+
+
