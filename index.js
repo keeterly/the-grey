@@ -559,6 +559,18 @@ function attachPeekAndZoom(el, data){
   el.addEventListener("dragstart", clearLP);
 }
 
+
+
+// Accessibility helper
+function makeAccessibleCard(card) {
+  card.tabIndex = 0; // makes the card focusable by keyboard
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", card.dataset.name || "Card");
+  card.classList.add("cine-hover"); // adds hover animation from Patch 2
+}
+
+
+
 /* ---------- action popover ---------- */
 function clearAllActionMenus(){ document.querySelectorAll(".action-pop").forEach(n => n.remove()); }
 function firstOpenSpellSlotIndexFor(side, pub){
