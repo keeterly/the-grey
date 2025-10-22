@@ -191,22 +191,23 @@ function ensureGlyphPlaceholderStyles(){
   const s = document.createElement('style');
   s.id = 'glyph-placeholder-style';
   s.textContent = `
-    /* Base glyph slot box */
-    .slot.glyph { position: relative; }
+    /* Establish a stacking context for all board slots */
+    .row .slot { position: relative; z-index: 0; }
 
-    /* When EMPTY: clip children so nothing bleeds into neighbors */
+    /* Empty glyph placeholder lives above neighboring slots so its title isn't masked */
     .slot.glyph:not(.has-card){
-      overflow: hidden;          /* <-- prevent the title from spilling out */
-      isolation: isolate;        /* keep z-index stacking local */
+      z-index: 5;                 /* <-- fixes the “cut off title” */
+      overflow: hidden;           /* keep watermark & title inside */
+      isolation: isolate;
     }
 
-    /* Title centered, on top of the faded rune */
+    /* Title centered, in front of the watermark rune */
     .slot.glyph:not(.has-card) .slot-title{
       position: absolute;
       inset: 0;
       display: grid;
       place-items: center;
-      z-index: 2;
+      z-index: 2;                 /* above the rune */
       pointer-events: none;
       text-align: center;
       white-space: nowrap;
@@ -218,7 +219,7 @@ function ensureGlyphPlaceholderStyles(){
       text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
 
-    /* Rune sits behind the title as a subtle watermark */
+    /* Watermark rune behind the title */
     .slot.glyph:not(.has-card) .slot-rune{
       position: absolute;
       inset: 0;
@@ -244,6 +245,7 @@ function ensureGlyphPlaceholderStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 
 
