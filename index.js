@@ -2345,3 +2345,174 @@ document.addEventListener("DOMContentLoaded", async () => {
   })();
 
 })();
+
+
+
+/* =========================================================================
+   The Grey — v2.63 | Fan-In Draw + Fan-Out Discard (append-only)
+   - Draw: cards arc in with a fanned spread, then settle
+   - Discard: removed cards ghost into a fanned burst outward
+   ========================================================================= */
+(function FanHandFX_v263(){
+  if (window.__GREY_FAN_FX__) return; window.__GREY_FAN_FX__ = true;
+
+  const $ = (id)=>document.getElementById(id);
+
+  // ---------- CSS ----------
+  (function ensureCSS(){
+    if (document.getElementById('grey-fan-fx')) return;
+    const s = document.createElement('style'); s.id = 'grey-fan-fx';
+    s.textContent = `
+      /* Fan-in (enter) */
+      .card--fan-enter {
+        opacity: 0; transform-origin: 50% 90%;
+        transform: translateY(18px) rotateZ(var(--fan-enter-rot, 0deg)) translateX(var(--fan-enter-x, 0px)) scale(.98);
+      }
+      .card--fan-entered {
+        transition: transform 320ms cubic-bezier(.2,.7,.2,1), opacity 260ms ease-out;
+        opacity: 1; transform: translateY(0) rotateZ(0deg) translateX(0) scale(1);
+      }
+
+      /* Fan-out (exit ghost) */
+      .card-ghost-exit {
+        position: fixed; z-index: 9999; pointer-events: none; margin: 0;
+        will-change: transform, opacity, filter;
+        transform-origin: 50% 90%;
+        opacity: 1;
+      }
+      .card-ghost-exit.to-fan-out {
+        transition: transform 260ms cubic-bezier(.3,.5,.1,1), opacity 220ms ease, filter 220ms ease;
+        filter: blur(2px); opacity: 0;
+        transform: translateY(var(--fan-exit-dy, -16px))
+                   translateX(var(--fan-exit-dx, 0px))
+                   rotateZ(var(--fan-exit-rot, 0deg)) scale(.96);
+      }
+    `.trim();
+    document.head.appendChild(s);
+  })();
+
+  // ---------- Fan-in draw ----------
+  function fanInCards(nodes){
+    const cards = nodes.filter(n => n instanceof HTMLElement && n.classList.contains('card'));
+    if (!cards.length) return;
+
+    const n = cards.length;
+    const maxSpreadDeg = 18;        // total arc
+    const maxSpreadPx  = 44;        // side offset
+    const baseDelay    = 55;        // ms per-card
+    const center = (n - 1) / 2;
+
+    cards.forEach((el, i) => {
+      // Remove older slide-in markers if present
+      el.classList.remove('card--enter','card--entered');
+
+      // Compute symmetric fan angle/offset around center
+      const t = i - center; // negative on left, positive on right
+      const rot = (t / Math.max(1, center)) * (maxSpreadDeg / 2);
+      const x   = (t / Math.max(1, center)) * (maxSpreadPx);
+
+      el.style.setProperty('--fan-enter-rot', `${rot}deg`);
+      el.style.setProperty('--fan-enter-x',   `${x}px`);
+      el.classList.add('card--fan-enter');
+
+      // Staggered settle
+      const delay = Math.max(0, i) * baseDelay;
+      el.style.transitionDelay = `${delay}ms`;
+      requestAnimationFrame(() => {
+        el.classList.add('card--fan-entered');
+        // clean up class after animation to keep DOM tidy
+        setTimeout(() => el.classList.remove('card--fan-enter','card--fan-entered'), delay + 400);
+      });
+    });
+
+    // Optional: notify your cine layer
+    try { window.Grey?.emit?.('cards:deal', { nodes: cards, stagger: 55, style: 'fan' }); } catch {}
+  }
+
+  // ---------- Fan-out discard ----------
+  // We'll batch removed nodes per mutation frame so the spread looks coordinated.
+  let removalBatch = [];
+  let removalTimer = null;
+
+  function flushRemovalBatch(){
+    const batch = removalBatch; removalBatch = []; removalTimer = null;
+    if (!batch.length) return;
+
+    const n = batch.length;
+    const maxOutDeg = 22;
+    const maxOutX   = 56;
+    const maxOutY   = -26; // slight lift
+    const center = (n - 1) / 2;
+
+    batch.forEach((node, i) => {
+      try {
+        const rect = node.getBoundingClientRect();
+        const ghost = node.cloneNode(true);
+        ghost.classList.add('card-ghost-exit');
+        ghost.style.left   = rect.left + 'px';
+        ghost.style.top    = rect.top  + 'px';
+        ghost.style.width  = rect.width  + 'px';
+        ghost.style.height = rect.height + 'px';
+
+        // Symmetric fan vector
+        const t = i - center;
+        const rot = (t / Math.max(1, center)) * (maxOutDeg);
+        const dx  = (t / Math.max(1, center)) * (maxOutX);
+        const dy  = maxOutY;
+
+        ghost.style.setProperty('--fan-exit-rot', `${rot}deg`);
+        ghost.style.setProperty('--fan-exit-dx',  `${dx}px`);
+        ghost.style.setProperty('--fan-exit-dy',  `${dy}px`);
+
+        document.body.appendChild(ghost);
+        // Force reflow → animate
+        // eslint-disable-next-line no-unused-expressions
+        ghost.offsetHeight;
+        ghost.classList.add('to-fan-out');
+        setTimeout(() => ghost.remove(), 320);
+      } catch {}
+    });
+  }
+
+  // ---------- Wire observer on #hand ----------
+  (function observeHand(){
+    const hand = $("hand");
+    if (!hand) return;
+
+    const obs = new MutationObserver(muts => {
+      const added = [];
+      muts.forEach(m => {
+        m.addedNodes && m.addedNodes.forEach(n => {
+          if (n instanceof HTMLElement && n.classList?.contains('card')) added.push(n);
+        });
+        m.removedNodes && m.removedNodes.forEach(n => {
+          if (n instanceof HTMLElement && n.classList?.contains('card')) {
+            removalBatch.push(n);
+            if (!removalTimer) removalTimer = requestAnimationFrame(flushRemovalBatch);
+          }
+        });
+      });
+      if (added.length) fanInCards(added);
+    });
+    obs.observe(hand, { childList: true, subtree: false });
+
+    // Also run after each render for freshly mounted cards
+    if (!window.__GREY_WRAP_RENDER_FAN__ && typeof window.render === 'function'){
+      window.__GREY_WRAP_RENDER_FAN__ = true;
+      const _render = window.render;
+      window.render = async function(...args){
+        const res = await _render.apply(this, args);
+        try {
+          const newbies = Array.from(hand.querySelectorAll('.card:not([data-fan-mark])'));
+          if (newbies.length){
+            newbies.forEach((el)=>{ el.dataset.fanMark = '1'; });
+            fanInCards(newbies);
+          }
+        } catch {}
+        return res;
+      };
+    }
+  })();
+
+})();
+
