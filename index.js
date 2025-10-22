@@ -379,39 +379,29 @@ function ensureGlyphFlipStyles(){
 }
 
 function ensureGlyphFlipDownStyles() {
-  if (document.getElementById('glyph-flipdown-style')) return;
-  const s = document.createElement('style');
-  s.id = 'glyph-flipdown-style';
+  if (document.getElementById("glyph-flipdown-style")) return;
+  const s = document.createElement("style");
+  s.id = "glyph-flipdown-style";
   s.textContent = `
-    /* Flip-down/up animations used when a glyph is set/resolved */
-    @keyframes glyphFlipDown { 
-      0% { transform: rotateY(0deg);   opacity: 1; } 
-      100%{ transform: rotateY(90deg); opacity: 0.6; } 
+    @keyframes glyphFlipDown {
+      0%   { transform: rotateY(0deg);   opacity: 1; }
+      100% { transform: rotateY(90deg);  opacity: 0.6; }
     }
-    @keyframes glyphFlipUp { 
-      0% { transform: rotateY(90deg); opacity: 0.6; } 
-      100%{ transform: rotateY(0deg);  opacity: 1; } 
-    }
-
-    /* When we add these classes to the slot, animate the inner .card */
-    .slot.glyph.flipping-down .card  { 
-      animation: glyphFlipDown 220ms ease forwards; 
-    }
-    .slot.glyph.flipping-up .card    { 
-      animation: glyphFlipUp 220ms ease forwards; 
+    @keyframes glyphFlipUp {
+      0%   { transform: rotateY(90deg); opacity: 0.6; }
+      100% { transform: rotateY(0deg);  opacity: 1; }
     }
 
-    /* A simple backplate so the slot never looks empty while flipping */
-    .slot.glyph .glyph-back {
-      position:absolute; inset:0;
-      border-radius: var(--card-radius, 10px);
-      background: linear-gradient(180deg,#2f271f,#1f1914);
-      border: 1px solid #5a4b37;
-      pointer-events: none;
+    .slot.glyph.flipping-down .card {
+      animation: glyphFlipDown 220ms ease forwards;
+    }
+    .slot.glyph.flipping-up .card {
+      animation: glyphFlipUp 220ms ease forwards;
     }
   `;
   document.head.appendChild(s);
 }
+
 
 
 // one-time style for the small opponent portrait
@@ -1032,10 +1022,10 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
- // Glyph
+ // Glyph Slot
 const g = document.createElement("div");
 g.className = "slot glyph";
-g.tabIndex = 0; // keyboard focusable for :focus-within
+g.tabIndex = 0;
 
 const gLabel = document.createElement("div");
 gLabel.className = "slot-title";
@@ -1051,19 +1041,18 @@ rune.innerHTML = `
   </svg>`;
 g.appendChild(rune);
 
-const glyphSlot = safe[3] || { isGlyph:true, hasCard:false, card:null };
+const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
 
+// Only render flip UI if a glyph is actually set
 if (glyphSlot.hasCard && glyphSlot.card) {
-  // only build the flip UI when a glyph is actually set
   ensureGlyphFlipStyles();
 
-  const holder = document.createElement('div');
-  holder.className = 'glyph-holder';
+  const holder = document.createElement("div");
+  holder.className = "glyph-holder";
   holder.tabIndex = 0;
 
-  // back face (visible by default)
-  const back = document.createElement('div');
-  back.className = 'face back';
+  const back = document.createElement("div");
+  back.className = "face back";
   back.innerHTML = `
     <div class="slot-title">Glyph Set</div>
     <div class="slot-rune">
@@ -1073,35 +1062,44 @@ if (glyphSlot.hasCard && glyphSlot.card) {
     </div>`;
   holder.appendChild(back);
 
-  // front face (revealed on hover/focus)
-  const front = document.createElement('div');
-  front.className = 'face front card';
+  const front = document.createElement("div");
+  front.className = "face front card";
   front.innerHTML = cardHTML(glyphSlot.card);
   attachPeekAndZoom(front, glyphSlot.card);
   holder.appendChild(front);
 
-  // hover/focus → reveal
-  const on  = () => holder.classList.add('reveal');
-  const off = () => holder.classList.remove('reveal');
-  holder.addEventListener('mouseenter', on);
-  holder.addEventListener('mouseleave', off);
-  holder.addEventListener('focus', on);
-  holder.addEventListener('blur', off);
+  // hover/focus reveal
+  const on  = () => holder.classList.add("reveal");
+  const off = () => holder.classList.remove("reveal");
+  holder.addEventListener("mouseenter", on);
+  holder.addEventListener("mouseleave", off);
+  holder.addEventListener("focus", on);
+  holder.addEventListener("blur", off);
 
   g.appendChild(holder);
 }
-// DnD target (unchanged)
-if (isPlayer){
-  const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
-  const over  = enter;
-  const leave = ()=> g.classList.remove("drag-over");
-  const drop  = ev => {
-    ev.preventDefault(); g.classList.remove("drag-over");
-    const json = ev.dataTransfer?.getData('application/x-card') || '{}';
-    let payload={}; try{ payload=JSON.parse(json); }catch{}
+
+// Drag & drop handler
+if (isPlayer) {
+  const enter = ev => {
+    const t = ev.dataTransfer?.getData("text/card-type");
+    if (t === "GLYPH") {
+      ev.preventDefault();
+      g.classList.add("drag-over");
+      ev.dataTransfer.dropEffect = "move";
+    }
+  };
+  const over = enter;
+  const leave = () => g.classList.remove("drag-over");
+  const drop = ev => {
+    ev.preventDefault();
+    g.classList.remove("drag-over");
+    const json = ev.dataTransfer?.getData("application/x-card") || "{}";
+    let payload = {};
+    try { payload = JSON.parse(json); } catch {}
     const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
     const type = payload.type || ev.dataTransfer?.getData("text/card-type");
-    if (type!=="GLYPH" || !id) return;
+    if (type !== "GLYPH" || !id) return;
     try { setGlyphFromHandWithTemp("player", id); render(); } catch {}
   };
   g.addEventListener("dragenter", enter);
@@ -1109,7 +1107,9 @@ if (isPlayer){
   g.addEventListener("dragleave", leave);
   g.addEventListener("drop", drop);
 }
+
 container.appendChild(g);
+
 
 }
 
