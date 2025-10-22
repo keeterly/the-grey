@@ -237,49 +237,6 @@ const WEAVER_ART = {
 };
 
 
-// inside render() when building the player glyph slot (slot index 3)
-// inside render() when building the player glyph slot (slot index 3)
-ensureGlyphFlipStyles();                         // ✅ make sure the CSS is present
-const gSlot = document.querySelector('.row.player .slot.glyph');
-if (gSlot) {
-  const slot = (serializePublic(state)?.players?.player?.slots || [])[3];
-
-  gSlot.innerHTML = '';
-  gSlot.tabIndex = 0;                            // ✅ allow keyboard focus on the slot
-
-  const holder = document.createElement('div');
-  holder.className = 'glyph-holder';
-  holder.tabIndex = 0; // keyboard focusable (listeners below target holder)
-
-  const back = document.createElement('div');
-  back.className = 'face back';
-  back.innerHTML = `
-    <div class="slot-title">Glyph Set</div>
-    <div class="slot-rune"><svg class="rune-big" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
-    </svg></div>
-  `;
-  holder.appendChild(back);
-
-  if (slot?.hasCard && slot?.card) {
-    const front = document.createElement('div');
-    front.className = 'face front card';
-    front.innerHTML = cardShellHTML(slot.card);
-    holder.appendChild(front);
-
-    // hover & keyboard focus → reveal
-    const on  = ()=> holder.classList.add('reveal');
-    const off = ()=> holder.classList.remove('reveal');
-    holder.addEventListener('mouseenter', on);
-    holder.addEventListener('mouseleave', off);
-    holder.addEventListener('focus', on);
-    holder.addEventListener('blur', off);
-  }
-
-  gSlot.appendChild(holder);
-}
-
-
 
 
 /* optional AI module (safe if missing) */
@@ -1965,6 +1922,50 @@ async function render(){
   playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
+
+// inside render() when building the player glyph slot (slot index 3)
+ensureGlyphFlipStyles();                         // ✅ make sure the CSS is present
+const gSlot = document.querySelector('.row.player .slot.glyph');
+if (gSlot) {
+  const slot = (serializePublic(state)?.players?.player?.slots || [])[3];
+
+  gSlot.innerHTML = '';
+  gSlot.tabIndex = 0;                            // ✅ allow keyboard focus on the slot
+
+  const holder = document.createElement('div');
+  holder.className = 'glyph-holder';
+  holder.tabIndex = 0; // keyboard focusable (listeners below target holder)
+
+  const back = document.createElement('div');
+  back.className = 'face back';
+  back.innerHTML = `
+    <div class="slot-title">Glyph Set</div>
+    <div class="slot-rune"><svg class="rune-big" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
+    </svg></div>
+  `;
+  holder.appendChild(back);
+
+  if (slot?.hasCard && slot?.card) {
+    const front = document.createElement('div');
+    front.className = 'face front card';
+    front.innerHTML = cardShellHTML(slot.card);
+    holder.appendChild(front);
+
+    // hover & keyboard focus → reveal
+    const on  = ()=> holder.classList.add('reveal');
+    const off = ()=> holder.classList.remove('reveal');
+    holder.addEventListener('mouseenter', on);
+    holder.addEventListener('mouseleave', off);
+    holder.addEventListener('focus', on);
+    holder.addEventListener('blur', off);
+  }
+
+  gSlot.appendChild(holder);
+}
+
+
+  
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
