@@ -262,7 +262,6 @@ function rectOfAny(target, fallback) {
 // Node-driven cinematics: PLAY/CHANNEL/INSTANT from hand, and Flow buys
 Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
   try {
-    // find data for the ghost
     const id = node?.dataset?.cardId;
     const pub = serializePublic(state) || {};
     const hand = pub.players?.player?.hand || [];
@@ -270,26 +269,22 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
     const data = [...hand, ...flow].find(c => c.id === id);
     if (!data) return;
 
-    const startRect = rectOf(node) || centerRect();
+    const startRect = cachedRect(node) || centerRect();
 
-    // prefer SLOT rect when playing to a slot
     let destRect;
     if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
       const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
-      destRect = rectOf(document.querySelector(sel)) || rectOfAny(to) || centerRect();
+      destRect = cachedRect(document.querySelector(sel)) || rectOfAny(to) || centerRect();
     } else {
       destRect = rectOfAny(to) || centerRect();
     }
 
-    // 🔒 hide the real node so you don't see two
     node.classList.add('grey-hide-during-flight');
-
     await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
-
-    // if the node still exists (wasn't removed by render), unhide it
     if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
   } catch {}
 });
+
 
 // keep the flow “buy” cinematic consistent if you emit it
 Grey?.on?.('aetherflow:bought', ({ node }) => {
@@ -299,11 +294,12 @@ Grey?.on?.('aetherflow:bought', ({ node }) => {
     const c = (pub.flow || [])[flowIndex];
     if (!c) return;
 
-    const startRect = rectOf(node) || centerRect();
+    const startRect = cachedRect(node) || centerRect();
     const destRect = domRectOfDiscardHud();
     playCinematic(c, startRect, destRect, { centerScale: 1.10, holdMs: 220, outMs: 260 });
   } catch {}
 });
+
 
 
 /* ==== Weaver Backdrop Toggle ==== */
@@ -375,9 +371,13 @@ function updateWeaverBackdrop() {
 function toggleWeaverBackdrop() {
   backdropOn = !backdropOn;
   updateWeaverBackdrop();
-  const btn = document.getElementById("btn-toggle-backdrop");
-  if (btn) btn.textContent = backdropOn ? "Hide Character Backdrop" : "Show Character Backdrop";
+
+  const btn = document.getElementById("toggle-backdrop");
+  if (btn) {
+    btn.textContent = backdropOn ? "Hide Character Backdrop" : "Show Character Backdrop";
+  }
 }
+
 
 
 
@@ -1042,7 +1042,9 @@ async function renderFlow(flowArray){
   const card = document.createElement("article");
   card.className = "card market";
   card.dataset.flowIndex = String(idx);
+  card.dataset.name = c?.name || "Market card";
   card.innerHTML = cardHTML(c);
+
 
   const price = FLOW_PRICE_BY_POS[idx] || 0;
   const canAfford = !!c && playerAe >= price;
@@ -1303,12 +1305,18 @@ function rectOf(el) {
 }
 
 // --- Cached rect lookup (performance patch)
-const rectCache = new WeakMap();
+let rectCache = new WeakMap();
+
 function cachedRect(el) {
-  if (!el) return { x:0, y:0, w:0, h:0, cx:0, cy:0 };
+  if (!el) return { x: 0, y: 0, w: 0, h: 0, cx: 0, cy: 0 };
   if (!rectCache.has(el)) rectCache.set(el, rectOf(el));
   return rectCache.get(el);
 }
+
+function invalidateRectCache() {
+  rectCache = new WeakMap();
+}
+
 
 
 function rectOfSelector(sel) {
@@ -1726,6 +1734,7 @@ async function render(){
   playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
+  invalidateRectCache();
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
@@ -1790,8 +1799,11 @@ if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
     (s.players?.player?.hand || []).forEach(c=>{
       const el = document.createElement("article");
       el.className = "card";
-      el.dataset.cardId = c.id; el.dataset.cardType = c.type;
+      el.dataset.cardId = c.id;
+      el.dataset.cardType = c.type;
+      el.dataset.name = c.name || c.type || "Card";
       el.innerHTML = cardHTML(c);
+
 
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
@@ -1928,7 +1940,9 @@ $("btn-start-turn")?.addEventListener("click", doStartTurn);
 $("btn-end-turn")?.addEventListener("click", doEndTurn);
 $("btn-endturn-hud")?.addEventListener("click", doEndTurn);
 document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
-window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.children || [])));
+window.addEventListener("resize", () => {
+  invalidateRectCache();
+  layoutHand(handEl, Array.from(handEl?.children || []));
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("click", clearAllActionMenus);
 
