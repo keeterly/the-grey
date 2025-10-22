@@ -1935,38 +1935,51 @@ document.addEventListener("click", clearAllActionMenus);
 
 
 /* ---------- hand hover style fix (compose transforms) ---------- */
-function ensureHandHoverStyles(){
-  if (document.getElementById('hand-hover-style')) return;
-  const s = document.createElement('style');
-  s.id = 'hand-hover-style';
+function ensureHandHoverStyles() {
+  if (document.getElementById("hand-hover-style")) return;
+  const s = document.createElement("style");
+  s.id = "hand-hover-style";
   s.textContent = `
-    /* Compose base transform with hover deltas so hover never resets layout */
-    .card {
+    /* Baseline composed transform (matches JS layoutHand) */
+    #hand .card {
       --hoverY: 0px;
       --hoverScale: 1;
-      transition: transform .18s ease, box-shadow .18s ease;
-      will-change: transform;
-      /* Keep any existing transform rules in CSS variables; this line composes them */
       transform:
-        translate(var(--tx, 0px), var(--ty, 0px))
-        rotate(var(--rot, 0deg))
+        translate3d(var(--tx,0px), var(--ty,0px), 0)
+        rotate(var(--rot,0deg))
         translateY(var(--hoverY))
         scale(var(--hoverScale));
+      transition: transform 0.22s cubic-bezier(.25,.8,.3,1), box-shadow 0.2s ease;
+      will-change: transform;
+      backface-visibility: hidden;
+      transform-origin: center bottom;
     }
 
-    /* The class you add via makeAccessibleCard plus the focus class from touch */
-    .card.cine-hover:hover,
-    .card.is-focus {
-      --hoverY: -12px;
-      --hoverScale: 1.06;
-      z-index: 999; /* raise hovered item above neighbors */
+    /* Hover raise + scale */
+    #hand .card.cine-hover:hover,
+    #hand .card.is-focus {
+      --hoverY: -14px;
+      --hoverScale: 1.05;
+      z-index: 1000;
+      box-shadow: 0 10px 26px rgba(0,0,0,.35);
     }
 
-    /* Optional: don’t animate while dragging to reduce jitter */
-    .card.dragging { transition: none !important; }
+    /* Disable transition mid-drag or during deal-in animation */
+    #hand .card.dragging,
+    #hand .card.deal-in {
+      transition: none !important;
+    }
+
+    /* Avoid transform flicker when hidden during cinematic */
+    #hand .card.grey-hide-during-flight {
+      opacity: 0;
+      pointer-events: none;
+      transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(0.92);
+    }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
