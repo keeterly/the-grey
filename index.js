@@ -3194,3 +3194,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 })();
 
+/* ===== FINAL CINE LOCK (must be last) ===== */
+(() => {
+  const Grey = (window.Grey ||= { on(){}, off(){}, emit(){} });
+  const CINE_EVT = 'spotlight:cine:v263';
+
+  // Force cineFromHandCard back to the private channel
+  window.cineFromHandCard = function(cardId, to, pose = '', meta = {}) {
+    const node = document.querySelector(`#hand .card[data-card-id="${cardId}"]`);
+    if (node) Grey.emit(CINE_EVT, { node, to, pose, ...meta });
+  };
+
+  // Make sure any stray emits to 'spotlight:cine' are rerouted, not forwarded.
+  const __emit = Grey.emit.bind(Grey);
+  Grey.emit = function(name, payload) {
+    if (name === 'spotlight:cine') {
+      // route to private channel and DO NOT forward to legacy listeners
+      return __emit(CINE_EVT, payload);
+    }
+    return __emit(name, payload);
+  };
+})();
