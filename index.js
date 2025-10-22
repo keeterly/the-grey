@@ -1751,55 +1751,7 @@ function ensureGlyphResolveStyles() {
   document.head.appendChild(s);
 }
 
-function ensureGlyphFlipDownStyles() {
-  if (document.getElementById('glyph-flipdown-style')) return;
-  const s = document.createElement('style');
-  s.id = 'glyph-flipdown-style';
-  s.textContent = `
-    /* ---------- Glyph Backplate ---------- */
-    .glyph-back {
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at center, rgba(80,70,120,0.5) 0%, rgba(20,15,30,0.9) 70%);
-      border-radius: 6px;
-      border: 1px solid rgba(140,100,200,0.3);
-      pointer-events: none;
-      opacity: 0;
-      transform: rotateY(0deg);
-      backface-visibility: hidden;
-    }
 
-    /* ---------- Flip Animations ---------- */
-    @keyframes glyphFlipDown {
-      0%   { transform: rotateY(0deg); opacity:1; }
-      49%  { opacity:0; }
-      50%  { transform: rotateY(90deg); }
-      100% { transform: rotateY(180deg); opacity:1; }
-    }
-    @keyframes glyphFlipUp {
-      0%   { transform: rotateY(180deg); opacity:1; }
-      49%  { opacity:0; }
-      50%  { transform: rotateY(90deg); }
-      100% { transform: rotateY(0deg); opacity:1; }
-    }
-
-    .slot.glyph.flipping-down .card {
-      animation: glyphFlipDown 0.7s ease-in forwards;
-    }
-    .slot.glyph.flipping-up .card {
-      animation: glyphFlipUp 0.7s ease-out forwards;
-    }
-    .slot.glyph.flipping-down .glyph-back {
-      animation: glyphFlipDown 0.7s ease-in forwards;
-      opacity:1;
-    }
-    .slot.glyph.flipping-up .glyph-back {
-      animation: glyphFlipUp 0.7s ease-out forwards;
-      opacity:0;
-    }
-  `;
-  document.head.appendChild(s);
-}
 
 
 
