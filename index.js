@@ -2982,3 +2982,167 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 })();
 
+
+/* =====================================================================
+   v2.63 — Anti-(0,0) Teleport Patch (append-only)
+   - Always include cardData in cine payloads
+   - Measure start/dest robustly; retry; fall back to sane anchors
+   - Guard playCinematic against bad rects
+   ===================================================================== */
+(() => {
+  if (window.__ANTI_TELEPORT_V263__) return; window.__ANTI_TELEPORT_V263__ = true;
+
+  // ---------- small utils ----------
+  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const isValid = (r) => r && Number.isFinite(r.x) && Number.isFinite(r.y) && Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 1 && r.h > 1;
+  const centerRect = (w=260,h=360) => ({ x:(innerWidth-w)/2, y:(innerHeight-h)/2, w, h, cx:innerWidth/2, cy:innerHeight/2 });
+  const liveRect = (el) => {
+    if (!(el instanceof Element)) return null;
+    const r = el.getBoundingClientRect();
+    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  };
+  const rectWithoutTransforms = (node) => {
+    if (!(node instanceof HTMLElement)) return null;
+    const tf = node.style.transform, tr = node.style.transition;
+    node.style.transition = 'none'; node.style.transform = 'none';
+    // eslint-disable-next-line no-unused-expressions
+    node.offsetWidth;
+    const r = liveRect(node);
+    node.style.transform = tf; node.style.transition = tr;
+    return r;
+  };
+
+  async function stableRectFromNode(node, retries=2){
+    // 1) before transforms
+    let r = rectWithoutTransforms(node);
+    if (isValid(r)) return r;
+    // 2) as-is
+    r = liveRect(node);
+    if (isValid(r)) return r;
+    // 3) retry a couple frames (mount/relayout)
+    for (let i=0;i<retries;i++){ await next2(); r = liveRect(node); if (isValid(r)) return r; }
+    return null;
+  }
+
+  function handCardNodeById(id){
+    return document.querySelector(`#hand .card[data-card-id="${id}"]`);
+  }
+  function firstSpellSlotRect(slotIndex){
+    const sel = `.row.player .slot.spell${Number.isFinite(slotIndex) ? `[data-slot-index="${slotIndex}"]` : ''}`;
+    return liveRect(document.querySelector(sel));
+  }
+  function glyphSlotRect(side='player'){
+    return liveRect(document.querySelector(`.row.${side} .slot.glyph`));
+  }
+  function discardHudRect(){
+    const n = document.getElementById('btn-discard-hud'); if (!n) return null;
+    const r = n.getBoundingClientRect(); const w = Math.min(r.width*0.9, 220), h = Math.min(r.height*1.4, 300);
+    return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  }
+
+  // ---------- 1) Ensure cine payloads always include cardData + valid start/dest ----------
+  // Patch cineFromHandCard to enrich payload and measure _before_ hiding.
+  if (typeof window.cineFromHandCard === 'function'){
+    const _origCine = window.cineFromHandCard;
+    window.cineFromHandCard = function(cardId, to, pose='', meta={}){
+      const node = handCardNodeById(cardId);
+      // attach cardData (was sometimes missing)
+      const pub = (typeof serializePublic === 'function' ? serializePublic(state) : {}) || {};
+      const hand = pub?.players?.player?.hand || [];
+      const flow = (pub?.flow || []).filter(Boolean);
+      const cardData = [...hand, ...flow].find(c => c?.id === cardId) || {};
+      // enrich meta and fire as usual; our emit guard will handle measuring
+      window.Grey?.emit?.('spotlight:cine', { node, to, pose, cardData, ...meta });
+    };
+  }
+
+  // ---------- 2) Wrap Grey.emit('spotlight:cine') to produce rock-solid rects ----------
+  (function hardenCineEmit(){
+    const Grey = window.Grey || (window.Grey = { on(){}, off(){}, emit(){} });
+    const _emit = Grey.emit?.bind(Grey) || function(){};
+
+    // CSS to truly hide live node during flight
+    if (!document.getElementById('cine-hide-style')){
+      const s = document.createElement('style'); s.id = 'cine-hide-style';
+      s.textContent = `
+        #hand .card.grey-hide-during-flight{
+          opacity:0 !important; pointer-events:none !important;
+          transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
+        }
+      `;
+      document.head.appendChild(s);
+    }
+
+    let cineQ = Promise.resolve(); // serialize flights
+
+    Grey.emit = function(name, payload){
+      if (name !== 'spotlight:cine' || !payload) return _emit(name, payload);
+
+      const { node, pose, slotIndex } = payload;
+      const cardId = node?.dataset?.cardId;
+
+      cineQ = cineQ.then(async ()=>{
+        // START: try the node, else the same ID in #hand, else center
+        let start = await stableRectFromNode(node);
+        if (!isValid(start) && cardId){
+          const fallbackNode = handCardNodeById(cardId);
+          start = await stableRectFromNode(fallbackNode);
+        }
+        if (!isValid(start)) start = centerRect();
+
+        // DEST: spell slot / target / glyph / discard HUD / center
+        let dest = null;
+        if (pose === 'play-spell') dest = firstSpellSlotRect(slotIndex);
+        if (!isValid(dest) && payload.to){
+          const t = typeof payload.to === 'string' ? document.querySelector(payload.to) : payload.to;
+          dest = liveRect(t);
+        }
+        if (!isValid(dest) && pose === 'set-glyph') dest = glyphSlotRect('player');
+        if (!isValid(dest)) dest = discardHudRect();
+        if (!isValid(dest)) dest = centerRect();
+
+        // Hide real node during flight (if still in DOM)
+        if (node && document.body.contains(node)){
+          node.classList.add('grey-hide-during-flight');
+          node.setAttribute('data-no-ghost','1');
+        }
+
+        try{
+          if (typeof window.playCinematic === 'function'){
+            await window.playCinematic(payload.cardData || {}, start, dest, {
+              centerScale:  payload.centerScale ?? 1.16,
+              poseInMs:     payload.poseInMs   ?? 240,
+              holdMs:       payload.holdMs     ?? 300,
+              outMs:        payload.outMs      ?? 260,
+              endScale:     payload.endScale   ?? 0.78,
+            });
+          }
+        } finally {
+          if (node && document.body.contains(node)){
+            node.classList.remove('grey-hide-during-flight');
+            node.removeAttribute('data-no-ghost');
+          }
+        }
+      }).catch(()=>{});
+
+      return; // swallow original so older handlers don’t double-run
+    };
+  })();
+
+  // ---------- 3) Guard playCinematic itself (last line of defense) ----------
+  if (typeof window.playCinematic === 'function' && !window.__pc_guarded_v263__){
+    window.__pc_guarded_v263__ = true;
+    const _pc = window.playCinematic;
+    window.playCinematic = async function(cardData, startRect, destRect, opts={}){
+      const S = isValid(startRect) ? startRect : centerRect();
+      const D = isValid(destRect)  ? destRect  : (discardHudRect() || centerRect());
+      try{
+        return await _pc.call(this, cardData || {}, S, D, opts);
+      }catch(e){
+        // If anything still failed mid-flight, do a graceful center fade so it never jumps to (0,0)
+        try{ return await _pc.call(this, cardData || {}, centerRect(), D, opts); }catch(_) {}
+      }
+    };
+  }
+})();
+
