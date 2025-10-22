@@ -1516,6 +1516,7 @@ function spotlightFromEvents(state){
       slot.classList.remove('has-card');
     }, 800);
   }
+               }
 
   // optional: log event
   logLine(`${side} → Glyph triggered & discarded.`);
