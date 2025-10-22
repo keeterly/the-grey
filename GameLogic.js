@@ -522,37 +522,50 @@ function parseEffectsFromText(raw) {
   return fx;
 }
 
-// Fire passive glyph hooks on specific triggers
+// at top of file with other imports/exports if not in scope:
+// export function resolveGlyphFromSlot(...) { ... }  // already defined
+
 function applyGlyphPassives(state, side, trigger){
   const slot = state.players?.[side]?.slots?.[3];
   const text = slot?.hasCard ? (slot.card?.text || "").toLowerCase() : "";
+  let fired = false;
 
-  // When a Spell resolves → Gain 1 Æ
-  if (trigger === "spell_resolved" && /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text)) {
+  if (trigger === "spell_resolved" &&
+      /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text)) {
     state.players[side].aether = (state.players[side].aether|0) + 1;
     pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
+    fired = true;
   }
 
-  // When you Channel Aether → Draw 1
-  if (trigger === "channel" && /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text)) {
+  if (trigger === "channel" &&
+      /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text)) {
     state = drawN(state, side, 1);
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
+    fired = true;
   }
 
-  // When you discard a card for Æ → Gain 1 extra Æ
-  if (trigger === "discardForAe" && /when\s+you\s+discard\s+a\s+card\s+for\s*æ.*gain\s+1\s+extra\s*æ/i.test(text)) {
+  if (trigger === "discardForAe" &&
+      /when\s+you\s+discard\s+a\s+card\s+for\s*æ.*gain\s+1\s+extra\s*æ/i.test(text)) {
     state.players[side].aether = (state.players[side].aether|0) + 1;
     pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
+    fired = true;
   }
 
-  // When you buy from Aether Flow → Draw 1
-  if (trigger === "buy" && /when\s+you\s+buy\s+a\s+card\s+from\s+aether\s+flow\s*→?\s*draw\s+1/.test(text)) {
+  if (trigger === "buy" &&
+      /when\s+you\s+buy\s+a\s+card\s+from\s+aether\s+flow\s*→?\s*draw\s+1/.test(text)) {
     state = drawN(state, side, 1);
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
+    fired = true;
+  }
+
+  // NEW: auto-discard once a passive fires
+  if (fired) {
+    state = resolveGlyphFromSlot(state, side);
   }
 
   return state;
 }
+
 
 function applyParsedEffects(state, side, card, opts = {}) {
   const rival = otherSide(side);
