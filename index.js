@@ -183,8 +183,49 @@ function ensureTopMenu() {
     m.style.gap = '6px';
     document.body.appendChild(m);
   }
+}
 
- 
+
+function ensureGlyphPlaceholderStyles(){
+  if (document.getElementById('glyph-placeholder-style')) return;
+  const s = document.createElement('style');
+  s.id = 'glyph-placeholder-style';
+  s.textContent = `
+    /* Only affect the empty state */
+    .slot.glyph:not(.has-card){ position: relative; }
+
+    /* Center the title and put it above the icon */
+    .slot.glyph:not(.has-card) .slot-title{
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 2;                /* above the rune */
+      pointer-events: none;
+      font-size: 16px;
+      letter-spacing: .02em;
+      opacity: .92;
+      text-shadow: 0 1px 0 rgba(0,0,0,.35);
+    }
+
+    /* Rune as a soft background mark */
+    .slot.glyph:not(.has-card) .slot-rune{
+      position: absolute;
+      inset: 16% 14%;
+      display: grid; place-items: center;
+      opacity: .22;
+      filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
+      z-index: 1;                /* behind the title */
+      pointer-events: none;
+    }
+
+    /* When a glyph is set, hide the placeholder elements (the flip UI supplies its own back face) */
+    .slot.glyph.has-card .slot-title,
+    .slot.glyph.has-card .slot-rune{
+      display: none !important;
+    }
+  `;
+  document.head.appendChild(s);
 }
 
 
