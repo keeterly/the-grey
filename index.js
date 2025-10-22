@@ -167,27 +167,6 @@ function renderLogList() {
 }
 
 
-
-function ensureTopMenu() {
-  let m = document.getElementById('game-menu');
-  if (!m) {
-    m = document.createElement('div');
-    m.id = 'game-menu';
-    m.className = 'game-menu';
-    // minimal styling if you don’t have it already
-    m.style.position = 'fixed';
-    m.style.left = '10px';
-    m.style.top = '10px';
-    m.style.zIndex = 3000;
-    m.style.display = 'grid';
-    m.style.gap = '6px';
-    document.body.appendChild(m);
-  }
-
- 
-}
-
-
 // Portrait image sources (declare only once)
 const PORTRAIT_SRC = {
   player: "/weaver_aria_Portrait.jpg",
@@ -1943,8 +1922,13 @@ document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
 window.addEventListener("resize", () => {
   invalidateRectCache();
   layoutHand(handEl, Array.from(handEl?.children || []));
-document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
+});
+
+document.addEventListener("keydown", (e)=> { 
+  if (e.key === "Escape") closeZoom(); 
+});
 document.addEventListener("click", clearAllActionMenus);
+
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
