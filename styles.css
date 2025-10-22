@@ -1043,5 +1043,3 @@ body.mobile-landscape #zoom-card.card.zoom{
   position: relative; /* contained by tl-wrap (which is fixed) */
   z-index: 1;
 }
-
-
