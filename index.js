@@ -2771,3 +2771,74 @@ document.addEventListener("DOMContentLoaded", async () => {
     return; // IMPORTANT: do not forward to the older cine handler
   };
 })();
+
+
+/* ===== v2.63 — Cine Router: isolate our animations from animations.js ===== */
+(() => {
+  // Use a private event so the animations.js listener (which listens to 'spotlight:cine')
+  // never runs for our hand/flow cinematics.
+  const CINE_EVT = 'spotlight:cine:v263';  // new, private channel
+
+  // Re-wire the emitter used throughout this file to use the private channel.
+  // Keep a reference so existing calls can use window.cineFromHandCard as before.
+  const oldCineFromHandCard = window.cineFromHandCard;
+  window.cineFromHandCard = function(cardId, to, pose = '', meta = {}) {
+    const node = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
+    if (node) window.Grey?.emit?.(CINE_EVT, { node, to, pose, ...meta });
+  };
+
+  // Also intercept any direct emits we might do later
+  window.__emitCineV263 = (payload) => window.Grey?.emit?.(CINE_EVT, payload);
+
+  // Our single source of truth cinematic handler (copy of the existing one, but on CINE_EVT)
+  window.Grey?.on?.(CINE_EVT, async ({ node, to, pose, slotIndex }) => {
+    try {
+      // live rect (don’t depend on a cached 0,0)
+      const liveRect = (el) => {
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+      };
+
+      const id = node?.dataset?.cardId;
+      const pub = serializePublic(state) || {};
+      const hand = pub.players?.player?.hand || [];
+      const flow = (pub.flow || []).filter(Boolean);
+      const data = [...hand, ...flow].find(c => c.id === id);
+      if (!data) return;
+
+      const startRect = liveRect(node) || centerRect();
+
+      let destRect;
+      if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
+        const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+        destRect = liveRect(document.querySelector(sel)) || (typeof to === 'string' ? liveRect(document.querySelector(to)) : liveRect(to)) || centerRect();
+      } else {
+        destRect = (typeof to === 'string' ? liveRect(document.querySelector(to)) : liveRect(to)) || centerRect();
+      }
+
+      // Hide the real node during the flight so it doesn’t “jump”
+      node.classList.add('grey-hide-during-flight');
+      await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
+      if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
+    } catch {}
+  });
+
+  // Safety: if any legacy code still emits 'spotlight:cine' here, proxy it into our channel
+  // and skip the animations.js handler by swallowing it.
+  if (!window.__v263_cine_proxy_installed__) {
+    window.__v263_cine_proxy_installed__ = true;
+    const _emit = window.Grey?.emit;
+    if (_emit) {
+      window.Grey.emit = function(name, payload) {
+        if (name === 'spotlight:cine') {
+          // route to our private handler instead of the global one
+          try { window.Grey?.emit?.(CINE_EVT, payload); } catch {}
+          return; // do NOT forward to original listeners
+        }
+        return _emit.call(this, name, payload);
+      };
+    }
+  }
+})();
+
