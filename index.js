@@ -1475,14 +1475,30 @@ function spotlightFromEvents(state){
   
 
    if (e.t === 'resolved' && e.source === 'glyph') {
-      const side = e.side || 'player';
-      const rowSel = `.row.${side}`;
-      const slot = document.querySelector(`${rowSel} .slot.glyph`);
-      if (slot) {
-        slot.classList.add('flipping-up');
-        slot.addEventListener('animationend', () => slot.classList.remove('flipping-up'), { once: true });
+  const side = e.side || 'player';
+  const rowSel = `.row.${side}`;
+  const slot = document.querySelector(`${rowSel} .slot.glyph`);
+  if (slot) {
+    const art = slot.querySelector('.card');
 
-        const art = slot.querySelector('.card');
+    // 🔮 Flipdown animation first
+    slot.classList.add('flipping-down');
+    // add the glyph backplate
+    if (!slot.querySelector('.glyph-back')) {
+      const back = document.createElement('div');
+      back.className = 'glyph-back';
+      slot.appendChild(back);
+    }
+    art.addEventListener('animationend', () => {
+      slot.classList.remove('flipping-down');
+      slot.classList.add('flipping-up');
+      slot.addEventListener('animationend', () => {
+        slot.classList.remove('flipping-up');
+      }, { once: true });
+    }, { once: true });
+  }
+}
+
 
     // 🔮 Purple spell circle glow
     const pulse = document.createElement('div');
@@ -1619,6 +1635,9 @@ function ensureGlyphFlipStyles(){
   `;
   document.head.appendChild(s);
 }
+
+
+
 
 function ensureGlyphResolveStyles() {
   if (document.getElementById('glyph-resolve-style')) return;
