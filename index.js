@@ -2071,3 +2071,116 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
   
+
+
+/* ========================================================================
+   The Grey — v2.63 Patch 2 (append-only, minimal)
+   Adds: hand staggered deal-in, flat temp Æ icon, advanceSpellAt()
+   Skips: outcome modal, flow buyability (already present)
+   ======================================================================== */
+
+(function Patch2_Minimal_v263(){
+  if (window.__GREY_PATCH2_MIN_APPLIED__) return;
+  window.__GREY_PATCH2_MIN_APPLIED__ = true;
+
+  // ---------- tiny utils ----------
+  const $ = (id)=>document.getElementById(id);
+  const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+  function ensureStyle(id, cssText){
+    let el = document.getElementById(id);
+    if (el) return el;
+    el = document.createElement('style');
+    el.id = id;
+    el.textContent = cssText.trim();
+    document.head.appendChild(el);
+    return el;
+  }
+
+  // ---------- CSS: flatten temporary Æ icon only ----------
+  ensureStyle('grey-patch2-temp-ae-flat', `
+    .icon-aether-temp, .ae-ico.temp {
+      filter: none !important;
+      text-shadow: none !important;
+      box-shadow: none !important;
+      opacity: 1 !important;
+    }
+  `);
+
+  // ---------- Temp Æ icon: flat override (safe, idempotent) ----------
+  (function ensureFlatSvgTemp(){
+    const flatFn = function(size = 36){
+      return `
+        <svg viewBox="0 0 24 24" width="\${size}" height="\${size}" aria-hidden="true" class="icon-aether-temp">
+          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
+          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+        </svg>`;
+    };
+    // If a custom svgAetherTemp already exists and is “flat”, skip; else replace.
+    try {
+      const probe = (typeof window.svgAetherTemp === 'function') ? window.svgAetherTemp(24) : '';
+      const hasGlow = /filter|feGaussian|radialGradient|stop-color|shadow/i.test(probe||'');
+      if (typeof window.svgAetherTemp !== 'function' || hasGlow) {
+        window.svgAetherTemp = flatFn;
+      }
+    } catch {
+      window.svgAetherTemp = flatFn;
+    }
+  })();
+
+  // ---------- Hand stagger pass ----------
+  function staggerHand(){
+    const hand = $("hand");
+    if (!hand) return;
+    const cards = Array.from(hand.querySelectorAll('.card'));
+    let i = 0;
+    cards.forEach(el=>{
+      if (el.dataset && el.dataset.patch2Staggered) return;
+      el.style.animationDelay = `${i*70}ms`; // 70ms steps
+      el.dataset.patch2Staggered = "1";
+      i++;
+    });
+    // Optional: let any cine listeners know
+    try { window.Grey?.emit?.('cards:deal', { nodes: cards, stagger: 70 }); } catch {}
+  }
+
+  // ---------- advanceSpellAt helper (engine bridge) ----------
+  if (typeof window.advanceSpellAt !== 'function'){
+    window.advanceSpellAt = async function(slotIndex, steps=1){
+      try{
+        if (typeof window.advanceSpell !== 'function') throw new Error('advanceSpell missing');
+        window.state = window.advanceSpell(window.state, "player", slotIndex|0, steps|0);
+        if (typeof window.drainEvents === 'function'){
+          let pending = window.drainEvents(window.state);
+          while (pending && pending.length){
+            pending = window.drainEvents(window.state);
+          }
+        }
+        if (typeof window.render === 'function') await window.render();
+        return true;
+      } catch(e){
+        console.warn('[Patch2 minimal] advanceSpellAt failed:', e);
+        return false;
+      }
+    };
+  }
+
+  // ---------- Wrap render to run only the stagger pass (avoid outcome/buyability) ----------
+  if (!window.__GREY_PATCH2_RENDER_WRAP_MIN__ && typeof window.render === 'function'){
+    window.__GREY_PATCH2_RENDER_WRAP_MIN__ = true;
+    const _render = window.render;
+    window.render = async function(...args){
+      const res = await _render.apply(this, args);
+      try {
+        staggerHand();
+      } catch {}
+      return res;
+    };
+  }
+
+  // ---------- One-time bootstrap (in case script loads post-first-render) ----------
+  (async function bootstrap(){
+    await nextFrame();
+    staggerHand();
+  })();
+})();
