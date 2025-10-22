@@ -378,6 +378,40 @@ function ensureGlyphFlipStyles(){
   document.head.appendChild(s);
 }
 
+function ensureGlyphFlipDownStyles() {
+  if (document.getElementById('glyph-flipdown-style')) return;
+  const s = document.createElement('style');
+  s.id = 'glyph-flipdown-style';
+  s.textContent = `
+    /* Flip-down/up animations used when a glyph is set/resolved */
+    @keyframes glyphFlipDown { 
+      0% { transform: rotateY(0deg);   opacity: 1; } 
+      100%{ transform: rotateY(90deg); opacity: 0.6; } 
+    }
+    @keyframes glyphFlipUp { 
+      0% { transform: rotateY(90deg); opacity: 0.6; } 
+      100%{ transform: rotateY(0deg);  opacity: 1; } 
+    }
+
+    /* When we add these classes to the slot, animate the inner .card */
+    .slot.glyph.flipping-down .card  { 
+      animation: glyphFlipDown 220ms ease forwards; 
+    }
+    .slot.glyph.flipping-up .card    { 
+      animation: glyphFlipUp 220ms ease forwards; 
+    }
+
+    /* A simple backplate so the slot never looks empty while flipping */
+    .slot.glyph .glyph-back {
+      position:absolute; inset:0;
+      border-radius: var(--card-radius, 10px);
+      background: linear-gradient(180deg,#2f271f,#1f1914);
+      border: 1px solid #5a4b37;
+      pointer-events: none;
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 
 // one-time style for the small opponent portrait
@@ -999,71 +1033,86 @@ function renderSlots(container, snapshot, isPlayer){
   }
 
   // Glyph
-  const g = document.createElement("div");
-  g.className = "slot glyph";
+const g = document.createElement("div");
+g.className = "slot glyph";
+g.tabIndex = 0; // focusable for keyboard preview
 
-  const gLabel = document.createElement("div");
-  gLabel.className = "slot-title";
-  gLabel.textContent = "Glyph Slot";
-  g.appendChild(gLabel);
+const gLabel = document.createElement("div");
+gLabel.className = "slot-title";
+gLabel.textContent = "Glyph Slot";
+g.appendChild(gLabel);
 
-  const rune = document.createElement("div");
-  rune.className = "slot-rune";
-  rune.innerHTML = `
-    <svg viewBox="0 0 48 48" aria-hidden="true">
-      <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-    </svg>`;
-  g.appendChild(rune);
+const rune = document.createElement("div");
+rune.className = "slot-rune";
+rune.innerHTML = `
+  <svg viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20" 
+          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </svg>`;
+g.appendChild(rune);
 
-  const glyphSlot = safe[3] || {isGlyph:true, hasCard:false, card:null};
-     if (glyphSlot.hasCard && glyphSlot.card){
-      const art = document.createElement("article");
-      art.className = "card";
-      art.innerHTML = cardHTML(glyphSlot.card);
-      attachPeekAndZoom(art, glyphSlot.card);
-      g.appendChild(art);
+// make sure flip CSS exists
+ensureGlyphFlipStyles();
 
-      // 🔹 Add a faint backplate for facedown state
-      const back = document.createElement('div');
-      back.className = 'glyph-back';
-      g.appendChild(back);
+const glyphSlot = safe[3] || { isGlyph:true, hasCard:false, card:null };
 
-       
-      // If this glyph was just set for this side, flip + spotlight once.
-      if (isPlayer && lastGlyphJustSetFor === "player" ||
-          !isPlayer && lastGlyphJustSetFor === "ai") {
-        const slotNode = g;
-        slotNode.classList.add('flip-spotlight');
-        art.classList.add('glyph-flip-in');
-        art.addEventListener('animationend', () => {
-          slotNode.classList.remove('flip-spotlight');
-          art.classList.remove('glyph-flip-in');
-        }, { once:true });
-        // clear the flag so it only triggers once
-        lastGlyphJustSetFor = null;
-      }
-    }
+// holder with two faces → back is always present; front only if a glyph is set
+const holder = document.createElement('div');
+holder.className = 'glyph-holder';
+holder.tabIndex = 0; // keyboard focus
 
+// back face (what you see when "face-down")
+const back = document.createElement('div');
+back.className = 'face back';
+back.innerHTML = `
+  <div class="slot-title">Glyph Set</div>
+  <div class="slot-rune">
+    <svg class="rune-big" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
+    </svg>
+  </div>`;
+holder.appendChild(back);
 
-  if (isPlayer){
-    const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
-    const over  = enter;
-    const leave = ()=> g.classList.remove("drag-over");
-    const drop  = ev => {
-      ev.preventDefault(); g.classList.remove("drag-over");
-      const json = ev.dataTransfer?.getData('application/x-card') || '{}';
-      let payload={}; try{ payload=JSON.parse(json); }catch{}
-      const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
-      const type = payload.type || ev.dataTransfer?.getData("text/card-type");
-      if (type!=="GLYPH" || !id) return;
-      try { setGlyphFromHandWithTemp("player", id); render(); } catch {}
-    };
-    g.addEventListener("dragenter", enter);
-    g.addEventListener("dragover", over);
-    g.addEventListener("dragleave", leave);
-    g.addEventListener("drop", drop);
-  }
-  container.appendChild(g);
+// front face (revealed on hover/focus) only if there’s a card set
+if (glyphSlot.hasCard && glyphSlot.card){
+  const front = document.createElement('div');
+  front.className = 'face front card';
+  front.innerHTML = cardHTML(glyphSlot.card);
+  attachPeekAndZoom(front, glyphSlot.card);
+  holder.appendChild(front);
+
+  // hover/focus → reveal
+  const on  = () => holder.classList.add('reveal');
+  const off = () => holder.classList.remove('reveal');
+  holder.addEventListener('mouseenter', on);
+  holder.addEventListener('mouseleave', off);
+  holder.addEventListener('focus', on);
+  holder.addEventListener('blur', off);
+}
+
+g.appendChild(holder);
+
+// DnD target (unchanged)
+if (isPlayer){
+  const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
+  const over  = enter;
+  const leave = ()=> g.classList.remove("drag-over");
+  const drop  = ev => {
+    ev.preventDefault(); g.classList.remove("drag-over");
+    const json = ev.dataTransfer?.getData('application/x-card') || '{}';
+    let payload={}; try{ payload=JSON.parse(json); }catch{}
+    const id = payload.id || ev.dataTransfer?.getData("text/card-id") || ev.dataTransfer?.getData("text/plain");
+    const type = payload.type || ev.dataTransfer?.getData("text/card-type");
+    if (type!=="GLYPH" || !id) return;
+    try { setGlyphFromHandWithTemp("player", id); render(); } catch {}
+  };
+  g.addEventListener("dragenter", enter);
+  g.addEventListener("dragover", over);
+  g.addEventListener("dragleave", leave);
+  g.addEventListener("drop", drop);
+}
+
+container.appendChild(g);
 }
 
 /* --- Flow fall-off animation helper --- */
@@ -1844,46 +1893,7 @@ async function render(){
   aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
 
-// inside render() when building the player glyph slot (slot index 3)
-ensureGlyphFlipStyles();                         // ✅ make sure the CSS is present
-const gSlot = document.querySelector('.row.player .slot.glyph');
-if (gSlot) {
-  const slot = (serializePublic(state)?.players?.player?.slots || [])[3];
 
-  gSlot.innerHTML = '';
-  gSlot.tabIndex = 0;                            // ✅ allow keyboard focus on the slot
-
-  const holder = document.createElement('div');
-  holder.className = 'glyph-holder';
-  holder.tabIndex = 0; // keyboard focusable (listeners below target holder)
-
-  const back = document.createElement('div');
-  back.className = 'face back';
-  back.innerHTML = `
-    <div class="slot-title">Glyph Set</div>
-    <div class="slot-rune"><svg class="rune-big" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
-    </svg></div>
-  `;
-  holder.appendChild(back);
-
-  if (slot?.hasCard && slot?.card) {
-    const front = document.createElement('div');
-    front.className = 'face front card';
-    front.innerHTML = cardShellHTML(slot.card);
-    holder.appendChild(front);
-
-    // hover & keyboard focus → reveal
-    const on  = ()=> holder.classList.add('reveal');
-    const off = ()=> holder.classList.remove('reveal');
-    holder.addEventListener('mouseenter', on);
-    holder.addEventListener('mouseleave', off);
-    holder.addEventListener('focus', on);
-    holder.addEventListener('blur', off);
-  }
-
-  gSlot.appendChild(holder);
-}
 
 
   
