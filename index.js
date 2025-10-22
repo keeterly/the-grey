@@ -208,16 +208,18 @@ const WEAVER_ART = {
 
 
 // inside render() when building the player glyph slot (slot index 3)
-ensureGlyphFlipStyles();
+// inside render() when building the player glyph slot (slot index 3)
+ensureGlyphFlipStyles();                         // ✅ make sure the CSS is present
 const gSlot = document.querySelector('.row.player .slot.glyph');
 if (gSlot) {
   const slot = (serializePublic(state)?.players?.player?.slots || [])[3];
+
   gSlot.innerHTML = '';
+  gSlot.tabIndex = 0;                            // ✅ allow keyboard focus on the slot
 
   const holder = document.createElement('div');
   holder.className = 'glyph-holder';
-  holder.tabIndex = 0; // keyboard focusable
-  holder.setAttribute('aria-label', slot?.hasCard ? 'Glyph (face down). Press to preview.' : 'Empty Glyph Slot');
+  holder.tabIndex = 0; // keyboard focusable (listeners below target holder)
 
   const back = document.createElement('div');
   back.className = 'face back';
@@ -227,18 +229,17 @@ if (gSlot) {
       <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
     </svg></div>
   `;
-
   holder.appendChild(back);
 
   if (slot?.hasCard && slot?.card) {
     const front = document.createElement('div');
     front.className = 'face front card';
-    front.innerHTML = cardShellHTML(slot.card); // reuses your shell
+    front.innerHTML = cardShellHTML(slot.card);
     holder.appendChild(front);
 
-    // hover & keyboard focus reveal
-    const on = ()=> holder.classList.add('reveal');
-    const off= ()=> holder.classList.remove('reveal');
+    // hover & keyboard focus → reveal
+    const on  = ()=> holder.classList.add('reveal');
+    const off = ()=> holder.classList.remove('reveal');
     holder.addEventListener('mouseenter', on);
     holder.addEventListener('mouseleave', off);
     holder.addEventListener('focus', on);
@@ -247,6 +248,7 @@ if (gSlot) {
 
   gSlot.appendChild(holder);
 }
+
 
 
 
@@ -1682,21 +1684,52 @@ async function setGlyphFromHandWithTemp(side, cardId){
 }
 
 
+// ---------- one-time flip CSS for glyph preview ----------
 function ensureGlyphFlipStyles(){
   if (document.getElementById('glyph-flip-style')) return;
+  const css = `
+    /* Make decorative border non-interactive so hover/focus reaches the slot */
+    .slot::after { pointer-events: none; }
+
+    /* Face-down glyph slot with 3D flip */
+    .slot.glyph { perspective: 900px; }
+
+    .glyph-holder {
+      position: absolute; inset: 0;
+      transform-style: preserve-3d;
+      transition: transform 280ms ease;
+      will-change: transform;
+      border-radius: var(--card-radius);
+    }
+    .glyph-holder .face {
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      border-radius: var(--card-radius);
+      backface-visibility: hidden;
+    }
+    .glyph-holder .back {
+      background: linear-gradient(180deg,#2f271f,#1f1914);
+      border: 1px solid #5a4b37;
+    }
+    .glyph-holder .front {
+      transform: rotateY(180deg);
+      overflow: hidden; /* card shell */
+      border: 1px solid #5a4b37;
+    }
+
+    /* Flip to reveal */
+    .glyph-holder.reveal { transform: rotateY(180deg); }
+
+    /* Keep title/rune visible but non-blocking */
+    .slot.glyph .slot-title { pointer-events: none; }
+    .slot.glyph .slot-rune  { pointer-events: none; }
+  `;
   const s = document.createElement('style');
   s.id = 'glyph-flip-style';
-  s.textContent = `
-    .glyph-holder { position: relative; width: 100%; height: 100%; perspective: 1000px; }
-    .glyph-holder .face { position:absolute; inset:0; backface-visibility: hidden; border-radius: var(--card-radius); }
-    .glyph-holder .front { transform: rotateY(180deg); overflow: hidden; }
-    .glyph-holder .back  { display:grid; place-items:center; background:linear-gradient(180deg,#231c15,#17120f); border:1px solid #4a3d2f; }
-    .glyph-holder.reveal .front { transform: rotateY(0deg); }
-    .glyph-holder.reveal .back  { transform: rotateY(180deg); }
-    .glyph-holder .rune-big { opacity:.28; }
-  `;
+  s.textContent = css;
   document.head.appendChild(s);
 }
+
 
 
 
