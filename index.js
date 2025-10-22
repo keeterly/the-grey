@@ -1195,6 +1195,21 @@ function ensureOutcomeOverlayStyles() {
   const s = document.createElement("style");
   s.id = "outcome-style";
   s.textContent = `
+    /* Screen lock */
+    body.modal-open {
+      overflow: hidden;
+    }
+    /* Freeze board interactions while modal is up */
+    body.modal-open .card,
+    body.modal-open .flow-card,
+    body.modal-open .game-menu,
+    body.modal-open #hud-right-strip,
+    body.modal-open .row,
+    body.modal-open #hand {
+      pointer-events: none !important;
+    }
+    body.modal-open .card { --hoverY: 0px; --hoverScale: 1; }
+
     #outcome-overlay {
       position: fixed; inset: 0; z-index: 3500;
       display: grid; place-items: center;
@@ -1204,6 +1219,7 @@ function ensureOutcomeOverlayStyles() {
       transition: opacity .25s ease;
     }
     #outcome-overlay.open { opacity: 1; pointer-events: auto; }
+
     #outcome-sheet {
       min-width: 360px; max-width: 80vw;
       padding: 28px 24px;
@@ -1212,12 +1228,17 @@ function ensureOutcomeOverlayStyles() {
       box-shadow: 0 10px 36px rgba(0,0,0,.55);
       border: 1px solid rgba(255,255,255,.08);
       text-align: center;
+      outline: none;
     }
+
     #outcome-title {
       font-size: 42px; letter-spacing: .06em; margin: 8px 0 10px;
     }
     #outcome-title.win  { color: #b0ffd0; }
     #outcome-title.lose { color: #ffd0d0; }
+
+    #outcome-sub { opacity:.85; margin-top:2px; }
+
     #outcome-btn {
       margin-top: 16px; padding: 10px 16px;
       border-radius: 10px;
@@ -1225,9 +1246,11 @@ function ensureOutcomeOverlayStyles() {
       color: #eee;
       border: 1px solid rgba(255,255,255,.12);
       cursor: pointer;
-    }`;
+    }
+  `;
   document.head.appendChild(s);
 }
+
 
 function ensureOutcomeOverlay() {
   ensureOutcomeOverlayStyles();
@@ -1236,20 +1259,52 @@ function ensureOutcomeOverlay() {
     o = document.createElement("div");
     o.id = "outcome-overlay";
     o.innerHTML = `
-      <div id="outcome-sheet">
+      <div id="outcome-sheet" role="dialog" aria-modal="true" aria-labelledby="outcome-title" tabindex="-1">
         <div id="outcome-title"></div>
         <div id="outcome-sub">Tap Retry to start a fresh duel.</div>
         <button id="outcome-btn" type="button">Retry?</button>
       </div>`;
     document.body.appendChild(o);
-    o.querySelector("#outcome-btn").addEventListener("click", async () => {
+
+    const sheet = o.querySelector("#outcome-sheet");
+    const btn   = o.querySelector("#outcome-btn");
+
+    // Basic focus trap (one control, so simple)
+    const keyHandler = (ev) => {
+      if (ev.key === "Escape") closeOutcome();
+      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); btn.click(); }
+      if (ev.key === "Tab") { ev.preventDefault(); btn.focus(); }
+    };
+
+    function openOutcome() {
+      document.body.classList.add("modal-open");
+      o.classList.add("open");
+      sheet.focus();
+      document.addEventListener("keydown", keyHandler);
+    }
+
+    function closeOutcome() {
+      o.classList.remove("open");
+      document.body.classList.remove("modal-open");
+      document.removeEventListener("keydown", keyHandler);
+      // return focus to End Turn if present (reasonable default)
+      document.getElementById("btn-endturn-hud")?.focus();
+    }
+
+    // expose controls
+    o.__openOutcome = openOutcome;
+    o.__closeOutcome = closeOutcome;
+
+    btn.addEventListener("click", async () => {
+      // reset game cleanly
       state = initState();
       await doStartTurn();
-      o.classList.remove("open");
+      closeOutcome();
     });
   }
   return o;
 }
+
 
 function showOutcome(type) { // "win" | "lose"
   const o = ensureOutcomeOverlay();
@@ -1257,7 +1312,7 @@ function showOutcome(type) { // "win" | "lose"
   title.className = "";
   title.classList.add(type);
   title.textContent = type === "win" ? "YOU WIN" : "YOU LOSE";
-  o.classList.add("open");
+  o.__openOutcome?.();
 }
 
 
