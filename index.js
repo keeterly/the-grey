@@ -191,44 +191,46 @@ function ensureGlyphPlaceholderStyles(){
   const s = document.createElement('style');
   s.id = 'glyph-placeholder-style';
   s.textContent = `
-    /* Empty-slot placeholder */
+    /* Base container */
     .slot.glyph { position: relative; overflow: visible; }
-    .slot.glyph:not(.has-card) { isolation: isolate; }
 
-    /* Title centered, in front of the rune (placeholder state only) */
-    .slot.glyph:not(.has-card) > .slot-title{
+    /* EMPTY GLYPH SLOT (no card set) */
+    .row .slot.glyph:not(.has-card) { isolation: isolate; }
+
+    /* Title sits centered and above the rune */
+    .row .slot.glyph:not(.has-card) > .slot-title{
       position: absolute;
       inset: 0;
       display: grid;
       place-items: center;
-      z-index: 2;
+      z-index: 2;               /* above the rune */
       pointer-events: none;
       white-space: nowrap;
       padding: 0 8px;
       line-height: 1;
-      font-size: 16px;
-      letter-spacing: .02em;
       opacity: .95;
       text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
-    .slot.glyph:not(.has-card) > .slot-rune{
+
+    /* Rune is a soft background mark */
+    .row .slot.glyph:not(.has-card) > .slot-rune{
       position: absolute;
       inset: 0;
       display: grid;
       place-items: center;
       z-index: 1;
       pointer-events: none;
-      opacity: .20;
+      opacity: .22;
       transform: scale(1.06);
       filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
     }
-    .slot.glyph:not(.has-card) > .slot-rune svg{
+    .row .slot.glyph:not(.has-card) > .slot-rune svg{
       width: 62%;
       height: auto;
       max-width: 70%;
     }
 
-    /* When a glyph is set, hide ONLY the placeholder layers */
+    /* When a glyph is set, the flip UI supplies its faces; hide placeholder */
     .slot.glyph.has-card > .slot-title,
     .slot.glyph.has-card > .slot-rune{
       display: none !important;
@@ -236,6 +238,7 @@ function ensureGlyphPlaceholderStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 
 
@@ -411,23 +414,21 @@ function ensureGlyphFlipStyles(){
       outline: 0;
     }
 
-    /* Faces */
-    .slot.glyph .face {
+    /* Two faces occupy the same space */
+    .slot.glyph .face{
       position: absolute; inset: 0;
       border-radius: var(--card-radius, 10px);
       backface-visibility: hidden;
       transform-style: preserve-3d;
-      overflow: hidden;
     }
 
     /* Back (face-down look) */
-    .slot.glyph .face.back {
+    .slot.glyph .face.back{
       background: linear-gradient(180deg,#2f271f,#1f1914);
       border: 1px solid #5a4b37;
-      color: #ccc;
+      color: #ddd;
     }
-
-    /* Center the "Glyph Set" title vertically on the BACK face */
+    /* Center the back-face title and keep it above the rune */
     .slot.glyph .face.back .slot-title{
       position: absolute;
       inset: 0;
@@ -438,10 +439,6 @@ function ensureGlyphFlipStyles(){
       white-space: nowrap;
       padding: 0 8px;
       line-height: 1;
-      font-size: 16px;
-      letter-spacing: .02em;
-      opacity: .95;
-      text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
     .slot.glyph .face.back .slot-rune{
       position: absolute;
@@ -450,33 +447,30 @@ function ensureGlyphFlipStyles(){
       place-items: center;
       z-index: 1;
       pointer-events: none;
-      opacity: .20;
-      transform: scale(1.06);
-      filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
-    }
-    .slot.glyph .face.back .slot-rune svg{
-      width: 62%;
-      height: auto;
-      max-width: 70%;
+      opacity: .28;
     }
 
-    /* Front (revealed card) */
-    .slot.glyph .face.front { transform: rotateY(180deg); }
-    .slot.glyph .face.front .front-inner { position:absolute; inset:0; }
+    /* Front (real card), starts rotated 180° */
+    .slot.glyph .face.front{ transform: rotateY(180deg); overflow: hidden; }
+    .slot.glyph .face.front .front-inner{ position:absolute; inset:0; }
+    /* Ensure no placeholder text shows on the card face */
+    .slot.glyph .face.front .slot-title,
+    .slot.glyph .face.front .slot-rune{ display:none !important; }
 
-    /* Hover/focus reveal */
+    /* Flip on hover/focus */
     .slot.glyph:hover .glyph-holder,
-    .slot.glyph:focus-within .glyph-holder {
+    .slot.glyph:focus-within .glyph-holder{
       transform: rotateY(180deg);
     }
 
-    /* Non-interactive decoration */
+    /* Decorative bits never catch hover */
     .slot.glyph .slot-title,
     .slot.glyph .slot-rune,
-    .slot::after { pointer-events: none; }
+    .slot::after{ pointer-events:none; }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
