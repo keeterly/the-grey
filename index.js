@@ -11,51 +11,6 @@
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
-
-/* --- Cine router: ensure only our spotlight handler runs (neutralize animations.js legacy) --- */
-(() => {
-  if (window.__CINE_ROUTER_APPLIED__) return;
-  window.__CINE_ROUTER_APPLIED__ = true;
-
-  const Grey = window.Grey || (window.Grey = { on:()=>{}, off:()=>{}, emit:()=>{} });
-
-  // Keep originals for all other events
-  const _on   = Grey.on.bind(Grey);
-  const _emit = Grey.emit.bind(Grey);
-
-  // Our private subscriber list for just 'spotlight:cine'
-  const cineSubs = new Set();
-
-  // Replace on(): only intercept spotlight:cine registrations going forward
-  Grey.on = (evt, fn) => {
-    if (evt === 'spotlight:cine') {
-      cineSubs.add(fn);
-      return;
-    }
-    _on(evt, fn);
-  };
-
-  // Replace emit(): only dispatch spotlight:cine to our private list
-  Grey.emit = (evt, payload) => {
-    if (evt === 'spotlight:cine') {
-      // Defensive: if caller passed a node, cache its rect BEFORE anyone hides it.
-      try {
-        const n = payload?.node;
-        if (n && n.getBoundingClientRect) {
-          const r = n.getBoundingClientRect();
-          payload.__startRect__ = { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-        }
-      } catch {}
-      cineSubs.forEach(fn => { try { fn(payload); } catch {} });
-      return;
-    }
-    _emit(evt, payload);
-  };
-})();
-
-
-
-
 // add to imports from GameLogic.js
 import {
   initState,
@@ -212,6 +167,27 @@ function renderLogList() {
 }
 
 
+
+function ensureTopMenu() {
+  let m = document.getElementById('game-menu');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'game-menu';
+    m.className = 'game-menu';
+    // minimal styling if you don’t have it already
+    m.style.position = 'fixed';
+    m.style.left = '10px';
+    m.style.top = '10px';
+    m.style.zIndex = 3000;
+    m.style.display = 'grid';
+    m.style.gap = '6px';
+    document.body.appendChild(m);
+  }
+
+ 
+}
+
+
 // Portrait image sources (declare only once)
 const PORTRAIT_SRC = {
   player: "/weaver_aria_Portrait.jpg",
@@ -284,7 +260,7 @@ function rectOfAny(target, fallback) {
 }
 
 // Node-driven cinematics: PLAY/CHANNEL/INSTANT from hand, and Flow buys
-Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, __startRect__ }) => {
+Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
   try {
     const id = node?.dataset?.cardId;
     const pub = serializePublic(state) || {};
@@ -293,8 +269,7 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, __startRect__ }
     const data = [...hand, ...flow].find(c => c.id === id);
     if (!data) return;
 
-    // Prefer the rect we captured before any class toggles; fall back to live rect.
-    const startRect = __startRect__ || cachedRect(node) || centerRect();
+    const startRect = cachedRect(node) || centerRect();
 
     let destRect;
     if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
@@ -304,13 +279,11 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, __startRect__ }
       destRect = rectOfAny(to) || centerRect();
     }
 
-    // Now it’s safe to hide the real node during the flight
     node.classList.add('grey-hide-during-flight');
     await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
     if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
   } catch {}
 });
-
 
 
 // keep the flow “buy” cinematic consistent if you emit it
@@ -1243,21 +1216,6 @@ function ensureOutcomeOverlayStyles() {
   const s = document.createElement("style");
   s.id = "outcome-style";
   s.textContent = `
-    /* Screen lock */
-    body.modal-open {
-      overflow: hidden;
-    }
-    /* Freeze board interactions while modal is up */
-    body.modal-open .card,
-    body.modal-open .flow-card,
-    body.modal-open .game-menu,
-    body.modal-open #hud-right-strip,
-    body.modal-open .row,
-    body.modal-open #hand {
-      pointer-events: none !important;
-    }
-    body.modal-open .card { --hoverY: 0px; --hoverScale: 1; }
-
     #outcome-overlay {
       position: fixed; inset: 0; z-index: 3500;
       display: grid; place-items: center;
@@ -1267,7 +1225,6 @@ function ensureOutcomeOverlayStyles() {
       transition: opacity .25s ease;
     }
     #outcome-overlay.open { opacity: 1; pointer-events: auto; }
-
     #outcome-sheet {
       min-width: 360px; max-width: 80vw;
       padding: 28px 24px;
@@ -1276,17 +1233,12 @@ function ensureOutcomeOverlayStyles() {
       box-shadow: 0 10px 36px rgba(0,0,0,.55);
       border: 1px solid rgba(255,255,255,.08);
       text-align: center;
-      outline: none;
     }
-
     #outcome-title {
       font-size: 42px; letter-spacing: .06em; margin: 8px 0 10px;
     }
     #outcome-title.win  { color: #b0ffd0; }
     #outcome-title.lose { color: #ffd0d0; }
-
-    #outcome-sub { opacity:.85; margin-top:2px; }
-
     #outcome-btn {
       margin-top: 16px; padding: 10px 16px;
       border-radius: 10px;
@@ -1294,11 +1246,9 @@ function ensureOutcomeOverlayStyles() {
       color: #eee;
       border: 1px solid rgba(255,255,255,.12);
       cursor: pointer;
-    }
-  `;
+    }`;
   document.head.appendChild(s);
 }
-
 
 function ensureOutcomeOverlay() {
   ensureOutcomeOverlayStyles();
@@ -1307,52 +1257,20 @@ function ensureOutcomeOverlay() {
     o = document.createElement("div");
     o.id = "outcome-overlay";
     o.innerHTML = `
-      <div id="outcome-sheet" role="dialog" aria-modal="true" aria-labelledby="outcome-title" tabindex="-1">
+      <div id="outcome-sheet">
         <div id="outcome-title"></div>
         <div id="outcome-sub">Tap Retry to start a fresh duel.</div>
         <button id="outcome-btn" type="button">Retry?</button>
       </div>`;
     document.body.appendChild(o);
-
-    const sheet = o.querySelector("#outcome-sheet");
-    const btn   = o.querySelector("#outcome-btn");
-
-    // Basic focus trap (one control, so simple)
-    const keyHandler = (ev) => {
-      if (ev.key === "Escape") closeOutcome();
-      if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); btn.click(); }
-      if (ev.key === "Tab") { ev.preventDefault(); btn.focus(); }
-    };
-
-    function openOutcome() {
-      document.body.classList.add("modal-open");
-      o.classList.add("open");
-      sheet.focus();
-      document.addEventListener("keydown", keyHandler);
-    }
-
-    function closeOutcome() {
-      o.classList.remove("open");
-      document.body.classList.remove("modal-open");
-      document.removeEventListener("keydown", keyHandler);
-      // return focus to End Turn if present (reasonable default)
-      document.getElementById("btn-endturn-hud")?.focus();
-    }
-
-    // expose controls
-    o.__openOutcome = openOutcome;
-    o.__closeOutcome = closeOutcome;
-
-    btn.addEventListener("click", async () => {
-      // reset game cleanly
+    o.querySelector("#outcome-btn").addEventListener("click", async () => {
       state = initState();
       await doStartTurn();
-      closeOutcome();
+      o.classList.remove("open");
     });
   }
   return o;
 }
-
 
 function showOutcome(type) { // "win" | "lose"
   const o = ensureOutcomeOverlay();
@@ -1360,7 +1278,7 @@ function showOutcome(type) { // "win" | "lose"
   title.className = "";
   title.classList.add(type);
   title.textContent = type === "win" ? "YOU WIN" : "YOU LOSE";
-  o.__openOutcome?.();
+  o.classList.add("open");
 }
 
 
@@ -2022,71 +1940,11 @@ $("btn-start-turn")?.addEventListener("click", doStartTurn);
 $("btn-end-turn")?.addEventListener("click", doEndTurn);
 $("btn-endturn-hud")?.addEventListener("click", doEndTurn);
 document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
-
 window.addEventListener("resize", () => {
   invalidateRectCache();
   layoutHand(handEl, Array.from(handEl?.children || []));
-}, { passive: true });
-
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Escape") closeZoom();
-});
-
+document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("click", clearAllActionMenus);
-
-
-
-
-/* ---------- hand hover style fix (compose transforms) ---------- */
-function ensureHandHoverStyles() {
-  if (document.getElementById("hand-hover-style")) return;
-  const s = document.createElement("style");
-  s.id = "hand-hover-style";
-  s.textContent = `
-    /* Baseline composed transform (matches JS layoutHand) */
-    #hand .card {
-      --hoverY: 0px;
-      --hoverScale: 1;
-      transform:
-        translate3d(var(--tx,0px), var(--ty,0px), 0)
-        rotate(var(--rot,0deg))
-        translateY(var(--hoverY))
-        scale(var(--hoverScale));
-      transition: transform 0.22s cubic-bezier(.25,.8,.3,1), box-shadow 0.2s ease;
-      will-change: transform;
-      backface-visibility: hidden;
-      transform-origin: center bottom;
-    }
-
-    /* Hover raise + scale */
-    #hand .card.cine-hover:hover,
-    #hand .card.is-focus {
-      --hoverY: -14px;
-      --hoverScale: 1.05;
-      z-index: 1000;
-      box-shadow: 0 10px 26px rgba(0,0,0,.35);
-    }
-
-    /* Disable transition mid-drag or during deal-in animation */
-    #hand .card.dragging,
-    #hand .card.deal-in {
-      transition: none !important;
-    }
-
-    /* Avoid transform flicker when hidden during cinematic */
-    #hand .card.grey-hide-during-flight {
-      opacity: 0;
-      pointer-events: none;
-      transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(0.92);
-    }
-  `;
-  document.head.appendChild(s);
-}
-
-
-
-
-
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
@@ -2094,16 +1952,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureWeaverBackdrop();     // make sure the backdrop exists before first render
   ensureRightHudStrip();
   ensureFlowStyles();
-  ensureGlyphFlipStyles();    // ← existing
-  ensureHandHoverStyles();    // ← NEW: compose transforms on hover
-
+  ensureGlyphFlipStyles();   // ← add
   await doStartTurn();
+ 
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
 
 
-/* ---------- mobile-landscape mode ---------- */
-(function mobileLandscapeMode() {
+
+
+/* ---------- mobile-landscape mode (no external file) ---------- */
+(function mobileLandscapeMode(){
   const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
   const apply = () => {
     const isLandscape = window.matchMedia("(orientation: landscape)").matches;
@@ -2111,1339 +1970,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     const enable = isPhone && (isLandscape || shortSide <= 420);
     document.body.classList.toggle("mobile-landscape", !!enable);
   };
-  window.addEventListener("resize", apply, { passive: true });
-  window.addEventListener("orientationchange", apply, { passive: true });
+  window.addEventListener("resize", apply, {passive:true});
+  window.addEventListener("orientationchange", apply, {passive:true});
   document.addEventListener("DOMContentLoaded", apply);
 })();
 
 
-
   
-
-
-/* ========================================================================
-   The Grey — v2.63 Patch 2 (append-only, minimal)
-   Adds: hand staggered deal-in, flat temp Æ icon, advanceSpellAt()
-   Skips: outcome modal, flow buyability (already present)
-   ======================================================================== */
-
-(function Patch2_Minimal_v263(){
-  if (window.__GREY_PATCH2_MIN_APPLIED__) return;
-  window.__GREY_PATCH2_MIN_APPLIED__ = true;
-
-  // ---------- tiny utils ----------
-  const $ = (id)=>document.getElementById(id);
-  const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-
-  function ensureStyle(id, cssText){
-    let el = document.getElementById(id);
-    if (el) return el;
-    el = document.createElement('style');
-    el.id = id;
-    el.textContent = cssText.trim();
-    document.head.appendChild(el);
-    return el;
-  }
-
-  // ---------- CSS: flatten temporary Æ icon only ----------
-  ensureStyle('grey-patch2-temp-ae-flat', `
-    .icon-aether-temp, .ae-ico.temp {
-      filter: none !important;
-      text-shadow: none !important;
-      box-shadow: none !important;
-      opacity: 1 !important;
-    }
-  `);
-
-  // ---------- Temp Æ icon: flat override (safe, idempotent) ----------
-  (function ensureFlatSvgTemp(){
-    const flatFn = function(size = 36){
-      return `
-        <svg viewBox="0 0 24 24" width="\${size}" height="\${size}" aria-hidden="true" class="icon-aether-temp">
-          <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.8" />
-          <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
-        </svg>`;
-    };
-    // If a custom svgAetherTemp already exists and is “flat”, skip; else replace.
-    try {
-      const probe = (typeof window.svgAetherTemp === 'function') ? window.svgAetherTemp(24) : '';
-      const hasGlow = /filter|feGaussian|radialGradient|stop-color|shadow/i.test(probe||'');
-      if (typeof window.svgAetherTemp !== 'function' || hasGlow) {
-        window.svgAetherTemp = flatFn;
-      }
-    } catch {
-      window.svgAetherTemp = flatFn;
-    }
-  })();
-
-  // ---------- Hand stagger pass ----------
-  function staggerHand(){
-    const hand = $("hand");
-    if (!hand) return;
-    const cards = Array.from(hand.querySelectorAll('.card'));
-    let i = 0;
-    cards.forEach(el=>{
-      if (el.dataset && el.dataset.patch2Staggered) return;
-      el.style.animationDelay = `${i*70}ms`; // 70ms steps
-      el.dataset.patch2Staggered = "1";
-      i++;
-    });
-    // Optional: let any cine listeners know
-    try { window.Grey?.emit?.('cards:deal', { nodes: cards, stagger: 70 }); } catch {}
-  }
-
-  // ---------- advanceSpellAt helper (engine bridge) ----------
-  if (typeof window.advanceSpellAt !== 'function'){
-    window.advanceSpellAt = async function(slotIndex, steps=1){
-      try{
-        if (typeof window.advanceSpell !== 'function') throw new Error('advanceSpell missing');
-        window.state = window.advanceSpell(window.state, "player", slotIndex|0, steps|0);
-        if (typeof window.drainEvents === 'function'){
-          let pending = window.drainEvents(window.state);
-          while (pending && pending.length){
-            pending = window.drainEvents(window.state);
-          }
-        }
-        if (typeof window.render === 'function') await window.render();
-        return true;
-      } catch(e){
-        console.warn('[Patch2 minimal] advanceSpellAt failed:', e);
-        return false;
-      }
-    };
-  }
-
-  // ---------- Wrap render to run only the stagger pass (avoid outcome/buyability) ----------
-  if (!window.__GREY_PATCH2_RENDER_WRAP_MIN__ && typeof window.render === 'function'){
-    window.__GREY_PATCH2_RENDER_WRAP_MIN__ = true;
-    const _render = window.render;
-    window.render = async function(...args){
-      const res = await _render.apply(this, args);
-      try {
-        staggerHand();
-      } catch {}
-      return res;
-    };
-  }
-
-  // ---------- One-time bootstrap (in case script loads post-first-render) ----------
-  (async function bootstrap(){
-    await nextFrame();
-    staggerHand();
-  })();
-})();
-
-
-
-/* ========================================================================
-   The Grey — v2.63  |  Turn + Hand Animations (append-only)
-   - Soft animate-out on turn end / animate-in on next turn
-   - Per-card draw animate-in (staggered)
-   - Per-card discard animate-out (ghost clone)
-   ======================================================================== */
-(function HandTurnAnims_v263(){
-  if (window.__GREY_TURN_HAND_ANIMS__) return;
-  window.__GREY_TURN_HAND_ANIMS__ = true;
-
-  const $ = (id)=>document.getElementById(id);
-  const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-
-  // ---------------- CSS ----------------
-  (function ensureCSS(){
-    if (document.getElementById('grey-turn-hand-anims')) return;
-    const s = document.createElement('style');
-    s.id = 'grey-turn-hand-anims';
-    s.textContent = `
-      /* Turn transition */
-      .soft-turn-out { transition: opacity 240ms ease, transform 240ms ease; opacity:.75; transform: scale(.995); }
-      .soft-turn-in  { animation: softTurnIn 260ms ease-out both; }
-      @keyframes softTurnIn {
-        0% { opacity:.6; transform: scale(.995); }
-        100% { opacity:1; transform: scale(1); }
-      }
-
-      /* Card enter (draw) */
-      .card--enter   { opacity:0; transform: translateY(8px); }
-      .card--enter.card--entered { transition: opacity 220ms ease, transform 220ms ease; opacity:1; transform: translateY(0); }
-
-      /* Card exit (discard) ghost */
-      .card-ghost-exit {
-        position:fixed; margin:0; z-index:9999; pointer-events:none;
-        will-change: transform, opacity, filter;
-        transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
-        opacity:1;
-      }
-      .card-ghost-exit.to-dust { opacity:0; filter: blur(2px); transform: translateY(-8px) scale(.98); }
-    `.trim();
-    document.head.appendChild(s);
-  })();
-
-  // ---------------- Turn soft animate in/out ----------------
-  (function wireTurnTransition(){
-    let prevSide = null;
-    try {
-      // If your bus exposes Events.* constants, use them; otherwise listen by name.
-      const onFn = window.Grey?.on || window.Grey?.addEventListener || null;
-      const Events = window.Events || {};
-      const TURN_EVENT = Events.TURN_START || 'TURN_START';
-
-      if (onFn){
-        onFn(TURN_EVENT, ({side})=>{
-          // Animate out when the last side ends; animate in for the new side
-          const root = $("hand")?.parentElement || document.body;
-          if (!root) return;
-          // quick out->in sequence
-          root.classList.add('soft-turn-out');
-          setTimeout(()=>{
-            root.classList.remove('soft-turn-out');
-            root.classList.add('soft-turn-in');
-            setTimeout(()=>root.classList.remove('soft-turn-in'), 300);
-          }, 120);
-          prevSide = side;
-        });
-      }
-    } catch {}
-  })();
-
-  // ---------------- Hand animations: per-card enter/exit ----------------
-  (function wireHandObserver(){
-    const hand = $("hand");
-    if (!hand) return;
-
-    // Track currently present card ids (by data-card-id or a fallback hash)
-    const idOf = (el)=> el?.dataset?.cardId || el?.getAttribute?.('data-id') || el?.querySelector?.('[data-card-id]')?.dataset?.cardId || null;
-
-    // Fade/slide removed cards using a ghost clone at the same screen position
-    function animateRemovalGhost(node){
-      try{
-        const rect = node.getBoundingClientRect();
-        const ghost = node.cloneNode(true);
-        ghost.classList.add('card-ghost-exit');
-        ghost.style.left = rect.left + 'px';
-        ghost.style.top  = rect.top  + 'px';
-        ghost.style.width  = rect.width + 'px';
-        ghost.style.height = rect.height + 'px';
-        document.body.appendChild(ghost);
-        // Force reflow then animate
-        // eslint-disable-next-line no-unused-expressions
-        ghost.offsetHeight;
-        ghost.classList.add('to-dust');
-        setTimeout(()=>ghost.remove(), 260);
-      } catch {}
-    }
-
-    // Animate newly added cards with stagger
-    function animateAddedCards(addedNodes){
-      let i = 0;
-      addedNodes.forEach(node=>{
-        if (!(node instanceof HTMLElement)) return;
-        if (!node.classList.contains('card')) return;
-        node.classList.add('card--enter');
-        node.style.transitionDelay = `${i*70}ms`;
-        // ensure stagger applies after DOM paint
-        requestAnimationFrame(()=>{
-          node.classList.add('card--entered');
-        });
-        i++;
-      });
-      // Optional: let your cine pipeline know
-      try { window.Grey?.emit?.('cards:deal', { nodes: addedNodes.filter(n=>n?.classList?.contains('card')), stagger: 70 }); } catch {}
-    }
-
-    // Observe additions/removals
-    const obs = new MutationObserver((mutations)=>{
-      const added = [];
-      mutations.forEach(m=>{
-        // For removals: animate a ghost for each removed .card
-        m.removedNodes && m.removedNodes.forEach(node=>{
-          if (!(node instanceof HTMLElement)) return;
-          if (!node.classList?.contains('card')) return;
-          animateRemovalGhost(node);
-        });
-        // For additions: collect new .card nodes for enter animation
-        m.addedNodes && m.addedNodes.forEach(node=>{
-          if (node instanceof HTMLElement && node.classList?.contains('card')) added.push(node);
-        });
-      });
-      if (added.length) animateAddedCards(added);
-    });
-    obs.observe(hand, { childList:true, subtree:false });
-
-    // Also run a pass after each render to ensure any freshly mounted cards get the enter treatment
-    if (!window.__GREY_WRAP_RENDER_TURN_HAND__ && typeof window.render === 'function'){
-      window.__GREY_WRAP_RENDER_TURN_HAND__ = true;
-      const _render = window.render;
-      window.render = async function(...args){
-        const res = await _render.apply(this, args);
-        try{
-          // Any newly mounted cards without the marker get an immediate enter (no big delay)
-          const newbies = Array.from(hand.querySelectorAll('.card:not([data-enter-mark])'));
-          let i = 0;
-          newbies.forEach(el=>{
-            el.dataset.enterMark = '1';
-            el.classList.add('card--enter');
-            el.style.transitionDelay = `${i*70}ms`;
-            requestAnimationFrame(()=>el.classList.add('card--entered'));
-            i++;
-          });
-        }catch{}
-        return res;
-      };
-    }
-  })();
-
-})();
-
-
-
-/* =========================================================================
-   The Grey — v2.63 | Fan-In Draw + Fan-Out Discard (append-only)
-   - Draw: cards arc in with a fanned spread, then settle
-   - Discard: removed cards ghost into a fanned burst outward
-   ========================================================================= */
-(function FanHandFX_v263(){
-  if (window.__GREY_FAN_FX__) return; window.__GREY_FAN_FX__ = true;
-
-  const $ = (id)=>document.getElementById(id);
-
-  // ---------- CSS ----------
-  (function ensureCSS(){
-    if (document.getElementById('grey-fan-fx')) return;
-    const s = document.createElement('style'); s.id = 'grey-fan-fx';
-    s.textContent = `
-      /* Fan-in (enter) */
-      .card--fan-enter {
-        opacity: 0; transform-origin: 50% 90%;
-        transform: translateY(18px) rotateZ(var(--fan-enter-rot, 0deg)) translateX(var(--fan-enter-x, 0px)) scale(.98);
-      }
-      .card--fan-entered {
-        transition: transform 320ms cubic-bezier(.2,.7,.2,1), opacity 260ms ease-out;
-        opacity: 1; transform: translateY(0) rotateZ(0deg) translateX(0) scale(1);
-      }
-
-      /* Fan-out (exit ghost) */
-      .card-ghost-exit {
-        position: fixed; z-index: 9999; pointer-events: none; margin: 0;
-        will-change: transform, opacity, filter;
-        transform-origin: 50% 90%;
-        opacity: 1;
-      }
-      .card-ghost-exit.to-fan-out {
-        transition: transform 260ms cubic-bezier(.3,.5,.1,1), opacity 220ms ease, filter 220ms ease;
-        filter: blur(2px); opacity: 0;
-        transform: translateY(var(--fan-exit-dy, -16px))
-                   translateX(var(--fan-exit-dx, 0px))
-                   rotateZ(var(--fan-exit-rot, 0deg)) scale(.96);
-      }
-    `.trim();
-    document.head.appendChild(s);
-  })();
-
-  // ---------- Fan-in draw ----------
-  function fanInCards(nodes){
-    const cards = nodes.filter(n => n instanceof HTMLElement && n.classList.contains('card'));
-    if (!cards.length) return;
-
-    const n = cards.length;
-    const maxSpreadDeg = 18;        // total arc
-    const maxSpreadPx  = 44;        // side offset
-    const baseDelay    = 55;        // ms per-card
-    const center = (n - 1) / 2;
-
-    cards.forEach((el, i) => {
-      // Remove older slide-in markers if present
-      el.classList.remove('card--enter','card--entered');
-
-      // Compute symmetric fan angle/offset around center
-      const t = i - center; // negative on left, positive on right
-      const rot = (t / Math.max(1, center)) * (maxSpreadDeg / 2);
-      const x   = (t / Math.max(1, center)) * (maxSpreadPx);
-
-      el.style.setProperty('--fan-enter-rot', `${rot}deg`);
-      el.style.setProperty('--fan-enter-x',   `${x}px`);
-      el.classList.add('card--fan-enter');
-
-      // Staggered settle
-      const delay = Math.max(0, i) * baseDelay;
-      el.style.transitionDelay = `${delay}ms`;
-      requestAnimationFrame(() => {
-        el.classList.add('card--fan-entered');
-        // clean up class after animation to keep DOM tidy
-        setTimeout(() => el.classList.remove('card--fan-enter','card--fan-entered'), delay + 400);
-      });
-    });
-
-    // Optional: notify your cine layer
-    try { window.Grey?.emit?.('cards:deal', { nodes: cards, stagger: 55, style: 'fan' }); } catch {}
-  }
-
-  // ---------- Fan-out discard ----------
-  // We'll batch removed nodes per mutation frame so the spread looks coordinated.
-  let removalBatch = [];
-  let removalTimer = null;
-
-  function flushRemovalBatch(){
-    const batch = removalBatch; removalBatch = []; removalTimer = null;
-    if (!batch.length) return;
-
-    const n = batch.length;
-    const maxOutDeg = 22;
-    const maxOutX   = 56;
-    const maxOutY   = -26; // slight lift
-    const center = (n - 1) / 2;
-
-    batch.forEach((node, i) => {
-      try {
-        const rect = node.getBoundingClientRect();
-        const ghost = node.cloneNode(true);
-        ghost.classList.add('card-ghost-exit');
-        ghost.style.left   = rect.left + 'px';
-        ghost.style.top    = rect.top  + 'px';
-        ghost.style.width  = rect.width  + 'px';
-        ghost.style.height = rect.height + 'px';
-
-        // Symmetric fan vector
-        const t = i - center;
-        const rot = (t / Math.max(1, center)) * (maxOutDeg);
-        const dx  = (t / Math.max(1, center)) * (maxOutX);
-        const dy  = maxOutY;
-
-        ghost.style.setProperty('--fan-exit-rot', `${rot}deg`);
-        ghost.style.setProperty('--fan-exit-dx',  `${dx}px`);
-        ghost.style.setProperty('--fan-exit-dy',  `${dy}px`);
-
-        document.body.appendChild(ghost);
-        // Force reflow → animate
-        // eslint-disable-next-line no-unused-expressions
-        ghost.offsetHeight;
-        ghost.classList.add('to-fan-out');
-        setTimeout(() => ghost.remove(), 320);
-      } catch {}
-    });
-  }
-
-  // ---------- Wire observer on #hand ----------
-  (function observeHand(){
-    const hand = $("hand");
-    if (!hand) return;
-
-    const obs = new MutationObserver(muts => {
-      const added = [];
-      muts.forEach(m => {
-        m.addedNodes && m.addedNodes.forEach(n => {
-          if (n instanceof HTMLElement && n.classList?.contains('card')) added.push(n);
-        });
-        m.removedNodes && m.removedNodes.forEach(n => {
-          if (n instanceof HTMLElement && n.classList?.contains('card')) {
-            removalBatch.push(n);
-            if (!removalTimer) removalTimer = requestAnimationFrame(flushRemovalBatch);
-          }
-        });
-      });
-      if (added.length) fanInCards(added);
-    });
-    obs.observe(hand, { childList: true, subtree: false });
-
-    // Also run after each render for freshly mounted cards
-    if (!window.__GREY_WRAP_RENDER_FAN__ && typeof window.render === 'function'){
-      window.__GREY_WRAP_RENDER_FAN__ = true;
-      const _render = window.render;
-      window.render = async function(...args){
-        const res = await _render.apply(this, args);
-        try {
-          const newbies = Array.from(hand.querySelectorAll('.card:not([data-fan-mark])'));
-          if (newbies.length){
-            newbies.forEach((el)=>{ el.dataset.fanMark = '1'; });
-            fanInCards(newbies);
-          }
-        } catch {}
-        return res;
-      };
-    }
-  })();
-
-})();
-
-/* =====================================================================
-   The Grey — v2.63  |  Cine/Hand Animation Stability Patch (append-only)
-   Fixes: duplicate ghosts & flicker on PLAY / INSTANT / SET / CHANNEL / DISCARD
-   - Prefer fan-out ghosts, suppress old "to-dust" exits
-   - Mark in-flight hand nodes to prevent double-ghost
-   - Debounce same-card cine within a frame
-   - Serialize playCinematic to avoid overlap tearing
-   ===================================================================== */
-(function GreyCineStability_v263(){
-  if (window.__GREY_CINE_STABILITY__) return;
-  window.__GREY_CINE_STABILITY__ = true;
-
-  const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
-
-  /* -------------------------------------------
-   * 1) Prefer fan-out; suppress older 'to-dust' ghosts
-   * ------------------------------------------- */
-  (function suppressToDustGhosts(){
-    const mo = new MutationObserver((muts)=>{
-      muts.forEach(m=>{
-        m.addedNodes && m.addedNodes.forEach(n=>{
-          if (!(n instanceof HTMLElement)) return;
-          // Any body-inserted ghost using the older class gets removed immediately
-          if (n.classList?.contains('card-ghost-exit') && n.classList?.contains('to-dust')) {
-            // Remove the old ghost (we rely on the fan-out variant from FanHandFX)
-            n.remove();
-          }
-        });
-      });
-    });
-    mo.observe(document.body, { childList: true, subtree: true });
-  })();
-
-  /* -------------------------------------------
-   * 2) Mark hand node "in flight" before cine starts
-   *    so removal observers don't create yet another ghost.
-   *    (We intercept Grey.emit for spotlight:cine.)
-   * ------------------------------------------- */
-  (function tagInFlightOnEmit(){
-    const Grey = window.Grey || (window.Grey = { on(){}, off(){}, emit(){} });
-    const _emit = Grey.emit?.bind(Grey) || function(){};
-    // debounce per-card per-frame
-    const lastStampByCard = new Map();
-
-    Grey.emit = function(name, payload){
-      try{
-        if (name === 'spotlight:cine' && payload && payload.node instanceof HTMLElement){
-          const node = payload.node;
-          // Mark the real hand node so removal Observers will skip ghosting this one
-          node.classList.add('grey-hide-during-flight');
-          node.setAttribute('data-no-ghost', '1');
-
-          // Lightweight same-frame debounce by card id
-          const id = node.dataset?.cardId || '';
-          const now = performance.now();
-          const last = lastStampByCard.get(id) || 0;
-          if (id && (now - last) < 20) {
-            // Drop repeated cine for this card in the same frame burst
-            return;
-          }
-          lastStampByCard.set(id, now);
-        }
-      }catch{}
-      return _emit(name, payload);
-    };
-  })();
-
-  /* -------------------------------------------
-   * 3) Also kill any ghost that originates from a node with data-no-ghost
-   *    (covers cases where an observer already cloned it)
-   * ------------------------------------------- */
-  (function removeGhostsFromNoGhostSources(){
-    const mo = new MutationObserver((muts)=>{
-      muts.forEach(m=>{
-        m.addedNodes && m.addedNodes.forEach(n=>{
-          if (!(n instanceof HTMLElement)) return;
-          if (!n.classList?.contains('card-ghost-exit')) return;
-          // If the source had data-no-ghost, the clone will have it too
-          if (n.getAttribute('data-no-ghost') === '1') {
-            n.remove();
-          }
-        });
-      });
-    });
-    mo.observe(document.body, { childList: true, subtree: true });
-  })();
-
-  /* -------------------------------------------
-   * 4) Serialize playCinematic (queue) to avoid overlapping transforms
-   *    that can cause jitter when multiple resolves fire together.
-   * ------------------------------------------- */
-  (function serializePlayCinematic(){
-    if (typeof window.playCinematic !== 'function') return;
-    const _pc = window.playCinematic;
-    let q = Promise.resolve();
-    window.playCinematic = function(...args){
-      // Chain one after another; each awaits previous
-      q = q.then(()=>_pc.apply(this, args)).catch(()=>{}); // swallow to keep queue alive
-      return q;
-    };
-  })();
-
-  /* -------------------------------------------
-   * 5) Make sure hidden-in-flight cards really don't flash
-   * ------------------------------------------- */
-  (function ensureNoFlashCSS(){
-    if (document.getElementById('grey-cine-stability-css')) return;
-    const s = document.createElement('style');
-    s.id = 'grey-cine-stability-css';
-    s.textContent = `
-      /* Never show the real node while a cine/ghost is running */
-      #hand .card.grey-hide-during-flight {
-        opacity: 0 !important;
-        pointer-events: none !important;
-        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
-      }
-    `.trim();
-    document.head.appendChild(s);
-  })();
-
-})();
-
-
-/* =====================================================================
-   v2.63 — Robust Cine Emitter (fixes jump to top-left / bad rects)
-   - Intercepts Grey.emit('spotlight:cine', ...) and runs a reliable flow:
-     1) measure start rect BEFORE any class/transform
-     2) pick a sane destination (slot, discard HUD, or center)
-     3) only then hide the real node and run playCinematic (queued)
-   - Does NOT forward to older spotlight:cine handlers (prevents double-cine)
-   ===================================================================== */
-(function RobustCineEmitter_v263(){
-  if (window.__ROBUST_CINE_EMITTER__) return;
-  window.__ROBUST_CINE_EMITTER__ = true;
-
-  const Grey = window.Grey || (window.Grey = {on(){}, off(){}, emit(){}});
-  const _emit = Grey.emit?.bind(Grey) || function(){};
-
-  // Ensure we have a queue so multiple cinematics don't overlap/tear.
-  let cineQ = Promise.resolve();
-
-  // Measure rect without transforms (temporarily disable transforms on the element)
-  function rectWithoutTransforms(node){
-    if (!(node instanceof HTMLElement)) return null;
-    const prevTf = node.style.transform;
-    const prevTr = node.style.transition;
-    node.style.transition = 'none';
-    node.style.transform = 'none';
-    // Force sync layout
-    // eslint-disable-next-line no-unused-expressions
-    node.offsetWidth;
-    const r = node.getBoundingClientRect();
-    const rect = { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
-    // restore
-    node.style.transform = prevTf;
-    node.style.transition = prevTr;
-    return rect;
-  }
-
-  function centerRect(w=260,h=360){
-    const vw = innerWidth, vh = innerHeight;
-    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
-  }
-
-  function rectOf(el){
-    if (!(el instanceof Element)) return null;
-    const r = el.getBoundingClientRect();
-    if (!r || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
-    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
-  }
-
-  function rectOfAny(target){
-    if (!target) return null;
-    if (typeof target === 'string') return rectOf(document.querySelector(target));
-    return rectOf(target);
-  }
-
-  function domRectOfDiscardHud(){
-    const n = document.getElementById('btn-discard-hud');
-    if (!n) return null;
-    const r = n.getBoundingClientRect();
-    const w = Math.min(r.width * 0.9, 220);
-    const h = Math.min(r.height * 1.4, 300);
-    return { x:r.left + (r.width-w)/2, y:r.top + (r.height-h)/2, w, h, cx:r.left + r.width/2, cy:r.top + r.height/2 };
-  }
-
-  // Small helper to compute slot selector if pose targets a spell slot
-  function destForPose(payload){
-    const { pose, slotIndex, to } = payload || {};
-    if (pose === 'play-spell' && Number.isFinite(slotIndex)){
-      const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
-      return rectOfAny(sel);
-    }
-    if (to) {
-      const r = rectOfAny(to);
-      if (r) return r;
-    }
-    // common fallbacks
-    return domRectOfDiscardHud() || centerRect();
-  }
-
-  // Keep CSS so hide-during-flight truly hides the source (no flicker)
-  (function ensureCSS(){
-    if (document.getElementById('robust-cine-css')) return;
-    const s = document.createElement('style');
-    s.id = 'robust-cine-css';
-    s.textContent = `
-      #hand .card.grey-hide-during-flight{
-        opacity: 0 !important;
-        pointer-events: none !important;
-        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
-      }
-    `.trim();
-    document.head.appendChild(s);
-  })();
-
-  Grey.emit = function(name, payload){
-    if (name !== 'spotlight:cine' || !payload || !payload.node) {
-      return _emit(name, payload);
-    }
-
-    const node = payload.node;
-
-    // MEASURE FIRST (no classes yet)
-    const startRect = rectWithoutTransforms(node) || rectOf(node) || centerRect();
-    const destRect  = destForPose(payload) || centerRect();
-
-    // Now mark the real node hidden so observers don't double-animate it.
-    node.classList.add('grey-hide-during-flight');
-    node.setAttribute('data-no-ghost','1');
-
-    // Run the cinematic in a queue to avoid overlap
-    cineQ = cineQ.then(async ()=>{
-      try {
-        if (typeof window.playCinematic === 'function'){
-          await window.playCinematic(payload.cardData || {}, startRect, destRect, {
-            centerScale:  payload.centerScale ?? 1.16,
-            poseInMs:     payload.poseInMs   ?? 240,
-            holdMs:       payload.holdMs     ?? 300,
-            outMs:        payload.outMs      ?? 260,
-            endScale:     payload.endScale   ?? 0.78,
-          });
-        }
-      } finally {
-        // allow the real node to be shown again if it still exists
-        if (document.body.contains(node)) {
-          node.classList.remove('grey-hide-during-flight');
-          node.removeAttribute('data-no-ghost');
-        }
-      }
-    }).catch(()=>{ /* keep queue alive */ });
-
-    return; // IMPORTANT: do not forward to the older cine handler
-  };
-})();
-
-
-/* ===== v2.63 — Cine Router: isolate our animations from animations.js ===== */
-(() => {
-  // Use a private event so the animations.js listener (which listens to 'spotlight:cine')
-  // never runs for our hand/flow cinematics.
-  const CINE_EVT = 'spotlight:cine:v263';  // new, private channel
-
-  // Re-wire the emitter used throughout this file to use the private channel.
-  // Keep a reference so existing calls can use window.cineFromHandCard as before.
-  const oldCineFromHandCard = window.cineFromHandCard;
-  window.cineFromHandCard = function(cardId, to, pose = '', meta = {}) {
-    const node = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
-    if (node) window.Grey?.emit?.(CINE_EVT, { node, to, pose, ...meta });
-  };
-
-  // Also intercept any direct emits we might do later
-  window.__emitCineV263 = (payload) => window.Grey?.emit?.(CINE_EVT, payload);
-
-  // Our single source of truth cinematic handler (copy of the existing one, but on CINE_EVT)
-  window.Grey?.on?.(CINE_EVT, async ({ node, to, pose, slotIndex }) => {
-    try {
-      // live rect (don’t depend on a cached 0,0)
-      const liveRect = (el) => {
-        if (!el) return null;
-        const r = el.getBoundingClientRect();
-        return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
-      };
-
-      const id = node?.dataset?.cardId;
-      const pub = serializePublic(state) || {};
-      const hand = pub.players?.player?.hand || [];
-      const flow = (pub.flow || []).filter(Boolean);
-      const data = [...hand, ...flow].find(c => c.id === id);
-      if (!data) return;
-
-      const startRect = liveRect(node) || centerRect();
-
-      let destRect;
-      if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
-        const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
-        destRect = liveRect(document.querySelector(sel)) || (typeof to === 'string' ? liveRect(document.querySelector(to)) : liveRect(to)) || centerRect();
-      } else {
-        destRect = (typeof to === 'string' ? liveRect(document.querySelector(to)) : liveRect(to)) || centerRect();
-      }
-
-      // Hide the real node during the flight so it doesn’t “jump”
-      node.classList.add('grey-hide-during-flight');
-      await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
-      if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
-    } catch {}
-  });
-
-  // Safety: if any legacy code still emits 'spotlight:cine' here, proxy it into our channel
-  // and skip the animations.js handler by swallowing it.
-  if (!window.__v263_cine_proxy_installed__) {
-    window.__v263_cine_proxy_installed__ = true;
-    const _emit = window.Grey?.emit;
-    if (_emit) {
-      window.Grey.emit = function(name, payload) {
-        if (name === 'spotlight:cine') {
-          // route to our private handler instead of the global one
-          try { window.Grey?.emit?.(CINE_EVT, payload); } catch {}
-          return; // do NOT forward to original listeners
-        }
-        return _emit.call(this, name, payload);
-      };
-    }
-  }
-})();
-
-
-
-/* =====================================================================
-   v2.63 — Cine Hardening: stable rects + retries + queue (append-only)
-   Fixes: ghosts flying to top-left when start/dest rects are 0/NaN/unmounted
-   ===================================================================== */
-(() => {
-  if (window.__CINE_HARDEN_V263__) return; window.__CINE_HARDEN_V263__ = true;
-
-  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  const centerRect = (w=260,h=360) => {
-    const vw = innerWidth, vh = innerHeight;
-    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
-  };
-  const isValid = (r) =>
-    r && Number.isFinite(r.x) && Number.isFinite(r.y) &&
-    Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 0 && r.h > 0;
-
-  function liveRect(el){
-    if (!(el instanceof Element)) return null;
-    const r = el.getBoundingClientRect();
-    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
-  }
-  function rectWithoutTransforms(node){
-    if (!(node instanceof HTMLElement)) return null;
-    const tf = node.style.transform, tr = node.style.transition;
-    node.style.transition = 'none'; node.style.transform = 'none';
-    // force layout
-    // eslint-disable-next-line no-unused-expressions
-    node.offsetWidth;
-    const r = liveRect(node);
-    node.style.transform = tf; node.style.transition = tr;
-    return r;
-  }
-  async function measureStableRect(node, retries=2){
-    // 1) try without transforms
-    let r = rectWithoutTransforms(node);
-    if (isValid(r)) return r;
-    // 2) try current transform
-    r = liveRect(node);
-    if (isValid(r)) return r;
-    // 3) retry for a couple frames (DOM may mount next tick)
-    for (let i=0;i<retries;i++){
-      await next2();
-      r = liveRect(node);
-      if (isValid(r)) return r;
-    }
-    return null;
-  }
-  async function measureDest(payload){
-    const { pose, slotIndex, to } = payload || {};
-    // Spell slot targeting
-    if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
-      const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
-      const node = document.querySelector(sel);
-      let r = liveRect(node);
-      if (!isValid(r)) { await next2(); r = liveRect(node); }
-      if (isValid(r)) return r;
-    }
-    // Explicit target
-    if (to){
-      const node = (typeof to === 'string') ? document.querySelector(to) : to;
-      let r = liveRect(node);
-      if (!isValid(r)) { await next2(); r = liveRect(node); }
-      if (isValid(r)) return r;
-    }
-    // Discard HUD fallback
-    const hud = document.getElementById('btn-discard-hud');
-    if (hud){
-      const r = hud.getBoundingClientRect();
-      const w = Math.min(r.width * 0.9, 220), h = Math.min(r.height * 1.4, 300);
-      return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-    }
-    return centerRect();
-  }
-
-  // Queue cinematics so they never overlap tear
-  let cineQ = Promise.resolve();
-
-  // Ensure source nodes truly hide during flight (no flicker / extra measure)
-  if (!document.getElementById('cine-harden-style')) {
-    const s = document.createElement('style'); s.id = 'cine-harden-style';
-    s.textContent = `
-      #hand .card.grey-hide-during-flight{
-        opacity:0 !important; pointer-events:none !important;
-        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
-      }
-    `;
-    document.head.appendChild(s);
-  }
-
-  // Wrap Grey.emit for spotlight:cine to measure FIRST, then hide & run
-  const Grey = window.Grey || (window.Grey = { on(){}, off(){}, emit(){} });
-  const _emit = Grey.emit?.bind(Grey) || function(){};
-
-  Grey.emit = function(name, payload){
-    if (name !== 'spotlight:cine' || !payload || !payload.node) {
-      return _emit(name, payload);
-    }
-
-    const node = payload.node;
-
-    cineQ = cineQ.then(async ()=>{
-      // 1) MEASURE start BEFORE any class toggles; retry if needed
-      let start = await measureStableRect(node);
-      if (!isValid(start)) start = centerRect(); // bulletproof
-
-      // 2) MEASURE destination (handles late-mount)
-      const dest = await measureDest(payload);
-
-      // 3) Hide the real node so no flicker / duplicate motion
-      node.classList.add('grey-hide-during-flight');
-      node.setAttribute('data-no-ghost','1');
-
-      try{
-        if (typeof window.playCinematic === 'function'){
-          // Normalize rects once more (no NaN → 0px mishaps)
-          const S = isValid(start) ? start : centerRect();
-          const D = isValid(dest)  ? dest  : centerRect();
-          await window.playCinematic(payload.cardData || {}, S, D, {
-            centerScale:  payload.centerScale ?? 1.16,
-            poseInMs:     payload.poseInMs   ?? 240,
-            holdMs:       payload.holdMs     ?? 300,
-            outMs:        payload.outMs      ?? 260,
-            endScale:     payload.endScale   ?? 0.78,
-          });
-        }
-      } finally {
-        if (document.body.contains(node)){
-          node.classList.remove('grey-hide-during-flight');
-          node.removeAttribute('data-no-ghost');
-        }
-      }
-    }).catch(()=>{ /* keep queue alive */ });
-
-    return; // swallow original to avoid double-handling elsewhere
-  };
-})();
-
-
-/* =====================================================================
-   v2.63 — Anti-(0,0) Teleport Patch (append-only)
-   - Always include cardData in cine payloads
-   - Measure start/dest robustly; retry; fall back to sane anchors
-   - Guard playCinematic against bad rects
-   ===================================================================== */
-(() => {
-  if (window.__ANTI_TELEPORT_V263__) return; window.__ANTI_TELEPORT_V263__ = true;
-
-  // ---------- small utils ----------
-  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-  const isValid = (r) => r && Number.isFinite(r.x) && Number.isFinite(r.y) && Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 1 && r.h > 1;
-  const centerRect = (w=260,h=360) => ({ x:(innerWidth-w)/2, y:(innerHeight-h)/2, w, h, cx:innerWidth/2, cy:innerHeight/2 });
-  const liveRect = (el) => {
-    if (!(el instanceof Element)) return null;
-    const r = el.getBoundingClientRect();
-    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-  };
-  const rectWithoutTransforms = (node) => {
-    if (!(node instanceof HTMLElement)) return null;
-    const tf = node.style.transform, tr = node.style.transition;
-    node.style.transition = 'none'; node.style.transform = 'none';
-    // eslint-disable-next-line no-unused-expressions
-    node.offsetWidth;
-    const r = liveRect(node);
-    node.style.transform = tf; node.style.transition = tr;
-    return r;
-  };
-
-  async function stableRectFromNode(node, retries=2){
-    // 1) before transforms
-    let r = rectWithoutTransforms(node);
-    if (isValid(r)) return r;
-    // 2) as-is
-    r = liveRect(node);
-    if (isValid(r)) return r;
-    // 3) retry a couple frames (mount/relayout)
-    for (let i=0;i<retries;i++){ await next2(); r = liveRect(node); if (isValid(r)) return r; }
-    return null;
-  }
-
-  function handCardNodeById(id){
-    return document.querySelector(`#hand .card[data-card-id="${id}"]`);
-  }
-  function firstSpellSlotRect(slotIndex){
-    const sel = `.row.player .slot.spell${Number.isFinite(slotIndex) ? `[data-slot-index="${slotIndex}"]` : ''}`;
-    return liveRect(document.querySelector(sel));
-  }
-  function glyphSlotRect(side='player'){
-    return liveRect(document.querySelector(`.row.${side} .slot.glyph`));
-  }
-  function discardHudRect(){
-    const n = document.getElementById('btn-discard-hud'); if (!n) return null;
-    const r = n.getBoundingClientRect(); const w = Math.min(r.width*0.9, 220), h = Math.min(r.height*1.4, 300);
-    return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-  }
-
-  // ---------- 1) Ensure cine payloads always include cardData + valid start/dest ----------
-  // Patch cineFromHandCard to enrich payload and measure _before_ hiding.
-  if (typeof window.cineFromHandCard === 'function'){
-    const _origCine = window.cineFromHandCard;
-    window.cineFromHandCard = function(cardId, to, pose='', meta={}){
-      const node = handCardNodeById(cardId);
-      // attach cardData (was sometimes missing)
-      const pub = (typeof serializePublic === 'function' ? serializePublic(state) : {}) || {};
-      const hand = pub?.players?.player?.hand || [];
-      const flow = (pub?.flow || []).filter(Boolean);
-      const cardData = [...hand, ...flow].find(c => c?.id === cardId) || {};
-      // enrich meta and fire as usual; our emit guard will handle measuring
-      window.Grey?.emit?.('spotlight:cine', { node, to, pose, cardData, ...meta });
-    };
-  }
-
-  // ---------- 2) Wrap Grey.emit('spotlight:cine') to produce rock-solid rects ----------
-  (function hardenCineEmit(){
-    const Grey = window.Grey || (window.Grey = { on(){}, off(){}, emit(){} });
-    const _emit = Grey.emit?.bind(Grey) || function(){};
-
-    // CSS to truly hide live node during flight
-    if (!document.getElementById('cine-hide-style')){
-      const s = document.createElement('style'); s.id = 'cine-hide-style';
-      s.textContent = `
-        #hand .card.grey-hide-during-flight{
-          opacity:0 !important; pointer-events:none !important;
-          transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
-        }
-      `;
-      document.head.appendChild(s);
-    }
-
-    let cineQ = Promise.resolve(); // serialize flights
-
-    Grey.emit = function(name, payload){
-      if (name !== 'spotlight:cine' || !payload) return _emit(name, payload);
-
-      const { node, pose, slotIndex } = payload;
-      const cardId = node?.dataset?.cardId;
-
-      cineQ = cineQ.then(async ()=>{
-        // START: try the node, else the same ID in #hand, else center
-        let start = await stableRectFromNode(node);
-        if (!isValid(start) && cardId){
-          const fallbackNode = handCardNodeById(cardId);
-          start = await stableRectFromNode(fallbackNode);
-        }
-        if (!isValid(start)) start = centerRect();
-
-        // DEST: spell slot / target / glyph / discard HUD / center
-        let dest = null;
-        if (pose === 'play-spell') dest = firstSpellSlotRect(slotIndex);
-        if (!isValid(dest) && payload.to){
-          const t = typeof payload.to === 'string' ? document.querySelector(payload.to) : payload.to;
-          dest = liveRect(t);
-        }
-        if (!isValid(dest) && pose === 'set-glyph') dest = glyphSlotRect('player');
-        if (!isValid(dest)) dest = discardHudRect();
-        if (!isValid(dest)) dest = centerRect();
-
-        // Hide real node during flight (if still in DOM)
-        if (node && document.body.contains(node)){
-          node.classList.add('grey-hide-during-flight');
-          node.setAttribute('data-no-ghost','1');
-        }
-
-        try{
-          if (typeof window.playCinematic === 'function'){
-            await window.playCinematic(payload.cardData || {}, start, dest, {
-              centerScale:  payload.centerScale ?? 1.16,
-              poseInMs:     payload.poseInMs   ?? 240,
-              holdMs:       payload.holdMs     ?? 300,
-              outMs:        payload.outMs      ?? 260,
-              endScale:     payload.endScale   ?? 0.78,
-            });
-          }
-        } finally {
-          if (node && document.body.contains(node)){
-            node.classList.remove('grey-hide-during-flight');
-            node.removeAttribute('data-no-ghost');
-          }
-        }
-      }).catch(()=>{});
-
-      return; // swallow original so older handlers don’t double-run
-    };
-  })();
-
-  // ---------- 3) Guard playCinematic itself (last line of defense) ----------
-  if (typeof window.playCinematic === 'function' && !window.__pc_guarded_v263__){
-    window.__pc_guarded_v263__ = true;
-    const _pc = window.playCinematic;
-    window.playCinematic = async function(cardData, startRect, destRect, opts={}){
-      const S = isValid(startRect) ? startRect : centerRect();
-      const D = isValid(destRect)  ? destRect  : (discardHudRect() || centerRect());
-      try{
-        return await _pc.call(this, cardData || {}, S, D, opts);
-      }catch(e){
-        // If anything still failed mid-flight, do a graceful center fade so it never jumps to (0,0)
-        try{ return await _pc.call(this, cardData || {}, centerRect(), D, opts); }catch(_) {}
-      }
-    };
-  }
-})();
-
-/* ===== FINAL CINE LOCK (must be last) ===== */
-/* ===== v2.63 HOTFIX — Rect Guard for Cine (append-only, last) ===== */
-(() => {
-  const Grey = (window.Grey ||= { on(){}, off(){}, emit(){} });
-  const CINE_EVT = 'spotlight:cine:v263';
-
-  const isValid = r => !!r && Number.isFinite(r.x) && Number.isFinite(r.y)
-                    && Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 1 && r.h > 1;
-
-  const centerRect = (w=260,h=360) => {
-    const vw = innerWidth, vh = innerHeight;
-    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
-  };
-
-  const liveRect = el => {
-    if (!(el instanceof Element)) return null;
-    const r = el.getBoundingClientRect();
-    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-  };
-
-  const rectNoTransforms = node => {
-    if (!(node instanceof HTMLElement)) return null;
-    const tf = node.style.transform, tr = node.style.transition;
-    node.style.transition = 'none'; node.style.transform = 'none';
-    // force layout
-    // eslint-disable-next-line no-unused-expressions
-    node.offsetWidth;
-    const r = liveRect(node);
-    node.style.transform = tf; node.style.transition = tr;
-    return r;
-  };
-
-  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  async function stableRect(node, retries=2) {
-    let r = rectNoTransforms(node);    if (isValid(r)) return r;
-    r = liveRect(node);                if (isValid(r)) return r;
-    for (let i=0;i<retries;i++) { await next2(); r = liveRect(node); if (isValid(r)) return r; }
-    return null;
-  }
-
-  function discardHudRect(){
-    const n = document.getElementById('btn-discard-hud');
-    if (!n) return null;
-    const r = n.getBoundingClientRect();
-    const w = Math.min(r.width*0.9, 220), h = Math.min(r.height*1.4, 300);
-    return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-  }
-
-  // Replace any existing CINE_EVT listeners with ONE guarded handler
-  (function replaceCineHandler(){
-    // wipe earlier listeners for this event (simple shadowing)
-    const __emit = Grey.emit.bind(Grey);
-
-    Grey.on(CINE_EVT, async ({ node, to, pose, slotIndex, cardData }) => {
-      try {
-        // START (validate, retry, fallback)
-        let S = await stableRect(node);
-        if (!isValid(S) && node?.dataset?.cardId) {
-          const n = document.querySelector(`#hand .card[data-card-id="${node.dataset.cardId}"]`);
-          S = await stableRect(n);
-        }
-        if (!isValid(S)) S = centerRect();
-
-        // DEST (slot → explicit → discard → center)
-        let D = null;
-        if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
-          D = liveRect(document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"]`));
-        }
-        if (!isValid(D) && to) {
-          const t = typeof to === 'string' ? document.querySelector(to) : to;
-          D = liveRect(t);
-        }
-        if (!isValid(D)) D = discardHudRect();
-        if (!isValid(D)) D = centerRect();
-
-        // Hide real node during flight
-        if (node && document.body.contains(node)) {
-          node.classList.add('grey-hide-during-flight');
-          node.setAttribute('data-no-ghost','1');
-        }
-
-        if (typeof window.playCinematic === 'function') {
-          await window.playCinematic(cardData || {}, S, D, { centerScale:1.16, holdMs:300, outMs:260 });
-        }
-      } finally {
-        if (node && document.body.contains(node)) {
-          node.classList.remove('grey-hide-during-flight');
-          node.removeAttribute('data-no-ghost');
-        }
-      }
-    });
-
-    // Also reroute any strays on the legacy event to our guarded channel
-    Grey.emit = function(name, payload){
-      if (name === 'spotlight:cine') return __emit(CINE_EVT, payload);
-      return __emit(name, payload);
-    };
-  })();
-
-  // Guard playCinematic itself so bad rects can’t ever place at (0,0)
-  if (typeof window.playCinematic === 'function' && !window.__pc_guard_v263__) {
-    window.__pc_guard_v263__ = true;
-    const _pc = window.playCinematic;
-    window.playCinematic = async function(cardData, startRect, destRect, opts={}){
-      const S = isValid(startRect) ? startRect : centerRect();
-      const D = isValid(destRect)  ? destRect  : (discardHudRect() || centerRect());
-      return _pc.call(this, cardData || {}, S, D, opts);
-    };
-  }
-
-  // Make absolutely sure cineFromHandCard uses the private event
-  window.cineFromHandCard = function(cardId, to, pose='', meta={}) {
-    const node = document.querySelector(`#hand .card[data-card-id="${cardId}"]`);
-    if (node) Grey.emit(CINE_EVT, { node, to, pose, ...meta });
-  };
-})();
-
-
-/* ======================================================================
-   v2.63 — CINE KILL-SWITCH + DIRECT FLIGHT (append-only, final patch)
-   ====================================================================== */
-(() => {
-  const Grey = (window.Grey ||= { on(){}, off(){}, emit(){} });
-
-  // 1) Kill any spotlight handlers (old or private). They will not run anymore.
-  const NOOP = () => {};
-  Grey.on  = ((origOn) => (evt, fn) => {
-    if (evt === 'spotlight:cine' || evt === 'spotlight:cine:v263') return; // ignore registrations
-    return origOn?.call(Grey, evt, fn);
-  })(Grey.on);
-  Grey.emit = ((origEmit) => (evt, payload) => {
-    if (evt === 'spotlight:cine' || evt === 'spotlight:cine:v263') return; // swallow emits
-    return origEmit?.call(Grey, evt, payload);
-  })(Grey.emit);
-
-  // 2) Measurement helpers (robust)
-  const isValid = r => !!r && Number.isFinite(r.x) && Number.isFinite(r.y) &&
-                       Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 1 && r.h > 1;
-
-  const centerRect = (w=260,h=360) => {
-    const vw = innerWidth, vh = innerHeight;
-    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
-  };
-
-  const liveRect = (el) => {
-    if (!(el instanceof Element)) return null;
-    const r = el.getBoundingClientRect();
-    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
-  };
-
-  const rectNoTf = (node) => {
-    if (!(node instanceof HTMLElement)) return null;
-    const tf = node.style.transform, tr = node.style.transition;
-    node.style.transition = 'none'; node.style.transform = 'none';
-    // force layout
-    // eslint-disable-next-line no-unused-expressions
-    node.offsetWidth;
-    const r = liveRect(node);
-    node.style.transform = tf; node.style.transition = tr;
-    return r;
-  };
-
-  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
-
-  async function stableRect(node, retries=2) {
-    let r = rectNoTf(node);           if (isValid(r)) return r;
-    r = liveRect(node);               if (isValid(r)) return r;
-    for (let i=0;i<retries;i++) { await next2(); r = liveRect(node); if (isValid(r)) return r; }
-    return null;
-  }
-
-  function discardHudRect(){
-    const n = document.getElementById('btn-discard-hud');
-    if (!n) return null;
-    const r = n.getBoundingClientRect();
-    const w = Math.min(r.width*0.9, 220), h = Math.min(r.height*1.4, 300);
-    return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
-  }
-
-  // 3) Last-line guard around playCinematic
-  if (typeof window.playCinematic === 'function' && !window.__pc_guard_final__) {
-    window.__pc_guard_final__ = true;
-    const _pc = window.playCinematic;
-    window.playCinematic = async function(cardData, S, D, opts={}){
-      const s = isValid(S) ? S : centerRect();
-      const d = isValid(D) ? D : (discardHudRect() || centerRect());
-      return _pc.call(this, cardData || {}, s, d, opts);
-    };
-  }
-
-  // 4) Direct flight (replaces ANY event-driven cine)
-  async function directFlightFromHand(cardId, to, pose='', slotIndex){
-    // source node
-    const src = document.querySelector(`#hand .card[data-card-id="${cardId}"]`);
-    // find card data (hand or flow)
-    const pub = (typeof serializePublic === 'function' ? serializePublic(window.state) : {}) || {};
-    const data = (pub.players?.player?.hand || []).concat((pub.flow || []).filter(Boolean)).find(c => c.id === cardId) || {};
-
-    // START rect (robust)
-    let S = await stableRect(src);
-    if (!isValid(S)) S = centerRect();
-
-    // DEST rect (pose-aware)
-    let D = null;
-    if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
-      D = liveRect(document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"]`));
-    }
-    if (!isValid(D) && to) {
-      const t = typeof to === 'string' ? document.querySelector(to) : to;
-      D = liveRect(t);
-    }
-    if (!isValid(D)) D = discardHudRect();
-    if (!isValid(D)) D = centerRect();
-
-    // Hide the real node during flight (no flicker)
-    if (src && document.body.contains(src)) {
-      src.classList.add('grey-hide-during-flight');
-      src.setAttribute('data-no-ghost','1');
-    }
-
-    try {
-      await window.playCinematic(data, S, D, { centerScale: 1.16, holdMs: 300, outMs: 260 });
-    } finally {
-      if (src && document.body.contains(src)) {
-        src.classList.remove('grey-hide-during-flight');
-        src.removeAttribute('data-no-ghost');
-      }
-    }
-  }
-
-  // 5) Export: everything in your code calls cineFromHandCard → we hijack it here
-  window.cineFromHandCard = function(cardId, to, pose='', meta={}) {
-    directFlightFromHand(cardId, to, pose, meta?.slotIndex);
-  };
-
-  // 6) Make sure CSS truly hides in-flight sources
-  if (!document.getElementById('cine-final-hide-style')) {
-    const s = document.createElement('style'); s.id = 'cine-final-hide-style';
-    s.textContent = `
-      #hand .card.grey-hide-during-flight {
-        opacity: 0 !important; pointer-events: none !important;
-        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
-      }
-    `;
-    document.head.appendChild(s);
-  }
-})();
-
-
-
-
-
