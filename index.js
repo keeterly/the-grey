@@ -193,18 +193,19 @@ function ensureGlyphPlaceholderStyles(){
   s.textContent = `
     /* Only affect the empty glyph state */
     .slot.glyph { position: relative; overflow: visible; }
-    .slot.glyph:not(.has-card) { isolation: isolate; } /* keep layers tidy */
+    .slot.glyph:not(.has-card) { isolation: isolate; }
 
     /* Title centered, in front of the rune */
-    .slot.glyph:not(.has-card) .slot-title{
-      position: absolute;
+    .row.player .slot.glyph:not(.has-card) .slot-title{
+      position: absolute !important;
       inset: 0;
       display: grid;
       place-items: center;
-      z-index: 2;                 /* above the rune */
+      text-align: center;
+      z-index: 2;
       pointer-events: none;
-      white-space: nowrap;        /* prevent breaking/cropping mid-word */
-      padding: 0 8px;             /* tiny breathing room */
+      white-space: nowrap;
+      padding: 0 8px;
       line-height: 1;
       font-size: 16px;
       letter-spacing: .02em;
@@ -213,7 +214,7 @@ function ensureGlyphPlaceholderStyles(){
     }
 
     /* Rune as a soft background mark (behind the title) */
-    .slot.glyph:not(.has-card) .slot-rune{
+    .row.player .slot.glyph:not(.has-card) .slot-rune{
       position: absolute;
       inset: 0;
       display: grid;
@@ -221,7 +222,7 @@ function ensureGlyphPlaceholderStyles(){
       z-index: 1;
       pointer-events: none;
       opacity: .20;
-      transform: scale(1.06);     /* a touch larger than the title */
+      transform: scale(1.06);
       filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
     }
     .slot.glyph:not(.has-card) .slot-rune svg{
@@ -230,7 +231,7 @@ function ensureGlyphPlaceholderStyles(){
       max-width: 70%;
     }
 
-    /* When a glyph is set, the flip UI supplies its faces; hide placeholder */
+    /* When a glyph is set, hide placeholder */
     .slot.glyph.has-card .slot-title,
     .slot.glyph.has-card .slot-rune{
       display: none !important;
@@ -238,6 +239,7 @@ function ensureGlyphPlaceholderStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 
 
@@ -415,6 +417,7 @@ function ensureGlyphFlipStyles(){
       border-radius: var(--card-radius, 10px);
       backface-visibility: hidden;
       transform-style: preserve-3d;
+      z-index: 0;
     }
 
     /* Back (the face-down look) */
@@ -422,25 +425,28 @@ function ensureGlyphFlipStyles(){
       background: linear-gradient(180deg,#2f271f,#1f1914);
       border: 1px solid #5a4b37;
       color: #ccc;
+      z-index: 1;
     }
 
-    /* Front starts rotated 180°, we keep the real card nested to isolate transforms */
+    /* Front starts rotated 180°; keep real card inert so hover stays on slot */
     .slot.glyph .face.front { transform: rotateY(180deg); overflow: hidden; }
     .slot.glyph .face.front .front-inner { position:absolute; inset:0; }
+    .slot.glyph .face.front .front-inner .card { pointer-events: none; }
 
-    /* Pure-CSS reveal: if the slot is hovered or keyboard-focused, rotate the holder */
+    /* Pure-CSS reveal */
     .slot.glyph:hover .glyph-holder,
     .slot.glyph:focus-within .glyph-holder {
       transform: rotateY(180deg);
     }
 
-    /* Make decorative elements non-interactive so hover doesn’t flicker */
+    /* Decorative bits must not steal hover */
     .slot.glyph .slot-title,
     .slot.glyph .slot-rune,
     .slot::after { pointer-events: none; }
   `;
   document.head.appendChild(s);
 }
+
 
 
 function ensureGlyphFlipDownStyles() {
@@ -1089,7 +1095,7 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
- // Glyph Slot
+// Glyph Slot
 const g = document.createElement("div");
 g.className = "slot glyph";
 g.tabIndex = 0; // for :focus-within keyboard reveal
@@ -1109,13 +1115,11 @@ rune.innerHTML = `
 g.appendChild(rune);
 
 ensureGlyphPlaceholderStyles();
-  
-const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
-g.classList.toggle('has-card', !!(glyphSlot.hasCard && glyphSlot.card));
 
-  
+const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
+g.classList.toggle("has-card", !!(glyphSlot.hasCard && glyphSlot.card));
+
 if (glyphSlot.hasCard && glyphSlot.card) {
-  // Only build flip UI when a glyph is set
   ensureGlyphFlipStyles();
 
   const holder = document.createElement("div");
@@ -1134,16 +1138,18 @@ if (glyphSlot.hasCard && glyphSlot.card) {
     </div>`;
   holder.appendChild(back);
 
-  // Front face (revealed on hover/focus); keep .card in a wrapper to isolate transforms
+  // Front face (revealed on hover/focus)
   const front = document.createElement("div");
   front.className = "face front";
   const frontInner = document.createElement("div");
   frontInner.className = "front-inner";
+
+  // NOTE: front card is inert (no peek/zoom) to prevent hover flicker
   const cardNode = document.createElement("article");
   cardNode.className = "card";
   cardNode.innerHTML = cardHTML(glyphSlot.card);
-  attachPeekAndZoom(cardNode, glyphSlot.card);
   frontInner.appendChild(cardNode);
+
   front.appendChild(frontInner);
   holder.appendChild(front);
 
@@ -1174,6 +1180,7 @@ if (isPlayer) {
 }
 
 container.appendChild(g);
+
 
 
 
