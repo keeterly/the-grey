@@ -1032,10 +1032,10 @@ function renderSlots(container, snapshot, isPlayer){
     container.appendChild(d);
   }
 
-  // Glyph
+ // Glyph
 const g = document.createElement("div");
 g.className = "slot glyph";
-g.tabIndex = 0; // focusable for keyboard preview
+g.tabIndex = 0; // keyboard focusable for :focus-within
 
 const gLabel = document.createElement("div");
 gLabel.className = "slot-title";
@@ -1046,35 +1046,34 @@ const rune = document.createElement("div");
 rune.className = "slot-rune";
 rune.innerHTML = `
   <svg viewBox="0 0 48 48" aria-hidden="true">
-    <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20" 
-          fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20"
+      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
   </svg>`;
 g.appendChild(rune);
 
-// make sure flip CSS exists
-ensureGlyphFlipStyles();
-
 const glyphSlot = safe[3] || { isGlyph:true, hasCard:false, card:null };
 
-// holder with two faces → back is always present; front only if a glyph is set
-const holder = document.createElement('div');
-holder.className = 'glyph-holder';
-holder.tabIndex = 0; // keyboard focus
+if (glyphSlot.hasCard && glyphSlot.card) {
+  // only build the flip UI when a glyph is actually set
+  ensureGlyphFlipStyles();
 
-// back face (what you see when "face-down")
-const back = document.createElement('div');
-back.className = 'face back';
-back.innerHTML = `
-  <div class="slot-title">Glyph Set</div>
-  <div class="slot-rune">
-    <svg class="rune-big" viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
-    </svg>
-  </div>`;
-holder.appendChild(back);
+  const holder = document.createElement('div');
+  holder.className = 'glyph-holder';
+  holder.tabIndex = 0;
 
-// front face (revealed on hover/focus) only if there’s a card set
-if (glyphSlot.hasCard && glyphSlot.card){
+  // back face (visible by default)
+  const back = document.createElement('div');
+  back.className = 'face back';
+  back.innerHTML = `
+    <div class="slot-title">Glyph Set</div>
+    <div class="slot-rune">
+      <svg class="rune-big" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/>
+      </svg>
+    </div>`;
+  holder.appendChild(back);
+
+  // front face (revealed on hover/focus)
   const front = document.createElement('div');
   front.className = 'face front card';
   front.innerHTML = cardHTML(glyphSlot.card);
@@ -1088,10 +1087,9 @@ if (glyphSlot.hasCard && glyphSlot.card){
   holder.addEventListener('mouseleave', off);
   holder.addEventListener('focus', on);
   holder.addEventListener('blur', off);
+
+  g.appendChild(holder);
 }
-
-g.appendChild(holder);
-
 // DnD target (unchanged)
 if (isPlayer){
   const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="GLYPH"){ ev.preventDefault(); g.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
@@ -1111,8 +1109,8 @@ if (isPlayer){
   g.addEventListener("dragleave", leave);
   g.addEventListener("drop", drop);
 }
-
 container.appendChild(g);
+
 }
 
 /* --- Flow fall-off animation helper --- */
