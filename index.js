@@ -1919,34 +1919,31 @@ $("btn-start-turn")?.addEventListener("click", doStartTurn);
 $("btn-end-turn")?.addEventListener("click", doEndTurn);
 $("btn-endturn-hud")?.addEventListener("click", doEndTurn);
 document.getElementById("zoom-overlay")?.addEventListener("click", closeZoom);
+
 window.addEventListener("resize", () => {
   invalidateRectCache();
   layoutHand(handEl, Array.from(handEl?.children || []));
 });
 
-document.addEventListener("keydown", (e)=> { 
-  if (e.key === "Escape") closeZoom(); 
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeZoom();
 });
-document.addEventListener("click", clearAllActionMenus);
 
+document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
-  ensureTopLeftUI();
-  ensureWeaverBackdrop();     // make sure the backdrop exists before first render
-  ensureRightHudStrip();
-  ensureFlowStyles();
-  ensureGlyphFlipStyles();   // ← add
-  await doStartTurn();
- 
+  ensureTopLeftUI();          // build menu + log UI
+  ensureWeaverBackdrop();     // ensure backdrop layer exists
+  ensureRightHudStrip();      // place HUD buttons on right edge
+  ensureFlowStyles();         // apply flow board styles
+  ensureGlyphFlipStyles();    // include glyph flip animation styles
+  await doStartTurn();        // start the first turn
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
 
-
-
-
-/* ---------- mobile-landscape mode (no external file) ---------- */
-(function mobileLandscapeMode(){
+/* ---------- mobile-landscape mode ---------- */
+(function mobileLandscapeMode() {
   const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
   const apply = () => {
     const isLandscape = window.matchMedia("(orientation: landscape)").matches;
@@ -1954,10 +1951,11 @@ document.addEventListener("DOMContentLoaded", async () => {
     const enable = isPhone && (isLandscape || shortSide <= 420);
     document.body.classList.toggle("mobile-landscape", !!enable);
   };
-  window.addEventListener("resize", apply, {passive:true});
-  window.addEventListener("orientationchange", apply, {passive:true});
+  window.addEventListener("resize", apply, { passive: true });
+  window.addEventListener("orientationchange", apply, { passive: true });
   document.addEventListener("DOMContentLoaded", apply);
 })();
+
 
 
   
