@@ -191,27 +191,25 @@ function ensureGlyphPlaceholderStyles(){
   const s = document.createElement('style');
   s.id = 'glyph-placeholder-style';
   s.textContent = `
-    /* Establish a stacking context for all board slots */
+    /* All slots form their own stacking context */
     .row .slot { position: relative; z-index: 0; }
 
-    /* Empty glyph placeholder lives above neighboring slots so its title isn't masked */
-    .slot.glyph:not(.has-card){
-      z-index: 5;                 /* <-- fixes the “cut off title” */
-      overflow: hidden;           /* keep watermark & title inside */
-      isolation: isolate;
+    /* Empty glyph sits above neighbors so the title is never cropped */
+    .slot.glyph[data-empty] { z-index: 5; overflow: hidden; isolation: isolate; }
+
+    /* Placeholder wrapper fills the slot and centers children */
+    .slot.glyph .glyph-ph{
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      pointer-events: none;
     }
 
-    /* Title centered, in front of the watermark rune */
-    .slot.glyph:not(.has-card) .slot-title{
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      z-index: 2;                 /* above the rune */
-      pointer-events: none;
+    /* Title centered with full width so it can truly center text */
+    .slot.glyph .glyph-ph .ph-title{
+      z-index: 2;
+      width: 100%;
       text-align: center;
       white-space: nowrap;
-      padding: 0 8px;
       line-height: 1;
       font-size: 16px;
       letter-spacing: .02em;
@@ -219,32 +217,24 @@ function ensureGlyphPlaceholderStyles(){
       text-shadow: 0 1px 0 rgba(0,0,0,.35);
     }
 
-    /* Watermark rune behind the title */
-    .slot.glyph:not(.has-card) .slot-rune{
-      position: absolute;
-      inset: 0;
-      display: grid;
-      place-items: center;
-      z-index: 1;
-      pointer-events: none;
-      opacity: .20;
-      transform: scale(1.06);
+    /* Soft watermark rune behind title */
+    .slot.glyph .glyph-ph .ph-rune{
+      position: absolute; inset: 0;
+      display: grid; place-items: center;
+      z-index: 1; opacity: .20;
       filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
+      transform: scale(1.06);
     }
-    .slot.glyph:not(.has-card) .slot-rune svg{
-      width: 62%;
-      height: auto;
-      max-width: 70%;
+    .slot.glyph .glyph-ph .ph-rune svg{
+      width: 62%; height: auto; max-width: 70%;
     }
 
-    /* When a glyph is set, the flip UI provides the faces; hide placeholder */
-    .slot.glyph.has-card .slot-title,
-    .slot.glyph.has-card .slot-rune{
-      display: none !important;
-    }
+    /* Hide placeholder whenever a glyph card is present */
+    .slot.glyph.has-card .glyph-ph { display: none !important; }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
@@ -1108,25 +1098,34 @@ const g = document.createElement("div");
 g.className = "slot glyph";
 g.tabIndex = 0; // for :focus-within keyboard reveal
 
-const gLabel = document.createElement("div");
-gLabel.className = "slot-title";
-gLabel.textContent = "Glyph Slot";
-g.appendChild(gLabel);
-
-const rune = document.createElement("div");
-rune.className = "slot-rune";
-rune.innerHTML = `
-  <svg viewBox="0 0 48 48" aria-hidden="true">
-    <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20"
-      fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-  </svg>`;
-g.appendChild(rune);
-
-ensureGlyphPlaceholderStyles();
-
+// current glyph data
 const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
 g.classList.toggle("has-card", !!(glyphSlot.hasCard && glyphSlot.card));
 
+// ---------- EMPTY: placeholder wrapper (title centered over rune) ----------
+if (!glyphSlot.hasCard || !glyphSlot.card) {
+  g.setAttribute("data-empty", "");  // used by CSS for z-index
+  const ph = document.createElement("div");
+  ph.className = "glyph-ph";         // placeholder wrapper (fills the slot)
+
+  const t = document.createElement("div");
+  t.className = "ph-title";
+  t.textContent = "Glyph Slot";
+
+  const r = document.createElement("div");
+  r.className = "ph-rune";
+  r.innerHTML = `
+    <svg viewBox="0 0 48 48" aria-hidden="true">
+      <path d="M24 6l4 6-4 12-4-12 4-6zM10 22l8-2M38 22l-8-2M14 32h20"
+        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    </svg>`;
+
+  ph.appendChild(t);
+  ph.appendChild(r);
+  g.appendChild(ph);
+}
+
+// ---------- HAS CARD: flip scaffold ----------
 if (glyphSlot.hasCard && glyphSlot.card) {
   ensureGlyphFlipStyles();
 
@@ -1146,18 +1145,16 @@ if (glyphSlot.hasCard && glyphSlot.card) {
     </div>`;
   holder.appendChild(back);
 
-  // Front face (revealed on hover/focus)
+  // Front face with real card
   const front = document.createElement("div");
   front.className = "face front";
   const frontInner = document.createElement("div");
   frontInner.className = "front-inner";
-
-  // NOTE: front card is inert (no peek/zoom) to prevent hover flicker
   const cardNode = document.createElement("article");
   cardNode.className = "card";
   cardNode.innerHTML = cardHTML(glyphSlot.card);
+  attachPeekAndZoom(cardNode, glyphSlot.card);
   frontInner.appendChild(cardNode);
-
   front.appendChild(frontInner);
   holder.appendChild(front);
 
@@ -1188,6 +1185,7 @@ if (isPlayer) {
 }
 
 container.appendChild(g);
+
 
 
 
