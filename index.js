@@ -411,42 +411,73 @@ function ensureGlyphFlipStyles(){
       outline: 0;
     }
 
-    /* Two faces that occupy the same space */
+    /* Faces */
     .slot.glyph .face {
       position: absolute; inset: 0;
-      display: grid; place-items: center;
       border-radius: var(--card-radius, 10px);
       backface-visibility: hidden;
       transform-style: preserve-3d;
+      overflow: hidden;
     }
 
-    /* Back (the face-down look) */
+    /* Back (face-down look) */
     .slot.glyph .face.back {
       background: linear-gradient(180deg,#2f271f,#1f1914);
       border: 1px solid #5a4b37;
       color: #ccc;
     }
 
-    /* Front starts rotated 180°, we keep the real card nested to isolate transforms */
-    .slot.glyph .face.front { transform: rotateY(180deg); overflow: hidden; }
+    /* Center the "Glyph Set" title vertically on the BACK face */
+    .slot.glyph .face.back .slot-title{
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 2;
+      pointer-events: none;
+      white-space: nowrap;
+      padding: 0 8px;
+      line-height: 1;
+      font-size: 16px;
+      letter-spacing: .02em;
+      opacity: .95;
+      text-shadow: 0 1px 0 rgba(0,0,0,.35);
+    }
+    .slot.glyph .face.back .slot-rune{
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      z-index: 1;
+      pointer-events: none;
+      opacity: .20;
+      transform: scale(1.06);
+      filter: drop-shadow(0 0 6px rgba(0,0,0,.25));
+    }
+    .slot.glyph .face.back .slot-rune svg{
+      width: 62%;
+      height: auto;
+      max-width: 70%;
+    }
+
+    /* Front (revealed card) */
+    .slot.glyph .face.front { transform: rotateY(180deg); }
     .slot.glyph .face.front .front-inner { position:absolute; inset:0; }
 
-    /* Reveal on hover/focus */
+    /* Hover/focus reveal */
     .slot.glyph:hover .glyph-holder,
     .slot.glyph:focus-within .glyph-holder {
       transform: rotateY(180deg);
     }
 
-    /* Prevent hover flicker */
+    /* Non-interactive decoration */
     .slot.glyph .slot-title,
     .slot.glyph .slot-rune,
     .slot::after { pointer-events: none; }
-
-    /* 🔒 When a glyph is present, hide any slot-title so it can’t appear on the revealed face */
-    .slot.glyph.has-card .slot-title { display: none !important; }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
