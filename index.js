@@ -11,6 +11,51 @@
   (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
+
+/* --- Cine router: ensure only our spotlight handler runs (neutralize animations.js legacy) --- */
+(() => {
+  if (window.__CINE_ROUTER_APPLIED__) return;
+  window.__CINE_ROUTER_APPLIED__ = true;
+
+  const Grey = window.Grey || (window.Grey = { on:()=>{}, off:()=>{}, emit:()=>{} });
+
+  // Keep originals for all other events
+  const _on   = Grey.on.bind(Grey);
+  const _emit = Grey.emit.bind(Grey);
+
+  // Our private subscriber list for just 'spotlight:cine'
+  const cineSubs = new Set();
+
+  // Replace on(): only intercept spotlight:cine registrations going forward
+  Grey.on = (evt, fn) => {
+    if (evt === 'spotlight:cine') {
+      cineSubs.add(fn);
+      return;
+    }
+    _on(evt, fn);
+  };
+
+  // Replace emit(): only dispatch spotlight:cine to our private list
+  Grey.emit = (evt, payload) => {
+    if (evt === 'spotlight:cine') {
+      // Defensive: if caller passed a node, cache its rect BEFORE anyone hides it.
+      try {
+        const n = payload?.node;
+        if (n && n.getBoundingClientRect) {
+          const r = n.getBoundingClientRect();
+          payload.__startRect__ = { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+        }
+      } catch {}
+      cineSubs.forEach(fn => { try { fn(payload); } catch {} });
+      return;
+    }
+    _emit(evt, payload);
+  };
+})();
+
+
+
+
 // add to imports from GameLogic.js
 import {
   initState,
@@ -239,7 +284,7 @@ function rectOfAny(target, fallback) {
 }
 
 // Node-driven cinematics: PLAY/CHANNEL/INSTANT from hand, and Flow buys
-Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
+Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, __startRect__ }) => {
   try {
     const id = node?.dataset?.cardId;
     const pub = serializePublic(state) || {};
@@ -248,7 +293,8 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
     const data = [...hand, ...flow].find(c => c.id === id);
     if (!data) return;
 
-    const startRect = cachedRect(node) || centerRect();
+    // Prefer the rect we captured before any class toggles; fall back to live rect.
+    const startRect = __startRect__ || cachedRect(node) || centerRect();
 
     let destRect;
     if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
@@ -258,11 +304,13 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
       destRect = rectOfAny(to) || centerRect();
     }
 
+    // Now it’s safe to hide the real node during the flight
     node.classList.add('grey-hide-during-flight');
     await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
     if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
   } catch {}
 });
+
 
 
 // keep the flow “buy” cinematic consistent if you emit it
