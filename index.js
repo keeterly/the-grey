@@ -2184,3 +2184,164 @@ document.addEventListener("DOMContentLoaded", async () => {
     staggerHand();
   })();
 })();
+
+
+
+/* ========================================================================
+   The Grey — v2.63  |  Turn + Hand Animations (append-only)
+   - Soft animate-out on turn end / animate-in on next turn
+   - Per-card draw animate-in (staggered)
+   - Per-card discard animate-out (ghost clone)
+   ======================================================================== */
+(function HandTurnAnims_v263(){
+  if (window.__GREY_TURN_HAND_ANIMS__) return;
+  window.__GREY_TURN_HAND_ANIMS__ = true;
+
+  const $ = (id)=>document.getElementById(id);
+  const nextFrame = ()=>new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+  // ---------------- CSS ----------------
+  (function ensureCSS(){
+    if (document.getElementById('grey-turn-hand-anims')) return;
+    const s = document.createElement('style');
+    s.id = 'grey-turn-hand-anims';
+    s.textContent = `
+      /* Turn transition */
+      .soft-turn-out { transition: opacity 240ms ease, transform 240ms ease; opacity:.75; transform: scale(.995); }
+      .soft-turn-in  { animation: softTurnIn 260ms ease-out both; }
+      @keyframes softTurnIn {
+        0% { opacity:.6; transform: scale(.995); }
+        100% { opacity:1; transform: scale(1); }
+      }
+
+      /* Card enter (draw) */
+      .card--enter   { opacity:0; transform: translateY(8px); }
+      .card--enter.card--entered { transition: opacity 220ms ease, transform 220ms ease; opacity:1; transform: translateY(0); }
+
+      /* Card exit (discard) ghost */
+      .card-ghost-exit {
+        position:fixed; margin:0; z-index:9999; pointer-events:none;
+        will-change: transform, opacity, filter;
+        transition: transform 220ms ease, opacity 220ms ease, filter 220ms ease;
+        opacity:1;
+      }
+      .card-ghost-exit.to-dust { opacity:0; filter: blur(2px); transform: translateY(-8px) scale(.98); }
+    `.trim();
+    document.head.appendChild(s);
+  })();
+
+  // ---------------- Turn soft animate in/out ----------------
+  (function wireTurnTransition(){
+    let prevSide = null;
+    try {
+      // If your bus exposes Events.* constants, use them; otherwise listen by name.
+      const onFn = window.Grey?.on || window.Grey?.addEventListener || null;
+      const Events = window.Events || {};
+      const TURN_EVENT = Events.TURN_START || 'TURN_START';
+
+      if (onFn){
+        onFn(TURN_EVENT, ({side})=>{
+          // Animate out when the last side ends; animate in for the new side
+          const root = $("hand")?.parentElement || document.body;
+          if (!root) return;
+          // quick out->in sequence
+          root.classList.add('soft-turn-out');
+          setTimeout(()=>{
+            root.classList.remove('soft-turn-out');
+            root.classList.add('soft-turn-in');
+            setTimeout(()=>root.classList.remove('soft-turn-in'), 300);
+          }, 120);
+          prevSide = side;
+        });
+      }
+    } catch {}
+  })();
+
+  // ---------------- Hand animations: per-card enter/exit ----------------
+  (function wireHandObserver(){
+    const hand = $("hand");
+    if (!hand) return;
+
+    // Track currently present card ids (by data-card-id or a fallback hash)
+    const idOf = (el)=> el?.dataset?.cardId || el?.getAttribute?.('data-id') || el?.querySelector?.('[data-card-id]')?.dataset?.cardId || null;
+
+    // Fade/slide removed cards using a ghost clone at the same screen position
+    function animateRemovalGhost(node){
+      try{
+        const rect = node.getBoundingClientRect();
+        const ghost = node.cloneNode(true);
+        ghost.classList.add('card-ghost-exit');
+        ghost.style.left = rect.left + 'px';
+        ghost.style.top  = rect.top  + 'px';
+        ghost.style.width  = rect.width + 'px';
+        ghost.style.height = rect.height + 'px';
+        document.body.appendChild(ghost);
+        // Force reflow then animate
+        // eslint-disable-next-line no-unused-expressions
+        ghost.offsetHeight;
+        ghost.classList.add('to-dust');
+        setTimeout(()=>ghost.remove(), 260);
+      } catch {}
+    }
+
+    // Animate newly added cards with stagger
+    function animateAddedCards(addedNodes){
+      let i = 0;
+      addedNodes.forEach(node=>{
+        if (!(node instanceof HTMLElement)) return;
+        if (!node.classList.contains('card')) return;
+        node.classList.add('card--enter');
+        node.style.transitionDelay = `${i*70}ms`;
+        // ensure stagger applies after DOM paint
+        requestAnimationFrame(()=>{
+          node.classList.add('card--entered');
+        });
+        i++;
+      });
+      // Optional: let your cine pipeline know
+      try { window.Grey?.emit?.('cards:deal', { nodes: addedNodes.filter(n=>n?.classList?.contains('card')), stagger: 70 }); } catch {}
+    }
+
+    // Observe additions/removals
+    const obs = new MutationObserver((mutations)=>{
+      const added = [];
+      mutations.forEach(m=>{
+        // For removals: animate a ghost for each removed .card
+        m.removedNodes && m.removedNodes.forEach(node=>{
+          if (!(node instanceof HTMLElement)) return;
+          if (!node.classList?.contains('card')) return;
+          animateRemovalGhost(node);
+        });
+        // For additions: collect new .card nodes for enter animation
+        m.addedNodes && m.addedNodes.forEach(node=>{
+          if (node instanceof HTMLElement && node.classList?.contains('card')) added.push(node);
+        });
+      });
+      if (added.length) animateAddedCards(added);
+    });
+    obs.observe(hand, { childList:true, subtree:false });
+
+    // Also run a pass after each render to ensure any freshly mounted cards get the enter treatment
+    if (!window.__GREY_WRAP_RENDER_TURN_HAND__ && typeof window.render === 'function'){
+      window.__GREY_WRAP_RENDER_TURN_HAND__ = true;
+      const _render = window.render;
+      window.render = async function(...args){
+        const res = await _render.apply(this, args);
+        try{
+          // Any newly mounted cards without the marker get an immediate enter (no big delay)
+          const newbies = Array.from(hand.querySelectorAll('.card:not([data-enter-mark])'));
+          let i = 0;
+          newbies.forEach(el=>{
+            el.dataset.enterMark = '1';
+            el.classList.add('card--enter');
+            el.style.transitionDelay = `${i*70}ms`;
+            requestAnimationFrame(()=>el.classList.add('card--entered'));
+            i++;
+          });
+        }catch{}
+        return res;
+      };
+    }
+  })();
+
+})();
