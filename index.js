@@ -3195,23 +3195,119 @@ document.addEventListener("DOMContentLoaded", async () => {
 })();
 
 /* ===== FINAL CINE LOCK (must be last) ===== */
+/* ===== v2.63 HOTFIX — Rect Guard for Cine (append-only, last) ===== */
 (() => {
   const Grey = (window.Grey ||= { on(){}, off(){}, emit(){} });
   const CINE_EVT = 'spotlight:cine:v263';
 
-  // Force cineFromHandCard back to the private channel
-  window.cineFromHandCard = function(cardId, to, pose = '', meta = {}) {
-    const node = document.querySelector(`#hand .card[data-card-id="${cardId}"]`);
-    if (node) Grey.emit(CINE_EVT, { node, to, pose, ...meta });
+  const isValid = r => !!r && Number.isFinite(r.x) && Number.isFinite(r.y)
+                    && Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 1 && r.h > 1;
+
+  const centerRect = (w=260,h=360) => {
+    const vw = innerWidth, vh = innerHeight;
+    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
   };
 
-  // Make sure any stray emits to 'spotlight:cine' are rerouted, not forwarded.
-  const __emit = Grey.emit.bind(Grey);
-  Grey.emit = function(name, payload) {
-    if (name === 'spotlight:cine') {
-      // route to private channel and DO NOT forward to legacy listeners
-      return __emit(CINE_EVT, payload);
-    }
-    return __emit(name, payload);
+  const liveRect = el => {
+    if (!(el instanceof Element)) return null;
+    const r = el.getBoundingClientRect();
+    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  };
+
+  const rectNoTransforms = node => {
+    if (!(node instanceof HTMLElement)) return null;
+    const tf = node.style.transform, tr = node.style.transition;
+    node.style.transition = 'none'; node.style.transform = 'none';
+    // force layout
+    // eslint-disable-next-line no-unused-expressions
+    node.offsetWidth;
+    const r = liveRect(node);
+    node.style.transform = tf; node.style.transition = tr;
+    return r;
+  };
+
+  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  async function stableRect(node, retries=2) {
+    let r = rectNoTransforms(node);    if (isValid(r)) return r;
+    r = liveRect(node);                if (isValid(r)) return r;
+    for (let i=0;i<retries;i++) { await next2(); r = liveRect(node); if (isValid(r)) return r; }
+    return null;
+  }
+
+  function discardHudRect(){
+    const n = document.getElementById('btn-discard-hud');
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    const w = Math.min(r.width*0.9, 220), h = Math.min(r.height*1.4, 300);
+    return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+  }
+
+  // Replace any existing CINE_EVT listeners with ONE guarded handler
+  (function replaceCineHandler(){
+    // wipe earlier listeners for this event (simple shadowing)
+    const __emit = Grey.emit.bind(Grey);
+
+    Grey.on(CINE_EVT, async ({ node, to, pose, slotIndex, cardData }) => {
+      try {
+        // START (validate, retry, fallback)
+        let S = await stableRect(node);
+        if (!isValid(S) && node?.dataset?.cardId) {
+          const n = document.querySelector(`#hand .card[data-card-id="${node.dataset.cardId}"]`);
+          S = await stableRect(n);
+        }
+        if (!isValid(S)) S = centerRect();
+
+        // DEST (slot → explicit → discard → center)
+        let D = null;
+        if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
+          D = liveRect(document.querySelector(`.row.player .slot.spell[data-slot-index="${slotIndex}"]`));
+        }
+        if (!isValid(D) && to) {
+          const t = typeof to === 'string' ? document.querySelector(to) : to;
+          D = liveRect(t);
+        }
+        if (!isValid(D)) D = discardHudRect();
+        if (!isValid(D)) D = centerRect();
+
+        // Hide real node during flight
+        if (node && document.body.contains(node)) {
+          node.classList.add('grey-hide-during-flight');
+          node.setAttribute('data-no-ghost','1');
+        }
+
+        if (typeof window.playCinematic === 'function') {
+          await window.playCinematic(cardData || {}, S, D, { centerScale:1.16, holdMs:300, outMs:260 });
+        }
+      } finally {
+        if (node && document.body.contains(node)) {
+          node.classList.remove('grey-hide-during-flight');
+          node.removeAttribute('data-no-ghost');
+        }
+      }
+    });
+
+    // Also reroute any strays on the legacy event to our guarded channel
+    Grey.emit = function(name, payload){
+      if (name === 'spotlight:cine') return __emit(CINE_EVT, payload);
+      return __emit(name, payload);
+    };
+  })();
+
+  // Guard playCinematic itself so bad rects can’t ever place at (0,0)
+  if (typeof window.playCinematic === 'function' && !window.__pc_guard_v263__) {
+    window.__pc_guard_v263__ = true;
+    const _pc = window.playCinematic;
+    window.playCinematic = async function(cardData, startRect, destRect, opts={}){
+      const S = isValid(startRect) ? startRect : centerRect();
+      const D = isValid(destRect)  ? destRect  : (discardHudRect() || centerRect());
+      return _pc.call(this, cardData || {}, S, D, opts);
+    };
+  }
+
+  // Make absolutely sure cineFromHandCard uses the private event
+  window.cineFromHandCard = function(cardId, to, pose='', meta={}) {
+    const node = document.querySelector(`#hand .card[data-card-id="${cardId}"]`);
+    if (node) Grey.emit(CINE_EVT, { node, to, pose, ...meta });
   };
 })();
