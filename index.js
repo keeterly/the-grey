@@ -188,33 +188,7 @@ function ensureTopMenu() {
 }
 
 
-function ensureGlyphFlipStyles() {
-  if (document.getElementById("glyph-flip-style")) return;
-  const css = `
-    .glyph-holder{ position:relative; width:100%; height:100%; outline:0; }
-    .glyph-holder .face{
-      position:absolute; inset:0; border-radius:var(--card-radius);
-      backface-visibility:hidden; transform-style:preserve-3d;
-      transition: transform .28s ease, opacity .22s ease;
-    }
-    .glyph-holder .face.back{
-      display:grid; place-items:center; 
-      transform: rotateY(0deg); opacity:1;
-    }
-    .glyph-holder .face.front{
-      transform: rotateY(180deg); opacity:0; pointer-events:none;
-    }
-    .glyph-holder.reveal .face.back{ transform: rotateY(180deg); opacity:0; }
-    .glyph-holder.reveal .face.front{ transform: rotateY(0deg); opacity:1; pointer-events:auto; }
 
-    /* optional focus cue for keyboard users */
-    .glyph-holder:focus-visible{ outline:2px solid var(--type-glyph); outline-offset:3px; }
-  `;
-  const s = document.createElement("style");
-  s.id = "glyph-flip-style";
-  s.textContent = css;
-  document.head.appendChild(s);
-}
 
 
 
@@ -363,6 +337,47 @@ function ensureWeaverBackdropStyles() {
   s.textContent = css;
   document.head.appendChild(s);
 }
+
+
+function ensureGlyphFlipStyles(){
+  if (document.getElementById("glyph-flip-style")) return;
+  const css = `
+    .row.player .slot.glyph { position: relative; }
+    .glyph-holder {
+      position: relative; width: 100%; height: 100%;
+      perspective: 1000px; contain: layout paint;
+      outline: none;
+    }
+    .glyph-holder .face {
+      position: absolute; inset: 0;
+      backface-visibility: hidden;
+      transform-style: preserve-3d;
+      transition: transform .28s ease, opacity .18s ease;
+      display: grid; place-items: center;
+    }
+    .glyph-holder .face.back {
+      background: var(--glyph-back, #111a);
+      border: 1px solid #5557; border-radius: 10px;
+      color: #ccc;
+      transform: rotateY(0deg);
+      z-index: 1;
+    }
+    .glyph-holder .face.front {
+      transform: rotateY(180deg);
+      z-index: 2;
+    }
+    /* reveal on hover/focus */
+    .glyph-holder.reveal .face.back { transform: rotateY(-180deg); }
+    .glyph-holder.reveal .face.front { transform: rotateY(0deg); }
+    /* keyboard */
+    .glyph-holder:focus { box-shadow: 0 0 0 3px #88f9; }
+  `;
+  const s = document.createElement('style');
+  s.id = 'glyph-flip-style';
+  s.textContent = css;
+  document.head.appendChild(s);
+}
+
 
 
 // one-time style for the small opponent portrait
@@ -1670,52 +1685,6 @@ async function setGlyphFromHandWithTemp(side, cardId){
 
 }
 
-
-// ---------- one-time flip CSS for glyph preview ----------
-function ensureGlyphFlipStyles(){
-  if (document.getElementById('glyph-flip-style')) return;
-  const css = `
-    /* Make decorative border non-interactive so hover/focus reaches the slot */
-    .slot::after { pointer-events: none; }
-
-    /* Face-down glyph slot with 3D flip */
-    .slot.glyph { perspective: 900px; }
-
-    .glyph-holder {
-      position: absolute; inset: 0;
-      transform-style: preserve-3d;
-      transition: transform 280ms ease;
-      will-change: transform;
-      border-radius: var(--card-radius);
-    }
-    .glyph-holder .face {
-      position: absolute; inset: 0;
-      display: grid; place-items: center;
-      border-radius: var(--card-radius);
-      backface-visibility: hidden;
-    }
-    .glyph-holder .back {
-      background: linear-gradient(180deg,#2f271f,#1f1914);
-      border: 1px solid #5a4b37;
-    }
-    .glyph-holder .front {
-      transform: rotateY(180deg);
-      overflow: hidden; /* card shell */
-      border: 1px solid #5a4b37;
-    }
-
-    /* Flip to reveal */
-    .glyph-holder.reveal { transform: rotateY(180deg); }
-
-    /* Keep title/rune visible but non-blocking */
-    .slot.glyph .slot-title { pointer-events: none; }
-    .slot.glyph .slot-rune  { pointer-events: none; }
-  `;
-  const s = document.createElement('style');
-  s.id = 'glyph-flip-style';
-  s.textContent = css;
-  document.head.appendChild(s);
-}
 
 
 
