@@ -2639,3 +2639,85 @@ document.addEventListener("DOMContentLoaded", async () => {
 })();
 
 
+/* =====================================================================
+   v2.63 — Robust Cine Emitter (fixes jump to top-left / bad rects)
+   - Intercepts Grey.emit('spotlight:cine', ...) and runs a reliable flow:
+     1) measure start rect BEFORE any class/transform
+     2) pick a sane destination (slot, discard HUD, or center)
+     3) only then hide the real node and run playCinematic (queued)
+   - Does NOT forward to older spotlight:cine handlers (prevents double-cine)
+   ===================================================================== */
+(function RobustCineEmitter_v263(){
+  if (window.__ROBUST_CINE_EMITTER__) return;
+  window.__ROBUST_CINE_EMITTER__ = true;
+
+  const Grey = window.Grey || (window.Grey = {on(){}, off(){}, emit(){}});
+  const _emit = Grey.emit?.bind(Grey) || function(){};
+
+  // Ensure we have a queue so multiple cinematics don't overlap/tear.
+  let cineQ = Promise.resolve();
+
+  // Measure rect without transforms (temporarily disable transforms on the element)
+  function rectWithoutTransforms(node){
+    if (!(node instanceof HTMLElement)) return null;
+    const prevTf = node.style.transform;
+    const prevTr = node.style.transition;
+    node.style.transition = 'none';
+    node.style.transform = 'none';
+    // Force sync layout
+    // eslint-disable-next-line no-unused-expressions
+    node.offsetWidth;
+    const r = node.getBoundingClientRect();
+    const rect = { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+    // restore
+    node.style.transform = prevTf;
+    node.style.transition = prevTr;
+    return rect;
+  }
+
+  function centerRect(w=260,h=360){
+    const vw = innerWidth, vh = innerHeight;
+    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
+  }
+
+  function rectOf(el){
+    if (!(el instanceof Element)) return null;
+    const r = el.getBoundingClientRect();
+    if (!r || !Number.isFinite(r.width) || !Number.isFinite(r.height)) return null;
+    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+  }
+
+  function rectOfAny(target){
+    if (!target) return null;
+    if (typeof target === 'string') return rectOf(document.querySelector(target));
+    return rectOf(target);
+  }
+
+  function domRectOfDiscardHud(){
+    const n = document.getElementById('btn-discard-hud');
+    if (!n) return null;
+    const r = n.getBoundingClientRect();
+    const w = Math.min(r.width * 0.9, 220);
+    const h = Math.min(r.height * 1.4, 300);
+    return { x:r.left + (r.width-w)/2, y:r.top + (r.height-h)/2, w, h, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+  }
+
+  // Small helper to compute slot selector if pose targets a spell slot
+  function destForPose(payload){
+    const { pose, slotIndex, to } = payload || {};
+    if (pose === 'play-spell' && Number.isFinite(slotIndex)){
+      const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+      return rectOfAny(sel);
+    }
+    if (to) {
+      const r = rectOfAny(to);
+      if (r) return r;
+    }
+    // common fallbacks
+    return domRectOfDiscardHud() || centerRect();
+  }
+
+  // Keep CSS so hide-during-flight truly hides the source (no flicker)
+  (function ensureCSS(){
+    if (document.getElementById('robust-cine-css')) return;
+    const s = document.createEl
