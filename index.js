@@ -2842,3 +2842,143 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 })();
 
+
+
+/* =====================================================================
+   v2.63 — Cine Hardening: stable rects + retries + queue (append-only)
+   Fixes: ghosts flying to top-left when start/dest rects are 0/NaN/unmounted
+   ===================================================================== */
+(() => {
+  if (window.__CINE_HARDEN_V263__) return; window.__CINE_HARDEN_V263__ = true;
+
+  const next2 = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const centerRect = (w=260,h=360) => {
+    const vw = innerWidth, vh = innerHeight;
+    return { x:(vw-w)/2, y:(vh-h)/2, w, h, cx:vw/2, cy:vh/2 };
+  };
+  const isValid = (r) =>
+    r && Number.isFinite(r.x) && Number.isFinite(r.y) &&
+    Number.isFinite(r.w) && Number.isFinite(r.h) && r.w > 0 && r.h > 0;
+
+  function liveRect(el){
+    if (!(el instanceof Element)) return null;
+    const r = el.getBoundingClientRect();
+    return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+  }
+  function rectWithoutTransforms(node){
+    if (!(node instanceof HTMLElement)) return null;
+    const tf = node.style.transform, tr = node.style.transition;
+    node.style.transition = 'none'; node.style.transform = 'none';
+    // force layout
+    // eslint-disable-next-line no-unused-expressions
+    node.offsetWidth;
+    const r = liveRect(node);
+    node.style.transform = tf; node.style.transition = tr;
+    return r;
+  }
+  async function measureStableRect(node, retries=2){
+    // 1) try without transforms
+    let r = rectWithoutTransforms(node);
+    if (isValid(r)) return r;
+    // 2) try current transform
+    r = liveRect(node);
+    if (isValid(r)) return r;
+    // 3) retry for a couple frames (DOM may mount next tick)
+    for (let i=0;i<retries;i++){
+      await next2();
+      r = liveRect(node);
+      if (isValid(r)) return r;
+    }
+    return null;
+  }
+  async function measureDest(payload){
+    const { pose, slotIndex, to } = payload || {};
+    // Spell slot targeting
+    if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
+      const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+      const node = document.querySelector(sel);
+      let r = liveRect(node);
+      if (!isValid(r)) { await next2(); r = liveRect(node); }
+      if (isValid(r)) return r;
+    }
+    // Explicit target
+    if (to){
+      const node = (typeof to === 'string') ? document.querySelector(to) : to;
+      let r = liveRect(node);
+      if (!isValid(r)) { await next2(); r = liveRect(node); }
+      if (isValid(r)) return r;
+    }
+    // Discard HUD fallback
+    const hud = document.getElementById('btn-discard-hud');
+    if (hud){
+      const r = hud.getBoundingClientRect();
+      const w = Math.min(r.width * 0.9, 220), h = Math.min(r.height * 1.4, 300);
+      return { x:r.left+(r.width-w)/2, y:r.top+(r.height-h)/2, w, h, cx:r.left+r.width/2, cy:r.top+r.height/2 };
+    }
+    return centerRect();
+  }
+
+  // Queue cinematics so they never overlap tear
+  let cineQ = Promise.resolve();
+
+  // Ensure source nodes truly hide during flight (no flicker / extra measure)
+  if (!document.getElementById('cine-harden-style')) {
+    const s = document.createElement('style'); s.id = 'cine-harden-style';
+    s.textContent = `
+      #hand .card.grey-hide-during-flight{
+        opacity:0 !important; pointer-events:none !important;
+        transform: translate3d(var(--tx,0px), var(--ty,40px), 0) scale(.92) !important;
+      }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // Wrap Grey.emit for spotlight:cine to measure FIRST, then hide & run
+  const Grey = window.Grey || (window.Grey = { on(){}, off(){}, emit(){} });
+  const _emit = Grey.emit?.bind(Grey) || function(){};
+
+  Grey.emit = function(name, payload){
+    if (name !== 'spotlight:cine' || !payload || !payload.node) {
+      return _emit(name, payload);
+    }
+
+    const node = payload.node;
+
+    cineQ = cineQ.then(async ()=>{
+      // 1) MEASURE start BEFORE any class toggles; retry if needed
+      let start = await measureStableRect(node);
+      if (!isValid(start)) start = centerRect(); // bulletproof
+
+      // 2) MEASURE destination (handles late-mount)
+      const dest = await measureDest(payload);
+
+      // 3) Hide the real node so no flicker / duplicate motion
+      node.classList.add('grey-hide-during-flight');
+      node.setAttribute('data-no-ghost','1');
+
+      try{
+        if (typeof window.playCinematic === 'function'){
+          // Normalize rects once more (no NaN → 0px mishaps)
+          const S = isValid(start) ? start : centerRect();
+          const D = isValid(dest)  ? dest  : centerRect();
+          await window.playCinematic(payload.cardData || {}, S, D, {
+            centerScale:  payload.centerScale ?? 1.16,
+            poseInMs:     payload.poseInMs   ?? 240,
+            holdMs:       payload.holdMs     ?? 300,
+            outMs:        payload.outMs      ?? 260,
+            endScale:     payload.endScale   ?? 0.78,
+          });
+        }
+      } finally {
+        if (document.body.contains(node)){
+          node.classList.remove('grey-hide-during-flight');
+          node.removeAttribute('data-no-ghost');
+        }
+      }
+    }).catch(()=>{ /* keep queue alive */ });
+
+    return; // swallow original to avoid double-handling elsewhere
+  };
+})();
+
