@@ -1314,47 +1314,7 @@ function diamondSVG(numeral="I"){
     </svg>
   `;
 }
-function ensureTranceStyles(){
-  if (document.getElementById("trance-style")) return;
-  const s = document.createElement("style");
-  s.id = "trance-style";
-  s.textContent = `
-    .portrait .trance{
-      position:absolute; left:0; right:0; bottom:-10px;
-      display:grid; gap:6px; pointer-events:auto; z-index:1;
-      font-size:14px; opacity:.9;
-    }
-    .portrait .trance .level{
-      display:grid; grid-auto-flow:column; align-items:center; gap:8px;
-      line-height:1; padding:4px 8px; border-radius:8px;
-      color:rgba(255,255,255,.7);
-      position:relative;
-    }
-    .portrait .trance .level .dia{ width:18px; height:18px; }
-    .portrait .trance .level .dia text{ fill:currentColor; }
-    .portrait .trance .level.active{
-      color:rgba(255,255,255,.95);
-      background:rgba(160,120,255,.10);
-      box-shadow:0 0 0 1px rgba(160,120,255,.18) inset, 0 0 12px rgba(160,120,255,.18);
-    }
-    /* Tooltip (pure CSS) */
-    .portrait .trance .level[data-tip] { cursor:help; }
-    .portrait .trance .level[data-tip]::after{
-      content:attr(data-tip);
-      position:absolute; left:50%; bottom:100%;
-      transform:translate(-50%,-8px);
-      max-width:240px; white-space:normal;
-      padding:8px 10px; border-radius:8px; line-height:1.25;
-      background:rgba(0,0,0,.88); color:#e9e9e9;
-      border:1px solid rgba(255,255,255,.1);
-      opacity:0; pointer-events:none; transition:opacity .15s ease;
-      box-shadow:0 8px 24px rgba(0,0,0,.35);
-    }
-    .portrait .trance .level[data-tip]:hover::after,
-    .portrait .trance .level[data-tip]:focus-visible::after { opacity:1; }
-  `;
-  document.head.appendChild(s);
-}
+
 
 
 function ensureTranceUI(){
