@@ -1308,148 +1308,163 @@ async function renderFlow(flowArray){
 
 
 
-/* ---------- Trance strip (diamonds w/ numerals + labels) ---------- */
+/* ---------- Trance strip (per-Weaver thresholds, names, effects) ---------- */
 function ensureTranceStyles(){
   if (document.getElementById("trance-strip-style")) return;
   const s = document.createElement("style");
   s.id = "trance-strip-style";
   s.textContent = `
-    /* container that lives inside .portrait */
-    .portrait .trance {
-      --tr-size: 40px;                 /* ~2× the previous size */
+    .portrait .trance{
+      --tr-size: 40px;     /* 2× */
       --tr-gap: 10px;
       --tr-fg: rgba(230,220,200,.85);
       --tr-dim: rgba(230,220,200,.30);
-      --tr-active: #b9f0ff;            /* cyan glow when active */
-      position: relative;
+      --tr-active: #b9f0ff;
       margin-top: 6px;
       display: grid;
       gap: 6px;
-      pointer-events: auto;
       user-select: none;
     }
-
-    .portrait .trance .tr-row {
+    .portrait .trance .tr-row{
       display: inline-grid;
       grid-auto-flow: column;
       align-items: center;
       gap: var(--tr-gap);
       color: var(--tr-fg);
-      opacity: .85;
+      opacity: .9;
     }
-    .portrait .trance .tr-row .label {
+    .portrait .trance .label{
       font-size: 15px;
       letter-spacing: .02em;
-      opacity: .85;
       transform: translateY(1px);
+      white-space: nowrap;
     }
-
-    /* the diamond badge with roman numeral inside */
-    .portrait .trance .badge {
-      width: var(--tr-size);
-      height: var(--tr-size);
-      position: relative;
-      display: grid;
-      place-items: center;
-      border-radius: 8px; /* subtle rounding of hit-area only */
-      outline: 0;
+    .portrait .trance .badge{
+      width: var(--tr-size); height: var(--tr-size);
+      display: grid; place-items: center;
+      position: relative; outline: 0;
     }
-    .portrait .trance .badge svg {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-    .portrait .trance .badge .r {
-      font-size: calc(var(--tr-size) * .44);
+    .portrait .trance .badge svg{ width:100%; height:100%; display:block; }
+    .portrait .trance .badge .r{
+      font-size: calc(var(--tr-size)*.44);
       font-weight: 600;
       fill: currentColor;
       dominant-baseline: central;
       text-anchor: middle;
     }
 
-    /* inactive look */
-    .portrait .trance .tr-row:not(.active) { color: var(--tr-dim); }
-    .portrait .trance .tr-row:not(.active) .badge { color: var(--tr-dim); }
-
-    /* active highlight */
-    .portrait .trance .tr-row.active { color: var(--tr-active); }
-    .portrait .trance .tr-row.active .badge {
+    /* inactive vs active */
+    .portrait .trance .tr-row:not(.active){ color: var(--tr-dim); }
+    .portrait .trance .tr-row.active{
       color: var(--tr-active);
       filter: drop-shadow(0 0 6px rgba(110,220,255,.45));
     }
 
-    /* simple tooltip */
-    .portrait .trance .tr-row .badge[title] {
-      position: relative;
-      cursor: help;
-    }
-    .portrait .trance .tr-row .badge[title]:hover::after,
-    .portrait .trance .tr-row .badge[title]:focus-visible::after {
+    /* simple tooltip on the diamond */
+    .portrait .trance .badge[title]{ cursor: help; position: relative; }
+    .portrait .trance .badge[title]:hover::after,
+    .portrait .trance .badge[title]:focus-visible::after{
       content: attr(title);
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
+      position: absolute; left:50%; transform: translateX(-50%);
       bottom: calc(100% + 10px);
       white-space: nowrap;
       background: rgba(18,18,18,.92);
       color: #ddd;
       border: 1px solid rgba(255,255,255,.12);
-      padding: 6px 8px;
-      border-radius: 8px;
-      font-size: 12px;
-      letter-spacing: .02em;
+      padding: 6px 8px; border-radius: 8px;
+      font-size: 12px; letter-spacing: .02em; z-index: 10;
       pointer-events: none;
-      z-index: 10;
     }
   `;
   document.head.appendChild(s);
 }
 
+/* Character-specific thresholds, names, and effect text */
+const TRANCE_DATA = {
+  // HP thresholds are "≤" checks
+  Aria: {
+    thresholds: [4, 2],
+    stages: [
+      { name: "Runic Surge",   effect: "When you advance a Spell: gain +1 Æ (once/turn)." },
+      { name: "Spell Unbound", effect: "First Advance each turn costs 1 less Æ (min 0) and still grants +1 Æ." }
+    ]
+  },
+  Enoch: {
+    thresholds: [3, 1],
+    stages: [
+      { name: "Sigil Primer",      effect: "When you set a Glyph: Channel 1 (once/turn)." },
+      { name: "Revealed Insight",  effect: "When a Glyph reveals: draw 1 card." }
+    ]
+  },
+  Morr: {
+    thresholds: [4, 1],
+    stages: [
+      { name: "Gravecurrent Tithe", effect: "When a card leaves a Slot: gain +1 Æ (once/turn)." },
+      { name: "Flow Bargain",       effect: "Your first Flow buy each turn costs 1 less Æ and Channel 1." }
+    ]
+  },
+  Veyra: {
+    thresholds: [4, 2],
+    stages: [
+      { name: "Spiral Spark",    effect: "When you draw outside your Draw Step: gain +1 temporary Æ (once/turn)." },
+      { name: "Foresight Weave", effect: "On that trigger: look at top 2 of your deck; reorder or put one into Discard." }
+    ]
+  },
+  Kareth: {
+    thresholds: [3, 1],
+    stages: [
+      { name: "Ember Lash",       effect: "After you spend Æ to play/advance: deal 1 damage to any target (once/turn)." },
+      { name: "Combustion Rite",  effect: "Each time you spend 3+ Æ in a turn: deal 1 extra damage." }
+    ]
+  }
+};
+
 function ensureTranceUI(){
   ensureTranceStyles();
 
-  // helper: diamond with inner roman numeral
   const diamondSVG = (romanStr) => `
     <svg viewBox="0 0 100 100" aria-hidden="true">
-      <path d="M50 6 L94 50 L50 94 L6 50 Z"
-            fill="none" stroke="currentColor" stroke-width="6" />
+      <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="currentColor" stroke-width="6"/>
       <text x="50" y="54" class="r">${romanStr}</text>
     </svg>`;
 
-  const effectText = {
-    1: "At start of your turn, draw +1.",
-    2: "Your Spells cost 1 less Æ.",
-  };
-  const names = { 1: "Runic Surge", 2: "Spell Unbound" };
-
-  const apply = (portraitImgEl, level=0) => {
+  const build = (portraitImgEl, weaverName, vitality) => {
     if (!portraitImgEl) return;
     const holder = portraitImgEl.closest('.portrait');
     if (!holder) return;
 
-    let t = holder.querySelector('.trance');
-    if (!t) { t = document.createElement('div'); t.className = 'trance'; holder.appendChild(t); }
+    const data = TRANCE_DATA[weaverName] || TRANCE_DATA.Aria;
+    const [tI, tII] = data.thresholds;
+    const activeI  = (vitality|0) <= tI;
+    const activeII = (vitality|0) <= tII;
 
-    // Build rows (I and II)
-    t.innerHTML = [1,2].map(n => {
-      const isActive = (level|0) >= n;
-      return `
-        <div class="tr-row l${n} ${isActive ? 'active' : ''}">
-          <span class="badge" title="${effectText[n]}">
-            ${diamondSVG(n === 1 ? "I" : "II")}
-          </span>
-          <span class="label">${names[n]}</span>
-        </div>`;
-    }).join('');
+    let strip = holder.querySelector('.trance');
+    if (!strip){ strip = document.createElement('div'); strip.className = 'trance'; holder.appendChild(strip); }
+
+    strip.innerHTML = `
+      <div class="tr-row l1 ${activeI ? 'active' : ''}">
+        <span class="badge" title="${data.stages[0].effect}">${diamondSVG("I")}</span>
+        <span class="label">${data.stages[0].name}</span>
+      </div>
+      <div class="tr-row l2 ${activeII ? 'active' : ''}">
+        <span class="badge" title="${data.stages[1].effect}">${diamondSVG("II")}</span>
+        <span class="label">${data.stages[1].name}</span>
+      </div>`;
   };
 
   const pub = serializePublic(state) || {};
-  const playerLvl = pub.players?.player?.tranceLevel ?? 0;
-  const aiLvl     = pub.players?.ai?.tranceLevel ?? 0;
-
-  apply(playerPortrait, playerLvl);
-  apply(aiPortrait, aiLvl);
+  build(
+    playerPortrait,
+    pub.players?.player?.weaver?.name || "Aria",
+    pub.players?.player?.vitality ?? 5
+  );
+  build(
+    aiPortrait,
+    pub.players?.ai?.weaver?.name || "Morr",
+    pub.players?.ai?.vitality ?? 5
+  );
 }
+
 
 
 
