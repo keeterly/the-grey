@@ -1404,6 +1404,35 @@ const TRANCE_DATA = {
   }
 };
 
+// ---- Legacy Trance prose killer (safe to call every render) ----
+function removeLegacyTranceText(){
+  // Known IDs/classes from earlier iterations
+  document.querySelectorAll(
+    '#trance-help, .trance-help, .trance-explainer, .trance-legacy'
+  ).forEach(n => n.remove());
+
+  // Any leftover block near the portrait that starts with “Trance” or has “I — …”
+  const candidates = [
+    ...document.querySelectorAll('.portrait ~ *'),
+    ...document.querySelectorAll('#player-name, #ai-name, .weaver, .weaver + *')
+  ];
+  candidates.forEach(n => {
+    const t = (n.textContent || '').replace(/\s+/g,' ').trim();
+    if (!t) return;
+    const looksLikeHeader = /^Trance\b/i.test(t);
+    const hasOldLines     = /(?:^|\s)(I|II)\s*—/.test(t);
+    if (looksLikeHeader || hasOldLines) n.remove();
+  });
+
+  // Paranoid cleanup: any stray single-node header that says “Trance … — …”
+  const stray = [...document.querySelectorAll('*')].find(n => {
+    const t = (n.textContent || '').trim();
+    return /^Trance\b/i.test(t) && /—/.test(t) && n.children.length <= 1;
+  });
+  if (stray) stray.remove();
+}
+
+
 function ensureTranceUI(){
   ensureTranceStyles();
   removeLegacyTranceText();
