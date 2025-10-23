@@ -1304,16 +1304,7 @@ async function renderFlow(flowArray){
   });
 }
 
-// === Trance helpers ===
-function roman(n){ return ({1:"I",2:"II",3:"III",4:"IV",5:"V"})[n] || String(n); }
-function diamondSVG(numeral="I"){
-  return `
-    <svg viewBox="0 0 24 24" class="dia" aria-hidden="true">
-      <path d="M12 2 L20 10 L12 22 L4 10 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
-      <text x="12" y="12" font-size="9.5" text-anchor="middle" dominant-baseline="central">${numeral}</text>
-    </svg>
-  `;
-}
+
 
 
 
