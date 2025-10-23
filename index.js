@@ -1539,13 +1539,97 @@ function removeLegacyTranceText(){
   if (stray) stray.remove();
 }
 
+// ========= Trance config per Weaver (names use the first word before the comma) =========
+const WEAVER_TRANCE = {
+  Aria: {
+    tiers: [
+      {
+        name: "Runic Surge",
+        desc: "When you advance a Spell: gain +1 Æ (once/turn).",
+        threshold: 4
+      },
+      {
+        name: "Spell Unbound",
+        desc: "First Advance each turn costs 1 less Æ (min 0) and still grants +1 Æ.",
+        threshold: 2
+      }
+    ]
+  },
+
+  Enoch: {
+    tiers: [
+      {
+        name: "Glyph Spark",
+        desc: "When you set a Glyph: Channel 1 (once/turn).",
+        threshold: 3
+      },
+      {
+        name: "Studied Reveal",
+        desc: "When a Glyph reveals: draw 1 card.",
+        threshold: 1
+      }
+    ]
+  },
+
+  Morr: {
+    tiers: [
+      {
+        name: "Gravecurrent",
+        desc: "When a card leaves a Slot: gain +1 Æ (once/turn).",
+        threshold: 4
+      },
+      {
+        name: "Tithe of the Flow",
+        desc: "Your first Aether Flow purchase each turn costs 1 less Æ and Channel 1.",
+        threshold: 1
+      }
+    ]
+  },
+
+  Veyra: {
+    tiers: [
+      {
+        name: "Forethought",
+        desc: "When you draw outside your Draw Step: gain +1 temporary Æ (once/turn).",
+        threshold: 4
+      },
+      {
+        name: "Scry the Spiral",
+        desc: "On trigger, look at the top 2 cards of your deck; reorder or discard one.",
+        threshold: 2
+      }
+    ]
+  },
+
+  Kareth: {
+    tiers: [
+      {
+        name: "Ember Lash",
+        desc: "After you spend Æ to play/advance: deal 1 damage to any target (once/turn).",
+        threshold: 3
+      },
+      {
+        name: "Kindled Fury",
+        desc: "Each time you spend 3+ Æ in a turn, deal 1 extra damage.",
+        threshold: 1
+      }
+    ]
+  }
+};
+
+// Map full UI names like "Aria, Runesurge Adept" → "Aria"
+function getTranceCfg(weaverFullName = "") {
+  const key = String(weaverFullName).split(",")[0].trim();
+  return WEAVER_TRANCE[key] || WEAVER_TRANCE.Aria;
+}
 
 
 function renderTranceTrack(side = 'player') {
   const pub        = serializePublic(state) || {};
   const weaverName = pub.players?.[side]?.weaver?.name || 'Aria';
   const vitality   = pub.players?.[side]?.vitality | 0;
-  const cfg        = WEAVER_TRANCE[weaverName] || WEAVER_TRANCE.Aria;
+   const cfg = getTranceCfg(weaverName);
+
 
   const portraitImgEl = document.getElementById(`${side}-portrait`);
   if (!portraitImgEl) return;
