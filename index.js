@@ -1304,30 +1304,100 @@ async function renderFlow(flowArray){
   });
 }
 
-/* ---------- trance stripe under gem (levels only) ---------- */
-function ensureTranceUI(){
-  const templateHTML = `
-    <div class="level" data-level="1">◇ I — Runic Surge</div>
-    <div class="level" data-level="2">◇ II — Spell Unbound</div>
+// === Trance helpers ===
+function roman(n){ return ({1:"I",2:"II",3:"III",4:"IV",5:"V"})[n] || String(n); }
+function diamondSVG(numeral="I"){
+  return `
+    <svg viewBox="0 0 24 24" class="dia" aria-hidden="true">
+      <path d="M12 2 L20 10 L12 22 L4 10 Z" fill="none" stroke="currentColor" stroke-width="1.6"/>
+      <text x="12" y="12" font-size="9.5" text-anchor="middle" dominant-baseline="central">${numeral}</text>
+    </svg>
   `;
+}
+function ensureTranceStyles(){
+  if (document.getElementById("trance-style")) return;
+  const s = document.createElement("style");
+  s.id = "trance-style";
+  s.textContent = `
+    .portrait .trance{
+      position:absolute; left:0; right:0; bottom:-10px;
+      display:grid; gap:6px; pointer-events:auto; z-index:1;
+      font-size:14px; opacity:.9;
+    }
+    .portrait .trance .level{
+      display:grid; grid-auto-flow:column; align-items:center; gap:8px;
+      line-height:1; padding:4px 8px; border-radius:8px;
+      color:rgba(255,255,255,.7);
+      position:relative;
+    }
+    .portrait .trance .level .dia{ width:18px; height:18px; }
+    .portrait .trance .level .dia text{ fill:currentColor; }
+    .portrait .trance .level.active{
+      color:rgba(255,255,255,.95);
+      background:rgba(160,120,255,.10);
+      box-shadow:0 0 0 1px rgba(160,120,255,.18) inset, 0 0 12px rgba(160,120,255,.18);
+    }
+    /* Tooltip (pure CSS) */
+    .portrait .trance .level[data-tip] { cursor:help; }
+    .portrait .trance .level[data-tip]::after{
+      content:attr(data-tip);
+      position:absolute; left:50%; bottom:100%;
+      transform:translate(-50%,-8px);
+      max-width:240px; white-space:normal;
+      padding:8px 10px; border-radius:8px; line-height:1.25;
+      background:rgba(0,0,0,.88); color:#e9e9e9;
+      border:1px solid rgba(255,255,255,.1);
+      opacity:0; pointer-events:none; transition:opacity .15s ease;
+      box-shadow:0 8px 24px rgba(0,0,0,.35);
+    }
+    .portrait .trance .level[data-tip]:hover::after,
+    .portrait .trance .level[data-tip]:focus-visible::after { opacity:1; }
+  `;
+  document.head.appendChild(s);
+}
+
+
+function ensureTranceUI(){
+  ensureTranceStyles();
+
+  // Descriptions for tooltips
+  const DESC = {
+    1: "Runic Surge — At the start of your turn, draw +1 card.",
+    2: "Spell Unbound — Your spells cost 1 less Æ (uses temp Æ first)."
+  };
+
+  // Build one portrait’s trance stripe
   const apply = (portraitImgEl, level=0)=>{
     if (!portraitImgEl) return;
     const holder = portraitImgEl.closest('.portrait');
     if (!holder) return;
 
     let t = holder.querySelector('.trance');
-    if (!t){ t = document.createElement('div'); t.className = 'trance'; }
-    t.innerHTML = templateHTML;
-    Array.from(t.querySelectorAll('.level')).forEach(el=>{
-      const n = Number(el.getAttribute('data-level'));
-      el.classList.toggle('active', (level|0) >= n);
+    if (!t){ t = document.createElement('div'); t.className = 'trance'; holder.appendChild(t); }
+
+    // Render rows with diamond + numeral inside, and tooltip text
+    const rows = [1,2].map(n => {
+      const div = document.createElement('div');
+      div.className = 'level';
+      div.dataset.level = String(n);
+      div.setAttribute('data-tip', DESC[n] || "");
+      div.setAttribute('tabindex', '0');           // accessible tooltip on focus
+      div.innerHTML = `${diamondSVG(roman(n))} <span>${n===1?'Runic Surge':'Spell Unbound'}</span>`;
+      div.classList.toggle('active', (level|0) >= n);  // highlight when active
+      return div;
     });
-    holder.appendChild(t);
+
+    t.replaceChildren(...rows);
   };
+
+  // Pull current levels and apply to both portraits
   const pub = serializePublic(state) || {};
-  apply(playerPortrait, pub.players?.player?.tranceLevel ?? 0);
-  apply(aiPortrait, pub.players?.ai?.tranceLevel ?? 0);
+  const pLvl = pub.players?.player?.tranceLevel ?? 0;
+  const aLvl = pub.players?.ai?.tranceLevel ?? 0;
+  apply(playerPortrait, pLvl);
+  apply(aiPortrait, aLvl);
 }
+
 
 function highlightPlayableCards(){
   const pub = serializePublic(state) || {};
