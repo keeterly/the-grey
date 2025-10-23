@@ -1452,14 +1452,6 @@ function ensureTranceUI(){
 }
 
 
-  // Pull current levels from public state and apply to both portraits
-  const pub = serializePublic(state) || {};
-  const pLvl  = pub.players?.player?.tranceLevel ?? 0;
-  const aiLvl = pub.players?.ai?.tranceLevel ?? 0;
-
-  apply(playerPortrait, pLvl);
-  apply(aiPortrait,    aiLvl);
-}
 
 
 
