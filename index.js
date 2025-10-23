@@ -1595,29 +1595,70 @@ function removeLegacyTranceText(){
 
 
 
-
+function renderTranceTrack(side = 'player') {
   const pub = serializePublic(state) || {};
-  const weaverName = pub.players?.player?.weaver?.name || "Aria";
-  const vitality   = pub.players?.player?.vitality|0;
-  const cfg = WEAVER_TRANCE[weaverName] || WEAVER_TRANCE.Aria;
+  const weaverName = pub.players?.[side]?.weaver?.name || 'Aria';
+  const vitality   = pub.players?.[side]?.vitality | 0;
+  const cfg        = WEAVER_TRANCE[weaverName] || WEAVER_TRANCE.Aria;
 
-  const portraitImgEl = document.getElementById('player-portrait');
+  const portraitImgEl = document.getElementById(`${side}-portrait`);
   if (!portraitImgEl) return;
 
   const holder = portraitImgEl.closest('.portrait') || portraitImgEl.parentElement;
   if (!holder) return;
 
-  let strip = holder.querySelector('.trance-strip');
-  if (!strip){
-    strip = document.createElement('div');
-    strip.className = 'trance-strip';
-    holder.appendChild(strip);
+  // Ensure a container that lives *beneath* the aether strip
+  let wrap = holder.querySelector('.trance-wrap');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'trance-wrap';
+    holder.appendChild(wrap);
   }
 
+  // Make/clear the row that holds the two tiers
+  let strip = wrap.querySelector('.trance-row');
+  if (!strip) {
+    strip = document.createElement('div');
+    strip.className = 'trance-row';
+    wrap.appendChild(strip);
+  }
   strip.replaceChildren();
 
-  cfg.tiers.forEach(t => {
-    // active if current HP <= threshold
+  // Build each tier
+  cfg.tiers.forEach((t, idx) => {
+    const step = document.createElement('div');
+    step.className = 'trance-step';
+    const isActive = vitality <= (t.threshold | 0);
+    if (isActive) step.classList.add('active');
+
+    // Show threshold on hover
+    step.title = `Activates at ≤ ${t.threshold} hearts`;
+
+    // Diamond + Roman
+    const diamond = document.createElement('div');
+    diamond.className = 'diamond';
+    const roman = document.createElement('div');
+    roman.className = 'roman';
+    roman.textContent = (idx === 0 ? 'I' : 'II');
+    diamond.appendChild(roman);
+
+    // Copy: name + description
+    const copy = document.createElement('div');
+    copy.className = 'trance-copy';
+    copy.innerHTML = `
+      <div class="trance-name">${t.name}</div>
+      <div class="trance-desc">${t.desc}</div>
+    `;
+
+    step.appendChild(diamond);
+    step.appendChild(copy);
+    strip.appendChild(step);
+  });
+}
+
+
+ 
+// active if current HP <= threshold
     const isActive = vitality <= (t.threshold|0);
 
     const row = document.createElement('div');
@@ -2320,8 +2361,8 @@ async function render(){
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
-  renderTranceTrack('player', s);
-  renderTranceTrack('ai', s);
+ renderTranceTrack('player');
+renderTranceTrack('ai');
   ensurePipHandlers();
   refreshPipAdvanceClasses();
   removeLegacyTranceText();
