@@ -1308,7 +1308,6 @@ async function renderFlow(flowArray){
 
 
 
-/* ---------- Trance strip (names + effects, under Aether track) ---------- */
 function ensureTranceStyles(){
   if (document.getElementById("trance-strip-style")) return;
   const s = document.createElement("style");
@@ -1321,9 +1320,9 @@ function ensureTranceStyles(){
       --tr-fg: rgba(230,220,200,.86);
       --tr-dim: rgba(230,220,200,.30);
       --tr-active: #b9f0ff;
-      margin-top: 10px;
+      margin-top: 18px;        /* extra spacing under Aether icons */
       display: grid;
-      gap: 10px;
+      gap: 12px;
       user-select: none;
     }
     .trance-strip .tr-row{
@@ -1339,21 +1338,24 @@ function ensureTranceStyles(){
     }
     .trance-strip .badge svg{ width:100%; height:100%; display:block; }
     .trance-strip .badge .r{
-      font-size: calc(var(--tr-size)*.44);
+      /* Roman inside the diamond — 1.5× larger than before */
+      font-size: calc(var(--tr-size)*.66);
       font-weight: 600;
       fill: currentColor;
       dominant-baseline: central;
       text-anchor: middle;
     }
 
-    .trance-strip .meta{ display: grid; gap: 2px; align-content: center; }
+    .trance-strip .meta{ display: grid; gap: 4px; align-content: center; }
     .trance-strip .label{
-      font-size: calc(1em * 1.5);       /* 1.5× name */
+      /* Title 10% smaller than previous 1.5× → 1.35× */
+      font-size: calc(1em * 1.35);
       letter-spacing: .02em;
       line-height: 1.05;
     }
     .trance-strip .effect{
-      font-size: 13px;
+      /* subtitle +20% (was ~13px) */
+      font-size: 16px;
       opacity: .85;
       line-height: 1.2;
     }
@@ -1367,6 +1369,7 @@ function ensureTranceStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 /* Character-specific thresholds, names, and effect text */
 const TRANCE_DATA = {
@@ -1409,7 +1412,24 @@ const TRANCE_DATA = {
 
 function ensureTranceUI(){
   ensureTranceStyles();
+  removeLegacyTranceText();
+  
+function removeLegacyTranceText(){
+  // Nuke any old tutorial/explainer blocks that were hard-coded in the layout
+  document.querySelectorAll(
+    '#trance-help, .trance-help, .trance-explainer, .trance-legacy'
+  ).forEach(n => n.remove());
 
+  // extra safety: if there’s a lone <div> directly under the portrait block
+  // with the heading "Trance" and lines starting with "I —", remove it.
+  document.querySelectorAll('.portrait + div, .weaver + div').forEach(n=>{
+    const t = (n.textContent || '').trim();
+    if (/^Trance\s*$/i.test(t.split('\n')[0] || '') || /I\s*—/.test(t)) n.remove();
+  });
+}
+
+
+  
   const diamondSVG = (romanStr) => `
     <svg viewBox="0 0 100 100" aria-hidden="true">
       <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="currentColor" stroke-width="6"/>
