@@ -2361,7 +2361,8 @@ renderTranceTrack('ai');
   ensurePipHandlers();
   refreshPipAdvanceClasses();
   removeLegacyTranceText();
-  ensureTranceUI();
+ 
+
   
 
 
