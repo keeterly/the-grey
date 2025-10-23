@@ -1360,43 +1360,128 @@ function ensureTranceStyles(){
 function ensureTranceUI(){
   ensureTranceStyles();
 
-  // Descriptions for tooltips
-  const DESC = {
-    1: "Runic Surge — At the start of your turn, draw +1 card.",
-    2: "Spell Unbound — Your spells cost 1 less Æ (uses temp Æ first)."
-  };
-
-  // Build one portrait’s trance stripe
-  const apply = (portraitImgEl, level=0)=>{
+  // Builds/updates the trance strip under a given portrait image element
+  const apply = (portraitImgEl, currentLevel = 0) => {
     if (!portraitImgEl) return;
     const holder = portraitImgEl.closest('.portrait');
     if (!holder) return;
 
-    let t = holder.querySelector('.trance');
-    if (!t){ t = document.createElement('div'); t.className = 'trance'; holder.appendChild(t); }
+    // Create or reuse the row
+    let row = holder.querySelector('.trance');
+    if (!row) {
+      row = document.createElement('div');
+      row.className = 'trance';
+      holder.appendChild(row);
+    } else {
+      row.replaceChildren(); // full refresh each render
+    }
 
-    // Render rows with diamond + numeral inside, and tooltip text
-    const rows = [1,2].map(n => {
-      const div = document.createElement('div');
-      div.className = 'level';
-      div.dataset.level = String(n);
-      div.setAttribute('data-tip', DESC[n] || "");
-      div.setAttribute('tabindex', '0');           // accessible tooltip on focus
-      div.innerHTML = `${diamondSVG(roman(n))} <span>${n===1?'Runic Surge':'Spell Unbound'}</span>`;
-      div.classList.toggle('active', (level|0) >= n);  // highlight when active
-      return div;
+    // Define the skills (label text is shown in tooltip)
+    const skills = [
+      { level: 1, name: 'Runic Surge'    },
+      { level: 2, name: 'Spell Unbound'  },
+    ];
+
+    skills.forEach(({ level, name }) => {
+      const sigil = document.createElement('button');
+      sigil.type = 'button';
+      sigil.className = 'sigil';
+      sigil.setAttribute('data-level', String(level));
+      sigil.setAttribute('data-tip', `◇ ${roman(level)} — ${name}`);
+
+      // Numeral inside the diamond
+      sigil.innerHTML = diamondSVG(roman(level), 28);
+
+      // Active highlight when the player has reached this trance level
+      sigil.classList.toggle('active', (currentLevel|0) >= level);
+
+      // (Optional) keyboard focusability for tooltip
+      sigil.tabIndex = 0;
+
+      row.appendChild(sigil);
     });
-
-    t.replaceChildren(...rows);
   };
 
-  // Pull current levels and apply to both portraits
+  // Pull current levels from public state and apply to both portraits
   const pub = serializePublic(state) || {};
-  const pLvl = pub.players?.player?.tranceLevel ?? 0;
-  const aLvl = pub.players?.ai?.tranceLevel ?? 0;
+  const pLvl  = pub.players?.player?.tranceLevel ?? 0;
+  const aiLvl = pub.players?.ai?.tranceLevel ?? 0;
+
   apply(playerPortrait, pLvl);
-  apply(aiPortrait, aLvl);
+  apply(aiPortrait,    aiLvl);
 }
+
+
+function ensureTranceStyles(){
+  if (document.getElementById("trance-style")) return;
+  const s = document.createElement("style");
+  s.id = "trance-style";
+  s.textContent = `
+    /* container under each portrait */
+    .portrait .trance {
+      margin-top: 6px;
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      position: relative;
+    }
+
+    /* each sigil is a little button-like chip */
+    .trance .sigil {
+      position: relative;
+      display: inline-grid;
+      place-items: center;
+      padding: 2px;
+      border: 0;
+      background: transparent;
+      color: rgba(235, 228, 210, .45);
+      cursor: default;
+      outline: none;
+    }
+
+    .trance .sigil .trance-diamond { display:block; }
+    .trance .sigil .trance-diamond .num { fill: currentColor; }
+
+    /* tooltip */
+    .trance .sigil[data-tip]::after {
+      content: attr(data-tip);
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 8px);
+      transform: translateX(-50%);
+      white-space: nowrap;
+      font-size: 13px;
+      letter-spacing: .02em;
+      color: #e9e5d6;
+      background: rgba(20,20,20,.92);
+      border: 1px solid rgba(255,255,255,.12);
+      padding: 6px 8px;
+      border-radius: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity .15s ease;
+      box-shadow: 0 8px 18px rgba(0,0,0,.35);
+    }
+    .trance .sigil:hover::after,
+    .trance .sigil:focus-visible::after { opacity: 1; }
+
+    /* active state (meets threshold / granted level) */
+    .trance .sigil.active {
+      color: #b9c7ff;                /* tint text + numeral */
+      filter: drop-shadow(0 0 6px rgba(120,150,255,.6));
+    }
+    .trance .sigil.active .trance-diamond path {
+      stroke: #b9c7ff;
+    }
+
+    /* inactive dim state */
+    .trance .sigil:not(.active) .trance-diamond path {
+      stroke: rgba(235, 228, 210, .35);
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 
 
 function highlightPlayableCards(){
@@ -1465,6 +1550,19 @@ function ensureFlowStyles(){
   document.head.appendChild(s);
 }
 
+// --- Trance helpers ---
+function roman(n){ return (["","I","II","III","IV","V"])[Math.max(0, n|0)] || String(n|0); }
+
+/** Diamond svg with a numeral centered inside */
+function diamondSVG(numeral="I", size=28){
+  const s = size|0;
+  return `
+  <svg viewBox="0 0 48 48" width="${s}" height="${s}" aria-hidden="true" class="trance-diamond">
+    <path d="M24 6 L39 21 L24 42 L9 21 Z" fill="none" stroke="currentColor" stroke-width="3" />
+    <text x="24" y="24" text-anchor="middle" dominant-baseline="central"
+          font-size="16" font-family="serif" class="num">${numeral}</text>
+  </svg>`;
+}
 
 
 
@@ -2052,6 +2150,7 @@ async function render(){
   ensurePipHandlers();
   refreshPipAdvanceClasses();
   ensureTranceUI();
+  
 
 
 const pv = s.players?.player?.vitality | 0;
@@ -2262,6 +2361,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureGlyphFlipStyles();
   ensureGlyphFlipDownStyles();
   ensureGlyphResolveStyles();
+  ensureTranceStyles();
+
 
   await doStartTurn();
  
