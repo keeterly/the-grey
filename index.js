@@ -1308,44 +1308,37 @@ async function renderFlow(flowArray){
 
 
 
-/* ---------- Trance strip (per-Weaver thresholds, names, effects) ---------- */
+/* ---------- Trance strip (names + effects, under Aether track) ---------- */
 function ensureTranceStyles(){
   if (document.getElementById("trance-strip-style")) return;
   const s = document.createElement("style");
   s.id = "trance-strip-style";
   s.textContent = `
-    .portrait .trance{
-      --tr-size: 40px;     /* 2× */
-      --tr-gap: 10px;
-      --tr-fg: rgba(230,220,200,.85);
+    /* container lives right under the Aether display */
+    .trance-strip{
+      --tr-size: 40px;         /* 2× diamond */
+      --tr-gap: 12px;
+      --tr-fg: rgba(230,220,200,.86);
       --tr-dim: rgba(230,220,200,.30);
       --tr-active: #b9f0ff;
-      margin-top: 6px;
+      margin-top: 10px;
       display: grid;
-      gap: 6px;
+      gap: 10px;
       user-select: none;
     }
-    .portrait .trance .tr-row{
-      display: inline-grid;
-      grid-auto-flow: column;
+    .trance-strip .tr-row{
+      display: grid;
+      grid-template-columns: var(--tr-size) 1fr;
       align-items: center;
       gap: var(--tr-gap);
       color: var(--tr-fg);
-      opacity: .9;
     }
-    .portrait .trance .label{
-      font-size: 15px;
-      letter-spacing: .02em;
-      transform: translateY(1px);
-      white-space: nowrap;
-    }
-    .portrait .trance .badge{
+    .trance-strip .badge{
       width: var(--tr-size); height: var(--tr-size);
       display: grid; place-items: center;
-      position: relative; outline: 0;
     }
-    .portrait .trance .badge svg{ width:100%; height:100%; display:block; }
-    .portrait .trance .badge .r{
+    .trance-strip .badge svg{ width:100%; height:100%; display:block; }
+    .trance-strip .badge .r{
       font-size: calc(var(--tr-size)*.44);
       font-weight: 600;
       fill: currentColor;
@@ -1353,27 +1346,23 @@ function ensureTranceStyles(){
       text-anchor: middle;
     }
 
-    /* inactive vs active */
-    .portrait .trance .tr-row:not(.active){ color: var(--tr-dim); }
-    .portrait .trance .tr-row.active{
-      color: var(--tr-active);
-      filter: drop-shadow(0 0 6px rgba(110,220,255,.45));
+    .trance-strip .meta{ display: grid; gap: 2px; align-content: center; }
+    .trance-strip .label{
+      font-size: calc(1em * 1.5);       /* 1.5× name */
+      letter-spacing: .02em;
+      line-height: 1.05;
+    }
+    .trance-strip .effect{
+      font-size: 13px;
+      opacity: .85;
+      line-height: 1.2;
     }
 
-    /* simple tooltip on the diamond */
-    .portrait .trance .badge[title]{ cursor: help; position: relative; }
-    .portrait .trance .badge[title]:hover::after,
-    .portrait .trance .badge[title]:focus-visible::after{
-      content: attr(title);
-      position: absolute; left:50%; transform: translateX(-50%);
-      bottom: calc(100% + 10px);
-      white-space: nowrap;
-      background: rgba(18,18,18,.92);
-      color: #ddd;
-      border: 1px solid rgba(255,255,255,.12);
-      padding: 6px 8px; border-radius: 8px;
-      font-size: 12px; letter-spacing: .02em; z-index: 10;
-      pointer-events: none;
+    /* inactive vs active */
+    .trance-strip .tr-row:not(.active){ color: var(--tr-dim); }
+    .trance-strip .tr-row.active{
+      color: var(--tr-active);
+      filter: drop-shadow(0 0 6px rgba(110,220,255,.45));
     }
   `;
   document.head.appendChild(s);
@@ -1381,7 +1370,6 @@ function ensureTranceStyles(){
 
 /* Character-specific thresholds, names, and effect text */
 const TRANCE_DATA = {
-  // HP thresholds are "≤" checks
   Aria: {
     thresholds: [4, 2],
     stages: [
@@ -1400,14 +1388,14 @@ const TRANCE_DATA = {
     thresholds: [4, 1],
     stages: [
       { name: "Gravecurrent Tithe", effect: "When a card leaves a Slot: gain +1 Æ (once/turn)." },
-      { name: "Flow Bargain",       effect: "Your first Flow buy each turn costs 1 less Æ and Channel 1." }
+      { name: "Flow Bargain",       effect: "First Flow buy each turn costs 1 less Æ and Channel 1." }
     ]
   },
   Veyra: {
     thresholds: [4, 2],
     stages: [
       { name: "Spiral Spark",    effect: "When you draw outside your Draw Step: gain +1 temporary Æ (once/turn)." },
-      { name: "Foresight Weave", effect: "On that trigger: look at top 2 of your deck; reorder or put one into Discard." }
+      { name: "Foresight Weave", effect: "Then look at the top 2 cards of your deck; reorder or put one into Discard." }
     ]
   },
   Kareth: {
@@ -1428,42 +1416,56 @@ function ensureTranceUI(){
       <text x="50" y="54" class="r">${romanStr}</text>
     </svg>`;
 
-  const build = (portraitImgEl, weaverName, vitality) => {
-    if (!portraitImgEl) return;
-    const holder = portraitImgEl.closest('.portrait');
-    if (!holder) return;
-
+  // helper to mount directly under the given Aether element
+  const mountUnderAe = (aeEl, weaverName, vitality, side) => {
+    if (!aeEl) return;
     const data = TRANCE_DATA[weaverName] || TRANCE_DATA.Aria;
     const [tI, tII] = data.thresholds;
     const activeI  = (vitality|0) <= tI;
     const activeII = (vitality|0) <= tII;
 
-    let strip = holder.querySelector('.trance');
-    if (!strip){ strip = document.createElement('div'); strip.className = 'trance'; holder.appendChild(strip); }
+    let strip = document.getElementById(`trance-strip-${side}`);
+    if (!strip){
+      strip = document.createElement('div');
+      strip.id = `trance-strip-${side}`;
+      strip.className = 'trance-strip';
+      aeEl.insertAdjacentElement('afterend', strip);   // << under Aether track
+    }
 
     strip.innerHTML = `
       <div class="tr-row l1 ${activeI ? 'active' : ''}">
-        <span class="badge" title="${data.stages[0].effect}">${diamondSVG("I")}</span>
-        <span class="label">${data.stages[0].name}</span>
+        <span class="badge">${diamondSVG("I")}</span>
+        <span class="meta">
+          <span class="label">${data.stages[0].name}</span>
+          <span class="effect">${data.stages[0].effect}</span>
+        </span>
       </div>
       <div class="tr-row l2 ${activeII ? 'active' : ''}">
-        <span class="badge" title="${data.stages[1].effect}">${diamondSVG("II")}</span>
-        <span class="label">${data.stages[1].name}</span>
+        <span class="badge">${diamondSVG("II")}</span>
+        <span class="meta">
+          <span class="label">${data.stages[1].name}</span>
+          <span class="effect">${data.stages[1].effect}</span>
+        </span>
       </div>`;
   };
 
   const pub = serializePublic(state) || {};
-  build(
-    playerPortrait,
+
+  mountUnderAe(
+    document.getElementById('player-aether'),
     pub.players?.player?.weaver?.name || "Aria",
-    pub.players?.player?.vitality ?? 5
+    pub.players?.player?.vitality ?? 5,
+    'player'
   );
-  build(
-    aiPortrait,
+
+  mountUnderAe(
+    document.getElementById('ai-aether'),
     pub.players?.ai?.weaver?.name || "Morr",
-    pub.players?.ai?.vitality ?? 5
+    pub.players?.ai?.vitality ?? 5,
+    'ai'
   );
 }
+
 
 
 
