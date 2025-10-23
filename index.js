@@ -1552,13 +1552,7 @@ const TRANCE_DATA = {
 };
 
 
-  // Paranoid cleanup: any stray single-node header that says “Trance … — …”
-  const stray = [...document.querySelectorAll('*')].find(n => {
-    const t = (n.textContent || '').trim();
-    return /^Trance\b/i.test(t) && /—/.test(t) && n.children.length <= 1;
-  });
-  if (stray) stray.remove();
-}
+  
 
 // ========= Trance config per Weaver (names use the first word before the comma) =========
 const WEAVER_TRANCE = {
