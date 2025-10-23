@@ -1542,7 +1542,7 @@ function removeLegacyTranceText(){
 
 
 function renderTranceTrack(side = 'player') {
-  const pub = serializePublic(state) || {};
+  const pub        = serializePublic(state) || {};
   const weaverName = pub.players?.[side]?.weaver?.name || 'Aria';
   const vitality   = pub.players?.[side]?.vitality | 0;
   const cfg        = WEAVER_TRANCE[weaverName] || WEAVER_TRANCE.Aria;
@@ -1553,7 +1553,7 @@ function renderTranceTrack(side = 'player') {
   const holder = portraitImgEl.closest('.portrait') || portraitImgEl.parentElement;
   if (!holder) return;
 
-  // Ensure a container that lives *beneath* the aether strip
+  // ensure container under the aether strip
   let wrap = holder.querySelector('.trance-wrap');
   if (!wrap) {
     wrap = document.createElement('div');
@@ -1561,7 +1561,7 @@ function renderTranceTrack(side = 'player') {
     holder.appendChild(wrap);
   }
 
-  // Make/clear the row that holds the two tiers
+  // ensure / clear row
   let strip = wrap.querySelector('.trance-row');
   if (!strip) {
     strip = document.createElement('div');
@@ -1570,25 +1570,28 @@ function renderTranceTrack(side = 'player') {
   }
   strip.replaceChildren();
 
-  // Build each tier
+  // build tiers
   cfg.tiers.forEach((t, idx) => {
     const step = document.createElement('div');
     step.className = 'trance-step';
+
+    // active when current HP <= threshold
     const isActive = vitality <= (t.threshold | 0);
     if (isActive) step.classList.add('active');
 
-    // Show threshold on hover
-    step.title = `Activates at ≤ ${t.threshold} hearts`;
+    // show threshold on hover
+    step.title = `Activates at \u2264 ${t.threshold} hearts`;
 
-    // Diamond + Roman
+    // diamond + roman
     const diamond = document.createElement('div');
     diamond.className = 'diamond';
+
     const roman = document.createElement('div');
     roman.className = 'roman';
-    roman.textContent = (idx === 0 ? 'I' : 'II');
+    roman.textContent = idx === 0 ? 'I' : 'II';
     diamond.appendChild(roman);
 
-    // Copy: name + description
+    // copy
     const copy = document.createElement('div');
     copy.className = 'trance-copy';
     copy.innerHTML = `
@@ -1601,44 +1604,6 @@ function renderTranceTrack(side = 'player') {
     strip.appendChild(step);
   });
 }
-
-
- 
-// active if current HP <= threshold
-    const isActive = vitality <= (t.threshold|0);
-
-    const row = document.createElement('div');
-    row.className = 'tr-row' + (isActive ? ' active' : '');
-    row.title = `Activates at ≤ ${t.threshold} ♥`;   // ← hover threshold
-    row.setAttribute('aria-label', row.title);
-
-    const badge = document.createElement('div');
-    badge.className = 'badge';
-    badge.innerHTML = `
-      <svg viewBox="0 0 64 64" aria-hidden="true">
-        <path d="M32 6 52 26 32 58 12 26 32 6Z" fill="none" stroke="currentColor" stroke-width="3" opacity=".9"/>
-        <text x="32" y="35" class="r"> ${t.n === 1 ? 'I' : 'II'} </text>
-      </svg>
-    `;
-
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.innerHTML = `
-      <div class="label">${t.name}</div>
-      <div class="effect">${t.effect}</div>
-    `;
-
-    row.appendChild(badge);
-    row.appendChild(meta);
-    strip.appendChild(row);
-  });
-}
-
-
-
-
-
-
 
 
 
