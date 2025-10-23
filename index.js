@@ -1364,6 +1364,167 @@ function ensureTranceStyles(){
 }
 
 
+// ===== Trance meta for all 5 weavers =====
+const TRANCE_BOOK = {
+  aria: {
+    thresholds: { I: 4, II: 2 },
+    stages: {
+      I:  { name: "Runic Surge",    blurb: "When you advance a Spell: gain +1 Æ (once/turn)." },
+      II: { name: "Spell Unbound",  blurb: "First Advance each turn costs 1 less Æ (min 0) and still grants +1 Æ." },
+    },
+  },
+  enoch: {
+    thresholds: { I: 3, II: 1 },
+    stages: {
+      I:  { name: "Glyph Channel",  blurb: "On set, Channel 1 (once/turn)." },
+      II: { name: "Scribe’s Insight", blurb: "When a Glyph reveals, draw 1 card." },
+    },
+  },
+  morr: {
+    thresholds: { I: 4, II: 1 },
+    stages: {
+      I:  { name: "Gravecurrent",   blurb: "When a card leaves a Slot: gain +1 Æ (once/turn)." },
+      II: { name: "Tithe of Flow",  blurb: "First Flow purchase each turn costs 1 less Æ and Channel 1." },
+    },
+  },
+  veyra: {
+    thresholds: { I: 4, II: 2 },
+    stages: {
+      I:  { name: "Spiral Spark",   blurb: "When you draw outside Draw Step: gain +1 temporary Æ (once/turn)." },
+      II: { name: "Second Sight",   blurb: "On trigger, look at top 2 cards; reorder or put one into Discard." },
+    },
+  },
+  kareth: {
+    thresholds: { I: 3, II: 1 },
+    stages: {
+      I:  { name: "Ember Lash",     blurb: "After spending Æ: deal 1 damage to any target (once/turn)." },
+      II: { name: "Furnace Rush",   blurb: "Each time you spend 3+ Æ in a turn, deal +1 extra damage." },
+    },
+  },
+};
+
+function getWeaverKey(weaverName="") {
+  const k = String(weaverName || "").trim().toLowerCase();
+  if (k.startsWith("aria"))   return "aria";
+  if (k.startsWith("enoch"))  return "enoch";
+  if (k.startsWith("morr"))   return "morr";
+  if (k.startsWith("veyra"))  return "veyra";
+  if (k.startsWith("kareth")) return "kareth";
+  // default to Aria if unknown
+  return "aria";
+}
+
+/**
+ * Render the trance track for a side ("player" | "ai")
+ * - Inserts below that side's aether readout
+ * - Highlights active stages based on vitality threshold
+ * - Adds title tooltips with thresholds
+ */
+function renderTranceTrack(side, pub) {
+  const sideData = pub?.players?.[side] || {};
+  const name = sideData?.weaver?.name || "";
+  const key = getWeaverKey(name);
+  const meta = TRANCE_BOOK[key];
+  if (!meta) return;
+
+  // Where to attach: directly under the side's aether HUD readout container
+  const aetherNode = (side === "player") ? document.getElementById("player-aether")
+                                         : document.getElementById("ai-aether");
+  if (!aetherNode) return;
+
+  // Ensure a holder just below the aether readout
+  let holder = aetherNode.parentElement?.querySelector(".trance-wrap");
+  if (!holder) {
+    holder = document.createElement("div");
+    holder.className = "trance-wrap";
+    // place right after the aether block to guarantee correct order
+    aetherNode.insertAdjacentElement("afterend", holder);
+  }
+
+  const hp = sideData?.vitality | 0;
+  const tI  = meta.thresholds.I;
+  const tII = meta.thresholds.II;
+
+  // Active if current HP <= threshold
+  const stageIActive  = hp <= tI;
+  const stageIIActive = hp <= tII;
+
+  // Build the UI
+  holder.innerHTML = `
+    <div class="trance-row">
+      <div class="trance-step ${stageIActive ? "active" : ""}" title="Activates at ≤ ${tI} HP">
+        <div class="diamond"><span class="roman">I</span></div>
+        <div class="trance-copy">
+          <div class="trance-name">${meta.stages.I.name}</div>
+          <div class="trance-desc">${meta.stages.I.blurb}</div>
+        </div>
+      </div>
+      <div class="trance-step ${stageIIActive ? "active" : ""}" title="Activates at ≤ ${tII} HP">
+        <div class="diamond"><span class="roman">II</span></div>
+        <div class="trance-copy">
+          <div class="trance-name">${meta.stages.II.name}</div>
+          <div class="trance-desc">${meta.stages.II.blurb}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* One-time CSS for the track (safe if added once) */
+(function ensureTranceTrackStyles(){
+  if (document.getElementById("trance-track-style")) return;
+  const s = document.createElement("style");
+  s.id = "trance-track-style";
+  s.textContent = `
+    .trance-wrap{ margin-top: 14px; }
+
+    .trance-row{
+      display: grid;
+      gap: 10px;
+      max-width: 420px;
+    }
+    .trance-step{
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      align-items: center;
+      gap: 10px;
+      opacity: .75;
+      transition: opacity .15s ease, filter .15s ease;
+    }
+    .trance-step.active{
+      opacity: 1;
+      filter: drop-shadow(0 0 10px rgba(130,190,255,.22));
+    }
+
+    .trance-step .diamond{
+      width: 28px; height: 28px;
+      border: 2px solid rgba(180,200,230,.8);
+      transform: rotate(45deg);
+      display: grid; place-items: center;
+      border-radius: 4px;
+    }
+    .trance-step .diamond .roman{
+      transform: rotate(-45deg);
+      font-size: 15px;           /* 1.5x the previous size per your request */
+      line-height: 1;
+    }
+
+    .trance-copy .trance-name{
+      font-size: 1.2rem;         /* +20% from base */
+      letter-spacing: .02em;
+      margin-bottom: 2px;
+    }
+    .trance-copy .trance-desc{
+      font-size: .95rem;
+      opacity: .85;
+    }
+  `;
+  document.head.appendChild(s);
+})();
+
+
+
+
 
 /* Character-specific thresholds, names, and effect text */
 const TRANCE_DATA = {
@@ -1433,43 +1594,7 @@ function removeLegacyTranceText(){
 }
 
 
-function ensureTranceUI(){
-  ensureTranceStyles();
-  removeLegacyTranceText();
 
-  // --- Data for all weavers (names, effects, thresholds) ---
-  const WEAVER_TRANCE = {
-    "Aria": {
-      tiers: [
-        { n: 1, name: "Runic Surge",    effect: "When you advance a Spell: gain +1 Æ (once/turn).", threshold: 4 },
-        { n: 2, name: "Spell Unbound",  effect: "First Advance each turn costs 1 less Æ (min 0) and still grants +1 Æ.", threshold: 2 },
-      ]
-    },
-    "Enoch": {
-      tiers: [
-        { n: 1, name: "Glyph Conduit",  effect: "On set, Channel 1 (once/turn).", threshold: 3 },
-        { n: 2, name: "Sigil Insight",  effect: "When a Glyph reveals: draw 1 card.", threshold: 1 },
-      ]
-    },
-    "Morr": {
-      tiers: [
-        { n: 1, name: "Gravecurrent",   effect: "When a card leaves a Slot: gain +1 Æ (once/turn).", threshold: 4 },
-        { n: 2, name: "Tithe of the Deep", effect: "First Flow buy each turn costs 1 less Æ and Channel 1.", threshold: 1 },
-      ]
-    },
-    "Veyra": {
-      tiers: [
-        { n: 1, name: "Spiral Spark",   effect: "When you draw outside your Draw Step: gain +1 temporary Æ (once/turn).", threshold: 4 },
-        { n: 2, name: "Omen Weave",     effect: "On trigger: look at top 2 of your deck; reorder or put one to Discard.", threshold: 2 },
-      ]
-    },
-    "Kareth": {
-      tiers: [
-        { n: 1, name: "Ember Lash",     effect: "After you spend Æther: deal 1 damage to any target (once/turn).", threshold: 3 },
-        { n: 2, name: "Wildfire",       effect: "Each time you spend 3+ Æ in a turn, deal 1 extra damage.", threshold: 1 },
-      ]
-    }
-  };
 
   const pub = serializePublic(state) || {};
   const weaverName = pub.players?.player?.weaver?.name || "Aria";
@@ -2195,6 +2320,8 @@ async function render(){
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
+  renderTranceTrack('player', s);
+  renderTranceTrack('ai', s);
   ensurePipHandlers();
   refreshPipAdvanceClasses();
   removeLegacyTranceText();
