@@ -767,6 +767,29 @@ function showToast(msg, ms=1400){
   t.textContent = msg; t.classList.add("show");
   setTimeout(()=> t.classList.remove("show"), ms);
 }
+
+// --- Remove any legacy "Trance ... (Click / Space ...)" help block ---
+function removeLegacyTranceText() {
+  // 1) If it has a known id/class, remove quickly
+  const known = document.querySelector('#trance-help, .trance-help, .trance-legacy');
+  if (known) { known.remove(); return; }
+
+  // 2) Fallback: remove any element whose text begins with "Trance" and contains an em-dash (old layout)
+  const nodes = Array.from(document.querySelectorAll('body *'));
+  for (const n of nodes) {
+    const t = (n.textContent || '').trim().replace(/\s+/g, ' ');
+    // The old block always had lines like “Trance …” and “I — … / II — …”
+    if (/^Trance\b/i.test(t) && /—/.test(t)) {
+      // protect real new track rows (they don’t start with "Trance")
+      if (!n.closest('.trance-wrap') && !n.closest('.trance-row')) {
+        n.remove();
+        break;
+      }
+    }
+  }
+}
+
+
 function showCardOptions(cardEl, cardData){
   clearAllActionMenus();
   const pub = serializePublic(state) || {};
@@ -1417,56 +1440,73 @@ function getWeaverKey(weaverName="") {
 
 
 /* One-time CSS for the track (safe if added once) */
+/* One-time CSS for the Trance track (glow + spacing) */
 (function ensureTranceTrackStyles(){
   if (document.getElementById("trance-track-style")) return;
   const s = document.createElement("style");
   s.id = "trance-track-style";
   s.textContent = `
-    .trance-wrap{ margin-top: 14px; }
+    .trance-wrap{ margin-top: 18px; } /* a little more space under Aether strip */
 
     .trance-row{
       display: grid;
-      gap: 10px;
-      max-width: 420px;
+      gap: 12px;
+      max-width: 520px;
     }
+
     .trance-step{
       display: grid;
-      grid-template-columns: 34px 1fr;
+      grid-template-columns: 38px 1fr; /* diamond column + copy */
       align-items: center;
-      gap: 10px;
-      opacity: .75;
-      transition: opacity .15s ease, filter .15s ease;
-    }
-    .trance-step.active{
-      opacity: 1;
-      filter: drop-shadow(0 0 10px rgba(130,190,255,.22));
+      gap: 12px;
+      opacity: .82;
+      transition: opacity .18s ease, filter .18s ease, transform .18s ease;
     }
 
     .trance-step .diamond{
-      width: 28px; height: 28px;
-      border: 2px solid rgba(180,200,230,.8);
+      width: 32px; height: 32px;         /* ~2x original visual presence */
+      border: 2px solid rgba(180,200,230,.85);
       transform: rotate(45deg);
       display: grid; place-items: center;
-      border-radius: 4px;
+      border-radius: 5px;
+      background: rgba(255,255,255,.02);
     }
     .trance-step .diamond .roman{
       transform: rotate(-45deg);
-      font-size: 15px;           /* 1.5x the previous size per your request */
+      font-size: 18px;                    /* larger numerals */
       line-height: 1;
     }
 
     .trance-copy .trance-name{
-      font-size: 1.2rem;         /* +20% from base */
+      font-size: 1.35rem;                 /* +~35% title size */
       letter-spacing: .02em;
-      margin-bottom: 2px;
+      margin-bottom: 4px;
     }
     .trance-copy .trance-desc{
-      font-size: .95rem;
-      opacity: .85;
+      font-size: 1.0rem;                  /* subtitle +20% vs body */
+      opacity: .88;
+    }
+
+    /* Active glow */
+    @keyframes trancePulse {
+      0%   { box-shadow: 0 0 0 0 rgba(130,190,255,.25); }
+      70%  { box-shadow: 0 0 0 14px rgba(130,190,255,0); }
+      100% { box-shadow: 0 0 0 0 rgba(130,190,255,0); }
+    }
+    .trance-step.active{
+      opacity: 1;
+      filter: drop-shadow(0 0 10px rgba(130,190,255,.22));
+      transform: translateZ(0);           /* avoid blinks on some GPUs */
+    }
+    .trance-step.active .diamond{
+      border-color: rgba(160,210,255,1);
+      background: radial-gradient(transparent 35%, rgba(130,190,255,.12));
+      animation: trancePulse 1.8s ease-out infinite;
     }
   `;
   document.head.appendChild(s);
 })();
+
 
 
 
@@ -2356,7 +2396,8 @@ async function render(){
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
- renderTranceTrack('player');
+ removeLegacyTranceText();
+  renderTranceTrack('player');
 renderTranceTrack('ai');
   ensurePipHandlers();
   refreshPipAdvanceClasses();
