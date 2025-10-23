@@ -1414,61 +1414,7 @@ function getWeaverKey(weaverName="") {
   return "aria";
 }
 
-/**
- * Render the trance track for a side ("player" | "ai")
- * - Inserts below that side's aether readout
- * - Highlights active stages based on vitality threshold
- * - Adds title tooltips with thresholds
- */
-function renderTranceTrack(side, pub) {
-  const sideData = pub?.players?.[side] || {};
-  const name = sideData?.weaver?.name || "";
-  const key = getWeaverKey(name);
-  const meta = TRANCE_BOOK[key];
-  if (!meta) return;
 
-  // Where to attach: directly under the side's aether HUD readout container
-  const aetherNode = (side === "player") ? document.getElementById("player-aether")
-                                         : document.getElementById("ai-aether");
-  if (!aetherNode) return;
-
-  // Ensure a holder just below the aether readout
-  let holder = aetherNode.parentElement?.querySelector(".trance-wrap");
-  if (!holder) {
-    holder = document.createElement("div");
-    holder.className = "trance-wrap";
-    // place right after the aether block to guarantee correct order
-    aetherNode.insertAdjacentElement("afterend", holder);
-  }
-
-  const hp = sideData?.vitality | 0;
-  const tI  = meta.thresholds.I;
-  const tII = meta.thresholds.II;
-
-  // Active if current HP <= threshold
-  const stageIActive  = hp <= tI;
-  const stageIIActive = hp <= tII;
-
-  // Build the UI
-  holder.innerHTML = `
-    <div class="trance-row">
-      <div class="trance-step ${stageIActive ? "active" : ""}" title="Activates at ≤ ${tI} HP">
-        <div class="diamond"><span class="roman">I</span></div>
-        <div class="trance-copy">
-          <div class="trance-name">${meta.stages.I.name}</div>
-          <div class="trance-desc">${meta.stages.I.blurb}</div>
-        </div>
-      </div>
-      <div class="trance-step ${stageIIActive ? "active" : ""}" title="Activates at ≤ ${tII} HP">
-        <div class="diamond"><span class="roman">II</span></div>
-        <div class="trance-copy">
-          <div class="trance-name">${meta.stages.II.name}</div>
-          <div class="trance-desc">${meta.stages.II.blurb}</div>
-        </div>
-      </div>
-    </div>
-  `;
-}
 
 /* One-time CSS for the track (safe if added once) */
 (function ensureTranceTrackStyles(){
