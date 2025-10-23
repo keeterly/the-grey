@@ -1313,14 +1313,13 @@ function ensureTranceStyles(){
   const s = document.createElement("style");
   s.id = "trance-strip-style";
   s.textContent = `
-    /* container lives right under the Aether display */
     .trance-strip{
-      --tr-size: 40px;         /* 2× diamond */
+      --tr-size: 40px;            /* diamond size (2× from your first version) */
       --tr-gap: 12px;
       --tr-fg: rgba(230,220,200,.86);
       --tr-dim: rgba(230,220,200,.30);
       --tr-active: #b9f0ff;
-      margin-top: 18px;        /* extra spacing under Aether icons */
+      margin-top: 18px;           /* extra space under Aether icons */
       display: grid;
       gap: 12px;
       user-select: none;
@@ -1338,29 +1337,23 @@ function ensureTranceStyles(){
     }
     .trance-strip .badge svg{ width:100%; height:100%; display:block; }
     .trance-strip .badge .r{
-      /* Roman inside the diamond — 1.5× larger than before */
-      font-size: calc(var(--tr-size)*.66);
+      font-size: calc(var(--tr-size)*.66); /* Roman 1.5× feel */
       font-weight: 600;
       fill: currentColor;
       dominant-baseline: central;
       text-anchor: middle;
     }
-
     .trance-strip .meta{ display: grid; gap: 4px; align-content: center; }
     .trance-strip .label{
-      /* Title 10% smaller than previous 1.5× → 1.35× */
-      font-size: calc(1em * 1.35);
+      font-size: calc(1em * 1.35);        /* title ~1.35× (your “10% less than 1.5×”) */
       letter-spacing: .02em;
       line-height: 1.05;
     }
     .trance-strip .effect{
-      /* subtitle +20% (was ~13px) */
-      font-size: 16px;
+      font-size: 16px;                     /* subtitle ~20% bigger than typical 13px */
       opacity: .85;
       line-height: 1.2;
     }
-
-    /* inactive vs active */
     .trance-strip .tr-row:not(.active){ color: var(--tr-dim); }
     .trance-strip .tr-row.active{
       color: var(--tr-active);
@@ -1369,6 +1362,7 @@ function ensureTranceStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 
 /* Character-specific thresholds, names, and effect text */
@@ -1413,78 +1407,92 @@ const TRANCE_DATA = {
 function ensureTranceUI(){
   ensureTranceStyles();
   removeLegacyTranceText();
-  
-function removeLegacyTranceText(){
-  // Nuke any old tutorial/explainer blocks that were hard-coded in the layout
-  document.querySelectorAll(
-    '#trance-help, .trance-help, .trance-explainer, .trance-legacy'
-  ).forEach(n => n.remove());
 
-  // extra safety: if there’s a lone <div> directly under the portrait block
-  // with the heading "Trance" and lines starting with "I —", remove it.
-  document.querySelectorAll('.portrait + div, .weaver + div').forEach(n=>{
-    const t = (n.textContent || '').trim();
-    if (/^Trance\s*$/i.test(t.split('\n')[0] || '') || /I\s*—/.test(t)) n.remove();
-  });
-}
-
-
-  
-  const diamondSVG = (romanStr) => `
-    <svg viewBox="0 0 100 100" aria-hidden="true">
-      <path d="M50 6 L94 50 L50 94 L6 50 Z" fill="none" stroke="currentColor" stroke-width="6"/>
-      <text x="50" y="54" class="r">${romanStr}</text>
-    </svg>`;
-
-  // helper to mount directly under the given Aether element
-  const mountUnderAe = (aeEl, weaverName, vitality, side) => {
-    if (!aeEl) return;
-    const data = TRANCE_DATA[weaverName] || TRANCE_DATA.Aria;
-    const [tI, tII] = data.thresholds;
-    const activeI  = (vitality|0) <= tI;
-    const activeII = (vitality|0) <= tII;
-
-    let strip = document.getElementById(`trance-strip-${side}`);
-    if (!strip){
-      strip = document.createElement('div');
-      strip.id = `trance-strip-${side}`;
-      strip.className = 'trance-strip';
-      aeEl.insertAdjacentElement('afterend', strip);   // << under Aether track
+  // --- Data for all weavers (names, effects, thresholds) ---
+  const WEAVER_TRANCE = {
+    "Aria": {
+      tiers: [
+        { n: 1, name: "Runic Surge",    effect: "When you advance a Spell: gain +1 Æ (once/turn).", threshold: 4 },
+        { n: 2, name: "Spell Unbound",  effect: "First Advance each turn costs 1 less Æ (min 0) and still grants +1 Æ.", threshold: 2 },
+      ]
+    },
+    "Enoch": {
+      tiers: [
+        { n: 1, name: "Glyph Conduit",  effect: "On set, Channel 1 (once/turn).", threshold: 3 },
+        { n: 2, name: "Sigil Insight",  effect: "When a Glyph reveals: draw 1 card.", threshold: 1 },
+      ]
+    },
+    "Morr": {
+      tiers: [
+        { n: 1, name: "Gravecurrent",   effect: "When a card leaves a Slot: gain +1 Æ (once/turn).", threshold: 4 },
+        { n: 2, name: "Tithe of the Deep", effect: "First Flow buy each turn costs 1 less Æ and Channel 1.", threshold: 1 },
+      ]
+    },
+    "Veyra": {
+      tiers: [
+        { n: 1, name: "Spiral Spark",   effect: "When you draw outside your Draw Step: gain +1 temporary Æ (once/turn).", threshold: 4 },
+        { n: 2, name: "Omen Weave",     effect: "On trigger: look at top 2 of your deck; reorder or put one to Discard.", threshold: 2 },
+      ]
+    },
+    "Kareth": {
+      tiers: [
+        { n: 1, name: "Ember Lash",     effect: "After you spend Æther: deal 1 damage to any target (once/turn).", threshold: 3 },
+        { n: 2, name: "Wildfire",       effect: "Each time you spend 3+ Æ in a turn, deal 1 extra damage.", threshold: 1 },
+      ]
     }
-
-    strip.innerHTML = `
-      <div class="tr-row l1 ${activeI ? 'active' : ''}">
-        <span class="badge">${diamondSVG("I")}</span>
-        <span class="meta">
-          <span class="label">${data.stages[0].name}</span>
-          <span class="effect">${data.stages[0].effect}</span>
-        </span>
-      </div>
-      <div class="tr-row l2 ${activeII ? 'active' : ''}">
-        <span class="badge">${diamondSVG("II")}</span>
-        <span class="meta">
-          <span class="label">${data.stages[1].name}</span>
-          <span class="effect">${data.stages[1].effect}</span>
-        </span>
-      </div>`;
   };
 
   const pub = serializePublic(state) || {};
+  const weaverName = pub.players?.player?.weaver?.name || "Aria";
+  const vitality   = pub.players?.player?.vitality|0;
+  const cfg = WEAVER_TRANCE[weaverName] || WEAVER_TRANCE.Aria;
 
-  mountUnderAe(
-    document.getElementById('player-aether'),
-    pub.players?.player?.weaver?.name || "Aria",
-    pub.players?.player?.vitality ?? 5,
-    'player'
-  );
+  const portraitImgEl = document.getElementById('player-portrait');
+  if (!portraitImgEl) return;
 
-  mountUnderAe(
-    document.getElementById('ai-aether'),
-    pub.players?.ai?.weaver?.name || "Morr",
-    pub.players?.ai?.vitality ?? 5,
-    'ai'
-  );
+  const holder = portraitImgEl.closest('.portrait') || portraitImgEl.parentElement;
+  if (!holder) return;
+
+  let strip = holder.querySelector('.trance-strip');
+  if (!strip){
+    strip = document.createElement('div');
+    strip.className = 'trance-strip';
+    holder.appendChild(strip);
+  }
+
+  strip.replaceChildren();
+
+  cfg.tiers.forEach(t => {
+    // active if current HP <= threshold
+    const isActive = vitality <= (t.threshold|0);
+
+    const row = document.createElement('div');
+    row.className = 'tr-row' + (isActive ? ' active' : '');
+    row.title = `Activates at ≤ ${t.threshold} ♥`;   // ← hover threshold
+    row.setAttribute('aria-label', row.title);
+
+    const badge = document.createElement('div');
+    badge.className = 'badge';
+    badge.innerHTML = `
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <path d="M32 6 52 26 32 58 12 26 32 6Z" fill="none" stroke="currentColor" stroke-width="3" opacity=".9"/>
+        <text x="32" y="35" class="r"> ${t.n === 1 ? 'I' : 'II'} </text>
+      </svg>
+    `;
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = `
+      <div class="label">${t.name}</div>
+      <div class="effect">${t.effect}</div>
+    `;
+
+    row.appendChild(badge);
+    row.appendChild(meta);
+    strip.appendChild(row);
+  });
 }
+
 
 
 
@@ -2160,6 +2168,7 @@ async function render(){
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
   ensurePipHandlers();
   refreshPipAdvanceClasses();
+  removeLegacyTranceText();
   ensureTranceUI();
   
 
