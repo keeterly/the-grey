@@ -2491,15 +2491,6 @@ function openStackModal(title, cards){
 /* ---------- HUD: wire buttons ---------- */
 import { getStack } from './GameLogic.js';
 
-// old:
-// hudDeckBtn?.addEventListener('click', ()=>{ ... openStackModal(...) });
-// hudDiscardBtn?.addEventListener('click', ()=>{ ... openStackModal(...) });
-
-// new (right after those SVG innerHTML assignments in render()):
-if (typeof window.__wirePileModals === 'function') {
-  // call once (internally idempotent)
-  window.__wirePileModals({ getStack });
-}
 
 
 
@@ -2640,6 +2631,12 @@ if (hudDiscardBtn){
   
   ensureRightHudStrip();
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
+  // (Re)bind pile modal handlers once the buttons exist.
+// This function is idempotent; calling it on every render is safe.
+if (typeof window.__wirePileModals === 'function') {
+  window.__wirePileModals({ getStack });
+}
+
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
   ensureGlyphPlaceholderStyles();
 
