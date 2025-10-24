@@ -594,6 +594,8 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let shuffledOnce = false;
+const FLOW_BOUGHT_IDS = new Set();
+
 
 // manual damage tester — lets you do: window.dealDamage("ai", 2)
 window.dealDamage = async (side, n = 1) => {
@@ -1057,6 +1059,7 @@ function renderSlots(container, snapshot, isPlayer){
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
       art.className = "card";
+      if (FLOW_BOUGHT_IDS.has(slot.card.id)) art.classList.add('flow-bought');
       art.innerHTML = cardHTML(slot.card);
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
@@ -1223,8 +1226,8 @@ async function animateFlowFall(node){
   await onTransitionEnd(node);
 }
 
-// Map flow-slot index → price (4,3,3,2,2)
-const FLOW_PRICE_BY_POS = [4,3,3,2,2];
+// Map flow-slot index → price (4,3,2,2,2)
+const FLOW_PRICE_BY_POS = [4, 3, 2, 2, 2];
 
 /* Flow scaffold: .flow-wrap → [title-rail][.flow-board → #flow-row] */
 function ensureFlowScaffold(){
@@ -1288,24 +1291,28 @@ async function renderFlow(flowArray){
     card.classList.add("buyable");
   }
 
-  if (c && canAfford){
+   if (c && canAfford){
     card.addEventListener("click", async ()=>{
       const useTemp = Math.min(price, (state.players.player.tempAether|0));
       adjustAe("player", useTemp); // virtual top-up
+  
+      // ⬇️ remember which specific card was bought from Flow
+      const boughtId = c?.id;
+  
       try {
-        // Spotlight & fly this exact DOM node
         Emit('aetherflow:bought', { node: card });
-
-        // proceed with game logic
         state = buyFromFlow(state, "player", idx);
-        addTemp("player", -useTemp);
+        if (useTemp) addTemp("player", -useTemp);
+  
+        // ⬇️ persist the origin tag
+        if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
       } catch (e) {
         adjustAe("player", -useTemp);
       }
       await render();
     });
   }
-
+   
   li.appendChild(card);
 
   const priceLbl = document.createElement("div");
@@ -1381,6 +1388,24 @@ function ensureTranceStyles(){
     .trance-strip .tr-row.active{
       color: var(--tr-active);
       filter: drop-shadow(0 0 6px rgba(110,220,255,.45));
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+function ensureFlowBoughtStyles(){
+  if (document.getElementById('flow-bought-style')) return;
+  const s = document.createElement('style');
+  s.id = 'flow-bought-style';
+  s.textContent = `
+    /* Subtle lift for cards that originated from Aether Flow */
+    .card.flow-bought {
+      filter: brightness(1.10) saturate(1.04);
+    }
+    /* optional: slightly lighter inner panel if your card has an inner */
+    .card.flow-bought .textbox,
+    .card.flow-bought .divider {
+      opacity: 0.95;
     }
   `;
   document.head.appendChild(s);
@@ -2085,6 +2110,8 @@ function spotlightFromEvents(state){
         logLine(`${e.side} RESOLVED glyph → ${e.cardData?.name || e.cardId}`);
       } else if (e.t === "resolved" && e.source === "buy") {
         logLine(`${e.side} BOUGHT → ${e.cardData?.name || e.cardId}`);
+        if (e.cardData?.id) FLOW_BOUGHT_IDS.add(e.cardData.id);  // ⬅️ add this
+        
       } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
         logLine(`${e.side} DISCARD → ${e.cardData?.name || e.cardId}`);
       } else if (e.t === "damage") {
@@ -2473,6 +2500,8 @@ if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
       const el = document.createElement("article");
       el.className = "card";
       el.dataset.cardId = c.id; el.dataset.cardType = c.type;
+      if (FLOW_BOUGHT_IDS.has(c.id)) el.classList.add('flow-bought');
+
       el.innerHTML = cardHTML(c);
 
       if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
@@ -2623,6 +2652,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureGlyphFlipDownStyles();
   ensureGlyphResolveStyles();
   ensureTranceStyles();
+  ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
 
 
