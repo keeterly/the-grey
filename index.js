@@ -1439,14 +1439,13 @@ function getWeaverKey(weaverName="") {
 
 
 
-/* One-time CSS for the track (safe if added once) */
-/* One-time CSS for the Trance track (glow + spacing) */
+/* One-time CSS for the Trance track (whole-row glow/pulse when active) */
 (function ensureTranceTrackStyles(){
   if (document.getElementById("trance-track-style")) return;
   const s = document.createElement("style");
   s.id = "trance-track-style";
   s.textContent = `
-    .trance-wrap{ margin-top: 18px; } /* a little more space under Aether strip */
+    .trance-wrap{ margin-top: 18px; }
 
     .trance-row{
       display: grid;
@@ -1455,16 +1454,18 @@ function getWeaverKey(weaverName="") {
     }
 
     .trance-step{
+      position: relative;            /* needed for the ::before pulse */
       display: grid;
-      grid-template-columns: 38px 1fr; /* diamond column + copy */
+      grid-template-columns: 38px 1fr;
       align-items: center;
       gap: 12px;
       opacity: .82;
       transition: opacity .18s ease, filter .18s ease, transform .18s ease;
+      overflow: visible;
     }
 
     .trance-step .diamond{
-      width: 32px; height: 32px;         /* ~2x original visual presence */
+      width: 32px; height: 32px;
       border: 2px solid rgba(180,200,230,.85);
       transform: rotate(45deg);
       display: grid; place-items: center;
@@ -1473,39 +1474,53 @@ function getWeaverKey(weaverName="") {
     }
     .trance-step .diamond .roman{
       transform: rotate(-45deg);
-      font-size: 18px;                    /* larger numerals */
+      font-size: 18px;
       line-height: 1;
     }
 
     .trance-copy .trance-name{
-      font-size: 1.35rem;                 /* +~35% title size */
+      font-size: 1.35rem;
       letter-spacing: .02em;
       margin-bottom: 4px;
     }
     .trance-copy .trance-desc{
-      font-size: 1.0rem;                  /* subtitle +20% vs body */
+      font-size: 1.0rem;
       opacity: .88;
     }
 
-    /* Active glow */
-    @keyframes trancePulse {
-      0%   { box-shadow: 0 0 0 0 rgba(130,190,255,.25); }
+    /* Whole-row active styling */
+    @keyframes tranceRowPulse {
+      0%   { box-shadow: 0 0 0 0 rgba(130,190,255,.22); }
       70%  { box-shadow: 0 0 0 14px rgba(130,190,255,0); }
       100% { box-shadow: 0 0 0 0 rgba(130,190,255,0); }
     }
     .trance-step.active{
       opacity: 1;
+      color: #b9f0ff;                       /* tint text when active */
       filter: drop-shadow(0 0 10px rgba(130,190,255,.22));
-      transform: translateZ(0);           /* avoid blinks on some GPUs */
+      transform: translateZ(0);
     }
+    /* Pulsing halo behind the entire row (diamond + text) */
+    .trance-step.active::before{
+      content: "";
+      position: absolute;
+      inset: -6px -10px;                     /* extend a bit around the row */
+      border-radius: 10px;
+      background: radial-gradient(ellipse at center,
+                  rgba(130,190,255,.12), transparent 70%);
+      animation: tranceRowPulse 1.8s ease-out infinite;
+      pointer-events: none;
+    }
+
+    /* Keep diamond border a touch brighter when active, but no separate pulse */
     .trance-step.active .diamond{
       border-color: rgba(160,210,255,1);
-      background: radial-gradient(transparent 35%, rgba(130,190,255,.12));
-      animation: trancePulse 1.8s ease-out infinite;
+      background: radial-gradient(transparent 35%, rgba(130,190,255,.10));
     }
   `;
   document.head.appendChild(s);
 })();
+
 
 
 
