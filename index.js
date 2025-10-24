@@ -1274,71 +1274,94 @@ async function renderFlow(flowArray){
 
   const playerAe = getTotal("player");
 
- (flowArray || []).slice(0,5).forEach((c, idx)=>{
-  const li = document.createElement("li");
-  li.className = "flow-card";
+  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+    const li = document.createElement("li");
+    li.className = "flow-card";
 
-  const card = document.createElement("article");
-  card.className = "card market";
-  card.dataset.flowIndex = String(idx);
-  card.innerHTML = cardHTML(c);
+    const card = document.createElement("article");
+    card.className = "card market";
+    card.dataset.flowIndex = String(idx);
+    card.innerHTML = cardHTML(c);
 
-  const price = FLOW_PRICE_BY_POS[idx] || 0;
-  const canAfford = !!c && playerAe >= price;
+    const price = FLOW_PRICE_BY_POS[idx] || 0;
+    const canAfford = !!c && playerAe >= price;
 
-  if (!canAfford) card.setAttribute("aria-disabled", "true");
-  if (c) attachPeekAndZoom(card, c);
+    if (!canAfford) card.setAttribute("aria-disabled", "true");
+    if (c) attachPeekAndZoom(card, c);
 
-  // 🔹 Step 4: add the buyable marker so CSS pulse runs
-  if (c && canAfford) {
-    card.classList.add("buyable");
-  }
-
- if (c && canAfford){
-  card.addEventListener("click", async () => {
-    // one-shot guard so we can’t double-buy on rapid clicks
-    if (card.dataset.buying === "1") return;
-    card.dataset.buying = "1";
-    card.setAttribute("aria-disabled", "true");
-
-    const boughtId = c?.id || null;
-
-    // visually disable this market cell immediately
-    li.style.pointerEvents = "none";
-    li.style.opacity = "0.25";
-
-    const price   = FLOW_PRICE_BY_POS[idx] || 0;
-    const useTemp = Math.min(price, (state.players.player.tempAether | 0));
-    // top-up perm Æ by the temp amount (logic spends perm first)
-    adjustAe("player", useTemp);
-
-    try {
-      // cinematic: from this DOM node → discard HUD
-      Emit("aetherflow:bought", { node: card });
-
-      // commit purchase (GameLogic removes slot / refills)
-      state = buyFromFlow(state, "player", idx);
-
-      // burn the temp that actually contributed
-      if (useTemp) addTemp("player", -useTemp);
-
-      Emit(Events.BUY, { side: "player", idx, price });
-
-      
-      // remember it, so it renders with the lighter “flow-bought” look
-      if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
-    } catch (e) {
-      // rollback on any failure
-      adjustAe("player", -useTemp);
-      li.style.pointerEvents = "";
-      li.style.opacity = "";
-      card.dataset.buying = "";
-      card.removeAttribute("aria-disabled");
+    // 🔹 buyable marker so CSS pulse runs
+    if (c && canAfford) {
+      card.classList.add("buyable");
     }
 
-    await render();
+    if (c && canAfford){
+      card.addEventListener("click", async () => {
+        // one-shot guard so we can’t double-buy on rapid clicks
+        if (card.dataset.buying === "1") return;
+        card.dataset.buying = "1";
+        card.setAttribute("aria-disabled", "true");
+
+        const boughtId = c?.id || null;
+
+        // visually disable this market cell immediately
+        li.style.pointerEvents = "none";
+        li.style.opacity = "0.25";
+
+        const price   = FLOW_PRICE_BY_POS[idx] || 0;
+        const useTemp = Math.min(price, (state.players.player.tempAether | 0));
+        // top-up perm Æ by the temp amount (logic spends perm first)
+        adjustAe("player", useTemp);
+
+        try {
+          // cinematic: from this DOM node → discard HUD
+          Emit("aetherflow:bought", { node: card });
+
+          // commit purchase (GameLogic removes slot / refills)
+          state = buyFromFlow(state, "player", idx);
+
+          // burn the temp that actually contributed
+          if (useTemp) addTemp("player", -useTemp);
+
+          Emit(Events.BUY, { side: "player", idx, price });
+
+          // remember it, so it renders with the lighter “flow-bought” look
+          if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
+        } catch (e) {
+          // rollback on any failure
+          adjustAe("player", -useTemp);
+          li.style.pointerEvents = "";
+          li.style.opacity = "";
+          card.dataset.buying = "";
+          card.removeAttribute("aria-disabled");
+        }
+
+        await render();
+
+        /* ===== STEP C: clear any stale inline styles/flags if this node persists ===== */
+        if (document.body.contains(li)) {
+          li.style.pointerEvents = "";
+          li.style.opacity = "";
+          card.dataset.buying = "";
+          card.removeAttribute("aria-disabled");
+        }
+        /* =========================================================================== */
+      });
+    }
+
+    // (keep whatever you already had below for price labels, appending nodes, etc.)
+    // e.g.:
+    // const priceLbl = document.createElement("div");
+    // priceLbl.className = "price-label";
+    // priceLbl.innerHTML = `<span class="flow-price-num"><span class="n">${price}</span></span>`;
+    // li.appendChild(card);
+    // li.appendChild(priceLbl);
+    // row.appendChild(li);
   });
+
+  // keep your existing trailing logic (prevFlowIds update, width measure, etc.)
 }
+
+
 
    
   li.appendChild(card);
