@@ -1428,9 +1428,34 @@ function ensureFlowBoughtStyles(){
   s.textContent = `
     .card.flow-bought {
       filter: brightness(1.12) saturate(1.04);
+      position: relative;
+      box-shadow: 0 0 10px rgba(173,216,230,0.25);
     }
-    /* if your card has a main inner panel, give it a touch more lift */
-    .card.flow-bought .textbox { opacity: 0.98; }
+
+    /* ✨ Magical border shimmer */
+    .card.flow-bought::before {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: var(--card-radius, 10px);
+      background: linear-gradient(130deg, rgba(180,240,255,0.5), rgba(150,220,255,0.15), rgba(80,180,255,0.3));
+      filter: blur(1px);
+      opacity: 0.55;
+      animation: flowBoughtPulse 2.6s ease-in-out infinite;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    @keyframes flowBoughtPulse {
+      0%, 100% { opacity: 0.45; transform: scale(1); }
+      50% { opacity: 0.75; transform: scale(1.03); }
+    }
+
+    /* keep inner content above glow */
+    .card.flow-bought > * {
+      position: relative;
+      z-index: 2;
+    }
   `;
   document.head.appendChild(s);
 }
