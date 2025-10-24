@@ -45,7 +45,7 @@ function withAetherIcons(txt){
 
 
 // ===== Version / Menu + Log UI =====
-export const BRANCH_VERSION = "v2.63";
+export const BRANCH_VERSION = "v2.64";
 window.__BRANCH_VERSION__ = BRANCH_VERSION;
 
 let LogStore = [];
@@ -1322,6 +1322,9 @@ async function renderFlow(flowArray){
       // burn the temp that actually contributed
       if (useTemp) addTemp("player", -useTemp);
 
+      Emit(Events.BUY, { side: "player", idx, price });
+
+      
       // remember it, so it renders with the lighter “flow-bought” look
       if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
     } catch (e) {
