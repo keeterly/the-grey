@@ -1269,12 +1269,12 @@ async function renderFlow(flowArray){
   const scaffold = ensureFlowScaffold(); if (!scaffold) return;
   const { wrap, board, row } = scaffold;
 
-  const nextIds = (flowArray || []).slice(0,5).map(c => c ? c.id : null);
+  const nextIds = (flowArray || []).slice(0, 5).map(c => c ? c.id : null);
   row.replaceChildren();
 
   const playerAe = getTotal("player");
 
-  (flowArray || []).slice(0,5).forEach((c, idx)=>{
+  (flowArray || []).slice(0, 5).forEach((c, idx) => {
     const li = document.createElement("li");
     li.className = "flow-card";
 
@@ -1289,34 +1289,33 @@ async function renderFlow(flowArray){
     if (!canAfford) card.setAttribute("aria-disabled", "true");
     if (c) attachPeekAndZoom(card, c);
 
-    // 🔹 buyable marker so CSS pulse runs
-    if (c && canAfford) {
-      card.classList.add("buyable");
-    }
+    // buyable pulse
+    if (c && canAfford) card.classList.add("buyable");
 
-    if (c && canAfford){
+    // click to buy
+    if (c && canAfford) {
       card.addEventListener("click", async () => {
-        // one-shot guard so we can’t double-buy on rapid clicks
+        // prevent double buy
         if (card.dataset.buying === "1") return;
         card.dataset.buying = "1";
         card.setAttribute("aria-disabled", "true");
 
         const boughtId = c?.id || null;
 
-        // visually disable this market cell immediately
+        // visually disable the cell immediately
         li.style.pointerEvents = "none";
         li.style.opacity = "0.25";
 
-        const price   = FLOW_PRICE_BY_POS[idx] || 0;
+        const price = FLOW_PRICE_BY_POS[idx] || 0;
         const useTemp = Math.min(price, (state.players.player.tempAether | 0));
-        // top-up perm Æ by the temp amount (logic spends perm first)
+        // virtual top-up (logic spends perm first)
         adjustAe("player", useTemp);
 
         try {
-          // cinematic: from this DOM node → discard HUD
+          // cinematic
           Emit("aetherflow:bought", { node: card });
 
-          // commit purchase (GameLogic removes slot / refills)
+          // commit purchase
           state = buyFromFlow(state, "player", idx);
 
           // burn the temp that actually contributed
@@ -1324,10 +1323,10 @@ async function renderFlow(flowArray){
 
           Emit(Events.BUY, { side: "player", idx, price });
 
-          // remember it, so it renders with the lighter “flow-bought” look
+          // remember for shimmer in hand/slots/spotlight
           if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
         } catch (e) {
-          // rollback on any failure
+          // rollback
           adjustAe("player", -useTemp);
           li.style.pointerEvents = "";
           li.style.opacity = "";
@@ -1337,53 +1336,37 @@ async function renderFlow(flowArray){
 
         await render();
 
-        /* ===== STEP C: clear any stale inline styles/flags if this node persists ===== */
+        // ===== STEP C: clear any stale inline styles/flags if this node still exists
         if (document.body.contains(li)) {
           li.style.pointerEvents = "";
           li.style.opacity = "";
           card.dataset.buying = "";
           card.removeAttribute("aria-disabled");
         }
-        /* =========================================================================== */
       });
     }
 
-    // (keep whatever you already had below for price labels, appending nodes, etc.)
-    // e.g.:
-    // const priceLbl = document.createElement("div");
-    // priceLbl.className = "price-label";
-    // priceLbl.innerHTML = `<span class="flow-price-num"><span class="n">${price}</span></span>`;
-    // li.appendChild(card);
-    // li.appendChild(priceLbl);
-    // row.appendChild(li);
+    // price label under each cell
+    const priceLbl = document.createElement("div");
+    priceLbl.className = "price-label";
+    priceLbl.innerHTML = `
+      <span class="flow-price-num" aria-label="${price} Aether to buy">
+        <span class="n">${price}</span>
+      </span>`;
+
+    li.appendChild(card);
+    li.appendChild(priceLbl);
+    row.appendChild(li);
   });
-
-  // keep your existing trailing logic (prevFlowIds update, width measure, etc.)
-}
-
-
-
-   
-  li.appendChild(card);
-
-  const priceLbl = document.createElement("div");
-  priceLbl.className = "price-label";
- priceLbl.innerHTML = `
-  <span class="flow-price-num" aria-label="${price} Aether to buy">
-    <span class="n">${price}</span>
-  </span>`;
-
-  li.appendChild(priceLbl);
-
-  row.appendChild(li);
-});
 
   prevFlowIds = nextIds;
 
-  queueMicrotask(()=>{
+  // update measured width for any dependent styles
+  queueMicrotask(() => {
     wrap.style.setProperty("--flow-width", `${Math.round(board.getBoundingClientRect().width)}px`);
   });
 }
+
 
 
 
