@@ -1295,42 +1295,7 @@ async function renderFlow(flowArray){
   }
 
    if (c && canAfford){
-    card.addEventListener("click", async () => {
-  // guard: prevent double/rapid clicks
-  if (card.dataset.buying === "1") return;
-  card.dataset.buying = "1";
-  card.setAttribute("aria-disabled", "true");
-
-  // capture the id we’re buying (so we can tag it later)
-  const boughtId = c?.id || null;
-
-  // optimistic UI: fade/remove this market card so it can’t be rebought
-  li.style.pointerEvents = "none";
-  li.style.opacity = "0.25";
-
-  // temp Æ “top up” (your existing behavior)
-  const price = FLOW_PRICE_BY_POS[idx] || 0;
-  const useTemp = Math.min(price, (state.players.player.tempAether|0));
-  adjustAe("player", useTemp);
-
-  try {
-    // cinematic for this exact DOM node
-    Emit('aetherflow:bought', { node: card });
-
-    // consume from flow (GameLogic replaces slot / refills as needed)
-    state = buyFromFlow(state, "player", idx);
-
-    if (useTemp) addTemp("player", -useTemp);
-
-    // tag origin: any future render that sees this id will appear “lighter”
-    if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
-  } catch (e) {
-    // roll back on failure
-    adjustAe("player", -useTemp);
-  }
-
-  await render();
-});
+   card.addEventListener("click", async () => {
 
   }
    
