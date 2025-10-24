@@ -2491,14 +2491,16 @@ function openStackModal(title, cards){
 /* ---------- HUD: wire buttons ---------- */
 import { getStack } from './GameLogic.js';
 
-hudDeckBtn?.addEventListener('click', ()=>{
-  const cards = getStack(state, 'player', 'deck');
-  openStackModal(`Deck (${cards.length})`, cards);
-});
-hudDiscardBtn?.addEventListener('click', ()=>{
-  const cards = getStack(state, 'player', 'discard');
-  openStackModal(`Discard (${cards.length})`, cards);
-});
+// old:
+// hudDeckBtn?.addEventListener('click', ()=>{ ... openStackModal(...) });
+// hudDiscardBtn?.addEventListener('click', ()=>{ ... openStackModal(...) });
+
+// new (right after those SVG innerHTML assignments in render()):
+if (typeof window.__wirePileModals === 'function') {
+  // call once (internally idempotent)
+  window.__wirePileModals({ getStack });
+}
+
 
 
 window.castInstantFromHand = async function(_state, side, cardId){
@@ -2602,25 +2604,32 @@ if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
 
   
   // HUD
-  if (hudDeckBtn){
-    const deckCount = (state?.players?.player?.deck?.length ?? 0);
-    hudDeckBtn.innerHTML = `
-      <div class="hud-deck-wrap">
-        <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
-          <rect x="18" y="14" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
-          <rect x="14" y="10" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".85"/>
-          <rect x="10" y="6"  width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"/>
-        </svg>
-        <span class="deck-count">${deckCount}</span>
-      </div>`;
-  }
-  if (hudDiscardBtn){
-    hudDiscardBtn.innerHTML = `
+  // inside render(), where you already set the HUD buttons’ innerHTML:
+if (hudDeckBtn){
+  const deckCount = (state?.players?.player?.deck?.length ?? 0);
+  hudDeckBtn.innerHTML = `
+    <div class="hud-deck-wrap">
+      <svg class="icon deck" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
+        <rect x="18" y="14" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+        <rect x="14" y="10" width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".85"/>
+        <rect x="10" y="6"  width="28" height="36" rx="3" fill="none" stroke="currentColor" stroke-width="2" opacity=".7"/>
+      </svg>
+      <span class="deck-count">${deckCount}</span>
+    </div>`;
+}
+
+if (hudDiscardBtn){
+  const discardCount = (state?.players?.player?.discard?.length ?? 0);
+  hudDiscardBtn.innerHTML = `
+    <div class="hud-discard-wrap">
       <svg class="icon discard" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
         <path d="M18 22h28M18 30h28M18 38h28" stroke="currentColor" stroke-width="3" stroke-linecap="round" fill="none"/>
         <rect x="14" y="16" width="36" height="32" rx="6" fill="none" stroke="currentColor" stroke-width="2" opacity=".8"/>
-      </svg>`;
-  }
+      </svg>
+      <span class="discard-count">${discardCount}</span>
+    </div>`;
+}
+
   if (hudEndBtn){
     hudEndBtn.innerHTML = `
       <svg class="icon end" viewBox="0 0 64 64" width="44" height="44" aria-hidden="true">
@@ -2812,6 +2821,109 @@ document.addEventListener("DOMContentLoaded", async () => {
  
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
+
+
+
+
+
+/* ===================== Pile modal (Deck & Discard as real cards) ===================== */
+function ensurePileModalStyles(){
+  if (document.getElementById('pile-modal-style')) return;
+  const s = document.createElement('style');
+  s.id = 'pile-modal-style';
+  s.textContent = `
+    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; }
+    #pile-modal.open{ display:block; }
+    #pile-modal .backdrop{ position:absolute; inset:0; backdrop-filter: blur(4px); background:rgba(0,0,0,.45); }
+    #pile-modal .sheet{
+      position:absolute; right:24px; bottom:24px; left:24px; top:24px;
+      border-radius:16px; background:rgba(18,18,18,.92);
+      border:1px solid rgba(255,255,255,.08); box-shadow:0 10px 36px rgba(0,0,0,.55);
+      display:grid; grid-template-rows:auto 1fr; overflow:hidden;
+    }
+    #pile-modal header{
+      display:flex; align-items:center; justify-content:space-between;
+      padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08);
+      font-size:18px; letter-spacing:.02em;
+    }
+    #pile-modal header .close{
+      border:0; background:transparent; color:#ddd; font-size:22px; line-height:1; cursor:pointer;
+      padding:6px 10px; border-radius:10px;
+    }
+    #pile-modal header .close:hover{ background:rgba(255,255,255,.08); }
+    #pile-modal .grid{
+      padding:18px; overflow:auto;
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
+      gap:16px;
+    }
+    #pile-modal .grid .card { width:100%; height:auto; }
+  `;
+  document.head.appendChild(s);
+}
+
+function openPileModal(title, cards){
+  ensurePileModalStyles();
+  let m = document.getElementById('pile-modal');
+  if (!m){
+    m = document.createElement('div');
+    m.id = 'pile-modal';
+    m.innerHTML = `
+      <div class="backdrop"></div>
+      <div class="sheet">
+        <header><div class="ttl"></div><button class="close" type="button" aria-label="Close">×</button></header>
+        <div class="grid"></div>
+      </div>`;
+    document.body.appendChild(m);
+    m.querySelector('.backdrop').addEventListener('click', ()=> m.classList.remove('open'));
+    m.querySelector('.close').addEventListener('click', ()=> m.classList.remove('open'));
+  }
+  m.querySelector('.ttl').textContent = title;
+  const grid = m.querySelector('.grid');
+  grid.replaceChildren();
+  cards.forEach(c=>{
+    const el = document.createElement('article');
+    el.className = 'card';
+    el.innerHTML = cardShellHTML(c);
+    grid.appendChild(el);
+  });
+  m.classList.add('open');
+}
+
+/* ===================== HUD counts & handlers upgrade ===================== */
+/* Replaces the list-style modal usage with the new card-grid modal, and
+   shows a live count on the discard HUD button just like the deck. */
+(function upgradeHudPileCountsAndHandlers(){
+  // style badge for discard count to match deck count
+  if (!document.getElementById('hud-pile-count-style')) {
+    const s = document.createElement('style');
+    s.id = 'hud-pile-count-style';
+    s.textContent = `
+      .hud-deck-wrap, .hud-discard-wrap { position:relative; }
+      .deck-count, .discard-count{
+        position:absolute; right:-6px; top:-6px; min-width:22px; height:22px;
+        padding:0 6px; border-radius:999px; display:grid; place-items:center;
+        background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.15);
+        font-size:13px; line-height:1; letter-spacing:.02em;
+      }`;
+    document.head.appendChild(s);
+  }
+
+  // swap the click handlers to open the new modal
+  if (typeof window.__wirePileModals === 'function') return; // idempotent guard
+  window.__wirePileModals = function({ getStack }){
+    const deckBtn = document.getElementById('btn-deck-hud');
+    const discBtn = document.getElementById('btn-discard-hud');
+    deckBtn?.addEventListener('click', ()=>{
+      const cards = getStack(state, 'player', 'deck');
+      openPileModal(`Deck (${cards.length})`, cards);
+    });
+    discBtn?.addEventListener('click', ()=>{
+      const cards = getStack(state, 'player', 'discard');
+      openPileModal(`Discard (${cards.length})`, cards);
+    });
+  };
+})();
+
 
 
 
