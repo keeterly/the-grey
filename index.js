@@ -2831,35 +2831,78 @@ function ensurePileModalStyles(){
   s.textContent = `
     #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; }
     #pile-modal.open{ display:block; }
-    #pile-modal .backdrop{ position:absolute; inset:0; backdrop-filter: blur(4px); background:rgba(0,0,0,.45); }
+
+    /* no big backdrop — just click-away area */
+    #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
+
+    /* compact side panel near HUD buttons */
     #pile-modal .sheet{
-      position:absolute; right:24px; bottom:24px; left:24px; top:24px;
-      border-radius:16px; background:rgba(18,18,18,.92);
-      border:1px solid rgba(255,255,255,.08); box-shadow:0 10px 36px rgba(0,0,0,.55);
-      display:grid; grid-template-rows:auto 1fr; overflow:hidden;
+      position:absolute; right:84px; bottom:84px;
+      width: 420px; max-height: 70vh;
+      display:grid; grid-template-rows:auto 1fr;
+      border-radius:16px; overflow:hidden;
+      background:rgba(18,18,18,.96);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 10px 36px rgba(0,0,0,.55);
     }
+
+    /* small header with view toggle */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
-      padding:14px 16px; border-bottom:1px solid rgba(255,255,255,.08);
-      font-size:18px; letter-spacing:.02em;
+      gap:8px; padding:10px 12px;
+      border-bottom:1px solid rgba(255,255,255,.08);
+      font-size:16px; letter-spacing:.02em;
+    }
+    #pile-modal header .ttl{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #pile-modal header .controls{ display:flex; gap:6px; align-items:center; }
+    #pile-modal header .btn{
+      height:28px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06); color:#ddd; cursor:pointer; font-size:12px;
+    }
+    #pile-modal header .btn[aria-pressed="true"]{
+      background:rgba(255,255,255,.12); color:#fff;
     }
     #pile-modal header .close{
-      border:0; background:transparent; color:#ddd; font-size:22px; line-height:1; cursor:pointer;
-      padding:6px 10px; border-radius:10px;
+      border:0; background:transparent; color:#ddd; font-size:20px; line-height:1; cursor:pointer;
+      padding:4px 8px; border-radius:8px;
     }
-    #pile-modal header .close:hover{ background:rgba(255,255,255,.08); }
+
+    /* list view */
+    #pile-modal .list{ overflow:auto; padding:8px 8px 12px; display:grid; gap:6px; }
+    #pile-modal .row{
+      display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
+      padding:8px 10px; border-radius:10px;
+      background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06);
+    }
+    #pile-modal .row .nm{ font-size:14px; }
+    #pile-modal .row .meta{ font-size:12px; opacity:.8; }
+
+    /* card grid (optional toggle) */
     #pile-modal .grid{
-      padding:18px; overflow:auto;
-      display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr));
-      gap:16px;
+      display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
+      gap:10px; padding:10px; overflow:auto;
     }
-    #pile-modal .grid .card { width:100%; height:auto; }
+    #pile-modal .grid .card{ transform: scale(.85); transform-origin: top left; }
+    #pile-modal .grid .card .title{ font-size: .95em; } /* minor compaction */
+
+    /* mode switching */
+    #pile-modal[data-view="list"] .grid{ display:none; }
+    #pile-modal[data-view="cards"] .list{ display:none; }
+
+    /* phone fallback */
+    @media (max-width: 640px){
+      #pile-modal .sheet{ right:16px; left:16px; width:auto; bottom:80px; }
+    }
   `;
   document.head.appendChild(s);
 }
 
+
+let PILE_VIEW = localStorage.getItem('pileViewMode') || 'list'; // 'list' | 'cards'
+
 function openPileModal(title, cards){
   ensurePileModalStyles();
+
   let m = document.getElementById('pile-modal');
   if (!m){
     m = document.createElement('div');
@@ -2867,24 +2910,68 @@ function openPileModal(title, cards){
     m.innerHTML = `
       <div class="backdrop"></div>
       <div class="sheet">
-        <header><div class="ttl"></div><button class="close" type="button" aria-label="Close">×</button></header>
+        <header>
+          <div class="ttl"></div>
+          <div class="controls">
+            <button class="btn btn-list"  type="button" aria-pressed="false">List</button>
+            <button class="btn btn-cards" type="button" aria-pressed="false">Cards</button>
+            <button class="close" type="button" aria-label="Close">×</button>
+          </div>
+        </header>
+        <div class="list"></div>
         <div class="grid"></div>
       </div>`;
     document.body.appendChild(m);
-    m.querySelector('.backdrop').addEventListener('click', ()=> m.classList.remove('open'));
-    m.querySelector('.close').addEventListener('click', ()=> m.classList.remove('open'));
+
+    const close = ()=> m.classList.remove('open');
+    m.querySelector('.backdrop').addEventListener('click', close);
+    m.querySelector('.close').addEventListener('click', close);
+
+    // toggle handlers (persist preference)
+    const setView = (v)=>{
+      PILE_VIEW = v;
+      localStorage.setItem('pileViewMode', v);
+      m.dataset.view = v;
+      m.querySelector('.btn-list') .setAttribute('aria-pressed', v==='list');
+      m.querySelector('.btn-cards').setAttribute('aria-pressed', v==='cards');
+    };
+    m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
+    m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
+    m._setView = setView; // stash for later calls
   }
+
+  // fill content
   m.querySelector('.ttl').textContent = title;
+  const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
+  list.replaceChildren();
   grid.replaceChildren();
+
+  // list rows (compact)
+  cards.forEach(c=>{
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = `
+      <span class="nm">${c.name}</span>
+      <span class="meta">
+        ${c.type}${(c.cost|0)?` · cost ${c.cost}`:''}${(c.pip|0)?` · pips ${c.pip}`:''}
+      </span>`;
+    list.appendChild(row);
+  });
+
+  // (optional) small cards grid
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
     el.innerHTML = cardShellHTML(c);
     grid.appendChild(el);
   });
+
+  // apply view + open
+  (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 /* ===================== HUD counts & handlers upgrade ===================== */
 /* Replaces the list-style modal usage with the new card-grid modal, and
