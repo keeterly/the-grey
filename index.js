@@ -2223,12 +2223,25 @@ function spotlightFromEvents(state){
 
 
       // GLYPH: board → discard cinematic (camera fly), we’ll also do the flip below
-      if (e.t === 'resolved' && e.source === 'glyph') {
-        const rowSel = `.row.${e.side || 'player'}`;
-        const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
-        const destRect = domRectOfDiscardHud();
-        await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.12, holdMs: 300 });
-      }
+        if (e.t === 'resolved' && e.source === 'glyph') {
+          const rowSel = `.row.${e.side || 'player'}`;
+          const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
+          const destRect = domRectOfDiscardHud();
+        
+          const recentMs = performance.now() - (CURRENT_RESOLVE_STACK.at || 0);
+          const canStack = recentMs < 1400 && CURRENT_RESOLVE_STACK.key;
+        
+          await playCinematic(e.cardData, slotRect, destRect, canStack ? {
+            centerScale: 1.12, holdMs: 300,
+            // glyph goes ON TOP of the thing that triggered it
+            stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 1, stackDx: 26, stackDy: 18
+          } : {
+            centerScale: 1.12, holdMs: 300
+          });
+        
+          // (keep your existing flip/pulse/remove block that follows)
+        }
+
 
       // Logging
       if (e.t === "reveal" && e.source === "flow") {
