@@ -1294,10 +1294,49 @@ async function renderFlow(flowArray){
     card.classList.add("buyable");
   }
 
-   if (c && canAfford){
-   card.addEventListener("click", async () => {
+ if (c && canAfford){
+  card.addEventListener("click", async () => {
+    // one-shot guard so we can’t double-buy on rapid clicks
+    if (card.dataset.buying === "1") return;
+    card.dataset.buying = "1";
+    card.setAttribute("aria-disabled", "true");
 
-  }
+    const boughtId = c?.id || null;
+
+    // visually disable this market cell immediately
+    li.style.pointerEvents = "none";
+    li.style.opacity = "0.25";
+
+    const price   = FLOW_PRICE_BY_POS[idx] || 0;
+    const useTemp = Math.min(price, (state.players.player.tempAether | 0));
+    // top-up perm Æ by the temp amount (logic spends perm first)
+    adjustAe("player", useTemp);
+
+    try {
+      // cinematic: from this DOM node → discard HUD
+      Emit("aetherflow:bought", { node: card });
+
+      // commit purchase (GameLogic removes slot / refills)
+      state = buyFromFlow(state, "player", idx);
+
+      // burn the temp that actually contributed
+      if (useTemp) addTemp("player", -useTemp);
+
+      // remember it, so it renders with the lighter “flow-bought” look
+      if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
+    } catch (e) {
+      // rollback on any failure
+      adjustAe("player", -useTemp);
+      li.style.pointerEvents = "";
+      li.style.opacity = "";
+      card.dataset.buying = "";
+      card.removeAttribute("aria-disabled");
+    }
+
+    await render();
+  });
+}
+
    
   li.appendChild(card);
 
@@ -2094,7 +2133,7 @@ function spotlightFromEvents(state){
      } else if (e.t === "resolved" && e.source === "buy") {
         logLine(`${e.side} BOUGHT → ${e.cardData?.name || e.cardId}`);
         if (e.cardData?.id) FLOW_BOUGHT_IDS.add(e.cardData.id);
-      }
+      
 
         
       } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
