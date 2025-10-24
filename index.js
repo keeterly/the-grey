@@ -1456,9 +1456,34 @@ function ensureFlowBoughtStyles(){
       position: relative;
       z-index: 2;
     }
+
+    /* === NEW: cinematic spotlight support === */
+    .cinematic-card.flow-bought {
+      filter: brightness(1.12) saturate(1.05);
+      position: relative;
+    }
+
+    .cinematic-card.flow-bought::before {
+      content: "";
+      position: absolute;
+      inset: -3px;
+      border-radius: var(--card-radius, 10px);
+      background: linear-gradient(130deg, rgba(160,230,255,0.6), rgba(120,200,255,0.2), rgba(100,180,255,0.35));
+      filter: blur(1px);
+      opacity: 0.6;
+      animation: flowBoughtPulse 2.6s ease-in-out infinite;
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .cinematic-card.flow-bought > * {
+      position: relative;
+      z-index: 2;
+    }
   `;
   document.head.appendChild(s);
 }
+
 
 
 
@@ -2001,12 +2026,17 @@ function centerRect(w = 260, h = 360) {
   const vw = innerWidth, vh = innerHeight;
   return { x: (vw - w)/2, y: (vh - h)/2, w, h, cx: vw/2, cy: vh/2 };
 }
+// --- cinematic helpers ---
 function makeFloatingCard(cardData) {
   const el = document.createElement('article');
   el.className = 'card cinematic-card';
+  if (cardData?.id && FLOW_BOUGHT_IDS.has(cardData.id)) {
+    el.classList.add('flow-bought');   // ← keep Aetherflow look in spotlight
+  }
   el.innerHTML = cardHTML(cardData);
   return el;
 }
+
 
 
 function ensureRightHudStrip() {
