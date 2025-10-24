@@ -142,7 +142,7 @@ export function initState(seed) {
           { hasCard:false, card:null },
           { isGlyph:true, hasCard:false, card:null },
         ],
-        weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria.jpg" },
+        weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria_Portrait.jpg" },
       },
       ai: {
         vitality: STARTING_VITALITY,
@@ -154,7 +154,7 @@ export function initState(seed) {
           { hasCard:false, card:null },
           { isGlyph:true, hasCard:false, card:null },
         ],
-        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr.jpg" },
+        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr_Portrait.jpg" },
       }
     }
   };
