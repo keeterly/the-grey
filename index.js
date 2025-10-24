@@ -2103,40 +2103,71 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const layer = ensureCinematicLayer();
   const ghost = makeFloatingCard(cardData);
 
+  // stacking options (all optional)
+  const stackKey   = opts.stackKey || null;
+  const stackIndex = Number.isFinite(opts.stackIndex) ? (opts.stackIndex|0) : 0;
+  const stackDx    = Number.isFinite(opts.stackDx) ? opts.stackDx : 26;   // horizontal offset per index
+  const stackDy    = Number.isFinite(opts.stackDy) ? opts.stackDy : 18;   // vertical offset per index
+
   ghost.style.position = "fixed";
   ghost.style.left = `${startRect?.x ?? (innerWidth - 240)/2}px`;
   ghost.style.top  = `${startRect?.y ?? (innerHeight - 336)/2}px`;
-  ghost.style.width = `${startRect?.w ?? 240}px`;
+  ghost.style.width  = `${startRect?.w ?? 240}px`;
   ghost.style.height = `${startRect?.h ?? 336}px`;
   ghost.style.transformOrigin = "top left";
   ghost.style.willChange = "transform, opacity";
-  ghost.classList.add("cine-glow");
 
+  // ensure the last stack member sits on top visually
+  ghost.style.zIndex = String(2000 + stackIndex);
+
+  ghost.classList.add("cine-glow");
   layer.appendChild(ghost);
   await nextFrame();
 
-  // 👇 unify with board resolves
-  const scaleMid = opts.centerScale ?? 1.16;
-  const pose = centerRect((startRect?.w ?? 240) * scaleMid, (startRect?.h ?? 336) * scaleMid);
-  ghost.style.transform = `translate(${(pose.x - (startRect?.x ?? pose.x))}px, ${(pose.y - (startRect?.y ?? pose.y))}px) scale(${scaleMid})`;
+  // choose the common center pose (anchor) for this stack, so all members overlap nicely
+  const baseScale = opts.centerScale ?? 1.16;
+  let anchorPose;
+  if (stackKey) {
+    anchorPose = SPOTLIGHT_STACKS.get(stackKey);
+    if (!anchorPose) {
+      anchorPose = centerRect((startRect?.w ?? 240) * baseScale, (startRect?.h ?? 336) * baseScale);
+      SPOTLIGHT_STACKS.set(stackKey, anchorPose);
+    }
+  } else {
+    anchorPose = centerRect((startRect?.w ?? 240) * baseScale, (startRect?.h ?? 336) * baseScale);
+  }
+
+  // apply per-index offset so items are visibly stacked
+  const offsetX = stackIndex * stackDx;
+  const offsetY = stackIndex * stackDy;
+
+  ghost.style.transform =
+    `translate(${(anchorPose.x - (startRect?.x ?? anchorPose.x)) + offsetX}px, ${(anchorPose.y - (startRect?.y ?? anchorPose.y)) + offsetY}px) scale(${baseScale})`;
   ghost.style.opacity = '1';
 
   await sleep(opts.poseInMs ?? 240);
   ghost.classList.add('pose');
   await sleep(opts.holdMs ?? 360);
 
-  const endX = (destRect?.x ?? pose.x);
-  const endY = (destRect?.y ?? pose.y);
+  const endX = (destRect?.x ?? anchorPose.x);
+  const endY = (destRect?.y ?? anchorPose.y);
   const scaleOut = opts.endScale ?? 0.78;
 
   ghost.classList.remove('pose');
   await nextFrame();
-  ghost.style.transform = `translate(${endX - (startRect?.x ?? pose.x)}px, ${endY - (startRect?.y ?? pose.y)}px) scale(${scaleOut})`;
+  ghost.style.transform =
+    `translate(${endX - (startRect?.x ?? anchorPose.x)}px, ${endY - (startRect?.y ?? anchorPose.y)}px) scale(${scaleOut})`;
   ghost.style.opacity = '0.001';
 
   await sleep(opts.outMs ?? 260);
   ghost.remove();
+
+  // let the stack anchor auto-expire shortly after last item flies out
+  if (stackKey) {
+    setTimeout(() => SPOTLIGHT_STACKS.delete(stackKey), 1200);
+  }
 }
+
 
 
 
@@ -2175,12 +2206,21 @@ function spotlightFromEvents(state){
   evts.forEach(async (e) => {
     try {
       // SPELL: board → discard cinematic
-      if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
-        const rowSel = `.row.${e.side || 'player'}`;
-        const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
-        const destRect = domRectOfDiscardHud();
-        await playCinematic(e.cardData, slotRect, destRect, { centerScale: 1.16, holdMs: 300 });
-      }
+       if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
+          const rowSel = `.row.${e.side || 'player'}`;
+          const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
+          const destRect = domRectOfDiscardHud();
+        
+          // start (or refresh) a stack key for this resolve sequence
+          CURRENT_RESOLVE_STACK.key = `resolve-${Date.now()}`;
+          CURRENT_RESOLVE_STACK.at  = performance.now();
+        
+          await playCinematic(e.cardData, slotRect, destRect, {
+            centerScale: 1.16, holdMs: 300,
+            stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 0, stackDx: 26, stackDy: 18
+          });
+        }
+
 
       // GLYPH: board → discard cinematic (camera fly), we’ll also do the flip below
       if (e.t === 'resolved' && e.source === 'glyph') {
@@ -2339,6 +2379,9 @@ async function setGlyphFromHandWithTemp(side, cardId){
 
 }
 
+// --- Spotlight stack coordination (for spell → glyph resolution pairs)
+const SPOTLIGHT_STACKS = new Map();  // key -> anchor pose rect (center size)
+let CURRENT_RESOLVE_STACK = { key: null, at: 0 }; // updated when a spell/instant resolves
 
 
 
