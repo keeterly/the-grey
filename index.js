@@ -1433,9 +1433,15 @@ function ensureFlowBoughtStyles(){
   s.id = 'flow-bought-style';
   s.textContent = `
     .card.flow-bought {
+      /* no position here — don’t override slot layout */
       filter: brightness(1.12) saturate(1.04);
-      position: relative;
       box-shadow: 0 0 10px rgba(173,216,230,0.25);
+    }
+
+    /* When a Flow-bought card sits inside a board slot, force full fill */
+    .row .slot .card.flow-bought {
+      position: absolute !important;
+      inset: 0 !important;
     }
 
     /* ✨ Magical border shimmer */
@@ -1463,12 +1469,11 @@ function ensureFlowBoughtStyles(){
       z-index: 2;
     }
 
-    /* === NEW: cinematic spotlight support === */
+    /* Spotlight/ghost cards can stay relatively positioned */
     .cinematic-card.flow-bought {
       filter: brightness(1.12) saturate(1.05);
       position: relative;
     }
-
     .cinematic-card.flow-bought::before {
       content: "";
       position: absolute;
@@ -1481,7 +1486,6 @@ function ensureFlowBoughtStyles(){
       z-index: 1;
       pointer-events: none;
     }
-
     .cinematic-card.flow-bought > * {
       position: relative;
       z-index: 2;
@@ -1489,6 +1493,7 @@ function ensureFlowBoughtStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 
 
