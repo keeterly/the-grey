@@ -1310,11 +1310,11 @@ async function renderFlow(flowArray){
 
   const priceLbl = document.createElement("div");
   priceLbl.className = "price-label";
-  priceLbl.innerHTML = `
-    <span class="flow-price" aria-label="${price} Aether to buy">
-      ${withAetherIcons('[[Æ]]')}
-      <span class="n">${price}</span>
-    </span>`;
+ priceLbl.innerHTML = `
+  <span class="flow-price-num" aria-label="${price} Aether to buy">
+    <span class="n">${price}</span>
+  </span>`;
+
   li.appendChild(priceLbl);
 
   row.appendChild(li);
@@ -1753,29 +1753,28 @@ function ensureFlowStyles(){
       transform-origin: center;
     }
 
-    /* cleaner price chip */
+    /* price label container */
     .flow-board .price-label {
       margin-top: 6px;
-      font-size: 12px;
-      letter-spacing: .02em;
       opacity: .95;
       display: grid; place-items: center;
     }
-    .flow-board .flow-price {
-      display: inline-grid;
-      grid-auto-flow: column;
-      align-items: center;
-      gap: 6px;
-      padding: 3px 8px;
-      border-radius: 10px;
+
+    /* NEW: number-only circular badge (50% bigger than before) */
+    .flow-board .flow-price-num {
+      width: 42px; height: 42px;          /* circle */
+      border-radius: 50%;
+      display: grid; place-items: center;
       background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.10);
       line-height: 1;
     }
-    .flow-board .flow-price svg { display:block; }
-    .flow-board .flow-price .n { font-size: 13px; }
+    .flow-board .flow-price-num .n {
+      font-size: 20px;                     /* ~50% bigger than prior 13px */
+      letter-spacing: .02em;
+    }
 
-    /* pulse for buyable cards */
+    /* pulse for buyable cards (unchanged) */
     @keyframes buyablePulse {
       0%   { box-shadow: 0 0 0 0 rgba(255,255,255,0.22); transform: scale(1.00); }
       70%  { box-shadow: 0 0 0 12px rgba(255,255,255,0);  transform: scale(1.03); }
@@ -1788,6 +1787,7 @@ function ensureFlowStyles(){
   `;
   document.head.appendChild(s);
 }
+
 
 // --- Trance helpers ---
 function roman(n){ return (["","I","II","III","IV","V"])[Math.max(0, n|0)] || String(n|0); }
@@ -2254,6 +2254,23 @@ function ensureGlyphResolveStyles() {
   document.head.appendChild(s);
 }
 
+function ensurePortraitAeNoGlowStyles(){
+  if (document.getElementById("ae-noglow-style")) return;
+  const s = document.createElement("style");
+  s.id = "ae-noglow-style";
+  s.textContent = `
+    /* Kill any glow/animation on TEMP Æ in portrait readout */
+    .ae-line .ae-ico.temp .icon-aether-temp,
+    .ae-line .ae-ico.temp svg {
+      filter: none !important;
+      animation: none !important;
+    }
+    .ae-line .ae-val.temp {
+      text-shadow: none !important;
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 
 
@@ -2606,6 +2623,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureGlyphFlipDownStyles();
   ensureGlyphResolveStyles();
   ensureTranceStyles();
+  ensurePortraitAeNoGlowStyles();
+
 
 
   await doStartTurn();
