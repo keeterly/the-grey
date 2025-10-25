@@ -2944,6 +2944,31 @@ function ensurePileModalStyles(){
   document.head.appendChild(s);
 }
 
+
+
+(function ensureHeartContainerStyles(){
+  if (document.getElementById('heart-container-style')) return;
+  const s = document.createElement('style');
+  s.id = 'heart-container-style';
+  s.textContent = `
+    #player-hearts, #ai-hearts {
+      display: inline-flex;
+      gap: 6px;
+      vertical-align: middle;
+    }
+    .heart-svg.empty .heart-shape {
+      opacity: .75;
+      filter: drop-shadow(0 0 0 rgba(0,0,0,0));
+    }
+    .heart-svg.filled .heart-shape {
+      filter: drop-shadow(0 1px 0 rgba(0,0,0,.25));
+    }
+  `;
+  document.head.appendChild(s);
+})();
+
+
+
 /* Measure a “true” card size (prefers live board cards; falls back to an offscreen probe) */
 function measureTrueCardSize(sample){
   const pick = sel => {
