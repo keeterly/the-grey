@@ -1146,11 +1146,7 @@ body.mobile-landscape #zoom-card.card.zoom{
   pointer-events: none;
 }
 
-/* (Only if you kept placeholder backs in renderAiMini) */
-.ai-mini-hand .mini-card.placeholder{
-  opacity: .28;
-  filter: grayscale(.2);
-}
+
 
 /* ----- Deck & Discard under the hand (match player HUD styling) ----- */
 .ai-mini-piles{
