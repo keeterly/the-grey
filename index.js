@@ -2829,23 +2829,30 @@ function ensurePileModalStyles(){
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; }
+    /* Modal container sits on top but does NOT force its own scrolling */
+    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; pointer-events:none; }
     #pile-modal.open{ display:block; }
 
-    /* no big backdrop — just click-away area */
-    #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
+    /* click-away area; keep it behind the sheet so the sheet is clickable */
+    #pile-modal .backdrop{
+      position:absolute; inset:0;
+      background:transparent;
+      pointer-events:auto;              /* receives the click to close */
+    }
 
-    /* compact side panel near HUD buttons */
+    /* Side panel near HUD — wide enough for real card columns */
     #pile-modal .sheet{
-      position:absolute; right:84px; bottom:84px;
-      width: 420px; max-height: 70vh;
-      display:grid; grid-template-rows:auto 1fr;
-      border-radius:16px;
-      /* was overflow:hidden; → allow card faces to render fully */
-      overflow:visible;
+      position:absolute;
+      right:84px;                       /* hugs the HUD stack */
+      bottom:84px;                      /* sits above the HUD buttons */
+      width: min(92vw, 720px);          /* wider so full cards fit */
+      /* height is auto; no internal scrollbars */
+      display:grid; grid-template-rows:auto auto 1fr;
+      border-radius:16px; overflow:visible;
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
+      pointer-events:auto;              /* panel itself is interactive */
     }
 
     /* small header with view toggle */
@@ -2869,9 +2876,11 @@ function ensurePileModalStyles(){
       padding:4px 8px; border-radius:8px;
     }
 
-    /* list view */
+    /* list view (no internal scroll) */
     #pile-modal .list{
-      overflow:auto; padding:8px 8px 12px; display:grid; gap:6px;
+      padding:8px 8px 12px;
+      display:grid; gap:6px;
+      overflow:visible;
     }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
@@ -2881,16 +2890,17 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* card grid (cards view) */
+    /* “Cards” grid at true card size — no transform, no cropping */
     #pile-modal .grid{
-      display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
-      gap:10px; padding:10px;
-      /* the scroller lives here, not on the sheet */
-      overflow:auto;
+      padding:12px;
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));  /* room for normal card width */
+      gap:14px;
+      overflow:visible;
     }
-    /* Fill each column; no transform scaling (which clips layout) */
     #pile-modal .grid .card{
-      width:100%; height:auto; position:relative;
+      width:100%; height:auto;          /* use the card’s natural proportions */
+      transform:none;                    /* no scaling that causes clipping */
     }
 
     /* mode switching */
@@ -2899,8 +2909,9 @@ function ensurePileModalStyles(){
 
     /* phone fallback */
     @media (max-width: 640px){
-      #pile-modal .sheet{ right:16px; left:16px; width:auto; bottom:80px; }
-      #pile-modal .grid{ grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); }
+      #pile-modal .sheet{
+        right:16px; left:16px; bottom:80px; width:auto;
+      }
     }
   `;
   document.head.appendChild(s);
@@ -2967,7 +2978,7 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // cards grid (full cards, scaled by column width)
+  // full-size cards grid
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
@@ -2979,6 +2990,7 @@ function openPileModal(title, cards){
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 /* ===================== HUD counts & handlers upgrade ===================== */
