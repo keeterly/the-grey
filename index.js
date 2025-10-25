@@ -351,7 +351,9 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, cardId }) => {
     // prefer SLOT rect when playing to a slot; choose the correct side
     let destRect;
     if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
-      const fromIsAI = !!(node.closest?.('.row.ai') || document.getElementById('ai-mini').contains(node));
+      const aiMini = document.getElementById('ai-mini');
+      const fromIsAI = !!(node.closest?.('.row.ai') || (aiMini && aiMini.contains(node)));
+
       const rowSel = fromIsAI ? '.row.ai' : '.row.player';
       const sel = `${rowSel} .slot.spell[data-slot-index="${slotIndex}"]`;
       destRect = rectOf(document.querySelector(sel)) || rectOfAny(to) || centerRect();
@@ -647,15 +649,6 @@ const Events = {
 // ===== Log Grey bus events to the Game Log =====
 Grey.on?.(Events.TURN_START, async ({side}) => {
   logLine(`Turn start → ${side}`);
-  if (side === 'ai') {
-    // slight pause for readability
-    await new Promise(r => setTimeout(r, 300));
-    state = await aiTakeTurn(state, aiCineBridge);
-    await render();
-    await new Promise(r => setTimeout(r, 300));
-    state = endTurn(state);
-    await render();
-  }
 });
 
 Grey.on?.(Events.TURN_END,   ({side}) => logLine(`Turn end   → ${side}`));
@@ -2484,7 +2477,9 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
 
   // 🔸 Use the SLOT as the destination (selector), not the inner .card
   const destSel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
-  cineFromHandCard(cardId, destSel, 'play-spell', { slotIndex });
+  const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+cine(cardId, destSel, 'play-spell', { slotIndex });
+
 
   try {
     state = playCardToSpellSlot(state, side, cardId, slotIndex);
@@ -2503,7 +2498,9 @@ let lastGlyphJustSetFor = null;  // ← put near other module-level state
 async function setGlyphFromHandWithTemp(side, cardId){
   // fly the card to the glyph slot
   const destSel = `.row.${side} .slot.glyph`;
-  cineFromHandCard(cardId, destSel, 'set-glyph');
+  const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+cine(cardId, destSel, 'set-glyph');
+
 
   state = setGlyphFromHand(state, side, cardId);
     lastGlyphJustSetFor = side;
@@ -2636,7 +2633,9 @@ window.castInstantFromHand = async function(_state, side, cardId){
     if (useTemp) addTemp(side, -useTemp);
   
     // cinematic from the hand card → discard HUD
-    cineFromHandCard(cardId, '#btn-discard-hud', 'instant');
+    const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+cine(cardId, '#btn-discard-hud', 'instant');
+
   
     // resolve to discard + event for spotlight
     state = resolveInstantFromHand(state, side, cardId);
