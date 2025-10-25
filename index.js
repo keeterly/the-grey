@@ -1313,43 +1313,36 @@ container.appendChild(g);
 function renderAiMini(pub){
   if (!aiMiniHandEl) return;
 
-  // Clear and rebuild
+  // Clear and rebuild from the true AI hand
   aiMiniHandEl.replaceChildren();
 
   const hand = Array.isArray(pub?.players?.ai?.hand) ? pub.players.ai.hand : [];
 
-  // Show up to 6 backs, but ALWAYS show at least 3 faint placeholders
-  const realN = Math.min(6, hand.length);
-  const minPlaceholders = 3;
-  const N = Math.max(realN, minPlaceholders);
+  // Cap the visual fan at 6 so it never gets goofy wide
+  const N = Math.min(6, hand.length);
+  const step = 10;   // horizontal spread per card
+  const rot  = 5;    // degrees of rotation per card
 
-  const step = 12;   // pixel spread
-  const rot  = 6;    // degrees spread
-
-  for (let i=0;i<N;i++){
+  for (let i = 0; i < N; i++) {
     const el = document.createElement("div");
     el.className = "mini-card";
-    const offset = (i - (N-1)/2);
-    el.style.setProperty("--dx", `${offset*step}px`);
-    el.style.setProperty("--rot", `${offset*rot}deg`);
+    // reflect the actual card id so cinematics can originate from here
+    el.dataset.cardId = hand[i]?.id || "";
 
-    // For the first `realN` cards, tag with the real id so flights can start from here.
-    // Any extras are placeholders (faint backs) so the fan never disappears.
-    if (i < realN && hand[i]?.id) {
-      el.dataset.cardId = hand[i].id;
-    } else {
-      el.classList.add("placeholder");
-    }
+    const offset = i - (N - 1) / 2;
+    el.style.setProperty("--dx", `${offset * step}px`);
+    el.style.setProperty("--rot", `${offset * rot}deg`);
 
     aiMiniHandEl.appendChild(el);
   }
 
-  // deck / discard counts (from snapshot)
+  // Update pile counts exactly
   const deckN    = (pub?.players?.ai?.deckCount    ?? 0) | 0;
   const discardN = (pub?.players?.ai?.discardCount ?? 0) | 0;
   if (aiMiniDeckEl)    aiMiniDeckEl.setAttribute("data-count", String(deckN));
   if (aiMiniDiscardEl) aiMiniDiscardEl.setAttribute("data-count", String(discardN));
 }
+
 
 
 
