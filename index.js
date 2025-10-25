@@ -31,7 +31,7 @@ import {
 
 
 // === DEMO PASSWORD GATE ===
-const DEMO_PASS = "GREY2025"; // set your own key
+const DEMO_PASS = "FRIENDOFKEETER"; // set your own key
 const KEY_UNLOCK = "theGrey_demo_unlocked";
 
 (async function demoLock() {
