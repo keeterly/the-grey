@@ -2823,32 +2823,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-/* ===================== Pile modal (Deck & Discard as real cards) ===================== */
+/* ===================== Pile modal (Deck & Discard, true card size, no inner scroll) ===================== */
 function ensurePileModalStyles(){
   if (document.getElementById('pile-modal-style')) return;
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* Fullscreen layer that can scroll (outer only) */
+    /* Full-screen layer; the *modal* scrolls, not the inner content */
     #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; overflow:auto; }
     #pile-modal.open{ display:block; }
 
-    /* Click-away area only; no heavy dim so the board stays visible */
+    /* click-away area only */
     #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
 
-    /* Fixed-size panel near the HUD; inner views never scroll */
+    /* Side panel near HUD; no internal scroll so shadows aren’t clipped */
     #pile-modal .sheet{
       position:absolute; right:84px; top:84px; bottom:84px;
-      width: min(960px, calc(100vw - 160px));
-      border-radius:16px;
+      width:960px; max-width:min(960px, calc(100vw - 160px));
+      display:grid; grid-template-rows:auto auto 1fr;
+      border-radius:16px; overflow:visible;
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
-      display:grid; grid-template-rows:auto auto 1fr;
-      overflow:visible;
     }
 
-    /* Header */
+    /* header */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
       gap:8px; padding:10px 12px;
@@ -2867,9 +2866,7 @@ function ensurePileModalStyles(){
       padding:4px 8px; border-radius:8px;
     }
 
-    .subhead{ padding:6px 12px 0; }
-
-    /* LIST (no inner scroll) */
+    /* list view (no inner scroll) */
     #pile-modal .list{ padding:8px 8px 16px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
@@ -2879,25 +2876,40 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* CARDS — true size, wrap naturally, never scroll inside */
-    #pile-modal{ --pile-card-w: 260px; --pile-card-ratio: calc(63 / 88); }
+    /* cards view — flex wrap, *no* inner scroll */
     #pile-modal .grid{
-      display:flex; flex-wrap:wrap; align-content:flex-start;
-      gap:14px; padding:14px; overflow:visible;
-    }
-    #pile-modal .grid .card{
-      width: var(--pile-card-w);
-      aspect-ratio: 63 / 88;            /* MTG proportions */
-      transform: none !important;       /* kill any compact scaling */
-      display:block;
-      contain: content;
+      display:flex; flex-wrap:wrap; gap:14px; padding:14px;
+      align-content:flex-start; overflow:visible;
     }
 
-    /* View toggles */
+    /* exact width comes from a runtime CSS var we set from a SLOT (not a transformed card) */
+    #pile-modal { --pile-card-w: 260px; }
+
+    /* each grid cell reserves real board width so wrapping is predictable */
+    #pile-modal .grid .cell{
+      flex: 0 0 var(--pile-card-w);
+      width: var(--pile-card-w);
+      contain: layout paint;   /* perf, and keeps shadows cheap */
+    }
+
+    /* force modal cards back to normal flow/size */
+    #pile-modal .grid .cell .card{
+      position: relative !important;
+      left:auto !important; top:auto !important; right:auto !important; bottom:auto !important;
+      inset:auto !important;
+      display:block !important;
+      width:100% !important;
+      height:auto !important;
+      transform:none !important;
+      /* avoid any hand/slot z hacks bleeding in */
+      z-index:auto !important;
+    }
+
+    /* view switching */
     #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* Phone */
+    /* phone fallback */
     @media (max-width: 640px){
       #pile-modal .sheet{ right:16px; left:16px; top:70px; bottom:80px; width:auto; }
     }
@@ -2947,29 +2959,23 @@ function openPileModal(title, cards){
     m._setView = setView;
   }
 
-  /* Measure a real, on-board card width so we render 1:1 in the modal. */
-  const probe =
-    document.querySelector('.row.player .slot.spell .card') ||
-    document.querySelector('.row.ai .slot.spell .card')     ||
-    document.querySelector('#hand .card')                    ||
+  /* === Measure a real board card width (slot width), not a transformed card === */
+  const slotProbe =
+    document.querySelector('.row.player .slot.spell') ||
+    document.querySelector('.row.ai .slot.spell') ||
     null;
 
-  if (probe){
-    const w = Math.round(probe.getBoundingClientRect().width || 0);
-    if (w > 0) m.style.setProperty('--pile-card-w', `${w}px`);
-  } else {
-    // safe fallback close to your typical board size
-    m.style.setProperty('--pile-card-w', `260px`);
-  }
+  const w = slotProbe ? Math.round(slotProbe.getBoundingClientRect().width) : 260;
+  m.style.setProperty('--pile-card-w', `${w || 260}px`);
 
-  // Fill content
+  // fill content
   m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
-  // List rows
+  // list rows
   cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
@@ -2981,17 +2987,21 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // Full-size cards (no scale, no crop)
+  // full-size cards in wrapping cells
   cards.forEach(c=>{
+    const cell = document.createElement('div');
+    cell.className = 'cell';
     const el = document.createElement('article');
     el.className = 'card';
     el.innerHTML = cardShellHTML(c);
-    grid.appendChild(el);
+    cell.appendChild(el);
+    grid.appendChild(cell);
   });
 
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 
