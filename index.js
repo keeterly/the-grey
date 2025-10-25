@@ -286,10 +286,13 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 }
 
 
-// same as above but looks up the tiny AI-back element
+// === AI cinematic helper ===
+// This triggers a flight from the mini AI hand HUD
 function cineFromAiMini(cardId, to, pose = '', meta = {}) {
-  const node = aiMiniHandEl?.querySelector(`.mini-card[data-card-id="${cardId}"]`);
-  if (node) Emit('spotlight:cine', { node, to, pose, ...meta });
+  const node = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${cardId}"]`);
+  if (node) {
+    Emit('spotlight:cine', { node, to, pose, ...meta });
+  }
 }
 
 
@@ -638,6 +641,33 @@ Grey.on?.(Events.CARD_CAST,   ({side, cardId, cost}) => logLine(`${side} CAST in
 Grey.on?.(Events.CHANNEL,     ({side, cardId, gained}) => logLine(`${side} CHANNEL ${cardId} → +${gained} Æ (temp)`));
 Grey.on?.(Events.BUY,         ({side, idx, price}) => logLine(`${side} BOUGHT flow[${idx}] for ${price} Æ`));
 Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => logLine(`${side} +${amount} Æ (${source||"effect"})`));
+
+
+// === AI → cinematic bridge ===
+function aiCineBridge(evt) {
+  // evt.kind can be: ai-instant | ai-glyph | ai-spell | ai-channel
+  const discardTarget = '#btn-discard-hud';
+  const glyphTarget   = '.row.ai .slot.glyph';
+
+  if (evt.kind === 'ai-spell') {
+    cineFromAiMini(
+      evt.cardId,
+      `.row.ai .slot.spell[data-slot-index="${evt.slotIndex}"]`,
+      'play-spell',
+      { slotIndex: evt.slotIndex }
+    );
+  } else if (evt.kind === 'ai-glyph') {
+    cineFromAiMini(evt.cardId, glyphTarget, 'set-glyph');
+  } else {
+    // instant or channel both fly to discard HUD
+    cineFromAiMini(
+      evt.cardId,
+      discardTarget,
+      evt.kind === 'ai-instant' ? 'cast-instant' : 'channel'
+    );
+  }
+}
+
 
 
 /* ---------- portrait hearts: containers + filled ---------- */
