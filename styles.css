@@ -1196,6 +1196,16 @@ body.mobile-landscape #zoom-card.card.zoom{
   font-size: 13px; line-height: 1; letter-spacing: .02em;
 }
 
+
+/* Keep the AI mini hand visible at all times */
+#ai-mini {
+  opacity: 1 !important;
+  transition: opacity .2s ease;
+}
+#ai-mini.dim { opacity: 1 !important; } /* guard against earlier class usage */
+
+
+
 /* Small-height screens: scale a touch */
 @media (max-height: 740px){
   :root{
@@ -1204,6 +1214,8 @@ body.mobile-landscape #zoom-card.card.zoom{
     --aiMiniCardH: 58px;
   }
 }
+
+
 
 
 
