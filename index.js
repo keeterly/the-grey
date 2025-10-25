@@ -30,6 +30,50 @@ import {
 } from "./GameLogic.js";
 
 
+// === DEMO PASSWORD GATE ===
+const DEMO_PASS = "GREY2025"; // set your own key
+const KEY_UNLOCK = "theGrey_demo_unlocked";
+
+(async function demoLock() {
+  const unlocked = localStorage.getItem(KEY_UNLOCK);
+  if (unlocked === "yes") return; // already unlocked once
+
+  const overlay = document.createElement("div");
+  overlay.id = "demo-lock";
+  Object.assign(overlay.style, {
+    position: "fixed",
+    inset: "0",
+    background: "radial-gradient(circle at center, #0a0a0a, #000)",
+    color: "#eee",
+    fontFamily: "Cinzel, serif",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
+  });
+  overlay.innerHTML = `
+    <h1 style="font-size:2rem; margin-bottom:1rem;">Enter Access Key</h1>
+    <input id="demo-pass" type="password" style="padding:8px 12px; font-size:1rem; border-radius:4px; border:none; outline:none;"/>
+    <button id="demo-btn" style="margin-top:1rem; padding:8px 14px; font-size:1rem;">Unlock</button>
+    <p id="demo-msg" style="margin-top:0.5rem; color:#c33; display:none;">Invalid key</p>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector("#demo-btn").onclick = () => {
+    const input = overlay.querySelector("#demo-pass").value.trim();
+    if (input === DEMO_PASS) {
+      localStorage.setItem(KEY_UNLOCK, "yes");
+      overlay.remove();
+    } else {
+      overlay.querySelector("#demo-msg").style.display = "block";
+    }
+  };
+})();
+
+
+
+
 function withAetherIcons(txt){
   if (!txt) return "";
   return String(txt)
