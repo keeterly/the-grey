@@ -1091,3 +1091,54 @@ body.mobile-landscape #zoom-card.card.zoom{
 /* Keep the title/rune visible but non-blocking */
 .slot.glyph .slot-title { pointer-events: none; }
 .slot.glyph .slot-rune  { pointer-events: none; } /* already set; safe to repeat */
+
+
+/* ==== AI Mini Hand HUD =================================================== */
+.ai-mini{
+  position: absolute;
+  right: -110px;               /* nudges to the right edge of the AI row */
+  top: 0;
+  height: var(--card-h);
+  display: grid;
+  grid-template-rows: 1fr auto;
+  gap: 10px;
+  pointer-events: none;
+}
+.row.ai { position: relative; } /* ensure the absolute .ai-mini pins to AI row */
+
+.ai-mini-hand{
+  position: relative;
+  width: 150px; height: var(--card-h);
+}
+
+.ai-mini-hand .mini-card{
+  position: absolute; left: 50%; top: 12px;
+  width: calc(var(--card-w) * .42);
+  height: calc(var(--card-h) * .42);
+  border-radius: 10px;
+  background: linear-gradient(180deg,#2f271f,#1f1914);
+  border: 1px solid #5a4b37;
+  box-shadow: 0 10px 14px rgba(0,0,0,.55);
+  transform-origin: 50% 90%;
+  transform: translate(-50%,0) rotate(var(--rot,0deg)) translateX(var(--dx,0));
+  pointer-events: none;        /* HUD only; no clicks */
+}
+
+.ai-mini-piles{
+  display: flex; gap: 10px; justify-content: center;
+}
+
+.ai-mini-piles .mini-pile{
+  width: 36px; height: 48px; border-radius: 6px;
+  background: linear-gradient(180deg,#2a211a,#1f1914);
+  border: 1px solid #4a3d2f; box-shadow: 0 4px 10px #0008;
+  position: relative;
+}
+.ai-mini-piles .mini-pile::after{
+  content: attr(data-count);
+  position: absolute; right: -6px; bottom: -6px;
+  min-width: 18px; height: 18px; padding: 0 6px;
+  border-radius: 999px; font-weight: 800; font-size: .72rem;
+  color:#0d0a07; background:#c6a56a; display: grid; place-items: center;
+}
+
