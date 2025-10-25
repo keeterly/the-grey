@@ -628,17 +628,43 @@ Grey.on?.(Events.BUY,         ({side, idx, price}) => logLine(`${side} BOUGHT fl
 Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => logLine(`${side} +${amount} Æ (${source||"effect"})`));
 
 
-/* ---------- portraits ---------- */
-function heartSVG(size=36){
-  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" aria-hidden="true">
-    <path d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z" fill="#d65151" />
-    <path d="M12 8l2 3h-4l-2 0 2-3z" fill="#6b1111"/>
-  </svg>`;
+/* ---------- portrait hearts: containers + filled ---------- */
+function heartSVG({ filled = true, size = 36 } = {}) {
+  const s = size | 0;
+  // one path, two styles: filled uses gradient; empty is outline-only
+  return `
+    <svg viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true" class="heart-svg ${filled ? 'filled' : 'empty'}">
+      <defs>
+        <linearGradient id="heartGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"  stop-color="#ff7a7a"/>
+          <stop offset="100%" stop-color="#d65151"/>
+        </linearGradient>
+      </defs>
+      <path class="heart-shape"
+        d="M12 21s-7.2-4.5-9.5-8.1C.5 9.7 1.7 6.6 4.4 5.4 6.3 4.6 8.6 5 10 6.6c1.4-1.6 3.7-2 5.6-1.2 2.7 1.2 3.9 4.3 1.9 7.5C19.2 16.5 12 21 12 21z"
+        fill="${filled ? 'url(#heartGrad)' : 'transparent'}"
+        stroke="${filled ? 'rgba(0,0,0,.25)' : 'rgba(255,255,255,.45)'}"
+        stroke-width="${filled ? 0.6 : 1.4}" />
+    </svg>`;
 }
-function renderHearts(el, n=5){
+
+/**
+ * Render hearts as "containers": show `maxHearts` outlines,
+ * with the first `hp` hearts filled. Defaults to 5 max.
+ */
+function renderHearts(el, hp = 5, maxHearts = 5) {
   if (!el) return;
-  el.innerHTML = Array.from({length:Math.max(0,n|0)}).map(()=>`<span class="heart">${heartSVG(36)}</span>`).join("");
+  const cur = Math.max(0, hp | 0);
+  const max = Math.max(cur, maxHearts | 0) || 5;
+
+  const nodes = [];
+  for (let i = 0; i < max; i++) {
+    const filled = i < cur;
+    nodes.push(`<span class="heart">${heartSVG({ filled, size: 36 })}</span>`);
+  }
+  el.innerHTML = nodes.join("");
 }
+
 
 /* ---------- portrait Aether readout: split permanent vs temporary ---------- */
 function setAetherDisplay(el, perm=0, temp=0){
@@ -2570,8 +2596,10 @@ async function render(){
   
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
-  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5);
-  renderHearts($("ai-hearts"),     s.players?.ai?.vitality ?? 5);
+  // in render()
+renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5, 5);
+renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 5, 5);
+
  removeLegacyTranceText();
   renderTranceTrack('player');
 renderTranceTrack('ai');
