@@ -633,7 +633,19 @@ const Events = {
 
 
 // ===== Log Grey bus events to the Game Log =====
-Grey.on?.(Events.TURN_START, ({side}) => logLine(`Turn start → ${side}`));
+Grey.on?.(Events.TURN_START, async ({side}) => {
+  logLine(`Turn start → ${side}`);
+  if (side === 'ai') {
+    // slight pause for readability
+    await new Promise(r => setTimeout(r, 300));
+    state = await aiTakeTurn(state, aiCineBridge);
+    await render();
+    await new Promise(r => setTimeout(r, 300));
+    state = endTurn(state);
+    await render();
+  }
+});
+
 Grey.on?.(Events.TURN_END,   ({side}) => logLine(`Turn end   → ${side}`));
 Grey.on?.(Events.CARD_PLAYED, ({side, cardId, cost}) => logLine(`${side} PLAY spell ${cardId} (cost ${cost ?? 0})`));
 Grey.on?.(Events.CARD_SET,    ({side, cardId}) => logLine(`${side} SET glyph ${cardId}`));
