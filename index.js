@@ -2825,32 +2825,34 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-/* ===================== Pile modal (Deck/Discard as real cards) ===================== */
+/* ===================== Pile modal (Deck & Discard as real cards) ===================== */
 function ensurePileModalStyles(){
   if (document.getElementById('pile-modal-style')) return;
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* Whole layer can scroll if content is tall; no inner scrollers */
-    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; overflow:auto; }
+    /* Fullscreen layer (scrolls if content taller than viewport) */
+    #pile-modal{ position:fixed; inset:0; z-index:5000; display:none; overflow:auto;
+      padding:84px 84px 96px; /* visual margin around the panel */
+    }
     #pile-modal.open{ display:block; }
 
-    /* click-away area only (no dim dimmer) */
-    #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
+    /* click-away area (transparent) */
+    #pile-modal .backdrop{ position:fixed; inset:0; background:transparent; }
 
-    /* Side sheet: pinned to top/bottom so body area never collapses */
+    /* Panel (sits above backdrop; never clipped) */
     #pile-modal .sheet{
-      position:absolute; right:84px; left:84px; top:84px; bottom:84px;
-      max-width: 1060px; margin-left:auto;
-      border-radius:16px;
+      position:relative;
+      margin:0 auto;                 /* center horizontally */
+      width:min(1120px, calc(100vw - 168px));
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
-      box-shadow:0 10px 36px rgba(0,0,0,.55);
-      display:grid; grid-template-rows:auto 1fr;   /* header + body */
-      overflow:visible;
+      border-radius:16px;
+      box-shadow:0 14px 44px rgba(0,0,0,.6);
+      display:grid; grid-template-rows:auto 1fr; overflow:visible;
     }
 
-    /* header */
+    /* Header */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
       gap:8px; padding:10px 12px;
@@ -2869,11 +2871,8 @@ function ensurePileModalStyles(){
       padding:4px 8px; border-radius:8px;
     }
 
-    /* Body holds either list or card grid */
-    #pile-modal .body{ min-height:0; } /* allow children to size; grid fix */
-
-    /* LIST view */
-    #pile-modal .list{ padding:10px; display:grid; gap:6px; }
+    /* List (simple) */
+    #pile-modal .list{ padding:8px 8px 14px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
       padding:8px 10px; border-radius:10px;
@@ -2882,37 +2881,34 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* CARDS view — wrap naturally; no inner scroll */
+    /* Cards grid (wraps, no inner scroll) */
     #pile-modal .grid{
+      padding:14px;
       display:flex; flex-wrap:wrap; gap:14px;
-      padding:14px; overflow:visible;
+      overflow:visible;
     }
 
-    /* exact card width via measured var (fallback 260) */
-    #pile-modal{ --pile-card-w: 260px; }
-    #pile-modal .pile-cell{ width: var(--pile-card-w); flex: 0 0 var(--pile-card-w); }
-    #pile-modal .card--pile{
-      position:relative !important;
-      width: 100%; height: auto;
-      transform: none !important;
-      inset: auto !important;
-      /* kill any board-only cosmetics (multi-layer “stack”, etc) */
-      box-shadow: none;              /* your card component adds its own shadow */
+    /* We render each card inside a width box computed at runtime.
+       We scale the .card itself so all internals match hand size. */
+    #pile-modal{ --pile-card-w: 260px; --base-card-w: 260px; --pile-card-scale: 1; }
+    #pile-modal .grid .card-box{
+      width: var(--pile-card-w);
+      /* let height auto from content; we scale the inner card, not the box */
     }
-    /* If your board CSS creates stack via pseudo elements, hide them here */
-    #pile-modal .card--pile::before,
-    #pile-modal .card--pile::after{ display:none !important; }
+    #pile-modal .grid .card{
+      width: var(--base-card-w);
+      transform: scale(var(--pile-card-scale));
+      transform-origin: top left;
+      will-change: transform;
+    }
 
-    /* Ensure any flow-bought shimmer doesn’t force absolute fill here */
-    #pile-modal .card--pile.flow-bought{ position:relative !important; inset:auto !important; }
-
-    /* mode switch */
+    /* View toggles */
     #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* phone */
     @media (max-width: 640px){
-      #pile-modal .sheet{ left:16px; right:16px; top:70px; bottom:80px; max-width:none; }
+      #pile-modal{ padding:70px 16px 80px; }
+      #pile-modal .sheet{ width: auto; }
     }
   `;
   document.head.appendChild(s);
@@ -2938,10 +2934,8 @@ function openPileModal(title, cards){
             <button class="close" type="button" aria-label="Close">×</button>
           </div>
         </header>
-        <div class="body">
-          <div class="list"></div>
-          <div class="grid"></div>
-        </div>
+        <div class="list"></div>
+        <div class="grid"></div>
       </div>`;
     document.body.appendChild(m);
 
@@ -2961,27 +2955,47 @@ function openPileModal(title, cards){
     m._setView = setView;
   }
 
-  // Measure a real board/hand card so modal cards match exactly
-  const probe =
-    document.querySelector('#hand .card') ||
-    document.querySelector('.row.player .slot .card') ||
-    document.querySelector('.flow-card .card');
+  // === Measure → scale to match a real hand card ===
+  // 1) find a live hand card (gold standard); else board slot; else flow; else temp probe.
+  const handProbe = document.querySelector('#hand .card');
+  const slotProbe = document.querySelector('.row.player .slot.spell .card');
+  const flowProbe = document.querySelector('.flow-card .card');
+  let targetWidth = null;
 
-  let w = 0;
-  if (probe){
-    const r = probe.getBoundingClientRect();
-    w = Math.round(r.width);
+  const live = handProbe || slotProbe || flowProbe;
+  if (live){
+    const r = live.getBoundingClientRect();
+    targetWidth = Math.round(r.width);
   }
-  m.style.setProperty('--pile-card-w', `${w || 260}px`);
 
-  // Fill content
+  // 2) Find the "natural" base width by creating a hidden probe (once per open).
+  //    This lets us compute an exact scale factor that matches the live card.
+  const tmp = document.createElement('article');
+  tmp.className = 'card';
+  tmp.style.position = 'fixed';
+  tmp.style.left = '-2000px';
+  tmp.style.top = '-2000px';
+  tmp.innerHTML = cardShellHTML(cards[0] || {name:'',type:'SPELL',text:''});
+  document.body.appendChild(tmp);
+  const baseW = Math.round(tmp.getBoundingClientRect().width) || 260;
+  tmp.remove();
+
+  const desiredW = targetWidth || baseW;           // if no live card, just use base
+  const scale    = desiredW / baseW;
+
+  // plumb vars into the modal
+  m.style.setProperty('--base-card-w', `${baseW}px`);
+  m.style.setProperty('--pile-card-w', `${desiredW}px`);
+  m.style.setProperty('--pile-card-scale', `${scale}`);
+
+  // fill content
   m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
-  // List rows
+  // list rows
   cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
@@ -2993,21 +3007,21 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // Cards grid
+  // cards grid (real size)
   cards.forEach(c=>{
-    const cell = document.createElement('div');
-    cell.className = 'pile-cell';
+    const box = document.createElement('div');
+    box.className = 'card-box';
     const el = document.createElement('article');
-    el.className = 'card card--pile';
+    el.className = 'card';
     el.innerHTML = cardShellHTML(c);
-    cell.appendChild(el);
-    grid.appendChild(cell);
+    box.appendChild(el);
+    grid.appendChild(box);
   });
 
-  // Apply view & open
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 
