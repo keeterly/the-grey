@@ -2823,36 +2823,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-/* ===================== FINAL Pile modal (Deck & Discard – true size + proper containment) ===================== */
+/* ===================== Pile modal (Deck & Discard as real cards) ===================== */
 function ensurePileModalStyles(){
   if (document.getElementById('pile-modal-style')) return;
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* Fullscreen layer */
+    /* Fullscreen overlay that can scroll if content is tall */
     #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; overflow:auto; }
     #pile-modal.open{ display:block; }
 
-    #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
+    /* Click-away area only (no dim) */
+    #pile-modal .backdrop{ position:fixed; inset:0; background:transparent; }
 
-    /* Centered floating sheet */
+    /* Centered sheet; let the OVERLAY scroll, not the sheet */
     #pile-modal .sheet{
-      position:absolute; left:50%; transform:translateX(-50%);
-      top:72px; bottom:auto;
+      position:relative;
+      box-sizing:border-box;
+      width:min(1100px, 92vw);
+      margin:6vh auto;                   /* centers the panel */
+      padding:10px 10px 14px;
       border-radius:16px;
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
-      display:grid; grid-template-rows:auto 1fr;
-      padding-bottom:16px;
-      overflow:visible;
-      width:fit-content;
-      max-width:90vw;
+      overflow:visible;                  /* shadows from cards can render */
     }
 
+    /* header */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
-      gap:8px; padding:10px 12px;
+      gap:8px; padding:8px 8px 10px;
       border-bottom:1px solid rgba(255,255,255,.08);
       font-size:16px; letter-spacing:.02em;
     }
@@ -2863,10 +2864,16 @@ function ensurePileModalStyles(){
       background:rgba(255,255,255,.06); color:#ddd; cursor:pointer; font-size:12px;
     }
     #pile-modal header .btn[aria-pressed="true"]{ background:rgba(255,255,255,.12); color:#fff; }
-    #pile-modal header .close{ border:0; background:transparent; color:#ddd; font-size:20px; line-height:1; cursor:pointer; padding:4px 8px; border-radius:8px; }
+    #pile-modal header .close{
+      border:0; background:transparent; color:#ddd; font-size:20px; line-height:1; cursor:pointer;
+      padding:4px 8px; border-radius:8px;
+    }
 
-    /* list view */
-    #pile-modal .list{ padding:12px; display:grid; gap:6px; }
+    /* subhead (kept for future use) */
+    #pile-modal .subhead{ padding:6px 4px 0; }
+
+    /* LIST VIEW — compact rows */
+    #pile-modal .list{ padding:8px 4px 10px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
       padding:8px 10px; border-radius:10px;
@@ -2875,36 +2882,33 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* card view */
-    #pile-modal { --pile-card-w: 260px; }
+    /* CARDS VIEW — exact hand size, natural wrapping, no inner scroll */
+    #pile-modal { --pile-card-w: 260px; }              /* fallback before we probe */
     #pile-modal .grid{
-      display:flex;
-      flex-wrap:wrap;
-      justify-content:center;
-      align-content:flex-start;
-      gap:16px;
-      padding:16px;
-      overflow:visible;
-      max-width:90vw;
+      display:flex; flex-wrap:wrap; gap:14px;
+      align-content:flex-start; align-items:flex-start;
+      padding:14px 6px 6px; overflow:visible;
     }
     #pile-modal .grid .card{
-      width:var(--pile-card-w);
-      transform:none !important;
+      width: var(--pile-card-w);
+      height:auto;
+      transform:none !important;                        /* kill any old scale */
       contain:content;
     }
 
-    #pile-modal[data-view="list"] .grid{ display:none; }
+    /* view toggles */
+    #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    @media(max-width:640px){
-      #pile-modal .sheet{ width:auto; left:16px; right:16px; transform:none; top:64px; }
-      #pile-modal .grid{ justify-content:flex-start; }
+    /* phone */
+    @media (max-width: 640px){
+      #pile-modal .sheet{ width:calc(100vw - 24px); margin:10vh auto; }
     }
   `;
   document.head.appendChild(s);
 }
 
-let PILE_VIEW = localStorage.getItem('pileViewMode') || 'list';
+let PILE_VIEW = localStorage.getItem('pileViewMode') || 'list'; // 'list' | 'cards'
 
 function openPileModal(title, cards){
   ensurePileModalStyles();
@@ -2919,11 +2923,12 @@ function openPileModal(title, cards){
         <header>
           <div class="ttl"></div>
           <div class="controls">
-            <button class="btn btn-list" type="button" aria-pressed="false">List</button>
+            <button class="btn btn-list"  type="button" aria-pressed="false">List</button>
             <button class="btn btn-cards" type="button" aria-pressed="false">Cards</button>
             <button class="close" type="button" aria-label="Close">×</button>
           </div>
         </header>
+        <div class="subhead"></div>
         <div class="list"></div>
         <div class="grid"></div>
       </div>`;
@@ -2937,36 +2942,49 @@ function openPileModal(title, cards){
       PILE_VIEW = v;
       localStorage.setItem('pileViewMode', v);
       m.dataset.view = v;
-      m.querySelector('.btn-list').setAttribute('aria-pressed', v==='list');
+      m.querySelector('.btn-list') .setAttribute('aria-pressed', v==='list');
       m.querySelector('.btn-cards').setAttribute('aria-pressed', v==='cards');
     };
-    m.querySelector('.btn-list').addEventListener('click', ()=> setView('list'));
+    m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
     m._setView = setView;
   }
 
-  // measure live card width
-  const probe = document.querySelector('#hand .card') || document.querySelector('.flow-card .card');
+  // === Probe a real card width so grid cards match the hand exactly ===
+  // Priority: a HAND card (gold standard) → any board/flow card → fallback
+  const probe =
+    document.querySelector('#hand .card') ||
+    document.querySelector('.row.player .slot .card') ||
+    document.querySelector('.flow-card .card');
+
   if (probe){
-    const w = Math.round(probe.getBoundingClientRect().width);
+    // clientWidth ignores transforms/rotation, which is what we want
+    const w = Math.round(probe.clientWidth || probe.getBoundingClientRect().width);
     if (w) m.style.setProperty('--pile-card-w', `${w}px`);
+  } else {
+    m.style.setProperty('--pile-card-w', `260px`);
   }
 
+  // Fill content
   m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
-  // populate list view
+  // List rows
   cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
-    row.innerHTML = `<span class="nm">${c.name}</span><span class="meta">${c.type}${(c.cost|0)?` · cost ${c.cost}`:''}${(c.pip|0)?` · pips ${c.pip}`:''}</span>`;
+    row.innerHTML = `
+      <span class="nm">${c.name}</span>
+      <span class="meta">
+        ${c.type}${(c.cost|0)?` · cost ${c.cost}`:''}${(c.pip|0)?` · pips ${c.pip}`:''}
+      </span>`;
     list.appendChild(row);
   });
 
-  // populate card grid
+  // Cards grid (true size)
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
@@ -2974,9 +2992,11 @@ function openPileModal(title, cards){
     grid.appendChild(el);
   });
 
+  // Apply view and open
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 
