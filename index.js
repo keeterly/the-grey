@@ -622,6 +622,7 @@ let state = initState();
 let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
+let prevAiHandIds = [];
 let shuffledOnce = false;
 const FLOW_BOUGHT_IDS = new Set();   // remember exact card IDs bought from Flow
 
@@ -1313,27 +1314,46 @@ container.appendChild(g);
 function renderAiMini(pub){
   if (!aiMiniHandEl) return;
 
-  // Clear and rebuild from the true AI hand
-  aiMiniHandEl.replaceChildren();
-
+  // True AI hand from public snapshot
   const hand = Array.isArray(pub?.players?.ai?.hand) ? pub.players.ai.hand : [];
 
-  // Cap the visual fan at 6 so it never gets goofy wide
-  const N = Math.min(6, hand.length);
-  const step = 10;   // horizontal spread per card
-  const rot  = 5;    // degrees of rotation per card
+  // Build a list of ids (cap visible fan at 6 so it stays compact)
+  const newIds = hand.slice(0, 6).map(c => c?.id).filter(Boolean);
 
-  for (let i = 0; i < N; i++) {
+  // Rebuild DOM
+  aiMiniHandEl.replaceChildren();
+  const step = 10;   // horizontal spread
+  const rot  = 5;    // degree spread
+
+  const nodes = [];
+
+  newIds.forEach((id, i) => {
     const el = document.createElement("div");
     el.className = "mini-card";
-    // reflect the actual card id so cinematics can originate from here
-    el.dataset.cardId = hand[i]?.id || "";
+    el.dataset.cardId = id;
 
-    const offset = i - (N - 1) / 2;
+    const offset = i - (newIds.length - 1) / 2;
     el.style.setProperty("--dx", `${offset * step}px`);
     el.style.setProperty("--rot", `${offset * rot}deg`);
 
+    // If this id did not exist last frame, mark for a deal-in anim
+    if (!prevAiHandIds.includes(id)) el.classList.add("deal-in");
+
     aiMiniHandEl.appendChild(el);
+    nodes.push(el);
+  });
+
+  // If any were new, kick the one-shot animation and then clean the flags
+  const hadNew = nodes.some(n => n.classList.contains("deal-in"));
+  if (hadNew) {
+    aiMiniHandEl.classList.add("dealing");
+    // allow CSS to pick up 'dealing' before removing classes
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        aiMiniHandEl.classList.remove("dealing");
+        nodes.forEach(n => n.classList.remove("deal-in"));
+      }, 380);
+    });
   }
 
   // Update pile counts exactly
@@ -1341,7 +1361,11 @@ function renderAiMini(pub){
   const discardN = (pub?.players?.ai?.discardCount ?? 0) | 0;
   if (aiMiniDeckEl)    aiMiniDeckEl.setAttribute("data-count", String(deckN));
   if (aiMiniDiscardEl) aiMiniDiscardEl.setAttribute("data-count", String(discardN));
+
+  // remember for next render
+  prevAiHandIds = newIds;
 }
+
 
 
 
