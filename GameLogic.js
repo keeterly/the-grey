@@ -465,7 +465,90 @@ export function resolveGlyphFromSlot(state, playerId){
 
 
 
-export function aiTakeTurn(state){ return state; }
+// === Very Basic AI: draw up to 5, try to play cheapest legal card, else channel ===
+export async function aiTakeTurn(state, emit) {
+  // emit is optional callback for UI cinematics, pass from UI as needed
+  const E = emit || (()=>{});
+
+  // Start: draw up to 5
+  const pub0 = serializePublic(state);
+  const aiHandN = (pub0.players?.ai?.hand?.length || 0);
+  if (aiHandN < 5) state = drawN(state, "ai", 5 - aiHandN);
+
+  // snapshot for decisions
+  const pub = serializePublic(state);
+  const hand = (pub.players?.ai?.hand || []).slice();
+
+  // helper: find first empty spell slot
+  const firstEmptySpellSlot = () => {
+    const slots = pub.players?.ai?.slots || [];
+    for (let i=0;i<3;i++) {
+      if (!slots[i]?.hasCard) return i;
+    }
+    return -1;
+  };
+
+  // consider plays in priority: INSTANT (cheap) → GLYPH (if empty) → SPELL (cheapest to first empty)
+  // 1) Instant we can afford
+  const cheapInstant = hand
+    .filter(c => c.type === "INSTANT")
+    .sort((a,b)=> (a.cost|0)-(b.cost|0))[0];
+
+  if (cheapInstant && (cheapInstant.cost|0) <= (pub.players?.ai?.aether|0)) {
+    try {
+      E({ kind:"ai-instant", cardId: cheapInstant.id });
+      state = resolveInstantFromHand(state, "ai", cheapInstant.id);
+      return state;
+    } catch { /* fallthrough */ }
+  }
+
+  // 2) Glyph if we have none set and can afford one
+  const wantGlyph = !pub.players?.ai?.glyph?.hasCard;
+  if (wantGlyph) {
+    const glyph = hand.find(c => c.type === "GLYPH" && (c.cost|0) <= (pub.players?.ai?.aether|0));
+    if (glyph) {
+      try {
+        E({ kind:"ai-glyph", cardId: glyph.id });
+        state = setGlyphFromHand(state, "ai", glyph.id);
+        return state;
+      } catch { /* fallthrough */ }
+    }
+  }
+
+  // 3) Spell — cheapest playable to first empty slot
+  const slotIndex = firstEmptySpellSlot();
+  if (slotIndex >= 0) {
+    const spell = hand
+      .filter(c => c.type === "SPELL")
+      .sort((a,b)=> (a.cost|0)-(b.cost|0))
+      .find(c => (c.cost|0) <= (pub.players?.ai?.aether|0));
+
+    if (spell) {
+      try {
+        E({ kind:"ai-spell", cardId: spell.id, slotIndex });
+        state = playCardToSpellSlot(state, "ai", spell.id, slotIndex);
+        return state;
+      } catch { /* fallthrough */ }
+    }
+  }
+
+  // 4) Nothing affordable: channel (discard highest Æ value card)
+  const bestForAether = hand
+    .slice()
+    .sort((a,b)=> (b.aetherValue|0)-(a.aetherValue|0))[0];
+
+  if (bestForAether && (bestForAether.aetherValue|0) > 0) {
+    try {
+      E({ kind:"ai-channel", cardId: bestForAether.id });
+      state = discardForAether(state, "ai", bestForAether.id);
+      return state;
+    } catch { /* fallthrough */ }
+  }
+
+  // 5) Truly stuck: end turn untouched
+  return state;
+}
+
 
 export function getStack(state, playerId, which){
   const P = state.players?.[playerId];
