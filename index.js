@@ -2825,38 +2825,44 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-/* ===================== Pile modal (Deck/Discard) ===================== */
+/* ===================== Pile modal (Deck & Discard as real cards) ===================== */
 function ensurePileModalStyles(){
   if (document.getElementById('pile-modal-style')) return;
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* Fullscreen layer; page scrolls if content is tall */
-    #pile-modal{ position:fixed; inset:0; z-index:5000; display:none; overflow:auto; }
-    #pile-modal.open{ display:block; }
+    /* Fullscreen layer (page scrolls if needed) */
+    #pile-modal{
+      position: fixed; inset: 0; z-index: 3400; display: none;
+      overflow: auto;
+      isolation: isolate;               /* keep blur contained */
+    }
+    #pile-modal.open{ display: block; }
 
-    /* faint backdrop so the board doesn't visually compete */
-    #pile-modal::before{
-      content:""; position:fixed; inset:0;
-      background: rgba(0,0,0,.35);
+    /* Dim + blur the whole board */
+    #pile-modal .backdrop{
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,.45);
+      backdrop-filter: blur(6px);
     }
 
-    /* centered sheet (no inner scroll) */
+    /* Centered sheet (big enough to show rows of real-size cards) */
     #pile-modal .sheet{
-      position:relative;
-      margin: 6vh auto;
-      width: min(1160px, calc(100vw - 64px));
-      border-radius:16px; overflow:visible;
-      background:rgba(18,18,18,.96);
-      border:1px solid rgba(255,255,255,.08);
-      box-shadow:0 18px 60px rgba(0,0,0,.55);
-      display:grid; grid-template-rows:auto auto 1fr;
+      position: absolute;
+      left: 50%; transform: translateX(-50%);
+      top: 64px; bottom: 64px;
+      width: min(1200px, calc(100vw - 160px));
+      border-radius: 16px;
+      background: rgba(18,18,18,.96);
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: 0 10px 36px rgba(0,0,0,.55);
+      display: grid; grid-template-rows: auto 1fr;
+      overflow: visible;                /* grid handles wrapping */
     }
 
-    /* header */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
-      gap:10px; padding:10px 12px;
+      gap:8px; padding:10px 12px;
       border-bottom:1px solid rgba(255,255,255,.08);
       font-size:16px; letter-spacing:.02em;
     }
@@ -2872,10 +2878,7 @@ function ensurePileModalStyles(){
       padding:4px 8px; border-radius:8px;
     }
 
-    /* subhead placeholder (if you ever add filters) */
-    #pile-modal .subhead{ padding:6px 12px 0; }
-
-    /* LIST VIEW (simple, compact) */
+    /* LIST VIEW */
     #pile-modal .list{ padding:10px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
@@ -2885,73 +2888,56 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* CARDS VIEW */
-    #pile-modal{ --pile-card-w: 260px; }
+    /* CARDS VIEW — real size, wrapped grid, no inner scroll */
+    #pile-modal{ --pile-card-w: 260px; --pile-gap: 14px; --pile-cols: 5; }
     #pile-modal .grid{
-      padding:14px;
-      display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(var(--pile-card-w), 1fr));
-      gap:14px;
-      overflow:visible;
-      align-content:start;
-      justify-items:start;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: repeat(var(--pile-cols), var(--pile-card-w));
+      gap: var(--pile-gap);
+      justify-content: center;          /* keep it tidy when cols < max */
+      align-content: start;
+      overflow: visible;
     }
-    /* kill any tilt/scale rules that hand/board cards might have */
     #pile-modal .grid .card{
       width: var(--pile-card-w);
       height: auto;
-      transform: none !important;
-      rotate: 0deg !important;
-      translate: 0 0 !important;
+      transform: none !important;       /* kill any inherited scales */
+      contain: content;
     }
 
-    /* view toggles */
+    /* view switching */
     #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* phone */
+    /* phone/narrow fallback */
     @media (max-width: 640px){
-      #pile-modal .sheet{ width: calc(100vw - 24px); margin: 12px auto; }
-    }
-
-    /* tiny offscreen sandbox to measure a true “hand card” width */
-    #pile-measure-sandbox{
-      position:fixed; left:-99999px; top:-99999px; visibility:hidden;
-      contain:layout; pointer-events:none;
-    }
-    #pile-measure-sandbox .card{
-      transform:none !important; rotate:0deg !important; translate:0 0 !important;
+      #pile-modal .sheet{
+        width: auto; left: 16px; right: 16px; transform:none;
+        top: 70px; bottom: 80px;
+      }
     }
   `;
   document.head.appendChild(s);
 }
 
-/** Measure an untransformed .card width and stash into --pile-card-w */
-function measurePileCardWidth(exampleCardData){
-  // if a board/hand card exists but is transformed, we avoid it;
-  // instead create a neutral offscreen card and measure its layout width.
-  let box = document.getElementById('pile-measure-sandbox');
-  if (!box){
-    box = document.createElement('div');
-    box.id = 'pile-measure-sandbox';
-    document.body.appendChild(box);
-  }
-  box.replaceChildren();
-  const probe = document.createElement('article');
-  probe.className = 'card';
-  // if you have cardShellHTML available, use it so paddings/inner layout match
-  probe.innerHTML = exampleCardData ? cardShellHTML(exampleCardData) :
-    `<div class="title">Probe</div><div class="type">SPELL</div><div class="divider"></div><div class="pip-track"></div><div class="textbox">—</div>`;
-  box.appendChild(probe);
+let PILE_VIEW = localStorage.getItem('pileViewMode') || 'cards'; // default to CARDS
 
-  // give layout a tick
-  const w = Math.round(probe.getBoundingClientRect().width || probe.offsetWidth || 260);
-  // guardrails: ignore obviously bogus widths
-  const clamped = Math.max(160, Math.min(420, w || 260));
-  return clamped;
+/* Compute columns based on sheet width + measured card width */
+function layoutPileGrid(modal){
+  try{
+    const sheet = modal.querySelector('.sheet');
+    const grid  = modal.querySelector('.grid');
+    if (!sheet || !grid) return;
+
+    const pad = 14 * 2;                         // grid horizontal padding
+    const gap = 14;                             // same as --pile-gap
+    const cardW = parseFloat(getComputedStyle(modal).getPropertyValue('--pile-card-w')) || 260;
+    const avail = Math.max(0, sheet.clientWidth - pad);
+    const cols = Math.max(1, Math.min(5, Math.floor((avail + gap) / (cardW + gap))));
+    modal.style.setProperty('--pile-cols', String(cols));
+  }catch{}
 }
-
-let PILE_VIEW = localStorage.getItem('pileViewMode') || 'cards'; // default to Cards
 
 function openPileModal(title, cards){
   ensurePileModalStyles();
@@ -2961,7 +2947,8 @@ function openPileModal(title, cards){
     m = document.createElement('div');
     m.id = 'pile-modal';
     m.innerHTML = `
-      <div class="sheet" role="dialog" aria-modal="true" aria-label="${title||'Pile'}">
+      <div class="backdrop"></div>
+      <div class="sheet">
         <header>
           <div class="ttl"></div>
           <div class="controls">
@@ -2970,44 +2957,55 @@ function openPileModal(title, cards){
             <button class="close" type="button" aria-label="Close">×</button>
           </div>
         </header>
-        <div class="subhead"></div>
         <div class="list"></div>
         <div class="grid"></div>
       </div>`;
     document.body.appendChild(m);
 
     const close = ()=> m.classList.remove('open');
-    // click outside the sheet closes
-    m.addEventListener('click', (e)=>{ if (e.target === m) close(); });
+    m.querySelector('.backdrop').addEventListener('click', close);
     m.querySelector('.close').addEventListener('click', close);
 
-    // toggles
+    // toggle handlers (persist preference)
     const setView = (v)=>{
       PILE_VIEW = v;
       localStorage.setItem('pileViewMode', v);
       m.dataset.view = v;
       m.querySelector('.btn-list') .setAttribute('aria-pressed', v==='list');
       m.querySelector('.btn-cards').setAttribute('aria-pressed', v==='cards');
+      layoutPileGrid(m);               // keep columns sane per view
     };
     m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
     m._setView = setView;
+
+    // recalc on resize while open
+    window.addEventListener('resize', ()=> m.classList.contains('open') && layoutPileGrid(m), {passive:true});
   }
 
-  // measure a real card width (offscreen & untransformed)
-  const probeData = cards && cards[0] ? cards[0] : null;
-  const trueW = measurePileCardWidth(probeData);
-  m.style.setProperty('--pile-card-w', `${trueW}px`);
+  // === Measure a **real** board card width (no transforms) ===
+  // Prefer a board slot spell (stable size), then hand, then fallback.
+  const probe =
+    document.querySelector('.row.player .slot.spell .card') ||
+    document.querySelector('#hand .card') ||
+    null;
+
+  if (probe){
+    const w = Math.round(probe.getBoundingClientRect().width);
+    if (w && Number.isFinite(w)) m.style.setProperty('--pile-card-w', `${w}px`);
+  } else {
+    m.style.setProperty('--pile-card-w', `260px`); // sane fallback
+  }
 
   // fill content
-  m.querySelector('.ttl').textContent = title || '';
+  m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
-  // list rows
-  (cards || []).forEach(c=>{
+  // list rows (compact)
+  cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
     row.innerHTML = `
@@ -3018,18 +3016,20 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // full-size card tiles (no scale/tilt)
-  (cards || []).forEach(c=>{
+  // grid of TRUE-SIZE cards (no scaling)
+  cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
-    el.innerHTML = cardShellHTML(c);
+    el.innerHTML = cardShellHTML(c);   // your existing renderer
     grid.appendChild(el);
   });
 
-  // show
+  // open + layout
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
+  layoutPileGrid(m);                   // compute columns now that it’s in flow
 }
+
 
 
 
