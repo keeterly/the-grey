@@ -2829,33 +2829,24 @@ function ensurePileModalStyles(){
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* Modal container sits on top but does NOT force its own scrolling */
-    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; pointer-events:none; }
+    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; }
     #pile-modal.open{ display:block; }
 
-    /* click-away area; keep it behind the sheet so the sheet is clickable */
-    #pile-modal .backdrop{
-      position:absolute; inset:0;
-      background:transparent;
-      pointer-events:auto;              /* receives the click to close */
-    }
+    /* click-away area only (no dimmer) */
+    #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
 
-    /* Side panel near HUD — wide enough for real card columns */
+    /* side panel near HUD */
     #pile-modal .sheet{
-      position:absolute;
-      right:84px;                       /* hugs the HUD stack */
-      bottom:84px;                      /* sits above the HUD buttons */
-      width: min(92vw, 720px);          /* wider so full cards fit */
-      /* height is auto; no internal scrollbars */
-      display:grid; grid-template-rows:auto auto 1fr;
-      border-radius:16px; overflow:visible;
+      position:absolute; right:84px; bottom:84px;
+      display:grid; grid-template-rows:auto 1fr;
+      border-radius:16px; overflow:visible;   /* ← no inner scroll */
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
-      pointer-events:auto;              /* panel itself is interactive */
+      padding-bottom:10px;                    /* breathing room under grid */
     }
 
-    /* small header with view toggle */
+    /* header / controls */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
       gap:8px; padding:10px 12px;
@@ -2868,20 +2859,14 @@ function ensurePileModalStyles(){
       height:28px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.12);
       background:rgba(255,255,255,.06); color:#ddd; cursor:pointer; font-size:12px;
     }
-    #pile-modal header .btn[aria-pressed="true"]{
-      background:rgba(255,255,255,.12); color:#fff;
-    }
+    #pile-modal header .btn[aria-pressed="true"]{ background:rgba(255,255,255,.12); color:#fff; }
     #pile-modal header .close{
       border:0; background:transparent; color:#ddd; font-size:20px; line-height:1; cursor:pointer;
       padding:4px 8px; border-radius:8px;
     }
 
-    /* list view (no internal scroll) */
-    #pile-modal .list{
-      padding:8px 8px 12px;
-      display:grid; gap:6px;
-      overflow:visible;
-    }
+    /* list view (compact) */
+    #pile-modal .list{ overflow:auto; padding:8px 8px 12px; display:grid; gap:6px; max-height:60vh; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
       padding:8px 10px; border-radius:10px;
@@ -2890,34 +2875,96 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* “Cards” grid at true card size — no transform, no cropping */
+    /* cards grid (true size) */
     #pile-modal .grid{
-      padding:12px;
-      display:grid;
-      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));  /* room for normal card width */
-      gap:14px;
+      /* width & columns are set inline via JS to fit viewport */
+      display:grid; gap:14px; padding:12px;
+      /* no overflow here; we size panel to avoid inner scroll */
       overflow:visible;
     }
     #pile-modal .grid .card{
-      width:100%; height:auto;          /* use the card’s natural proportions */
-      transform:none;                    /* no scaling that causes clipping */
+      /* ensure each grid item occupies the card’s natural size */
+      width: var(--card-w, auto);
+      height: var(--card-h, auto);
+      transform:none;                 /* ← kill old scaling */
     }
 
     /* mode switching */
     #pile-modal[data-view="list"] .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* phone fallback */
     @media (max-width: 640px){
-      #pile-modal .sheet{
-        right:16px; left:16px; bottom:80px; width:auto;
-      }
+      #pile-modal .sheet{ right:16px; left:16px; bottom:80px; }
     }
   `;
   document.head.appendChild(s);
 }
 
 let PILE_VIEW = localStorage.getItem('pileViewMode') || 'list'; // 'list' | 'cards'
+
+function measureCardBox(sampleCardData){
+  // Build a one-off offscreen card to get its real size
+  const ghost = document.createElement('article');
+  ghost.className = 'card';
+  ghost.style.position = 'fixed';
+  ghost.style.left = '-9999px';
+  ghost.style.top = '-9999px';
+  ghost.innerHTML = cardShellHTML(sampleCardData || {name:'X', type:'SPELL', text:'', pip:0});
+  document.body.appendChild(ghost);
+  const rect = ghost.getBoundingClientRect();
+  ghost.remove();
+  // Fallbacks if styles haven’t applied yet
+  const w = rect.width  || 260;
+  const h = rect.height || 360;
+  return { w, h };
+}
+
+function layoutCardsGrid(modal, cards){
+  const grid = modal.querySelector('.grid');
+  const sheet = modal.querySelector('.sheet');
+
+  // 1) Measure true card size
+  const { w: cardW, h: cardH } = measureCardBox(cards[0]);
+  grid.style.setProperty('--card-w', `${cardW}px`);
+  grid.style.setProperty('--card-h', `${cardH}px`);
+
+  // 2) Choose columns so the whole grid fits under a viewport cap (no inner scroll)
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  const marginX = 84 + 24;            // right offset + panel padding-ish
+  const marginBottom = 84;            // bottom offset
+  const maxPanelW = vw - marginX - 24;  // keep some left breathing room
+  const maxPanelH = Math.max(220, vh - marginBottom - 120); // leave HUD/air at top
+
+  const gap = 14;
+  const padX = 24;                    // sheet padding for grid horizontally
+  const padY = 12 + 10;               // grid pad + sheet bottom pad
+
+  const N = Math.max(0, cards.length);
+  let bestCols = 1, bestW = cardW + padX, bestH = cardH + padY;
+
+  for (let cols = 1; cols <= 4; cols++){
+    const rows = Math.ceil(N / cols) || 1;
+    const gridW = cols * cardW + (cols - 1) * gap;
+    const gridH = rows * cardH + (rows - 1) * gap;
+
+    const panelW = Math.min(maxPanelW, gridW + padX*2);
+    const panelH = Math.min(maxPanelH, gridH + padY*2);
+
+    // pick the widest we can fit while staying under height cap
+    if (gridH + padY*2 <= maxPanelH && panelW <= maxPanelW){
+      bestCols = cols;
+      bestW = gridW + padX*2;
+      bestH = gridH + padY*2;
+    }
+  }
+
+  // 3) Apply layout (no internal scroll)
+  grid.style.gridTemplateColumns = `repeat(${bestCols}, ${cardW}px)`;
+  sheet.style.width  = `${Math.round(bestW)}px`;
+  sheet.style.height = `${Math.round(bestH)}px`;
+}
 
 function openPileModal(title, cards){
   ensurePileModalStyles();
@@ -2953,14 +3000,26 @@ function openPileModal(title, cards){
       m.dataset.view = v;
       m.querySelector('.btn-list') .setAttribute('aria-pressed', v==='list');
       m.querySelector('.btn-cards').setAttribute('aria-pressed', v==='cards');
+
+      // when switching to cards, reflow to correct size
+      if (v === 'cards') layoutCardsGrid(m, m._cards || []);
     };
     m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
     m._setView = setView; // stash for later calls
+
+    // keep responsive if the window resizes while open
+    window.addEventListener('resize', ()=>{
+      if (m.classList.contains('open') && m.dataset.view === 'cards') {
+        layoutCardsGrid(m, m._cards || []);
+      }
+    }, { passive:true });
   }
 
   // fill content
+  m._cards = cards.slice();               // store for responsive relayout
   m.querySelector('.ttl').textContent = title;
+
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
@@ -2986,10 +3045,14 @@ function openPileModal(title, cards){
     grid.appendChild(el);
   });
 
-  // apply view + open
+  // apply view, size grid, open
   (m._setView || (()=>{}))(PILE_VIEW);
+  if (PILE_VIEW === 'cards') layoutCardsGrid(m, cards);
   m.classList.add('open');
 }
+
+
+
 
 
 
