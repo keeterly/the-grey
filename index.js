@@ -2947,80 +2947,72 @@ function openPileModal(title, cards){
       PILE_VIEW = v;
       localStorage.setItem('pileViewMode', v);
       m.dataset.view = v;
-      m.querySelector('.btn-list') .setAttribute('aria-pressed', v==='list');
+      m.querySelector('.btn-list').setAttribute('aria-pressed', v==='list');
       m.querySelector('.btn-cards').setAttribute('aria-pressed', v==='cards');
     };
-    m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
+    m.querySelector('.btn-list').addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
     m._setView = setView;
   }
 
-  // === Measure → scale to match a real hand card ===
-  // 1) find a live hand card (gold standard); else board slot; else flow; else temp probe.
-  const handProbe = document.querySelector('#hand .card');
-  const slotProbe = document.querySelector('.row.player .slot.spell .card');
-  const flowProbe = document.querySelector('.flow-card .card');
-  let targetWidth = null;
+  // 🔍 Get natural (unscaled) width by cloning a card at 1:1 scale off-screen
+  const tempCard = document.createElement('article');
+  tempCard.className = 'card';
+  tempCard.style.position = 'fixed';
+  tempCard.style.left = '-9999px';
+  tempCard.style.top = '0';
+  tempCard.style.transform = 'none';
+  tempCard.style.scale = '1';
+  tempCard.innerHTML = cardShellHTML(cards[0] || {name:'',type:'SPELL',text:''});
+  document.body.appendChild(tempCard);
+  const trueWidth = tempCard.getBoundingClientRect().width || 260;
+  tempCard.remove();
 
-  const live = handProbe || slotProbe || flowProbe;
-  if (live){
-    const r = live.getBoundingClientRect();
-    targetWidth = Math.round(r.width);
-  }
+  // Maintain canonical MTG ratio (1.39 : 1)
+  const trueHeight = Math.round(trueWidth * 1.39);
 
-  // 2) Find the "natural" base width by creating a hidden probe (once per open).
-  //    This lets us compute an exact scale factor that matches the live card.
-  const tmp = document.createElement('article');
-  tmp.className = 'card';
-  tmp.style.position = 'fixed';
-  tmp.style.left = '-2000px';
-  tmp.style.top = '-2000px';
-  tmp.innerHTML = cardShellHTML(cards[0] || {name:'',type:'SPELL',text:''});
-  document.body.appendChild(tmp);
-  const baseW = Math.round(tmp.getBoundingClientRect().width) || 260;
-  tmp.remove();
+  // Cap width so cards fit nicely within modal
+  const maxCols = 4;
+  const modalMaxWidth = Math.min(window.innerWidth - 240, 1100);
+  const targetWidth = Math.min(trueWidth, Math.floor(modalMaxWidth / maxCols));
 
-  const desiredW = targetWidth || baseW;           // if no live card, just use base
-  const scale    = desiredW / baseW;
+  m.style.setProperty('--pile-card-w', `${targetWidth}px`);
+  m.style.setProperty('--pile-card-h', `${trueHeight}px`);
 
-  // plumb vars into the modal
-  m.style.setProperty('--base-card-w', `${baseW}px`);
-  m.style.setProperty('--pile-card-w', `${desiredW}px`);
-  m.style.setProperty('--pile-card-scale', `${scale}`);
-
-  // fill content
+  // Fill content
   m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
-  // list rows
+  // List
   cards.forEach(c=>{
-    const row = document.createElement('div');
-    row.className = 'row';
-    row.innerHTML = `
+    const row=document.createElement('div');
+    row.className='row';
+    row.innerHTML=`
       <span class="nm">${c.name}</span>
-      <span class="meta">
-        ${c.type}${(c.cost|0)?` · cost ${c.cost}`:''}${(c.pip|0)?` · pips ${c.pip}`:''}
-      </span>`;
+      <span class="meta">${c.type}${(c.cost|0)?` · cost ${c.cost}`:''}${(c.pip|0)?` · pips ${c.pip}`:''}</span>`;
     list.appendChild(row);
   });
 
-  // cards grid (real size)
+  // Grid (actual-size cards)
   cards.forEach(c=>{
-    const box = document.createElement('div');
-    box.className = 'card-box';
-    const el = document.createElement('article');
-    el.className = 'card';
-    el.innerHTML = cardShellHTML(c);
-    box.appendChild(el);
-    grid.appendChild(box);
+    const wrap=document.createElement('div');
+    wrap.className='card-box';
+    wrap.style.width=`var(--pile-card-w)`;
+    wrap.style.height=`var(--pile-card-h)`;
+    const el=document.createElement('article');
+    el.className='card';
+    el.innerHTML=cardShellHTML(c);
+    wrap.appendChild(el);
+    grid.appendChild(wrap);
   });
 
-  (m._setView || (()=>{}))(PILE_VIEW);
+  (m._setView||(()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 
