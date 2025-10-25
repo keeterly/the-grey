@@ -3014,59 +3014,13 @@ async function doStartTurn(){
   await render();
 }
 
-async function doEndTurn(){
-  const nodes = Array.from(handEl?.children || []);
-  nodes.forEach(n=> n.classList.add('discarding'));
-  await sleep(220);
-
-  Emit(Events.TURN_END, {side: state.activePlayer});
-
-  // to AI
+async function doEndTurn() {
+  // (optional) a small visual beat for the player's discard you already do
+  Emit(Events.TURN_END, { side: state.activePlayer });
   state = endTurn(state);
-  await doStartTurn();
-
-  if (AI?.runAiTurn){
-    const api = {
-      getPublic: ()=> serializePublic(state)||{},
-      getSideState: (side)=> state.players[side],
-      findFirstOpenSpellSlot: (side)=> firstOpenSpellSlotIndexFor(side, serializePublic(state)||{}),
-      canPay: (side, cost)=> getTotal(side) >= tranceDiscount(side, cost|0),
-      pay: (side, cost)=> {
-        const c = tranceDiscount(side, cost|0);
-        const useTemp = Math.min(c, getTemp(side));
-        adjustAe(side, useTemp);
-        addTemp(side, -useTemp);
-        adjustAe(side, -(c - useTemp));
-      },
-      playSpellFromHand: (side, id, i)=> (playSpellFromHandWithTemp(side, id, i), state),
-      setGlyphFromHand:  (side, id)=> (setGlyphFromHandWithTemp(side, id), state),
-      castInstantFromHand: (side, id)=> window.castInstantFromHand(state, side, id),
-      channelFromHand: (side, id)=> {
-        const before = getAe(side);
-        state = discardForAether(state, side, id);
-        const gained = getAe(side) - before;
-        adjustAe(side, -gained); addTemp(side, gained);
-        Emit(Events.CHANNEL, {side, cardId:id, gained});
-        return state;
-      },
-      buyFromFlowIndex: (side, idx, price)=>{
-        const useTemp = Math.min(price, getTemp(side));
-        adjustAe(side, useTemp);
-        state = buyFromFlow(state, side, idx);
-        addTemp(side, -useTemp);
-        Emit(Events.BUY, {side, idx, price});
-        return state;
-      },
-      flowPriceAt: (i)=> FLOW_PRICE_BY_POS[i]||0
-    };
-    try { state = await AI.runAiTurn(state, api); } catch {}
-    await render();
-  }
-
-  // back to player
-  state = endTurn(state);
-  await doStartTurn();
+  await doStartTurn();   // This will emit TURN_START and the sequencer above takes it from there.
 }
+
 
 /* ---------- events ---------- */
 $("btn-start-turn")?.addEventListener("click", doStartTurn);
