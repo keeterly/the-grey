@@ -2887,16 +2887,25 @@ function ensurePileModalStyles(){
 
     /* CARDS VIEW — true size, wrapping. No inner scroll. */
     #pile-modal { --pile-card-w: 260px; }          /* runtime override below */
-    #pile-modal .grid{
-      display:flex; flex-wrap:wrap; gap:14px;
-      padding: 4px 2px 2px;
-    }
-    #pile-modal .grid .card{
-      width: var(--pile-card-w);
-      height: auto;
-      transform: none !important;   /* kill any incidental scales */
-      contain: content;
-    }
+    #pile-modal .grid {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  justify-content: center;
+  align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(var(--pile-card-w, 240px), 1fr));
+  grid-auto-rows: auto;
+  overflow-y: auto;
+  max-height: 80vh;
+}
+#pile-modal .grid .card {
+  width: 100%;
+  max-width: var(--pile-card-w, 240px);
+  margin: 0 auto;
+  transform: none !important;
+  contain: content;
+}
+
 
     /* view toggles */
     #pile-modal[data-view="list"]  .grid{ display:none; }
