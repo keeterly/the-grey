@@ -2829,28 +2829,26 @@ function ensurePileModalStyles(){
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* The modal is a full-screen layer that itself can scroll if content is tall.
-       We do NOT scroll the inner grid/list. */
+    /* Fullscreen layer that can scroll (outer only) */
     #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; overflow:auto; }
     #pile-modal.open{ display:block; }
 
-    /* no heavy dim; click-away area only */
+    /* Click-away area only; no heavy dim so the board stays visible */
     #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
 
-    /* Side panel near HUD; no overflow here (let the whole modal scroll) */
+    /* Fixed-size panel near the HUD; inner views never scroll */
     #pile-modal .sheet{
       position:absolute; right:84px; top:84px; bottom:84px;
-      width: 960px;      /* roomy; cards will wrap */
-      max-width: min(960px, calc(100vw - 160px));
+      width: min(960px, calc(100vw - 160px));
       border-radius:16px;
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
       display:grid; grid-template-rows:auto auto 1fr;
-      overflow:visible;             /* <- let cards’ shadows breathe */
+      overflow:visible;
     }
 
-    /* header */
+    /* Header */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
       gap:8px; padding:10px 12px;
@@ -2863,18 +2861,15 @@ function ensurePileModalStyles(){
       height:28px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.12);
       background:rgba(255,255,255,.06); color:#ddd; cursor:pointer; font-size:12px;
     }
-    #pile-modal header .btn[aria-pressed="true"]{
-      background:rgba(255,255,255,.12); color:#fff;
-    }
+    #pile-modal header .btn[aria-pressed="true"]{ background:rgba(255,255,255,.12); color:#fff; }
     #pile-modal header .close{
       border:0; background:transparent; color:#ddd; font-size:20px; line-height:1; cursor:pointer;
       padding:4px 8px; border-radius:8px;
     }
 
-    /* subhead (optional space for future filters) */
-    #pile-modal .subhead{ padding:6px 12px 0; }
+    .subhead{ padding:6px 12px 0; }
 
-    /* LIST VIEW (no inner scroll) */
+    /* LIST (no inner scroll) */
     #pile-modal .list{ padding:8px 8px 16px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
@@ -2884,26 +2879,25 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* CARDS VIEW — true card size (measured), no scaling */
+    /* CARDS — true size, wrap naturally, never scroll inside */
+    #pile-modal{ --pile-card-w: 260px; --pile-card-ratio: calc(63 / 88); }
     #pile-modal .grid{
-      /* use flex so we get natural wrapping without any scrollbars */
-      display:flex; flex-wrap:wrap; gap:14px;
-      padding:14px; overflow:visible;
+      display:flex; flex-wrap:wrap; align-content:flex-start;
+      gap:14px; padding:14px; overflow:visible;
     }
-    /* exact size via runtime var; fallback 260×360ish */
-    #pile-modal { --pile-card-w: 260px; }
     #pile-modal .grid .card{
       width: var(--pile-card-w);
-      height: auto;               /* let the inner card content define height */
-      transform: none !important; /* kill any accidental transforms */
-      contain: content;           /* keep shadows fast */
+      aspect-ratio: 63 / 88;            /* MTG proportions */
+      transform: none !important;       /* kill any compact scaling */
+      display:block;
+      contain: content;
     }
 
-    /* view toggles */
+    /* View toggles */
     #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* phone fallback */
+    /* Phone */
     @media (max-width: 640px){
       #pile-modal .sheet{ right:16px; left:16px; top:70px; bottom:80px; width:auto; }
     }
@@ -2941,7 +2935,6 @@ function openPileModal(title, cards){
     m.querySelector('.backdrop').addEventListener('click', close);
     m.querySelector('.close').addEventListener('click', close);
 
-    // toggle handlers (persist preference)
     const setView = (v)=>{
       PILE_VIEW = v;
       localStorage.setItem('pileViewMode', v);
@@ -2951,34 +2944,32 @@ function openPileModal(title, cards){
     };
     m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
-    m._setView = setView; // stash for later calls
+    m._setView = setView;
   }
 
-  // === Measure a “real” card width so our grid cards match the board ===
-  // Priority: a board slot card → a hand card → any card we’re about to render
+  /* Measure a real, on-board card width so we render 1:1 in the modal. */
   const probe =
-  document.querySelector('.row.player .slot.spell .card') ||
-  document.querySelector('.flow-card .card') ||
-  document.querySelector('#hand .card') ||
-  null;
+    document.querySelector('.row.player .slot.spell .card') ||
+    document.querySelector('.row.ai .slot.spell .card')     ||
+    document.querySelector('#hand .card')                    ||
+    null;
 
   if (probe){
-    // Use layout width (ignore transforms by using boundingClientRect)
-    const w = Math.round(probe.getBoundingClientRect().width);
-    if (w && Number.isFinite(w)) m.style.setProperty('--pile-card-w', `${w}px`);
+    const w = Math.round(probe.getBoundingClientRect().width || 0);
+    if (w > 0) m.style.setProperty('--pile-card-w', `${w}px`);
   } else {
-    // fallback that matches your typical card size
+    // safe fallback close to your typical board size
     m.style.setProperty('--pile-card-w', `260px`);
   }
 
-  // fill content
+  // Fill content
   m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
-  // list rows (compact)
+  // List rows
   cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
@@ -2990,7 +2981,7 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // full-size cards grid (no scale)
+  // Full-size cards (no scale, no crop)
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
@@ -2998,10 +2989,10 @@ function openPileModal(title, cards){
     grid.appendChild(el);
   });
 
-  // apply view + open
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 
