@@ -2825,128 +2825,98 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
 
-/* ===================== Pile modal — visual polish + hard wiring ===================== */
+/* ===================== Pile modal (Deck & Discard as real cards) ===================== */
 function ensurePileModalStyles(){
   if (document.getElementById('pile-modal-style')) return;
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    /* Full layer (above any legacy strips) */
-    #pile-modal{
-      position: fixed; inset: 0; z-index: 3600; display: none;
-    }
+    /* Fullscreen layer; outer layer can scroll if needed */
+    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; overflow:auto; }
     #pile-modal.open{ display:block; }
 
-    /* Click-away area (we already blur/dim the page elsewhere) */
-    #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
+    /* Dim + blur the whole board */
+    #pile-modal .backdrop{
+      position:absolute; inset:0;
+      background:rgba(0,0,0,.45);
+      backdrop-filter: blur(6px);
+    }
 
-    /* Sheet: subtle glass card tray */
+    /* Centered sheet; no inner scrolling (the page scrolls if needed) */
     #pile-modal .sheet{
-      position: absolute; inset: 8vh 6vw auto 6vw;
-      min-width: 720px; max-width: 1120px;
-      left: 50%; transform: translateX(-50%);
-      display: grid; grid-template-rows: auto 1fr;
-      border-radius: 14px; overflow: visible;
-      background: rgba(20,20,22,.82);
-      border: 1px solid rgba(255,255,255,.10);
-      box-shadow:
-        0 24px 70px rgba(0,0,0,.45),
-        0 2px 0 rgba(255,255,255,.04) inset;
-      backdrop-filter: saturate(1.1);
+      position:relative;
+      width:min(1100px, calc(100vw - 160px));
+      margin:80px auto;
+      border-radius:16px;
+      background:rgba(18,18,18,.96);
+      border:1px solid rgba(255,255,255,.08);
+      box-shadow:0 10px 36px rgba(0,0,0,.55);
+      display:grid;
+      grid-template-rows:auto 1fr;
+      overflow:visible;
     }
 
-    /* Sticky header */
+    /* Header */
     #pile-modal header{
-      position: sticky; top: 0;
       display:flex; align-items:center; justify-content:space-between;
-      gap:10px; padding:12px 14px;
+      gap:8px; padding:10px 12px;
       border-bottom:1px solid rgba(255,255,255,.08);
-      background: linear-gradient(to bottom, rgba(30,30,32,.85), rgba(30,30,32,.65));
-      border-top-left-radius:14px; border-top-right-radius:14px;
+      font-size:16px; letter-spacing:.02em;
     }
-    #pile-modal header .ttl{
-      font-size: 15px; letter-spacing:.02em; font-weight:600;
-      max-width: 60ch; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-      opacity:.95;
-    }
-    #pile-modal header .controls{ display:flex; gap:8px; align-items:center; }
+    #pile-modal header .ttl{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #pile-modal header .controls{ display:flex; gap:6px; align-items:center; }
     #pile-modal header .btn{
-      height:28px; padding:0 10px; border-radius:999px;
-      border:1px solid rgba(255,255,255,.12);
-      background:rgba(255,255,255,.06); color:#e7e7e7; cursor:pointer; font-size:12px;
-      transition: background .2s ease, border-color .2s ease, transform .15s ease;
+      height:28px; padding:0 10px; border-radius:8px; border:1px solid rgba(255,255,255,.12);
+      background:rgba(255,255,255,.06); color:#ddd; cursor:pointer; font-size:12px;
     }
-    #pile-modal header .btn:hover{ background:rgba(255,255,255,.10); }
     #pile-modal header .btn[aria-pressed="true"]{
-      background:rgba(255,255,255,.16); border-color:rgba(255,255,255,.18); color:#fff;
+      background:rgba(255,255,255,.12); color:#fff;
     }
     #pile-modal header .close{
-      border:0; background:transparent; color:#ddd; font-size:18px; line-height:1;
-      padding:4px 8px; border-radius:8px; cursor:pointer;
+      border:0; background:transparent; color:#ddd; font-size:20px; line-height:1; cursor:pointer;
+      padding:4px 8px; border-radius:8px;
     }
-    #pile-modal header .close:hover{ background:rgba(255,255,255,.08); }
 
-    /* LIST VIEW */
-    #pile-modal .list{
-      padding: 10px 12px 14px; display:grid; gap:8px; overflow:visible;
-    }
+    /* LIST VIEW (no inner scroll) */
+    #pile-modal .list{ padding:12px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
-      padding:10px 12px; border-radius:10px;
+      padding:8px 10px; border-radius:10px;
       background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.06);
     }
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* CARDS VIEW */
-    #pile-modal { --pile-card-w: 260px; } /* runtime-updated to match true board size */
+    /* CARDS VIEW — true size, centered grid */
+    #pile-modal { --pile-card-w: 260px; --pile-card-h: 360px; --pile-cols: 3; --pile-gap: 16px; }
     #pile-modal .grid{
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(var(--pile-card-w), 1fr));
-      justify-items: center;
-      align-content: start;
-      gap: 16px 18px;
-      padding: 16px 18px 20px;
+      padding:16px;
+      display:grid;
+      justify-content:center;
+      gap:var(--pile-gap);
+      grid-template-columns: repeat(var(--pile-cols), var(--pile-card-w));
     }
     #pile-modal .grid .card{
-      width: var(--pile-card-w);
-      height: auto;
-      transform: translateZ(0);
-      transition: transform .18s ease, filter .18s ease, box-shadow .18s ease;
-      will-change: transform, filter;
-    }
-    #pile-modal .grid .card:hover{
-      transform: translateY(-4px);
-      filter: brightness(1.06) saturate(1.03);
-      box-shadow: 0 14px 30px rgba(0,0,0,.35);
+      width:var(--pile-card-w);
+      height:var(--pile-card-h);
+      transform:none !important;
+      position:relative;
+      contain: content;
     }
 
+    /* Mode switching */
     #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* Entrance */
-    #pile-modal.open .grid .card{ animation: pileCardIn .22s ease both; }
-    #pile-modal.open .grid .card:nth-child(2){ animation-delay: .02s; }
-    #pile-modal.open .grid .card:nth-child(3){ animation-delay: .04s; }
-    #pile-modal.open .grid .card:nth-child(4){ animation-delay: .06s; }
-    #pile-modal.open .grid .card:nth-child(5){ animation-delay: .08s; }
-    @keyframes pileCardIn{
-      from{ opacity:0; transform: translateY(6px); }
-      to{ opacity:1; transform: translateY(0); }
-    }
-
+    /* Phone: wider margins via full-width sheet */
     @media (max-width: 640px){
-      #pile-modal .sheet{
-        inset: 10vh 12px auto 12px; min-width: auto; max-width: none;
-        left: 12px; transform: none;
-      }
-      #pile-modal .grid{ gap: 14px; padding: 12px 12px 16px; }
+      #pile-modal .sheet{ width:calc(100vw - 32px); margin:70px auto 80px; }
     }
   `;
   document.head.appendChild(s);
 }
 
-/* Measure a true, upright card (prefer a board slot card; fallback to Flow/hand; last-resort probe) */
+/* Measure a “true” card size (prefers live board cards; falls back to an offscreen probe) */
 function measureTrueCardSize(sample){
   const pick = sel => {
     const n = document.querySelector(sel);
@@ -2954,16 +2924,20 @@ function measureTrueCardSize(sample){
     const r = n.getBoundingClientRect();
     return (r.width>0 && r.height>0) ? {w:Math.round(r.width), h:Math.round(r.height)} : null;
   };
-  let sz =
-    pick('.row.player .slot.spell article.card') ||
-    pick('.flow-card .card') ||
-    pick('#hand .card:not(.dragging)');
+
+  // 1) Prefer a card in player's spell slots (upright, un-rotated)
+  let sz = pick('.row.player .slot.spell .card');
+  // 2) Then try a Flow card or a hand card
+  if (!sz) sz = pick('.flow-card .card') || pick('#hand .card');
+
+  // 3) Fallback: render a probe card offscreen and measure
   if (!sz) {
     const p = document.createElement('article');
     p.className = 'card';
     p.style.position = 'fixed';
     p.style.left = '-99999px'; p.style.top = '-99999px';
-    p.style.transform = 'none'; p.style.visibility = 'hidden';
+    p.style.transform = 'none';
+    p.style.visibility = 'hidden';
     p.innerHTML = cardShellHTML(sample || {name:'', type:'SPELL', text:'', pip:0});
     document.body.appendChild(p);
     const r = p.getBoundingClientRect();
@@ -2973,7 +2947,7 @@ function measureTrueCardSize(sample){
   return sz;
 }
 
-let PILE_VIEW = localStorage.getItem('pileViewMode') || 'cards'; // default to cards
+let PILE_VIEW = localStorage.getItem('pileViewMode') || 'list'; // 'list' | 'cards'
 
 function openPileModal(title, cards){
   ensurePileModalStyles();
@@ -3012,19 +2986,36 @@ function openPileModal(title, cards){
     m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
     m._setView = setView;
+
+    // Recompute columns on resize
+    const onResize = ()=>{
+      const sheet = m.querySelector('.sheet');
+      if (!sheet) return;
+      const gap = 16;
+      const w   = sheet.clientWidth - 2*gap;
+      const cw  = parseInt(getComputedStyle(m).getPropertyValue('--pile-card-w')) || 260;
+      let cols  = Math.floor((w + gap) / (cw + gap));
+      cols = Math.min(5, Math.max(3, cols));   // clamp to 3–5
+      m.style.setProperty('--pile-cols', cols);
+    };
+    window.addEventListener('resize', onResize);
+    m._onResize = onResize;
   }
 
-  // True card size → grid sizing
-  const {w} = measureTrueCardSize(cards?.[0]);
+  // === Measure a true card size and set CSS vars ===
+  const {w, h} = measureTrueCardSize(cards?.[0]);
   m.style.setProperty('--pile-card-w', `${w}px`);
+  m.style.setProperty('--pile-card-h', `${h}px`);
+  m._onResize?.();
 
-  // Fill
+  // Fill content
   m.querySelector('.ttl').textContent = title;
   const list = m.querySelector('.list');
   const grid = m.querySelector('.grid');
   list.replaceChildren();
   grid.replaceChildren();
 
+  // List rows
   cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
@@ -3036,6 +3027,7 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
+  // Full-size card grid (no transforms)
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
@@ -3043,39 +3035,14 @@ function openPileModal(title, cards){
     grid.appendChild(el);
   });
 
+  // Apply view + open
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
+
+  // Ensure columns after open (layout settled)
+  queueMicrotask(()=> m._onResize?.());
 }
 
-/* HARD-OVERRIDE the Deck/Discard HUD buttons so they always open the modal. */
-(function forceWirePileButtons(){
-  // define once
-  if (window.__forcePileWired) return; window.__forcePileWired = true;
-
-  // expose a function render() can call each time
-  window.__wirePileModals = function({ getStack }){
-    const rewire = (btn, onClick) => {
-      if (!btn) return;
-      const fresh = btn.cloneNode(true);        // strip legacy listeners
-      fresh.id = btn.id;                        // preserve id
-      btn.replaceWith(fresh);
-      fresh.addEventListener('click', onClick);
-    };
-
-    const deckBtn = document.getElementById('btn-deck-hud');
-    const discBtn = document.getElementById('btn-discard-hud');
-
-    rewire(deckBtn, ()=> {
-      const cards = getStack(state, 'player', 'deck');
-      openPileModal(`Deck (${cards.length})`, cards);
-    });
-
-    rewire(discBtn, ()=> {
-      const cards = getStack(state, 'player', 'discard');
-      openPileModal(`Discard (${cards.length})`, cards);
-    });
-  };
-})();
 
 
 
