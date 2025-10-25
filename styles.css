@@ -1093,48 +1093,48 @@ body.mobile-landscape #zoom-card.card.zoom{
 .slot.glyph .slot-rune  { pointer-events: none; } /* already set; safe to repeat */
 
 
-/* ==== AI Mini Hand HUD (top-right, always visible) ====================== */
-.ai-mini{
-  position: fixed;
-  right: 16px;
-  top: 96px;                 /* clears the menu/version badge */
-  z-index: 1800;             /* above HUD (1200) and portraits (0) */
+/* ==== AI Mini Hand HUD (beside AI spell board) ====================== */
+.ai-mini {
+  position: absolute;
+  top: 48px;                /* aligns vertically with AI spell row */
+  right: -160px;            /* moves just to the right of spell board */
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  width: 260px;
-  pointer-events: none;      /* view-only */
+  gap: 12px;
+  width: 220px;
+  pointer-events: none;
+  z-index: 1600;
 }
 
-.ai-mini-hand{
+/* AI hand (mini fanned cards) */
+.ai-mini-hand {
   position: relative;
   width: 100%;
-  height: 84px;              /* slightly taller for the fan */
+  height: 80px;
 }
 
-.ai-mini-hand .mini-card{
+.ai-mini-hand .mini-card {
   position: absolute;
   left: 50%; top: 8px;
-  width: 58px;
-  height: 80px;
+  width: 54px; height: 74px;
   border-radius: 8px;
   background: linear-gradient(180deg,#2f271f,#1f1914);
   border: 1px solid #5a4b37;
-  box-shadow: 0 10px 14px rgba(0,0,0,.55);
+  box-shadow: 0 8px 12px rgba(0,0,0,.45);
   transform-origin: 50% 90%;
   transform: translate(-50%,0) rotate(var(--rot,0deg)) translateX(var(--dx,0));
   pointer-events: none;
 }
 
-.ai-mini-piles{
+/* deck/discard piles */
+.ai-mini-piles {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
 }
 
-.ai-mini-piles .mini-pile{
-  width: 38px;
-  height: 50px;
+.ai-mini-piles .mini-pile {
+  width: 38px; height: 50px;
   border-radius: 6px;
   background: linear-gradient(180deg,#2a211a,#1f1914);
   border: 1px solid #4a3d2f;
@@ -1142,7 +1142,7 @@ body.mobile-landscape #zoom-card.card.zoom{
   position: relative;
 }
 
-.ai-mini-piles .mini-pile::after{
+.ai-mini-piles .mini-pile::after {
   content: attr(data-count);
   position: absolute;
   right: -6px; bottom: -6px;
@@ -1156,9 +1156,8 @@ body.mobile-landscape #zoom-card.card.zoom{
   display: grid; place-items: center;
 }
 
-/* keep it out of the way on small-height screens */
-@media (max-height: 740px){
-  .ai-mini{ top: 72px; }
-}
+/* ensure the AI row container can anchor the absolute mini-HUD */
+.row.ai { position: relative; }
+
 
 
