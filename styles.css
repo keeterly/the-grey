@@ -47,6 +47,11 @@ html,body{height:100%}
 }
 #board-grid .row{display:flex !important; flex-direction:column; align-items:center; gap:10px; min-height:0; position:relative}
 
+/* Anchor for the AI mini HUD so we can center on the slots row */
+#ai-slots { position: relative; }
+
+
+
 /* Portraits */
 .portrait{margin:0;text-align:center;font-size:1.05rem;color:var(--muted)}
 .portrait img{width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid #0006;box-shadow:0 6px 16px #000}
@@ -1093,79 +1098,42 @@ body.mobile-landscape #zoom-card.card.zoom{
 .slot.glyph .slot-rune  { pointer-events: none; } /* already set; safe to repeat */
 
 
-/* ===== AI Mini HUD: hand above, piles beneath (beside top row) ===== */
-/* Quick knobs (tweak these two to nudge it) */
+/* ===== AI Mini HUD — centered beside AI spell board ===== */
+/* Tuning knobs */
 :root{
-  --aiMiniX: 66%;   /* % across the AI row (0% = far left, 100% = far right) */
-  --aiMiniY: -22px; /* vertical offset from the top edge of the AI row */
+  --aiMiniRight: -140px;     /* how far to the right of the slots row edge */
+  --aiMiniWidth:  220px;     /* total width of the mini HUD */
 }
 
-/* Anchor the HUD to the AI row */
-.row.ai { position: relative; }
-
+/* The mini HUD is positioned relative to the AI slots row */
 .ai-mini{
   position: absolute;
-  top: var(--aiMiniY);
-  left: var(--aiMiniX);
-  transform: translateX(-50%);     /* center the mini HUD on the chosen X% */
-  width: 260px;
+  top: 50%;                         /* vertically center on the slots row */
+  right: var(--aiMiniRight);
+  transform: translateY(-50%);      /* true vertical centering */
+  width: var(--aiMiniWidth);
   display: flex;
-  flex-direction: column;           /* hand on top; piles under it */
+  flex-direction: column;           /* hand above, piles beneath */
   gap: 10px;
   z-index: 1600;                    /* above board, below cinematic layer */
   pointer-events: none;             /* view-only */
 }
 
-/* Mini hand (fan) */
+/* Smaller mini hand */
 .ai-mini-hand{
   position: relative;
   width: 100%;
-  height: 88px;
+  height: 72px;                     /* ↓ smaller than before */
 }
+
 .ai-mini-hand .mini-card{
   position: absolute;
-  left: 50%; top: 8px;
-  width: 56px; height: 78px;
+  left: 50%; top: 6px;
+  width: 46px;                      /* ↓ smaller card width */
+  height: 66px;                     /* ↓ smaller card height */
   border-radius: 8px;
-  background: linear-gradient(180deg,#2f271f,#1f1914);
-  border: 1px solid #5a4b37;
-  box-shadow: 0 8px 12px rgba(0,0,0,.45);
-  transform-origin: 50% 90%;
-  transform: translate(-50%,0) rotate(var(--rot,0deg)) translateX(var(--dx,0));
-  pointer-events: none;
-}
-/* optional faint look for placeholders (if you kept them) */
-.ai-mini-hand .mini-card.placeholder{ opacity:.28; filter:grayscale(.2); }
+  background: linear-gradient(180
 
-/* Piles directly beneath (centered) */
-.ai-mini-piles{
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-}
-.ai-mini-piles .mini-pile{
-  width: 40px; height: 54px;
-  border-radius: 6px;
-  background: linear-gradient(180deg,#2a211a,#1f1914);
-  border: 1px solid #4a3d2f;
-  box-shadow: 0 4px 10px #0008;
-  position: relative;
-}
-.ai-mini-piles .mini-pile::after{
-  content: attr(data-count);
-  position: absolute;
-  right: -6px; bottom: -6px;
-  min-width: 18px; height: 18px;
-  padding: 0 6px; border-radius: 999px;
-  font-weight: 800; font-size: .72rem;
-  color: #0d0a07; background: #c6a56a;
-  display: grid; place-items: center;
-}
-
-/* Small-height screens: nudge up a bit */
-@media (max-height: 740px){
-  :root{ --aiMiniY: -10px; }
-}
 
 
 
