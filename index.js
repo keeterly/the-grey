@@ -2829,26 +2829,28 @@ function ensurePileModalStyles(){
   const s = document.createElement('style');
   s.id = 'pile-modal-style';
   s.textContent = `
-    :root{ --pile-card-w: 260px; } /* match your card width */
-
-    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; }
+    /* The modal is a full-screen layer that itself can scroll if content is tall.
+       We do NOT scroll the inner grid/list. */
+    #pile-modal{ position:fixed; inset:0; z-index:3400; display:none; overflow:auto; }
     #pile-modal.open{ display:block; }
 
-    /* click-away area (transparent, no darken) */
+    /* no heavy dim; click-away area only */
     #pile-modal .backdrop{ position:absolute; inset:0; background:transparent; }
 
-    /* ============= Base sheet (used by LIST view) ============= */
+    /* Side panel near HUD; no overflow here (let the whole modal scroll) */
     #pile-modal .sheet{
-      position:absolute; right:84px; bottom:84px;
-      width: 420px; max-height: 70vh;
-      display:grid; grid-template-rows:auto 1fr;
-      border-radius:16px; overflow:hidden;
+      position:absolute; right:84px; top:84px; bottom:84px;
+      width: 960px;      /* roomy; cards will wrap */
+      max-width: min(960px, calc(100vw - 160px));
+      border-radius:16px;
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
+      display:grid; grid-template-rows:auto auto 1fr;
+      overflow:visible;             /* <- let cards’ shadows breathe */
     }
 
-    /* small header with view toggle */
+    /* header */
     #pile-modal header{
       display:flex; align-items:center; justify-content:space-between;
       gap:8px; padding:10px 12px;
@@ -2869,8 +2871,11 @@ function ensurePileModalStyles(){
       padding:4px 8px; border-radius:8px;
     }
 
-    /* -------- List view (compact panel, own scroll) -------- */
-    #pile-modal .list{ overflow:auto; padding:8px 8px 12px; display:grid; gap:6px; }
+    /* subhead (optional space for future filters) */
+    #pile-modal .subhead{ padding:6px 12px 0; }
+
+    /* LIST VIEW (no inner scroll) */
+    #pile-modal .list{ padding:8px 8px 16px; display:grid; gap:6px; overflow:visible; }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
       padding:8px 10px; border-radius:10px;
@@ -2879,46 +2884,28 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* -------- Cards view: turn into a roomy bottom drawer -------- */
-    #pile-modal[data-view="cards"] .sheet{
-      /* expand to a large drawer; no inner scroll */
-      position:fixed;
-      left:24px; right:24px; bottom:24px; top:auto;
-      max-height:none; height:auto; /* grow with content */
-      display:grid; grid-template-rows:auto auto 1fr;
-      overflow:visible;
-      width:auto;
-    }
-
-    /* wrapper that holds the card grid and lets the PAGE handle overflow */
-    #pile-modal .grid-outer{
-      overflow:visible;         /* no inner scrollbars */
-      padding:14px 16px 18px;
-    }
-
-    /* true card grid: flex-wrap for predictable fixed card widths */
+    /* CARDS VIEW — true card size (measured), no scaling */
     #pile-modal .grid{
-      display:flex; flex-wrap:wrap; gap:16px;
-      align-items:flex-start; align-content:flex-start;
+      /* use flex so we get natural wrapping without any scrollbars */
+      display:flex; flex-wrap:wrap; gap:14px;
+      padding:14px; overflow:visible;
     }
-
-    /* full-size cards, no scaling/cropping */
+    /* exact size via runtime var; fallback 260×360ish */
+    #pile-modal { --pile-card-w: 260px; }
     #pile-modal .grid .card{
       width: var(--pile-card-w);
-      height: auto;
-      transform:none !important;
-      position:relative;
-      /* let your standard .card content flow naturally */
+      height: auto;               /* let the inner card content define height */
+      transform: none !important; /* kill any accidental transforms */
+      contain: content;           /* keep shadows fast */
     }
 
-    /* hide unused panel content per mode */
-    #pile-modal[data-view="list"]  .grid-outer{ display:none; }
+    /* view toggles */
+    #pile-modal[data-view="list"]  .grid{ display:none; }
     #pile-modal[data-view="cards"] .list{ display:none; }
 
-    /* phone: keep list panel centered; cards view already expands */
+    /* phone fallback */
     @media (max-width: 640px){
-      #pile-modal .sheet{ right:16px; left:16px; width:auto; bottom:80px; }
-      #pile-modal[data-view="cards"] .sheet{ left:12px; right:12px; bottom:12px; }
+      #pile-modal .sheet{ right:16px; left:16px; top:70px; bottom:80px; width:auto; }
     }
   `;
   document.head.appendChild(s);
@@ -2944,10 +2931,9 @@ function openPileModal(title, cards){
             <button class="close" type="button" aria-label="Close">×</button>
           </div>
         </header>
+        <div class="subhead"></div>
         <div class="list"></div>
-        <div class="grid-outer">
-          <div class="grid"></div>
-        </div>
+        <div class="grid"></div>
       </div>`;
     document.body.appendChild(m);
 
@@ -2955,26 +2941,32 @@ function openPileModal(title, cards){
     m.querySelector('.backdrop').addEventListener('click', close);
     m.querySelector('.close').addEventListener('click', close);
 
+    // toggle handlers (persist preference)
     const setView = (v)=>{
       PILE_VIEW = v;
       localStorage.setItem('pileViewMode', v);
       m.dataset.view = v;
       m.querySelector('.btn-list') .setAttribute('aria-pressed', v==='list');
       m.querySelector('.btn-cards').setAttribute('aria-pressed', v==='cards');
-
-      // When switching to cards, ensure drawer has enough height to show rows
-      if (v === 'cards') {
-        // push the drawer a bit higher if viewport is short
-        const sh = m.querySelector('.sheet');
-        if (sh) {
-          const minH = Math.min(window.innerHeight - 120, 900); // heuristic
-          sh.style.minHeight = `${Math.max(420, minH)}px`;
-        }
-      }
     };
     m.querySelector('.btn-list') .addEventListener('click', ()=> setView('list'));
     m.querySelector('.btn-cards').addEventListener('click', ()=> setView('cards'));
-    m._setView = setView;
+    m._setView = setView; // stash for later calls
+  }
+
+  // === Measure a “real” card width so our grid cards match the board ===
+  // Priority: a board slot card → a hand card → any card we’re about to render
+  const probe =
+      document.querySelector('.row.player .slot.spell .card') ||
+      document.querySelector('#hand .card') ||
+      null;
+  if (probe){
+    // Use layout width (ignore transforms by using boundingClientRect)
+    const w = Math.round(probe.getBoundingClientRect().width);
+    if (w && Number.isFinite(w)) m.style.setProperty('--pile-card-w', `${w}px`);
+  } else {
+    // fallback that matches your typical card size
+    m.style.setProperty('--pile-card-w', `260px`);
   }
 
   // fill content
@@ -2984,7 +2976,7 @@ function openPileModal(title, cards){
   list.replaceChildren();
   grid.replaceChildren();
 
-  // list rows
+  // list rows (compact)
   cards.forEach(c=>{
     const row = document.createElement('div');
     row.className = 'row';
@@ -2996,7 +2988,7 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // full-size cards (no transforms)
+  // full-size cards grid (no scale)
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
@@ -3004,10 +2996,11 @@ function openPileModal(title, cards){
     grid.appendChild(el);
   });
 
-  // open with last-used view
+  // apply view + open
   (m._setView || (()=>{}))(PILE_VIEW);
   m.classList.add('open');
 }
+
 
 
 
