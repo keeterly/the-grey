@@ -8,7 +8,7 @@
     const emit = (n, d) => (listeners.get(n) || []).forEach(fn => { try { fn(d); } catch {} });
     return (window.Grey = { on, off, emit });
   })();
-  (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
+  // (async ()=>{ try { await import('./animations.js?v=2571'); } catch {} })();
 })();
 
 // add to imports from GameLogic.js
