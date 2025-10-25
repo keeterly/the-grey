@@ -1313,30 +1313,44 @@ container.appendChild(g);
 function renderAiMini(pub){
   if (!aiMiniHandEl) return;
 
-  // Clear
+  // Clear and rebuild
   aiMiniHandEl.replaceChildren();
 
-  const hand = pub?.players?.ai?.hand || [];
-  const N = Math.min(6, hand.length);          // cap visuals at 6 backs
-  const step = 12;                               // pixel spread
-  const rot  = 6;                                // degrees spread
+  const hand = Array.isArray(pub?.players?.ai?.hand) ? pub.players.ai.hand : [];
+
+  // Show up to 6 backs, but ALWAYS show at least 3 faint placeholders
+  const realN = Math.min(6, hand.length);
+  const minPlaceholders = 3;
+  const N = Math.max(realN, minPlaceholders);
+
+  const step = 12;   // pixel spread
+  const rot  = 6;    // degrees spread
 
   for (let i=0;i<N;i++){
     const el = document.createElement("div");
     el.className = "mini-card";
-    el.dataset.cardId = hand[i]?.id || "";       // so we can animate by id
     const offset = (i - (N-1)/2);
     el.style.setProperty("--dx", `${offset*step}px`);
     el.style.setProperty("--rot", `${offset*rot}deg`);
+
+    // For the first `realN` cards, tag with the real id so flights can start from here.
+    // Any extras are placeholders (faint backs) so the fan never disappears.
+    if (i < realN && hand[i]?.id) {
+      el.dataset.cardId = hand[i].id;
+    } else {
+      el.classList.add("placeholder");
+    }
+
     aiMiniHandEl.appendChild(el);
   }
 
-  // deck / discard counts (data is already in your public snapshot)
+  // deck / discard counts (from snapshot)
   const deckN    = (pub?.players?.ai?.deckCount    ?? 0) | 0;
   const discardN = (pub?.players?.ai?.discardCount ?? 0) | 0;
   if (aiMiniDeckEl)    aiMiniDeckEl.setAttribute("data-count", String(deckN));
   if (aiMiniDiscardEl) aiMiniDiscardEl.setAttribute("data-count", String(discardN));
 }
+
 
 
 
