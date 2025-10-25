@@ -2957,9 +2957,11 @@ function openPileModal(title, cards){
   // === Measure a “real” card width so our grid cards match the board ===
   // Priority: a board slot card → a hand card → any card we’re about to render
   const probe =
-      document.querySelector('.row.player .slot.spell .card') ||
-      document.querySelector('#hand .card') ||
-      null;
+  document.querySelector('.row.player .slot.spell .card') ||
+  document.querySelector('.flow-card .card') ||
+  document.querySelector('#hand .card') ||
+  null;
+
   if (probe){
     // Use layout width (ignore transforms by using boundingClientRect)
     const w = Math.round(probe.getBoundingClientRect().width);
