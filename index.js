@@ -287,13 +287,19 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 
 
 // === AI cinematic helper ===
-// This triggers a flight from the mini AI hand HUD
+// Triggers a flight from the AI mini hand if present,
+// otherwise falls back to the AI deck icon as the start.
 function cineFromAiMini(cardId, to, pose = '', meta = {}) {
-  const node = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${cardId}"]`);
+  const nodeFromMini = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${cardId}"]`);
+  const fallbackNode = document.getElementById('ai-mini-deck'); // exists in index.html
+  const node = nodeFromMini || fallbackNode;
+
+  // We always emit and include cardId so the handler can resolve data
   if (node) {
-    Emit('spotlight:cine', { node, to, pose, ...meta });
+    Emit('spotlight:cine', { node, to, pose, cardId, ...meta });
   }
 }
+
 
 
 
@@ -327,22 +333,27 @@ function rectOfAny(target, fallback) {
 }
 
 // Node-driven cinematics: PLAY/CHANNEL/INSTANT from hand, and Flow buys
-Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
+Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, cardId }) => {
   try {
     // find data for the ghost
-    const id = node?.dataset?.cardId;
+    const id = cardId || node?.dataset?.cardId;
     const pub = serializePublic(state) || {};
-    const hand = pub.players?.player?.hand || [];
-    const flow = (pub.flow || []).filter(Boolean);
-    const data = [...hand, ...flow].find(c => c.id === id);
+
+    // include both player and AI hands, plus flow
+    const pHand = pub.players?.player?.hand || [];
+    const aiHand = pub.players?.ai?.hand || [];
+    const flow  = (pub.flow || []).filter(Boolean);
+    const data = [...pHand, ...aiHand, ...flow].find(c => c.id === id);
     if (!data) return;
 
     const startRect = rectOf(node) || centerRect();
 
-    // prefer SLOT rect when playing to a slot
+    // prefer SLOT rect when playing to a slot; choose the correct side
     let destRect;
     if (pose === 'play-spell' && Number.isFinite(slotIndex)) {
-      const sel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+      const fromIsAI = !!(node.closest?.('.row.ai') || document.getElementById('ai-mini').contains(node));
+      const rowSel = fromIsAI ? '.row.ai' : '.row.player';
+      const sel = `${rowSel} .slot.spell[data-slot-index="${slotIndex}"]`;
       destRect = rectOf(document.querySelector(sel)) || rectOfAny(to) || centerRect();
     } else {
       destRect = rectOfAny(to) || centerRect();
@@ -357,6 +368,7 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex }) => {
     if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
   } catch {}
 });
+
 
 // keep the flow “buy” cinematic consistent if you emit it
 Grey?.on?.('aetherflow:bought', ({ node }) => {
