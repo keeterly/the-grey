@@ -648,9 +648,67 @@ const Events = {
 
 
 // ===== Log Grey bus events to the Game Log =====
-Grey.on?.(Events.TURN_START, async ({side}) => {
+Grey.on?.(Events.TURN_START, async ({ side }) => {
   logLine(`Turn start → ${side}`);
+
+  // Player turn – nothing special here.
+  if (side !== 'ai') return;
+
+  // AI turn: act like a real player — play step-by-step with small pauses.
+  const api = makeAiApi();
+
+  // Short pause so the player can see AI’s fresh draw
+  await sleep(350);
+  await render();
+
+  // Safety: up to N actions max so the AI can’t “lock” a turn
+  let safety = 20;
+  while (safety-- > 0) {
+    const before = serializePublic(state);
+    const beforeKey = JSON.stringify({
+      hand: before?.players?.ai?.hand?.map(c => c.id) || [],
+      slots: (before?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      ae: {
+        p: before?.players?.ai?.aether || 0,
+        t: before?.players?.ai?.tempAether || 0
+      },
+      flow: (before?.flow || []).map(c => c?.id || null),
+    });
+
+    // ask AI to take exactly one action
+    try {
+      if (AI?.runAiTurn) state = await AI.runAiTurn(state, api);
+    } catch { /* ignore a single AI error and bail */ break; }
+
+    // Repaint so mini hand / counts / board reflect the action
+    await render();
+    // Small beat so humans can follow
+    await sleep(420);
+
+    // Detect “no-op” (nothing changed) → AI is done
+    const after = serializePublic(state);
+    const afterKey = JSON.stringify({
+      hand: after?.players?.ai?.hand?.map(c => c.id) || [],
+      slots: (after?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      ae: {
+        p: after?.players?.ai?.aether || 0,
+        t: after?.players?.ai?.tempAether || 0
+      },
+      flow: (after?.flow || []).map(c => c?.id || null),
+    });
+    if (beforeKey === afterKey) break;
+  }
+
+  // Discard the AI hand at end of AI turn (mirror the player experience)
+  await sleep(300);
+  Emit(Events.TURN_END, { side: 'ai' });
+  state = endTurn(state);
+  await render();
+
+  // Kick off the player’s next turn
+  await doStartTurn();
 });
+
 
 Grey.on?.(Events.TURN_END,   ({side}) => logLine(`Turn end   → ${side}`));
 Grey.on?.(Events.CARD_PLAYED, ({side, cardId, cost}) => logLine(`${side} PLAY spell ${cardId} (cost ${cost ?? 0})`));
@@ -2863,6 +2921,66 @@ if (typeof window.__wirePileModals === 'function') {
 spotlightFromEvents(state);
   
 }
+
+
+
+// === Small API surface the AI uses to take actions (one-at-a-time) ===
+function makeAiApi() {
+  return {
+    getPublic: () => serializePublic(state) || {},
+    getSideState: (side) => state.players[side],
+    findFirstOpenSpellSlot: (side) => {
+      const pub = serializePublic(state) || {};
+      const slots = pub.players?.[side]?.slots || [];
+      for (let i = 0; i < 3; i++) if (!slots[i]?.hasCard) return i;
+      return -1;
+    },
+    canPay: (side, cost) => (getAe(side) + getTemp(side)) >= (cost | 0),
+
+    // Paying helpers used internally by ai.js (we still prefer the wrapped calls below)
+    pay: (side, rawCost) => {
+      const cost = Math.max(0, rawCost | 0);
+      const useTemp = Math.min(cost, getTemp(side));
+      if (useTemp) addTemp(side, -useTemp);
+      if (cost - useTemp) adjustAe(side, -(cost - useTemp));
+    },
+
+    // These call the wrapped, animated helpers you already have so cinematics fire
+    playSpellFromHand: (side, cardId, slotIndex) => {
+      // will emit cine + update, then we render outside
+      return (state = state, playSpellFromHandWithTemp(side, cardId, slotIndex), state);
+    },
+    setGlyphFromHand: (side, cardId) => {
+      return (state = state, setGlyphFromHandWithTemp(side, cardId), state);
+    },
+    castInstantFromHand: async (side, cardId) => {
+      state = await window.castInstantFromHand(state, side, cardId);
+      return state;
+    },
+    channelFromHand: (side, cardId) => {
+      const before = getAe(side);
+      state = discardForAether(state, side, cardId);
+      const gained = getAe(side) - before;
+      adjustAe(side, -gained);
+      addTemp(side, gained);
+      Emit(Events.CHANNEL, { side, cardId, gained });
+      return state;
+    },
+
+    // Flow
+    buyFromFlowIndex: (side, idx, price) => {
+      const useTemp = Math.min(price, getTemp(side));
+      adjustAe(side, useTemp);
+      state = buyFromFlow(state, side, idx);
+      if (useTemp) addTemp(side, -useTemp);
+      Emit(Events.BUY, { side, idx, price });
+      return state;
+    },
+    flowPriceAt: (i) => [4, 3, 2, 2, 2][i] || 0,
+  };
+}
+
+
 
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
