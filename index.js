@@ -497,7 +497,7 @@ function ensureWeaverBackdrop() {
   return layer;
 }
 
-let backdropOn = false; // state holder
+let backdropOn = true; // state holder
 
 function updateWeaverBackdrop() {
   const layer = ensureWeaverBackdrop();
