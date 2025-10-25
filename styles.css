@@ -1146,6 +1146,9 @@ body.mobile-landscape #zoom-card.card.zoom{
   pointer-events: none;
 }
 
+.ai-mini-hand .mini-card.placeholder{
+  opacity: 1;
+}
 
 
 /* ----- Deck & Discard under the hand (match player HUD styling) ----- */
