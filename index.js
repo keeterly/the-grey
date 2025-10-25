@@ -2840,7 +2840,9 @@ function ensurePileModalStyles(){
       position:absolute; right:84px; bottom:84px;
       width: 420px; max-height: 70vh;
       display:grid; grid-template-rows:auto 1fr;
-      border-radius:16px; overflow:hidden;
+      border-radius:16px;
+      /* was overflow:hidden; → allow card faces to render fully */
+      overflow:visible;
       background:rgba(18,18,18,.96);
       border:1px solid rgba(255,255,255,.08);
       box-shadow:0 10px 36px rgba(0,0,0,.55);
@@ -2868,7 +2870,9 @@ function ensurePileModalStyles(){
     }
 
     /* list view */
-    #pile-modal .list{ overflow:auto; padding:8px 8px 12px; display:grid; gap:6px; }
+    #pile-modal .list{
+      overflow:auto; padding:8px 8px 12px; display:grid; gap:6px;
+    }
     #pile-modal .row{
       display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center;
       padding:8px 10px; border-radius:10px;
@@ -2877,13 +2881,17 @@ function ensurePileModalStyles(){
     #pile-modal .row .nm{ font-size:14px; }
     #pile-modal .row .meta{ font-size:12px; opacity:.8; }
 
-    /* card grid (optional toggle) */
+    /* card grid (cards view) */
     #pile-modal .grid{
       display:grid; grid-template-columns:repeat(auto-fill, minmax(160px,1fr));
-      gap:10px; padding:10px; overflow:auto;
+      gap:10px; padding:10px;
+      /* the scroller lives here, not on the sheet */
+      overflow:auto;
     }
-    #pile-modal .grid .card{ transform: scale(.85); transform-origin: top left; }
-    #pile-modal .grid .card .title{ font-size: .95em; } /* minor compaction */
+    /* Fill each column; no transform scaling (which clips layout) */
+    #pile-modal .grid .card{
+      width:100%; height:auto; position:relative;
+    }
 
     /* mode switching */
     #pile-modal[data-view="list"] .grid{ display:none; }
@@ -2892,11 +2900,11 @@ function ensurePileModalStyles(){
     /* phone fallback */
     @media (max-width: 640px){
       #pile-modal .sheet{ right:16px; left:16px; width:auto; bottom:80px; }
+      #pile-modal .grid{ grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); }
     }
   `;
   document.head.appendChild(s);
 }
-
 
 let PILE_VIEW = localStorage.getItem('pileViewMode') || 'list'; // 'list' | 'cards'
 
@@ -2959,7 +2967,7 @@ function openPileModal(title, cards){
     list.appendChild(row);
   });
 
-  // (optional) small cards grid
+  // cards grid (full cards, scaled by column width)
   cards.forEach(c=>{
     const el = document.createElement('article');
     el.className = 'card';
