@@ -541,6 +541,11 @@ const hudDiscardBtn = $("btn-discard-hud");
 const hudDeckBtn    = $("btn-deck-hud");
 const hudEndBtn     = $("btn-endturn-hud");
 const peekEl        = $("peek-card");
+// AI mini HUD refs
+const aiMiniHandEl   = $("ai-mini-hand");
+const aiMiniDeckEl   = $("ai-mini-deck");
+const aiMiniDiscardEl= $("ai-mini-discard");
+
 
 /* ---------- Pip track interactions (delegated, one-time) ---------- */
 let pipHandlersBound = false;
@@ -1247,6 +1252,40 @@ container.appendChild(g);
 
 
 }
+
+
+
+
+function renderAiMini(pub){
+  if (!aiMiniHandEl) return;
+
+  // Clear
+  aiMiniHandEl.replaceChildren();
+
+  const hand = pub?.players?.ai?.hand || [];
+  const N = Math.min(6, hand.length);          // cap visuals at 6 backs
+  const step = 12;                               // pixel spread
+  const rot  = 6;                                // degrees spread
+
+  for (let i=0;i<N;i++){
+    const el = document.createElement("div");
+    el.className = "mini-card";
+    el.dataset.cardId = hand[i]?.id || "";       // so we can animate by id
+    const offset = (i - (N-1)/2);
+    el.style.setProperty("--dx", `${offset*step}px`);
+    el.style.setProperty("--rot", `${offset*rot}deg`);
+    aiMiniHandEl.appendChild(el);
+  }
+
+  // deck / discard counts (data is already in your public snapshot)
+  const deckN    = (pub?.players?.ai?.deckCount    ?? 0) | 0;
+  const discardN = (pub?.players?.ai?.discardCount ?? 0) | 0;
+  if (aiMiniDeckEl)    aiMiniDeckEl.setAttribute("data-count", String(deckN));
+  if (aiMiniDiscardEl) aiMiniDiscardEl.setAttribute("data-count", String(discardN));
+}
+
+
+
 
 /* --- Flow fall-off animation helper --- */
 async function animateFlowFall(node){
@@ -2666,6 +2705,8 @@ if (typeof window.__wirePileModals === 'function') {
 }
 
   renderSlots(aiSlotsEl,     s.players?.ai?.slots     || [], false);
+  renderAiMini(s);
+
   ensureGlyphPlaceholderStyles();
 
   await renderFlow(s.flow);
