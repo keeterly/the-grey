@@ -286,6 +286,13 @@ function cineFromHandCard(cardId, to, pose = '', meta = {}) {
 }
 
 
+// same as above but looks up the tiny AI-back element
+function cineFromAiMini(cardId, to, pose = '', meta = {}) {
+  const node = aiMiniHandEl?.querySelector(`.mini-card[data-card-id="${cardId}"]`);
+  if (node) Emit('spotlight:cine', { node, to, pose, ...meta });
+}
+
+
 
 function svgAetherTemp(size = 36) {
   return `
