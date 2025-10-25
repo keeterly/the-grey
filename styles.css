@@ -1151,6 +1151,18 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
+/* --- AI mini-hand deal-in animation --- */
+@keyframes aiMiniDealIn {
+  0%   { opacity: 0; transform: translate(-50%, -10px) rotate(var(--rot,0deg)) translateX(var(--dx,0)) scale(.92); filter: brightness(1.1); }
+  60%  { opacity: 1; transform: translate(-50%,  2px)  rotate(var(--rot,0deg)) translateX(var(--dx,0)) scale(1.02); }
+  100% { opacity: 1; transform: translate(-50%,  0px)  rotate(var(--rot,0deg)) translateX(var(--dx,0)) scale(1.00); filter: none; }
+}
+/* Only the newest cards play this one-shot when the container is 'dealing' */
+.ai-mini-hand.dealing .mini-card.deal-in {
+  animation: aiMiniDealIn 320ms ease-out forwards;
+}
+
+
 /* ----- Deck & Discard under the hand (match player HUD styling) ----- */
 .ai-mini-piles{
   display: flex;
