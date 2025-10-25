@@ -1093,30 +1093,39 @@ body.mobile-landscape #zoom-card.card.zoom{
 .slot.glyph .slot-rune  { pointer-events: none; } /* already set; safe to repeat */
 
 
-/* ==== AI Mini Hand HUD (beside AI spell board) ====================== */
-.ai-mini {
-  position: absolute;
-  top: 48px;                /* aligns vertically with AI spell row */
-  right: -160px;            /* moves just to the right of spell board */
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 220px;
-  pointer-events: none;
-  z-index: 1600;
+/* ===== AI Mini HUD: hand above, piles beneath (beside top row) ===== */
+/* Quick knobs (tweak these two to nudge it) */
+:root{
+  --aiMiniX: 66%;   /* % across the AI row (0% = far left, 100% = far right) */
+  --aiMiniY: -22px; /* vertical offset from the top edge of the AI row */
 }
 
-/* AI hand (mini fanned cards) */
-.ai-mini-hand {
+/* Anchor the HUD to the AI row */
+.row.ai { position: relative; }
+
+.ai-mini{
+  position: absolute;
+  top: var(--aiMiniY);
+  left: var(--aiMiniX);
+  transform: translateX(-50%);     /* center the mini HUD on the chosen X% */
+  width: 260px;
+  display: flex;
+  flex-direction: column;           /* hand on top; piles under it */
+  gap: 10px;
+  z-index: 1600;                    /* above board, below cinematic layer */
+  pointer-events: none;             /* view-only */
+}
+
+/* Mini hand (fan) */
+.ai-mini-hand{
   position: relative;
   width: 100%;
-  height: 80px;
+  height: 88px;
 }
-
-.ai-mini-hand .mini-card {
+.ai-mini-hand .mini-card{
   position: absolute;
   left: 50%; top: 8px;
-  width: 54px; height: 74px;
+  width: 56px; height: 78px;
   border-radius: 8px;
   background: linear-gradient(180deg,#2f271f,#1f1914);
   border: 1px solid #5a4b37;
@@ -1125,45 +1134,37 @@ body.mobile-landscape #zoom-card.card.zoom{
   transform: translate(-50%,0) rotate(var(--rot,0deg)) translateX(var(--dx,0));
   pointer-events: none;
 }
+/* optional faint look for placeholders (if you kept them) */
+.ai-mini-hand .mini-card.placeholder{ opacity:.28; filter:grayscale(.2); }
 
-/* deck/discard piles */
-.ai-mini-piles {
+/* Piles directly beneath (centered) */
+.ai-mini-piles{
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 12px;
 }
-
-.ai-mini-piles .mini-pile {
-  width: 38px; height: 50px;
+.ai-mini-piles .mini-pile{
+  width: 40px; height: 54px;
   border-radius: 6px;
   background: linear-gradient(180deg,#2a211a,#1f1914);
   border: 1px solid #4a3d2f;
   box-shadow: 0 4px 10px #0008;
   position: relative;
 }
-
-.ai-mini-piles .mini-pile::after {
+.ai-mini-piles .mini-pile::after{
   content: attr(data-count);
   position: absolute;
   right: -6px; bottom: -6px;
   min-width: 18px; height: 18px;
-  padding: 0 6px;
-  border-radius: 999px;
-  font-weight: 800;
-  font-size: .72rem;
-  color:#0d0a07;
-  background:#c6a56a;
+  padding: 0 6px; border-radius: 999px;
+  font-weight: 800; font-size: .72rem;
+  color: #0d0a07; background: #c6a56a;
   display: grid; place-items: center;
 }
 
-/* ensure the AI row container can anchor the absolute mini-HUD */
-.row.ai { position: relative; }
-
-
-/* Faint look for placeholder backs */
-.ai-mini-hand .mini-card.placeholder{
-  opacity: .28;
-  filter: grayscale(.2);
+/* Small-height screens: nudge up a bit */
+@media (max-height: 740px){
+  :root{ --aiMiniY: -10px; }
 }
 
 
