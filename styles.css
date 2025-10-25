@@ -1160,4 +1160,11 @@ body.mobile-landscape #zoom-card.card.zoom{
 .row.ai { position: relative; }
 
 
+/* Faint look for placeholder backs */
+.ai-mini-hand .mini-card.placeholder{
+  opacity: .28;
+  filter: grayscale(.2);
+}
+
+
 
