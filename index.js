@@ -1,96 +1,3 @@
-// === DEMO PASSWORD GATE (one-time; with admin + URL switches) ==========
-(() => {
-  // Config
-  const DEMO_PASS = "GREY2025";
-  const KEY_UNLOCK = "theGrey_demo_unlocked";
-
-  // URL toggles (super handy for testing)
-  const params = new URLSearchParams(location.search);
-  const qHas = k => params.has(k) || params.get(k) === "1";
-
-  // Force lock/unlock via URL (e.g., ?lock or ?unlock)
-  if (qHas("lock"))   { try { localStorage.removeItem(KEY_UNLOCK); } catch {} }
-  if (qHas("unlock")) { try { localStorage.setItem(KEY_UNLOCK, "yes"); } catch {} }
-
-  // Optional admin bypass ONLY if you explicitly ask for it via URL
-  // Use ?admin to skip the lock on your device. Remove ?admin to test the gate.
-  const isAdminBypass = qHas("admin");
-
-  // Expose debug helpers
-  window.__greyDemoGate = {
-    key: KEY_UNLOCK,
-    pass: DEMO_PASS,
-    isUnlocked: () => localStorage.getItem(KEY_UNLOCK) === "yes",
-    forceLock:   () => (localStorage.removeItem(KEY_UNLOCK), location.reload()),
-    forceUnlock: () => (localStorage.setItem(KEY_UNLOCK, "yes"), location.reload())
-  };
-
-  // If already unlocked or bypassed, just continue
-  const already = localStorage.getItem(KEY_UNLOCK) === "yes";
-  console.info("[The Grey] demo gate init", { already, isAdminBypass, key: KEY_UNLOCK });
-
-  if (already || isAdminBypass) return;
-
-  // Build overlay
-  const wrap = document.createElement("div");
-  wrap.id = "demo-lock";
-  Object.assign(wrap.style, {
-    position: "fixed", inset: "0", zIndex: "9999",
-    display: "grid", placeItems: "center",
-    background: "radial-gradient(ellipse at center, rgba(10,10,10,.95), rgba(0,0,0,1))",
-    color: "#eae7df"
-  });
-
-  const sheet = document.createElement("div");
-  sheet.style.cssText = `
-    min-width: 320px; max-width: 92vw; padding: 22px 18px;
-    background: rgba(18,18,18,.92);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 14px; box-shadow: 0 10px 36px rgba(0,0,0,.55);
-    display: grid; gap: 10px; justify-items: center; text-align: center;
-  `;
-  sheet.innerHTML = `
-    <div style="font-size:26px; letter-spacing:.06em;">Enter Access Key</div>
-    <input id="demo-pass" type="password"
-      style="width:240px; padding:10px 12px; border-radius:10px; border:1px solid rgba(255,255,255,.15);
-             background:rgba(255,255,255,.06); color:#eee; outline:none; text-align:center;"/>
-    <button id="demo-btn"
-      style="padding:10px 14px; border-radius:10px; border:1px solid rgba(255,255,255,.15);
-             background:rgba(255,255,255,.08); color:#eee; cursor:pointer;">
-      Unlock
-    </button>
-    <div id="demo-msg" style="height:18px; color:#ffb0a8; opacity:.95; display:none;">Invalid key</div>
-    <div style="opacity:.7; font-size:12px; margin-top:6px;">
-      Tip: add <code>?lock</code> or <code>?unlock</code> to the URL to test quickly.
-    </div>
-  `;
-
-  wrap.appendChild(sheet);
-  document.addEventListener("DOMContentLoaded", () => document.body.appendChild(wrap));
-
-  const unlock = () => {
-    const val = (document.getElementById("demo-pass") || {}).value?.trim?.() || "";
-    if (val === DEMO_PASS) {
-      try { localStorage.setItem(KEY_UNLOCK, "yes"); } catch {}
-      wrap.remove();
-      console.info("[The Grey] demo unlocked");
-    } else {
-      const m = document.getElementById("demo-msg");
-      if (m) m.style.display = "block";
-    }
-  };
-
-  // Wire events once DOM is ready
-  window.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("demo-btn");
-    const inp = document.getElementById("demo-pass");
-    btn?.addEventListener("click", unlock);
-    inp?.addEventListener("keydown", (e) => { if (e.key === "Enter") unlock(); });
-  });
-})();
-
-
-
 /* ===== Ensure Grey bus + load animations (idempotent) ===== */
 (() => {
   const Grey = (function ensureBus() {
@@ -122,6 +29,98 @@ import {
   dealDamage,
 } from "./GameLogic.js";
 
+/* ===== Demo password gate (one-time unlock via localStorage) ===== */
+(() => {
+  const KEY = "theGrey_demo_unlocked";
+  const PASSWORD = "venia-demo";        // <— set your real password here
+
+  // tiny DOM helpers
+  const make = (t, cls) => { const n = document.createElement(t); if (cls) n.className = cls; return n; };
+
+  // draw (or return existing) gate sheet
+  function ensureSheet() {
+    let wrap = document.getElementById("demo-gate");
+    if (wrap) return wrap;
+
+    wrap = make("div", "demo-gate");          // full-screen backdrop
+    wrap.id = "demo-gate";
+    wrap.innerHTML = `
+      <div class="gate-sheet" role="dialog" aria-modal="true" aria-labelledby="gate-title">
+        <div id="gate-title" class="gate-title">Enter Demo Password</div>
+        <div class="gate-sub">This unlocks the interactive demo once per browser.</div>
+        <input id="gate-input" class="gate-input" type="password" placeholder="Password" autocomplete="current-password" />
+        <div class="gate-row">
+          <button id="gate-unlock" class="gate-btn" type="button">Unlock</button>
+        </div>
+        <div id="gate-err" class="gate-err" aria-live="polite"></div>
+      </div>`;
+    document.body.appendChild(wrap);
+
+    // wire
+    const input = wrap.querySelector("#gate-input");
+    const btn   = wrap.querySelector("#gate-unlock");
+    const err   = wrap.querySelector("#gate-err");
+    const submit = () => {
+      const ok = (input.value || "").trim() === PASSWORD;
+      if (!ok) {
+        err.textContent = "Incorrect password.";
+        input.select();
+        return;
+      }
+      localStorage.setItem(KEY, "yes");
+      wrap.classList.remove("open");
+      // let the app continue if it was blocked
+      window.__greyDemoGate._onUnlock?.();
+    };
+    btn.addEventListener("click", submit);
+    input.addEventListener("keydown", e => (e.key === "Enter") && submit());
+
+    return wrap;
+  }
+
+  function isUnlocked() { return localStorage.getItem(KEY) === "yes"; }
+  function forceLock()  { localStorage.removeItem(KEY); }
+  function forceUnlock(){ localStorage.setItem(KEY, "yes"); }
+
+  function showPrompt() {
+    const w = ensureSheet();
+    const input = w.querySelector("#gate-input");
+    const err   = w.querySelector("#gate-err");
+    err.textContent = "";
+    w.classList.add("open");
+    setTimeout(() => input?.focus(), 0);
+  }
+
+  // expose a tiny API for the console
+  window.__greyDemoGate = {
+    isUnlocked, forceLock, forceUnlock, showPrompt,
+    /** internal: lets index.js continue after unlock */
+    _onUnlock: null
+  };
+
+  // autoinsert the backdrop styles once
+  if (!document.getElementById("demo-gate-style")) {
+    const s = document.createElement("style");
+    s.id = "demo-gate-style";
+    s.textContent = `
+      .demo-gate{position:fixed;inset:0;z-index:6000;display:none;place-items:center;
+                 background:rgba(0,0,0,.55);backdrop-filter:blur(6px);}
+      .demo-gate.open{display:grid;}
+      .gate-sheet{min-width:320px;max-width:min(420px,90vw);padding:22px 18px;border-radius:14px;
+                  background:rgba(22,22,22,.96);border:1px solid rgba(255,255,255,.1);
+                  box-shadow:0 10px 36px rgba(0,0,0,.55);display:grid;gap:12px;text-align:center;}
+      .gate-title{font-size:22px;letter-spacing:.04em}
+      .gate-sub{opacity:.8;font-size:14px;margin-top:-4px}
+      .gate-input{width:100%;height:38px;border-radius:9px;border:1px solid rgba(255,255,255,.16);
+                  background:rgba(255,255,255,.06);color:#eee;padding:0 10px;outline:0;}
+      .gate-row{display:grid;gap:10px}
+      .gate-btn{height:36px;border-radius:9px;border:1px solid rgba(255,255,255,.16);
+                background:rgba(255,255,255,.12);color:#fff;cursor:pointer}
+      .gate-err{min-height:18px;color:#ffb0b0;font-size:13px}
+    `;
+    document.head.appendChild(s);
+  }
+})();
 
 
 
