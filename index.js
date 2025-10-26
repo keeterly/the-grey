@@ -2939,16 +2939,23 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 
   // === DEMO GATE: block boot until unlocked ===
-  if (!window.__greyDemoGate?.isUnlocked()) {
-    // when the user unlocks, resume boot exactly once
-    window.__greyDemoGate._onUnlock = async () => {
-      window.__greyDemoGate._onUnlock = null;
+  // === DEMO GATE: block boot until unlocked ===
+const gate = window.__greyDemoGate;           // ← capture once
+if (!gate || !gate.isUnlocked()) {            // ← robust check
+  if (gate) {
+    gate._onUnlock = async () => {
+      gate._onUnlock = null;
       await doStartTurn();
       logLine(`Boot on ${BRANCH_VERSION}`);
     };
-    window.__greyDemoGate?.showPrompt();
-    return; // stop boot here; the callback above resumes it
+    gate.showPrompt();
+  } else {
+    // If the gate hasn't been created yet for some reason, try once on next tick.
+    setTimeout(() => window.__greyDemoGate?.showPrompt?.(), 0);
   }
+  return;                                      // stop boot here
+}
+
 
   await doStartTurn();
   logLine(`Boot on ${BRANCH_VERSION}`);
