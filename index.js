@@ -2938,10 +2938,24 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensurePortraitAeNoGlowStyles();
 
 
+  // === DEMO GATE: block boot until unlocked ===
+  if (!window.__greyDemoGate?.isUnlocked()) {
+    // when the user unlocks, resume boot exactly once
+    window.__greyDemoGate._onUnlock = async () => {
+      window.__greyDemoGate._onUnlock = null;
+      await doStartTurn();
+      logLine(`Boot on ${BRANCH_VERSION}`);
+    };
+    window.__greyDemoGate?.showPrompt();
+    return; // stop boot here; the callback above resumes it
+  }
 
   await doStartTurn();
- 
   logLine(`Boot on ${BRANCH_VERSION}`);
+  
+
+
+  
 });
 
 
