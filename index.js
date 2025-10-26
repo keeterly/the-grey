@@ -3031,6 +3031,96 @@ window.addEventListener("resize", ()=> layoutHand(handEl, Array.from(handEl?.chi
 document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closeZoom(); });
 document.addEventListener("click", clearAllActionMenus);
 
+
+
+/* ===================== Demo Gate (lock screen) ===================== */
+(() => {
+  const LS_KEY = "theGrey_demo_unlocked";
+  const DEMO_PASSWORD = (window.__GREY_GATE_PASSWORD || "demo"); // set your own externally if you want
+
+  function isUnlocked() { return localStorage.getItem(LS_KEY) === "yes"; }
+  function forceUnlock() { localStorage.setItem(LS_KEY, "yes"); }
+  function forceLock()   { localStorage.removeItem(LS_KEY); }
+
+  function ensureStyles() {
+    if (document.getElementById("grey-gate-style")) return;
+    const s = document.createElement("style");
+    s.id = "grey-gate-style";
+    s.textContent = `
+      #grey-gate{
+        position:fixed; inset:0; z-index: 999999;
+        display:grid; place-items:center;
+        background:rgba(0,0,0,.60); backdrop-filter: blur(6px);
+      }
+      #grey-gate .sheet{
+        width:min(480px, 92vw);
+        padding:18px 16px;
+        border-radius:14px;
+        background:rgba(18,18,18,.96);
+        border:1px solid rgba(255,255,255,.10);
+        box-shadow:0 10px 36px rgba(0,0,0,.55);
+        display:grid; gap:10px; text-align:center; color:#eee;
+      }
+      #grey-gate .pw{
+        height:40px; border-radius:10px; padding:0 12px;
+        border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
+        color:#fff; outline:none;
+      }
+      #grey-gate .btn{
+        height:40px; border-radius:10px; padding:0 14px; cursor:pointer;
+        border:1px solid rgba(255,255,255,.25); background:rgba(255,255,255,.12); color:#fff;
+      }
+      #grey-gate .err{ color:#ff9a9a; min-height:1.2em; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function showPrompt() {
+    ensureStyles();
+    // already unlocked? just call through.
+    if (isUnlocked()) { window.__greyDemoGate?._onUnlock?.(); return; }
+
+    let layer = document.getElementById("grey-gate");
+    if (!layer) {
+      layer = document.createElement("div");
+      layer.id = "grey-gate";
+      layer.innerHTML = `
+        <div class="sheet" role="dialog" aria-modal="true" aria-label="Demo unlock">
+          <div style="font-size:20px; letter-spacing:.02em;">Enter access phrase to play</div>
+          <input class="pw" type="password" placeholder="Access phrase" autocomplete="off" />
+          <button class="btn" type="button">Unlock</button>
+          <div class="err" aria-live="polite"></div>
+        </div>`;
+      document.body.appendChild(layer);
+    }
+    const input = layer.querySelector(".pw");
+    const btn   = layer.querySelector(".btn");
+    const err   = layer.querySelector(".err");
+
+    const tryUnlock = () => {
+      const ok = (input.value || "").trim() === String(DEMO_PASSWORD);
+      if (!ok) { err.textContent = "Nope. Try again."; input.focus(); input.select(); return; }
+      forceUnlock();
+      layer.remove();
+      window.__greyDemoGate?._onUnlock?.();
+    };
+    btn.onclick = tryUnlock;
+    input.onkeydown = (e) => { if (e.key === "Enter") tryUnlock(); };
+    setTimeout(() => input?.focus(), 0);
+  }
+
+  // Public shim (always present)
+  window.__greyDemoGate = {
+    isUnlocked,
+    showPrompt,
+    forceUnlock,
+    forceLock,
+    _onUnlock: null
+  };
+})();
+
+
+
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   ensureTopLeftUI();
@@ -3043,6 +3133,22 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTranceStyles();
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
+
+// 🔒 Gate check
+  const gate = window.__greyDemoGate;
+  if (!gate || !gate.isUnlocked()) {
+    if (gate) {
+      gate._onUnlock = async () => {
+        gate._onUnlock = null;
+        await doStartTurn();
+        logLine(`Boot on ${BRANCH_VERSION}`);
+      };
+      gate.showPrompt();
+    } else {
+      alert("Demo is locked. Reload after entering the password.");
+    }
+    return;
+  }
 
 
 
