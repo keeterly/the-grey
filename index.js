@@ -1306,7 +1306,7 @@ if (glyphSlot.hasCard && glyphSlot.card) {
   holder.className = "glyph-holder";
   holder.tabIndex = 0;
 
-  // Back face (face-down)
+  // Back face (always visible)
   const back = document.createElement("div");
   back.className = "face back";
   back.innerHTML = `
@@ -1318,22 +1318,32 @@ if (glyphSlot.hasCard && glyphSlot.card) {
     </div>`;
   holder.appendChild(back);
 
-  // Front face with real card
-  const front = document.createElement("div");
-  front.className = "face front";
-  const frontInner = document.createElement("div");
-  frontInner.className = "front-inner";
-  const cardNode = document.createElement("article");
-  cardNode.className = "card";
-  if (FLOW_BOUGHT_IDS.has(glyphSlot.card.id)) cardNode.classList.add("flow-bought");
-  cardNode.innerHTML = cardHTML(glyphSlot.card);
-  attachPeekAndZoom(cardNode, glyphSlot.card);
-  frontInner.appendChild(cardNode);
-  front.appendChild(frontInner);
-  holder.appendChild(front);
+  if (isPlayer) {
+    // Player: show real glyph front face (can flip)
+    const front = document.createElement("div");
+    front.className = "face front";
+    const frontInner = document.createElement("div");
+    frontInner.className = "front-inner";
+
+    const cardNode = document.createElement("article");
+    cardNode.className = "card";
+    if (FLOW_BOUGHT_IDS.has(glyphSlot.card.id))
+      cardNode.classList.add("flow-bought");
+
+    cardNode.innerHTML = cardHTML(glyphSlot.card);
+    attachPeekAndZoom(cardNode, glyphSlot.card);
+    frontInner.appendChild(cardNode);
+    front.appendChild(frontInner);
+    holder.appendChild(front);
+  } else {
+    // AI: conceal glyph entirely, no front face and no pointer events
+    holder.setAttribute("data-concealed", "ai");
+    holder.style.pointerEvents = "none";
+  }
 
   g.appendChild(holder);
 }
+
 
 // Drag & drop target
 if (isPlayer) {
