@@ -3036,7 +3036,7 @@ document.addEventListener("click", clearAllActionMenus);
 /* ===================== Demo Gate (lock screen) ===================== */
 (() => {
   const LS_KEY = "theGrey_demo_unlocked";
-  const DEMO_PASSWORD = (window.__GREY_GATE_PASSWORD || "demo"); // set your own externally if you want
+  const DEMO_PASSWORD = (window.__GREY_GATE_PASSWORD || "FRIENDOFKEETER"); // set your own externally if you want
 
   function isUnlocked() { return localStorage.getItem(LS_KEY) === "yes"; }
   function forceUnlock() { localStorage.setItem(LS_KEY, "yes"); }
