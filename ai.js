@@ -1,67 +1,115 @@
-// ai.js — very simple baseline AI so you can start playtesting.
-// Heuristics (in order):
-// 1) Cast any affordable Instant with positive effect (cost ≤ aether+temp).
-// 2) Play an affordable Spell into first open slot.
-// 3) Channel a card with aetherValue>0 if it improves buy options or casting.
-// 4) Buy the leftmost affordable Aetherflow card.
-// 5) End turn.
-
+// ai.js
+// One, small, deliberate action per call.
+// Uses the api surface you exposed from UI: makeAiApi()
 export async function runAiTurn(state, api) {
-  // api is a very small surface we expect from index.js
-  // {
-  //   getPublic(), getSideState(side),
-  //   findFirstOpenSpellSlot(side),
-  //   canPay(side, cost), pay(side, cost),
-  //   playSpellFromHand(side, cardId, slotIndex),
-  //   setGlyphFromHand(side, cardId),
-  //   castInstantFromHand(side, cardId),
-  //   channelFromHand(side, cardId),
-  //   buyFromFlowIndex(side, idx, priceAtPos),
-  //   flowPriceAt(idx),
-  // }
+  const side = 'ai';
+  const pub  = api.getPublic() || {};
+  const me   = pub.players?.ai || {};
+  const hand = me.hand || [];
+  const aether = (me.aether|0) + (me.tempAether|0);
 
-  const side = "ai";
-  const pub  = api.getPublic();
-  const me   = api.getSideState(side);
-  const hand = (me.hand || []).slice();
+  // Utilities
+  const firstOpenSpellSlot = () => api.findFirstOpenSpellSlot(side);
+  const glyphSlotOpen = () => !(pub.players?.ai?.slots?.[3]?.hasCard);
 
-  // Utility
-  const totalAe = () => (me.aether|0) + (me.tempAether|0);
-  const openSlot = api.findFirstOpenSpellSlot(side);
+  const handByType = (t) => hand.filter(c => c?.type === t);
+  const hasType    = (t) => handByType(t).length > 0;
 
-  // 1) Cast any Instant we can afford
-  for (const c of hand) {
-    if (c.type === "INSTANT" && (c.cost|0) <= totalAe()) {
-      try { state = await api.castInstantFromHand(side, c.id); return state; } catch {}
+  // 0) If we can cheaply advance an AI spell on board, do that (optional polish).
+  //    (This keeps pressure without needing extra smarts.)
+  try {
+    const slots = pub.players?.ai?.slots || [];
+    for (let i = 0; i < 3; i++) {
+      const slot = slots[i];
+      const c = slot?.card;
+      if (slot?.hasCard && c?.type === 'SPELL') {
+        // Spend 1 if we have it — your wrapped play handles discounts elsewhere
+        if (aether >= 1 && (c.progress|0) < (c.pip|0)) {
+          // Let GameLogic handle the actual advance via UI wrapper:
+          // we don't have a direct "advance" helper on api, so skip if missing.
+          if (typeof window.advanceSpell === 'function') {
+            window.advanceSpell('ai', i, 1);
+            return state;
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // 1) CAST an Instant if we can afford one (fast tempo plays)
+  {
+    const inst = handByType('INSTANT')
+      .find(c => api.canPay(side, c.cost|0)); // wrapper applies temp/perm in helper
+    if (inst) {
+      await api.castInstantFromHand(side, inst.id);
+      return state;
     }
   }
 
-  // 2) Play an affordable Spell into first open slot
-  if (openSlot >= 0) {
-    for (const c of hand) {
-      if (c.type === "SPELL" && (c.cost|0) <= totalAe()) {
-        try { state = api.playSpellFromHand(side, c.id, openSlot); return state; } catch {}
+  // 2) SET a Glyph if the slot is empty and we have one
+  if (glyphSlotOpen() && hasType('GLYPH')) {
+    const g = handByType('GLYPH')[0];
+    api.setGlyphFromHand(side, g.id);
+    return state;
+  }
+
+  // 3) PLAY a Spell if there’s an open slot
+  {
+    const slot = firstOpenSpellSlot();
+    if (slot >= 0) {
+      // Prefer cheaper spells / ones with lower pip costs to get on board
+      const spells = handByType('SPELL')
+        .sort((a, b) => (a.cost|0) - (b.cost|0) || (a.pip|0) - (b.pip|0));
+      for (const s of spells) {
+        // Your wrapped player helper handles trance discount + temp first.
+        try {
+          api.playSpellFromHand(side, s.id, slot);
+          return state;
+        } catch { /* try next */ }
       }
     }
   }
 
-  // 3) Channel if it helps meet a cost threshold (prefer highest aetherValue)
-  const chan = hand.filter(c => (c.aetherValue|0) > 0)
-                   .sort((a,b)=> (b.aetherValue|0) - (a.aetherValue|0))[0];
-  if (chan) {
-    try { state = api.channelFromHand(side, chan.id); return state; } catch {}
-  }
+  // 4) BUY from Flow if we can afford something useful (goes to AI discard)
+  //    Preference: a glyph if we don’t have one set → cheap spell → anything affordable.
+  {
+    const prices = [4, 3, 2, 2, 2];
+    const flow = (pub.flow || []).slice(0, 5);
 
-  // 4) Buy the leftmost affordable Flow card
-  const flow = (pub.flow || []).slice(0,5);
-  for (let i=0;i<flow.length;i++){
-    const c = flow[i]; if (!c) continue;
-    const price = api.flowPriceAt(i);
-    if (price <= totalAe()) {
-      try { state = api.buyFromFlowIndex(side, i, price); return state; } catch {}
+    // Build a desirability score
+    const wantGlyph = glyphSlotOpen();
+    const scored = flow.map((c, i) => {
+      if (!c) return null;
+      const price = prices[i] || 0;
+      const afford = aether >= price;
+      if (!afford) return null;
+      let score = 0;
+      if (wantGlyph && c.type === 'GLYPH') score += 100;
+      if (c.type === 'SPELL') score += 60 - (c.cost|0)*2 - (c.pip|0);
+      if (c.type === 'INSTANT') score += 40 - (c.cost|0);
+      // tiny bias for cheaper options
+      score += (10 - price);
+      return { idx: i, price, score };
+    }).filter(Boolean);
+
+    if (scored.length) {
+      scored.sort((a, b) => b.score - a.score);
+      const pick = scored[0];
+      api.buyFromFlowIndex(side, pick.idx, pick.price); // → goes to AI discard
+      return state;
     }
   }
 
-  // 5) Nothing to do
+  // 5) CHANNEL a card if we’re stuck (prefer lowest-value channel)
+  {
+    const channelable = hand.filter(c => (c.aetherValue|0) > 0)
+      .sort((a,b)=> (a.aetherValue|0) - (b.aetherValue|0));
+    if (channelable.length) {
+      api.channelFromHand(side, channelable[0].id);
+      return state;
+    }
+  }
+
+  // 6) Nothing to do → no-op (ends the AI’s action loop in your TURN_START handler)
   return state;
 }
