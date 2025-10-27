@@ -1069,18 +1069,17 @@ function applyDrop(target, cardId, cardType){
      if (target === hudDiscardBtn){
   const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
   if (el) el.classList.add('grey-hide-during-flight');
+
   cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
 
-       // Particles: prefer spotlight anchor; fall back to the dragged card
-const fallbackStart = rectOf(el) || centerRect();
-const destRect  = domRectOfTempCrescent('player');
-emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+  // Particles: prefer spotlight anchor; fall back to the dragged card
+  const fallbackStart = rectOf(el) || centerRect();
+  const destRect = domRectOfTempCrescent('player');
+  emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
 
-       
-  // Particles: from dragged card → player TEMP crescent
-  const startRect = rectOf(el) || centerRect();
-  const destRect  = domRectOfTempCrescent('player');
-  emitTempAetherParticles(startRect, destRect, 12);
+  // Optional small “ember” trail on top of the siphon arc
+  const startRect2 = rectOf(el) || centerRect();
+  emitTempAetherParticles(startRect2, destRect, 12);
 
   const before = getAe("player");
   state = discardForAether(state, "player", cardId);
@@ -1091,6 +1090,7 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
   render();
   return;
 }
+
 
 
 
