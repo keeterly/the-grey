@@ -43,15 +43,6 @@ function withAetherIcons(txt){
 }
 
 
-// Display-only: rename resolve text "Channel" → "Crystalize" for SPELL rules text
-function resolveTerminologyForDisplay(card, rawText) {
-  if (!rawText) return "";
-  // Only affect on-card rule text for Spells (not the HUD or discard action)
-  return (card?.type === "SPELL")
-    ? rawText.replace(/\bChannel\b/gi, "Crystalize")
-    : rawText;
-}
-
 
 
 
