@@ -2844,74 +2844,136 @@ function lerp(a,b,t){ return a + (b-a)*t; }
  * @param {{x:number,y:number,w:number,h:number}} destRect
  * @param {number} count
  */
-async function emitTempAetherParticles(startRect, destRect, count = 24) {
+async function emitTempAetherParticles(startRect, destRect, count = 28) {
+  ensureSiphonVFXStyles();
   const layer = ensureParticleLayer();
   const nodes = [];
 
+  // Vector from start → dest (and a perpendicular)
+  const dx = destRect.cx - startRect.cx;
+  const dy = destRect.cy - startRect.cy;
+  const len = Math.max(1, Math.hypot(dx, dy));
+  const ux = dx / len, uy = dy / len;           // unit to target
+  const px = -uy, py = ux;                      // unit perpendicular (left-hand)
+
+  // Siphon halo at the card (feels like energy being pulled out)
+  const halo = document.createElement('div');
+  halo.className = 'siphon-halo';
+  halo.style.left = (startRect.cx - 26) + 'px';
+  halo.style.top  = (startRect.cy - 26) + 'px';
+  layer.appendChild(halo);
+  // trigger
+  requestAnimationFrame(()=> halo.classList.add('on'));
+
   for (let i = 0; i < count; i++) {
     const p = document.createElement('div');
-    const size = 14 + Math.random() * 10; // MUCH larger particles
+    const size = 10 + Math.random() * 12; // larger, visible particles
+
     Object.assign(p.style, {
       position: 'fixed',
       left: (startRect.cx - size / 2) + 'px',
-      top: (startRect.cy - size / 2) + 'px',
+      top:  (startRect.cy - size / 2) + 'px',
       width: size + 'px',
       height: size + 'px',
       borderRadius: '50%',
-      background: 'radial-gradient(circle, rgba(120,200,255,1) 0%, rgba(60,160,255,0.6) 45%, rgba(0,0,0,0) 80%)',
-      boxShadow: '0 0 10px rgba(100,180,255,0.8), 0 0 25px rgba(80,150,255,0.6)',
-      transform: 'translate(0,0) scale(1)',
-      opacity: '1',
-      transition: 'transform 820ms cubic-bezier(.3,.8,0,1), opacity 820ms ease'
+      background: 'radial-gradient(circle, rgba(140,210,255,1) 0%, rgba(70,170,255,0.65) 55%, rgba(0,0,0,0) 80%)',
+      boxShadow: '0 0 12px rgba(110,190,255,0.9), 0 0 28px rgba(80,160,255,0.6)',
+      pointerEvents: 'none',
+      willChange: 'transform, opacity'
     });
 
     layer.appendChild(p);
     nodes.push(p);
 
-    // stronger arc movement
-    const spread = 120; // larger random spread
-    const midX = lerp(startRect.cx, destRect.cx, 0.5) + (Math.random() * spread - spread / 2);
-    const midY = lerp(startRect.cy, destRect.cy, 0.5) + (Math.random() * spread - spread / 2);
+    // --- Path control points (curved, “extracted then pulled in”) ---
+    // 1) Lift off the card (slightly *away* from the direct line and up a bit)
+    const liftDist  = 24 + Math.random() * 32;
+    const liftSide  = (Math.random() < 0.5 ? -1 : 1);
+    const liftX = startRect.cx + px * liftSide * liftDist + ux * (-6 + Math.random() * 12);
+    const liftY = startRect.cy + py * liftSide * liftDist - 18 - Math.random() * 14;
 
-    // initial upward flick for energy surge
-    p.animate([
-      { transform: `translate(0,0) scale(1)`, opacity: 1 },
-      { transform: `translate(${midX - startRect.cx}px, ${midY - startRect.cy - 40}px) scale(1.3)`, opacity: 0.9 },
-      { transform: `translate(${destRect.cx - startRect.cx}px, ${destRect.cy - startRect.cy}px) scale(0.6)`, opacity: 0 }
-    ], {
-      duration: 900 + Math.random() * 200,
-      easing: 'cubic-bezier(.2,.8,0,1)',
+    // 2) Big arc mid-point (perpendicular spread, ~1/3 of the way)
+    const arcT   = 0.35 + Math.random() * 0.08;
+    const arcLen = len * arcT;
+    const arcBend= (60 + Math.random() * 110) * (Math.random() < 0.5 ? -1 : 1);
+    const arcX   = startRect.cx + ux * arcLen + px * arcBend;
+    const arcY   = startRect.cy + uy * arcLen + py * arcBend - (10 + Math.random()*20);
+
+    // 3) Funnel approach (slightly before destination, much less perpendicular)
+    const funT   = 0.82 + Math.random() * 0.06;
+    const funLen = len * funT;
+    const funX   = startRect.cx + ux * funLen + px * (arcBend * 0.18);
+    const funY   = startRect.cy + uy * funLen + py * (arcBend * 0.18);
+
+    // 4) Destination (center of crescent icon)
+    const endX = destRect.cx, endY = destRect.cy;
+
+    // --- Animate with keyframes (curved feel via multiple waypoints) ---
+    const dur = 950 + Math.random() * 420;
+    const delay = Math.random() * 120;     // light stagger
+    const keyframes = [
+      { transform: `translate(0px, 0px) scale(.8)`,  opacity: .85, offset: 0.0 },
+      { transform: `translate(${liftX - startRect.cx}px, ${liftY - startRect.cy}px) scale(1.15)`, opacity: .95, offset: 0.18 },
+      { transform: `translate(${arcX - startRect.cx}px, ${arcY - startRect.cy}px) scale(1.05)`,   opacity: .9,  offset: 0.55 },
+      { transform: `translate(${funX - startRect.cx}px, ${funY - startRect.cy}px) scale(.85)`,    opacity: .8,  offset: 0.82 },
+      { transform: `translate(${endX - startRect.cx}px, ${endY - startRect.cy}px) scale(.55)`,    opacity: 0,   offset: 1.0 }
+    ];
+
+    p.animate(keyframes, {
+      duration: dur,
+      delay,
+      easing: 'cubic-bezier(.15,.85,0,1)', // springs toward target
       fill: 'forwards'
     });
   }
 
-  // subtle shockwave at destination
+  // Shockwave at destination
   const shock = document.createElement('div');
-  Object.assign(shock.style, {
-    position: 'fixed',
-    left: (destRect.cx - 30) + 'px',
-    top: (destRect.cy - 30) + 'px',
-    width: '60px',
-    height: '60px',
-    borderRadius: '50%',
-    border: '2px solid rgba(100,200,255,0.6)',
-    transform: 'scale(0)',
-    opacity: '0.8',
-    transition: 'transform 500ms ease-out, opacity 600ms ease-out',
-    pointerEvents: 'none'
-  });
+  shock.className = 'siphon-shock';
+  shock.style.left = (destRect.cx - 34) + 'px';
+  shock.style.top  = (destRect.cy - 34) + 'px';
   layer.appendChild(shock);
-  requestAnimationFrame(() => {
-    shock.style.transform = 'scale(2.6)';
-    shock.style.opacity = '0';
-  });
+  requestAnimationFrame(()=> shock.classList.add('boom'));
 
-  
-
-
-  // clean up
-  setTimeout(()=> nodes.forEach(n=> n.remove()), 1200);
+  // cleanup
+  setTimeout(() => { halo.remove(); shock.remove(); nodes.forEach(n => n.remove()); }, 1500);
 }
+
+// One-time CSS helpers for the siphon halo & shockwave
+function ensureSiphonVFXStyles(){
+  if (document.getElementById('siphon-vfx-style')) return;
+  const s = document.createElement('style');
+  s.id = 'siphon-vfx-style';
+  s.textContent = `
+    .siphon-halo{
+      position: fixed; width: 52px; height: 52px; border-radius: 999px;
+      pointer-events: none; opacity: 0; transform: scale(.6);
+      background: radial-gradient(circle, rgba(120,180,255,.22), rgba(120,180,255,.08) 55%, rgba(0,0,0,0) 70%);
+      box-shadow: 0 0 16px rgba(120,200,255,.55), inset 0 0 10px rgba(120,200,255,.35);
+      transition: transform 220ms ease, opacity 220ms ease;
+      filter: blur(.3px);
+    }
+    .siphon-halo.on{ opacity: .9; transform: scale(1.15); }
+    .siphon-halo.on{ animation: siphonPulse 900ms ease-in-out 1 forwards; }
+    @keyframes siphonPulse {
+      0% { opacity: .95; transform: scale(1.15); }
+      60%{ opacity: .55; transform: scale(.9); }
+      100%{ opacity: .15; transform: scale(.75); }
+    }
+
+    .siphon-shock{
+      position: fixed; width: 68px; height: 68px; border-radius: 999px;
+      pointer-events: none; opacity: 0; transform: scale(.4);
+      border: 2px solid rgba(140,210,255,.65);
+      box-shadow: 0 0 18px rgba(110,190,255,.6);
+      transition: transform 520ms ease-out, opacity 620ms ease-out;
+      filter: drop-shadow(0 0 8px rgba(110,190,255,.5));
+    }
+    .siphon-shock.boom{ opacity: .9; transform: scale(2.6); opacity: 0; }
+  `;
+  document.head.appendChild(s);
+}
+
 
 /** Find the portrait TEMP-Æ crescent target for a side (“player” | “ai”). */
 function domRectOfTempCrescent(side){
