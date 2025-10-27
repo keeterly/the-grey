@@ -964,9 +964,13 @@ function showCardOptions(cardEl, cardData){
 
   const pop = document.createElement("div");
   pop.className = `action-pop t-${(cardData.type||'X').toLowerCase()}`;
+
   opts.forEach(o=>{
     const b = document.createElement("button");
-    b.type="button"; b.className = `rune-btn act-${o.k}`; b.textContent = o.label;
+    b.type="button";
+    b.className = `rune-btn act-${o.k}`;
+    b.textContent = o.label;
+
     b.addEventListener("click", async (ev)=>{
       ev.stopPropagation();
       try{
@@ -975,25 +979,24 @@ function showCardOptions(cardEl, cardData){
           if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
         } else if (o.k === "set"){
           await setGlyphFromHandWithTemp("player", cardData.id);
-       } else if (o.k === "channel"){
-  // 1) Cine: hand card → discard HUD (kept as-is)
-  cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
 
-  // 2) Particles: from the actual hand card position → player TEMP crescent
-  const fromNode = cardEl;                         // the clicked hand card node
-  const startRect = rectOf(fromNode) || centerRect();
-  const destRect  = domRectOfTempCrescent('player');
-  emitTempAetherParticles(startRect, destRect, 12);
+        } else if (o.k === "channel"){
+          // 1) Cine: hand card → discard HUD
+          cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
 
-  // 3) Payoff
-  const before = getAe("player");
-  state = discardForAether(state, "player", cardData.id);
-  const gained = getAe("player") - before;
-  adjustAe("player", -gained);
-  addTemp("player", gained);
-  Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
-}
+          // 2) Particles: from the clicked hand card → player TEMP crescent
+          const fromNode = cardEl;
+          const startRect = rectOf(fromNode) || centerRect();
+          const destRect  = domRectOfTempCrescent('player');
+          emitTempAetherParticles(startRect, destRect, 12);
 
+          // 3) Payoff
+          const before = getAe("player");
+          state = discardForAether(state, "player", cardData.id);
+          const gained = getAe("player") - before;
+          adjustAe("player", -gained);
+          addTemp("player", gained);
+          Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
 
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
@@ -1002,14 +1005,17 @@ function showCardOptions(cardEl, cardData){
       clearAllActionMenus();
       await render();
     });
+
     pop.appendChild(b);
   });
+
   document.body.appendChild(pop);
   const r = cardEl.getBoundingClientRect();
   pop.style.left = `${r.left + r.width/2}px`;
   pop.style.top  = `${r.top  - 12}px`;
   pop.style.transform = "translate(-50%, -100%)";
 }
+
 
 /* ---------- DnD ---------- */
 function findValidDropTarget(node, cardType){
