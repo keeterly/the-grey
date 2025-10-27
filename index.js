@@ -721,7 +721,7 @@ Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => logLine(`${side} +${am
 
 // === AI → cinematic bridge ===
 function aiCineBridge(evt) {
-  // evt.kind can be: ai-instant | ai-glyph | ai-spell | ai-channel
+  // evt.kind: 'ai-instant' | 'ai-glyph' | 'ai-spell' | 'ai-channel'
   const discardTarget = '#btn-discard-hud';
   const glyphTarget   = '.row.ai .slot.glyph';
 
@@ -732,25 +732,29 @@ function aiCineBridge(evt) {
       'play-spell',
       { slotIndex: evt.slotIndex }
     );
+
   } else if (evt.kind === 'ai-glyph') {
     cineFromAiMini(evt.cardId, glyphTarget, 'set-glyph');
- } else {
-  // instant or channel both fly to discard HUD
-  cineFromAiMini(
-    evt.cardId,
-    discardTarget,
-    evt.kind === 'ai-instant' ? 'cast-instant' : 'channel'
-  );
 
-  // If it was a channel, emit particles from AI mini hand (or deck fallback) → AI TEMP crescent
-  if (evt.kind === 'ai-channel') {
-    const nodeFromMini = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${evt.cardId}"]`);
-    const fallbackNode = document.getElementById('ai-mini-deck');
-    const startRect = rectOf(nodeFromMini || fallbackNode) || centerRect();
-    const destRect  = domRectOfTempCrescent('ai');
-    emitTempAetherParticles(startRect, destRect, 12);
+  } else {
+    // instant or channel both fly to discard HUD
+    cineFromAiMini(
+      evt.cardId,
+      discardTarget,
+      evt.kind === 'ai-instant' ? 'cast-instant' : 'channel'
+    );
+
+    // If it was a channel, emit particles from AI mini hand (or deck fallback) → AI TEMP crescent
+    if (evt.kind === 'ai-channel') {
+      const nodeFromMini = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${evt.cardId}"]`);
+      const fallbackNode = document.getElementById('ai-mini-deck');
+      const startRect = rectOf(nodeFromMini || fallbackNode) || centerRect();
+      const destRect  = domRectOfTempCrescent('ai');
+      emitTempAetherParticles(startRect, destRect, 12);
+    }
   }
 }
+
 
 
 
