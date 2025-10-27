@@ -744,7 +744,7 @@ Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => logLine(`${side} +${am
 // === AI → cinematic bridge ===
 function aiCineBridge(evt) {
   // evt.kind: 'ai-instant' | 'ai-glyph' | 'ai-spell' | 'ai-channel'
-  const discardTarget = '#btn-discard-hud';
+  const discardTarget = '#ai-mini-discard';
   const glyphTarget   = '.row.ai .slot.glyph';
 
   if (evt.kind === 'ai-spell') {
@@ -2499,6 +2499,23 @@ function domRectOfDiscardHud() {
 }
 
 
+function domRectOfAiDiscardHud() {
+  const node = document.getElementById('ai-mini-discard'); // small discard pile in the AI mini HUD
+  if (!node) return centerRect(); // fallback
+  const r = node.getBoundingClientRect();
+  const w = Math.min(r.width * 0.9, 180);
+  const h = Math.min(r.height * 1.3, 220);
+  return {
+    x: r.left + (r.width - w) / 2,
+    y: r.top  + (r.height - h) / 2,
+    w, h,
+    cx: r.left + r.width / 2,
+    cy: r.top  + r.height / 2
+  };
+}
+
+
+
 
 /* ---------- temp aether helpers ---------- */
 function sideObj(side){ return state?.players?.[side] || {}; }
@@ -2526,7 +2543,7 @@ function spotlightFromEvents(state){
        if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
           const rowSel = `.row.${e.side || 'player'}`;
           const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
-          const destRect = domRectOfDiscardHud();
+          const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
         
           // start (or refresh) a stack key for this resolve sequence
           CURRENT_RESOLVE_STACK.key = `resolve-${Date.now()}`;
@@ -2543,7 +2560,7 @@ function spotlightFromEvents(state){
         if (e.t === 'resolved' && e.source === 'glyph') {
           const rowSel = `.row.${e.side || 'player'}`;
           const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
-          const destRect = domRectOfDiscardHud();
+          const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
         
           const recentMs = performance.now() - (CURRENT_RESOLVE_STACK.at || 0);
           const canStack = recentMs < 1400 && CURRENT_RESOLVE_STACK.key;
@@ -2831,8 +2848,9 @@ window.castInstantFromHand = async function(_state, side, cardId){
     if (useTemp) addTemp(side, -useTemp);
   
     // cinematic from the hand card → discard HUD
-    const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
-cine(cardId, '#btn-discard-hud', 'instant');
+   const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+const destSel = side === 'ai' ? '#ai-mini-discard' : '#btn-discard-hud';
+cine(cardId, destSel, 'instant');
 
   
     // resolve to discard + event for spotlight
