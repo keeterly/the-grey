@@ -43,11 +43,15 @@ function withAetherIcons(txt){
 }
 
 
-function withTerminology(txt) {
-  if (!txt) return "";
-  // Only change card-facing rules text; keep engine event names as-is
-  return String(txt).replace(/\bChannel\b/gi, "Crystalize");
+// Display-only: rename resolve text "Channel" → "Crystalize" for SPELL rules text
+function resolveTerminologyForDisplay(card, rawText) {
+  if (!rawText) return "";
+  // Only affect on-card rule text for Spells (not the HUD or discard action)
+  return (card?.type === "SPELL")
+    ? rawText.replace(/\bChannel\b/gi, "Crystalize")
+    : rawText;
 }
+
 
 
 
@@ -875,6 +879,16 @@ function layoutHand(container, cards) {
 /* ---------- card shell / preview ---------- */
 function closeZoom(){ document.getElementById("zoom-overlay")?.setAttribute("data-open","false"); }
 function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\-]\s*/i, "") : ""; }
+
+/** Display-only: in on-card rules text, show "Crystalize" instead of "Channel" for SPELLs.
+ *  (Does NOT touch the action button above the card, which stays "Channel".) */
+function resolveTerminologyForDisplay(card, rawText){
+  if (!rawText) return "";
+  return (card?.type === "SPELL")
+    ? rawText.replace(/\bChannel\b/gi, "Crystalize")
+    : rawText;
+}
+
 function cardShellHTML(c){
   const pipTotal = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
   const prog = Math.min(Math.max(0, c.progress|0), pipTotal);
@@ -896,13 +910,17 @@ function cardShellHTML(c){
          </div>`
       : "";
 
+  // Build rules text, then apply display-only terminology swap for SPELL cards
+  const rulesRaw = withAetherText(cleanRulesText(c.text || ""));
+  const rulesForDisplay = resolveTerminologyForDisplay(c, rulesRaw);
+
   return `
     <div class="title">${c.name}</div>
     <div class="type" data-k="${c.type||""}">${c.type||""}</div>
     ${playCost ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
     <div class="divider"></div>
     ${pipDots}
-    <div class="textbox">${withAetherIcons(withAetherText(cleanRulesText(c.text||"")))}</div>
+    <div class="textbox">${withAetherIcons(rulesForDisplay)}</div>
     ${aetherChip}
   `;
 }
