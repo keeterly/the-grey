@@ -43,6 +43,13 @@ function withAetherIcons(txt){
 }
 
 
+function withTerminology(txt) {
+  if (!txt) return "";
+  // Only change card-facing rules text; keep engine event names as-is
+  return String(txt).replace(/\bChannel\b/gi, "Crystalize");
+}
+
+
 
 // ===== Version / Menu + Log UI =====
 export const BRANCH_VERSION = "v2.64";
@@ -1070,17 +1077,13 @@ function applyDrop(target, cardId, cardType){
   const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
   if (el) el.classList.add('grey-hide-during-flight');
 
+  // Fly card and emit particles from the spotlight (or the dragged card) → player TEMP crescent
   cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
-
-  // Particles: prefer spotlight anchor; fall back to the dragged card
   const fallbackStart = rectOf(el) || centerRect();
-  const destRect = domRectOfTempCrescent('player');
-  emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+  const dest = domRectOfTempCrescent('player');
+  emitParticlesFromSpotlightOr(fallbackStart, dest, 28);
 
-  // Optional small “ember” trail on top of the siphon arc
-  const startRect2 = rectOf(el) || centerRect();
-  emitTempAetherParticles(startRect2, destRect, 12);
-
+  // Payoff
   const before = getAe("player");
   state = discardForAether(state, "player", cardId);
   const gained = getAe("player") - before;
