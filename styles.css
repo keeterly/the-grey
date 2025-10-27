@@ -1206,6 +1206,38 @@ body.mobile-landscape #zoom-card.card.zoom{
 
 
 
+
+/* Crescent temp Æ chip on cards */
+.aether-chip.temp{
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  display: inline-grid;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.10);
+  line-height: 1;
+}
+
+.aether-chip.temp .temp-n{
+  font-size: 13px;
+  letter-spacing: .02em;
+  opacity: .95;
+}
+
+.aether-chip.temp .icon-aether-temp{
+  display: block;
+}
+
+
+
+
+
+
 /* Small-height screens: scale a touch */
 @media (max-height: 740px){
   :root{
