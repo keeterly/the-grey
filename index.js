@@ -300,6 +300,28 @@ function cineFromAiMini(cardId, to, pose = '', meta = {}) {
   }
 }
 
+// --- Spotlight anchor cache (used by VFX to source from the floating card)
+let LAST_SPOTLIGHT_ANCHOR = { rect: null, at: 0 };
+
+function getRecentSpotlightRect(maxAgeMs = 900) {
+  const age = performance.now() - (LAST_SPOTLIGHT_ANCHOR.at || 0);
+  return age <= maxAgeMs ? LAST_SPOTLIGHT_ANCHOR.rect : null;
+}
+
+/**
+ * Try to emit particles from the *current spotlight* (floating ghost card).
+ * If the spotlight isn't ready yet, we wait a few frames; if it never appears,
+ * we fall back to the provided startRect.
+ */
+async function emitParticlesFromSpotlightOr(fallbackStartRect, destRect, count = 28) {
+  const deadline = performance.now() + 160; // ~10 frames
+  let anchor = getRecentSpotlightRect();
+  while (!anchor && performance.now() < deadline) {
+    await new Promise(r => setTimeout(r, 16));
+    anchor = getRecentSpotlightRect();
+  }
+  emitTempAetherParticles(anchor || fallbackStartRect, destRect, count);
+}
 
 
 
@@ -746,12 +768,13 @@ function aiCineBridge(evt) {
 
     // If it was a channel, emit particles from AI mini hand (or deck fallback) → AI TEMP crescent
     if (evt.kind === 'ai-channel') {
-      const nodeFromMini = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${evt.cardId}"]`);
-      const fallbackNode = document.getElementById('ai-mini-deck');
-      const startRect = rectOf(nodeFromMini || fallbackNode) || centerRect();
-      const destRect  = domRectOfTempCrescent('ai');
-      emitTempAetherParticles(startRect, destRect, 12);
-    }
+  const nodeFromMini = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${evt.cardId}"]`);
+  const fallbackNode = document.getElementById('ai-mini-deck');
+  const fallbackStart = rectOf(nodeFromMini || fallbackNode) || centerRect();
+  const destRect  = domRectOfTempCrescent('ai');
+  emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+}
+
   }
 }
 
@@ -988,11 +1011,11 @@ function showCardOptions(cardEl, cardData){
           // 1) Cine: hand card → discard HUD
           cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
 
-          // 2) Particles: from the clicked hand card → player TEMP crescent
-          const fromNode = cardEl;
-          const startRect = rectOf(fromNode) || centerRect();
-          const destRect  = domRectOfTempCrescent('player');
-          emitTempAetherParticles(startRect, destRect, 12);
+          // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
+const fromNode = cardEl;
+const fallbackStart = rectOf(fromNode) || centerRect();
+const destRect  = domRectOfTempCrescent('player');
+emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
 
           // 3) Payoff
           const before = getAe("player");
@@ -1048,6 +1071,12 @@ function applyDrop(target, cardId, cardType){
   if (el) el.classList.add('grey-hide-during-flight');
   cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
 
+       // Particles: prefer spotlight anchor; fall back to the dragged card
+const fallbackStart = rectOf(el) || centerRect();
+const destRect  = domRectOfTempCrescent('player');
+emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+
+       
   // Particles: from dragged card → player TEMP crescent
   const startRect = rectOf(el) || centerRect();
   const destRect  = domRectOfTempCrescent('player');
@@ -2394,11 +2423,10 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const layer = ensureCinematicLayer();
   const ghost = makeFloatingCard(cardData);
 
-  // stacking options (all optional)
   const stackKey   = opts.stackKey || null;
   const stackIndex = Number.isFinite(opts.stackIndex) ? (opts.stackIndex|0) : 0;
-  const stackDx    = Number.isFinite(opts.stackDx) ? opts.stackDx : 26;   // horizontal offset per index
-  const stackDy    = Number.isFinite(opts.stackDy) ? opts.stackDy : 18;   // vertical offset per index
+  const stackDx    = Number.isFinite(opts.stackDx) ? opts.stackDx : 26;
+  const stackDy    = Number.isFinite(opts.stackDy) ? opts.stackDy : 18;
 
   ghost.style.position = "fixed";
   ghost.style.left = `${startRect?.x ?? (innerWidth - 240)/2}px`;
@@ -2407,28 +2435,28 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   ghost.style.height = `${startRect?.h ?? 336}px`;
   ghost.style.transformOrigin = "top left";
   ghost.style.willChange = "transform, opacity";
-
-  // ensure the last stack member sits on top visually
   ghost.style.zIndex = String(2000 + stackIndex);
-
   ghost.classList.add("cine-glow");
   layer.appendChild(ghost);
   await nextFrame();
 
-  // choose the common center pose (anchor) for this stack, so all members overlap nicely
+  // Compute (and remember) the shared center pose for this stack
   const baseScale = opts.centerScale ?? 1.16;
   let anchorPose;
-  if (stackKey) {
-    anchorPose = SPOTLIGHT_STACKS.get(stackKey);
+  if (opts.stackKey) {
+    anchorPose = SPOTLIGHT_STACKS.get(opts.stackKey);
     if (!anchorPose) {
       anchorPose = centerRect((startRect?.w ?? 240) * baseScale, (startRect?.h ?? 336) * baseScale);
-      SPOTLIGHT_STACKS.set(stackKey, anchorPose);
+      SPOTLIGHT_STACKS.set(opts.stackKey, anchorPose);
     }
   } else {
     anchorPose = centerRect((startRect?.w ?? 240) * baseScale, (startRect?.h ?? 336) * baseScale);
   }
 
-  // apply per-index offset so items are visibly stacked
+  // 🔵 Record spotlight anchor for particle VFX
+  LAST_SPOTLIGHT_ANCHOR = { rect: anchorPose, at: performance.now() };
+
+  // Apply per-index offset so items are visibly stacked
   const offsetX = stackIndex * stackDx;
   const offsetY = stackIndex * stackDy;
 
@@ -2453,11 +2481,9 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   await sleep(opts.outMs ?? 260);
   ghost.remove();
 
-  // let the stack anchor auto-expire shortly after last item flies out
-  if (stackKey) {
-    setTimeout(() => SPOTLIGHT_STACKS.delete(stackKey), 1200);
-  }
+  if (opts.stackKey) setTimeout(() => SPOTLIGHT_STACKS.delete(opts.stackKey), 1200);
 }
+
 
 
 
