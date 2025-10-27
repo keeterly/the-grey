@@ -2844,44 +2844,73 @@ function lerp(a,b,t){ return a + (b-a)*t; }
  * @param {{x:number,y:number,w:number,h:number}} destRect
  * @param {number} count
  */
-async function emitTempAetherParticles(startRect, destRect, count = 12){
+async function emitTempAetherParticles(startRect, destRect, count = 24) {
   const layer = ensureParticleLayer();
   const nodes = [];
 
-  for (let i=0;i<count;i++){
+  for (let i = 0; i < count; i++) {
     const p = document.createElement('div');
-    const size = 6 + Math.random()*6;
+    const size = 14 + Math.random() * 10; // MUCH larger particles
     Object.assign(p.style, {
-      position:'fixed',
-      left: (startRect.cx - size/2) + 'px',
-      top:  (startRect.cy - size/2) + 'px',
-      width: size+'px', height: size+'px',
-      borderRadius:'999px',
-      background:'radial-gradient(circle, rgba(140,200,255,.95), rgba(90,150,255,.35) 60%, rgba(0,0,0,0))',
+      position: 'fixed',
+      left: (startRect.cx - size / 2) + 'px',
+      top: (startRect.cy - size / 2) + 'px',
+      width: size + 'px',
+      height: size + 'px',
+      borderRadius: '50%',
+      background: 'radial-gradient(circle, rgba(120,200,255,1) 0%, rgba(60,160,255,0.6) 45%, rgba(0,0,0,0) 80%)',
+      boxShadow: '0 0 10px rgba(100,180,255,0.8), 0 0 25px rgba(80,150,255,0.6)',
       transform: 'translate(0,0) scale(1)',
       opacity: '1',
-      transition: 'transform 420ms cubic-bezier(.2,.6,0,1), opacity 480ms ease'
+      transition: 'transform 820ms cubic-bezier(.3,.8,0,1), opacity 820ms ease'
     });
+
     layer.appendChild(p);
     nodes.push(p);
 
-    // little random “spray” offset so bursts look organic
-    const spray = 24;
-    const midX = lerp(startRect.cx, destRect.cx, 0.6) + (Math.random()*spray - spray/2);
-    const midY = lerp(startRect.cy, destRect.cy, 0.6) + (Math.random()*spray - spray/2);
+    // stronger arc movement
+    const spread = 120; // larger random spread
+    const midX = lerp(startRect.cx, destRect.cx, 0.5) + (Math.random() * spread - spread / 2);
+    const midY = lerp(startRect.cy, destRect.cy, 0.5) + (Math.random() * spread - spread / 2);
 
-    // two hops: to mid, then to dest (with an extra transform tick)
-    requestAnimationFrame(()=>{
-      p.style.transform = `translate(${midX - startRect.cx}px, ${midY - startRect.cy}px) scale(1.1)`;
-      setTimeout(()=>{
-        p.style.transform = `translate(${destRect.cx - startRect.cx}px, ${destRect.cy - startRect.cy}px) scale(.6)`;
-        p.style.opacity = '0';
-      }, 140 + Math.random()*80);
+    // initial upward flick for energy surge
+    p.animate([
+      { transform: `translate(0,0) scale(1)`, opacity: 1 },
+      { transform: `translate(${midX - startRect.cx}px, ${midY - startRect.cy - 40}px) scale(1.3)`, opacity: 0.9 },
+      { transform: `translate(${destRect.cx - startRect.cx}px, ${destRect.cy - startRect.cy}px) scale(0.6)`, opacity: 0 }
+    ], {
+      duration: 900 + Math.random() * 200,
+      easing: 'cubic-bezier(.2,.8,0,1)',
+      fill: 'forwards'
     });
   }
 
+  // subtle shockwave at destination
+  const shock = document.createElement('div');
+  Object.assign(shock.style, {
+    position: 'fixed',
+    left: (destRect.cx - 30) + 'px',
+    top: (destRect.cy - 30) + 'px',
+    width: '60px',
+    height: '60px',
+    borderRadius: '50%',
+    border: '2px solid rgba(100,200,255,0.6)',
+    transform: 'scale(0)',
+    opacity: '0.8',
+    transition: 'transform 500ms ease-out, opacity 600ms ease-out',
+    pointerEvents: 'none'
+  });
+  layer.appendChild(shock);
+  requestAnimationFrame(() => {
+    shock.style.transform = 'scale(2.6)';
+    shock.style.opacity = '0';
+  });
+
+  
+
+
   // clean up
-  setTimeout(()=> nodes.forEach(n=> n.remove()), 900);
+  setTimeout(()=> nodes.forEach(n=> n.remove()), 1200);
 }
 
 /** Find the portrait TEMP-Æ crescent target for a side (“player” | “ai”). */
