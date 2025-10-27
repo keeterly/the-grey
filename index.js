@@ -734,15 +734,24 @@ function aiCineBridge(evt) {
     );
   } else if (evt.kind === 'ai-glyph') {
     cineFromAiMini(evt.cardId, glyphTarget, 'set-glyph');
-  } else {
-    // instant or channel both fly to discard HUD
-    cineFromAiMini(
-      evt.cardId,
-      discardTarget,
-      evt.kind === 'ai-instant' ? 'cast-instant' : 'channel'
-    );
+ } else {
+  // instant or channel both fly to discard HUD
+  cineFromAiMini(
+    evt.cardId,
+    discardTarget,
+    evt.kind === 'ai-instant' ? 'cast-instant' : 'channel'
+  );
+
+  // If it was a channel, emit particles from AI mini hand (or deck fallback) → AI TEMP crescent
+  if (evt.kind === 'ai-channel') {
+    const nodeFromMini = document.querySelector(`#ai-mini-hand .mini-card[data-card-id="${evt.cardId}"]`);
+    const fallbackNode = document.getElementById('ai-mini-deck');
+    const startRect = rectOf(nodeFromMini || fallbackNode) || centerRect();
+    const destRect  = domRectOfTempCrescent('ai');
+    emitTempAetherParticles(startRect, destRect, 12);
   }
 }
+
 
 
 
@@ -835,22 +844,23 @@ function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\
 function cardShellHTML(c){
   const pipTotal = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
   const prog = Math.min(Math.max(0, c.progress|0), pipTotal);
+
   const pipDots = `<div class="pip-track">${
     pipTotal>0
       ? Array.from({length:pipTotal}).map((_,i)=>`<span class="pip${i<prog?' filled':''}"></span>`).join("")
       : ""
   }</div>`;
+
   const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
- // --- replace just this block inside cardShellHTML() ---
-const aetherChip =
-  (c.aetherValue > 0)
-    ? `
-      <div class="aether-chip temp" title="${c.aetherValue} temporary Æ">
-        <span class="temp-n">${c.aetherValue}</span>
-        ${svgAetherTemp(22)}
-      </div>
-    `
-    : "";
+
+  // ⬇️ Crescent TEMP Æ chip (replaces the old gem chip)
+  const aetherChip =
+    (c.aetherValue > 0)
+      ? `<div class="aether-chip temp" title="Channels temporary Æ">
+           <span class="v">${c.aetherValue|0}</span>
+           <span class="ico" aria-hidden="true">${svgAetherTemp(28)}</span>
+         </div>`
+      : "";
 
   return `
     <div class="title">${c.name}</div>
@@ -862,6 +872,7 @@ const aetherChip =
     ${aetherChip}
   `;
 }
+
 function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data); }
 
 /* centered hover + press-and-hhold preview */
@@ -964,16 +975,25 @@ function showCardOptions(cardEl, cardData){
           if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
         } else if (o.k === "set"){
           await setGlyphFromHandWithTemp("player", cardData.id);
-        } else if (o.k === "channel"){
-          // cinematic from the clicked hand card → discard HUD
-          cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
-        
-          const before = getAe("player");
-          state = discardForAether(state, "player", cardData.id);
-          const gained = getAe("player") - before;
-          adjustAe("player", -gained); 
-          addTemp("player", gained);
-          Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
+       } else if (o.k === "channel"){
+  // 1) Cine: hand card → discard HUD (kept as-is)
+  cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
+
+  // 2) Particles: from the actual hand card position → player TEMP crescent
+  const fromNode = cardEl;                         // the clicked hand card node
+  const startRect = rectOf(fromNode) || centerRect();
+  const destRect  = domRectOfTempCrescent('player');
+  emitTempAetherParticles(startRect, destRect, 12);
+
+  // 3) Payoff
+  const before = getAe("player");
+  state = discardForAether(state, "player", cardData.id);
+  const gained = getAe("player") - before;
+  adjustAe("player", -gained);
+  addTemp("player", gained);
+  Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
+}
+
 
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
@@ -1014,20 +1034,25 @@ function markDropTargets(cardType, on){
 function applyDrop(target, cardId, cardType){
   try {
      if (target === hudDiscardBtn){
-        // cinematic from the dragged hand card → discard HUD
-        const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
-        if (el) el.classList.add('grey-hide-during-flight'); // hide the real node (no local motion)
-        cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
-      
-        const before = getAe("player");
-        state = discardForAether(state, "player", cardId);
-        const gained = getAe("player") - before;
-        adjustAe("player", -gained);
-        addTemp("player", gained);
-        Emit(Events.CHANNEL, { side:"player", cardId, gained });
-        render();
-        return;
-      }
+  const el = handEl?.querySelector(`.card[data-card-id="${cardId}"]`);
+  if (el) el.classList.add('grey-hide-during-flight');
+  cineFromHandCard(cardId, '#btn-discard-hud', 'channel');
+
+  // Particles: from dragged card → player TEMP crescent
+  const startRect = rectOf(el) || centerRect();
+  const destRect  = domRectOfTempCrescent('player');
+  emitTempAetherParticles(startRect, destRect, 12);
+
+  const before = getAe("player");
+  state = discardForAether(state, "player", cardId);
+  const gained = getAe("player") - before;
+  adjustAe("player", -gained);
+  addTemp("player", gained);
+  Emit(Events.CHANNEL, { side:"player", cardId, gained });
+  render();
+  return;
+}
+
 
 
 
@@ -1589,6 +1614,40 @@ async function renderFlow(flowArray){
   });
 }
 
+
+
+
+function ensureCrescentChipStyles(){
+  if (document.getElementById('crescent-chip-style')) return;
+  const s = document.createElement('style');
+  s.id = 'crescent-chip-style';
+  s.textContent = `
+    /* Bottom-left TEMP Æ chip on cards */
+    .aether-chip.temp{
+      position:absolute; left:10px; bottom:10px;
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 10px; border-radius:999px;
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      line-height: 1;
+    }
+    /* 2× number size vs typical small badge text */
+    .aether-chip.temp .v{
+      font-size: 22px;        /* bump as needed; this is a clear 2× from the old ~11px */
+      font-weight: 600;
+      letter-spacing:.02em;
+      transform: translateY(1px);
+    }
+    /* Remove any glow from the crescent icon inside the chip */
+    .aether-chip.temp .ico .icon-aether-temp,
+    .aether-chip.temp .ico svg{
+      filter: none !important;
+      opacity: .95;
+      animation: none !important;
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 
 
@@ -2752,6 +2811,81 @@ cine(cardId, '#btn-discard-hud', 'instant');
   return state;
 };
 
+
+
+function ensureParticleLayer(){
+  let layer = document.getElementById('particle-layer');
+  if (!layer){
+    layer = document.createElement('div');
+    layer.id = 'particle-layer';
+    Object.assign(layer.style, {
+      position:'fixed', inset:'0', pointerEvents:'none', zIndex:'2100'
+    });
+    document.body.appendChild(layer);
+  }
+  return layer;
+}
+
+function lerp(a,b,t){ return a + (b-a)*t; }
+
+/**
+ * Emit small blue “embers” that fly start → temp-crescent under the portrait.
+ * @param {{x:number,y:number,w:number,h:number}} startRect
+ * @param {{x:number,y:number,w:number,h:number}} destRect
+ * @param {number} count
+ */
+async function emitTempAetherParticles(startRect, destRect, count = 12){
+  const layer = ensureParticleLayer();
+  const nodes = [];
+
+  for (let i=0;i<count;i++){
+    const p = document.createElement('div');
+    const size = 6 + Math.random()*6;
+    Object.assign(p.style, {
+      position:'fixed',
+      left: (startRect.cx - size/2) + 'px',
+      top:  (startRect.cy - size/2) + 'px',
+      width: size+'px', height: size+'px',
+      borderRadius:'999px',
+      background:'radial-gradient(circle, rgba(140,200,255,.95), rgba(90,150,255,.35) 60%, rgba(0,0,0,0))',
+      transform: 'translate(0,0) scale(1)',
+      opacity: '1',
+      transition: 'transform 420ms cubic-bezier(.2,.6,0,1), opacity 480ms ease'
+    });
+    layer.appendChild(p);
+    nodes.push(p);
+
+    // little random “spray” offset so bursts look organic
+    const spray = 24;
+    const midX = lerp(startRect.cx, destRect.cx, 0.6) + (Math.random()*spray - spray/2);
+    const midY = lerp(startRect.cy, destRect.cy, 0.6) + (Math.random()*spray - spray/2);
+
+    // two hops: to mid, then to dest (with an extra transform tick)
+    requestAnimationFrame(()=>{
+      p.style.transform = `translate(${midX - startRect.cx}px, ${midY - startRect.cy}px) scale(1.1)`;
+      setTimeout(()=>{
+        p.style.transform = `translate(${destRect.cx - startRect.cx}px, ${destRect.cy - startRect.cy}px) scale(.6)`;
+        p.style.opacity = '0';
+      }, 140 + Math.random()*80);
+    });
+  }
+
+  // clean up
+  setTimeout(()=> nodes.forEach(n=> n.remove()), 900);
+}
+
+/** Find the portrait TEMP-Æ crescent target for a side (“player” | “ai”). */
+function domRectOfTempCrescent(side){
+  const el = (side === 'ai')
+    ? document.querySelector('#ai-aether .ae-ico.temp, #ai-aether .icon-aether-temp')
+    : document.querySelector('#player-aether .ae-ico.temp, #player-aether .icon-aether-temp');
+  if (!el) return centerRect(80,80);
+  const r = el.getBoundingClientRect();
+  return { x:r.left, y:r.top, w:r.width, h:r.height, cx:r.left + r.width/2, cy:r.top + r.height/2 };
+}
+
+
+
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
   for (const who of ["player","ai"]){
@@ -2871,7 +3005,8 @@ if (typeof window.__wirePileModals === 'function') {
   renderAiMini(s);
 
   ensureGlyphPlaceholderStyles();
-
+ensureCrescentChipStyles();
+  
   await renderFlow(s.flow);
   updateWeaverBackdrop();
   
