@@ -841,13 +841,17 @@ function cardShellHTML(c){
       : ""
   }</div>`;
   const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
-  const aetherChip = (c.aetherValue>0)
-    ? `<div class="aether-chip">
-         <svg viewBox="0 0 24 24" aria-hidden="true">
-           <path d="M12 2l6 6-6 14-6-14 6-6z"/>
-           <text x="12" y="12" text-anchor="middle" dominant-baseline="central">${c.aetherValue}</text>
-         </svg>
-       </div>` : "";
+ // --- replace just this block inside cardShellHTML() ---
+const aetherChip =
+  (c.aetherValue > 0)
+    ? `
+      <div class="aether-chip temp" title="${c.aetherValue} temporary Æ">
+        <span class="temp-n">${c.aetherValue}</span>
+        ${svgAetherTemp(22)}
+      </div>
+    `
+    : "";
+
   return `
     <div class="title">${c.name}</div>
     <div class="type" data-k="${c.type||""}">${c.type||""}</div>
