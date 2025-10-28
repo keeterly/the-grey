@@ -2721,12 +2721,17 @@ function spotlightFromEvents(state){
           
            // Enoch II: when a Glyph reveals, draw 1
         try {
-          const side = e.side || 'player';
-          if (sideWeaverKey(side) === 'enoch' && tranceLevel(side) >= 2) {
-            reshuffleFromDiscard(side);
-            state = drawN(state, side, 1);
-           }
-        } catch {}
+  const side = e.side || 'player';
+  if (sideWeaverKey(side) === 'enoch' && tranceLevel(side) >= 2) {
+    reshuffleFromDiscard(side);
+    state = drawN(state, side, 1);
+  }
+} catch (err) {
+  console.warn('Enoch II draw failed', err);
+}
+
+
+          
           const rowSel = `.row.${e.side || 'player'}`;
           const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
           const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
