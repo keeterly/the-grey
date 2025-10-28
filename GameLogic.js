@@ -32,14 +32,7 @@ export function drainEvents(state){
   return q;
 }
 
-// GameLogic.js
-export function fillFlowToFive(state) {
-  // repeatedly call your existing single-reveal helper until 5 shown
-  while ((state.flow || []).filter(Boolean).length < 5) {
-    state = revealNextFlow(state);  // <-- use your existing reveal
-  }
-  return state;
-}
+
 
 
 
@@ -131,10 +124,10 @@ export function initState(seed) {
   for (let i = 0; i < STARTING_HAND && playerDeck.length; i++) handP.push(playerDeck.shift());
   for (let i = 0; i < STARTING_HAND && aiDeck.length; i++)     handAI.push(aiDeck.shift());
 
+  // Start with an empty 5-slot rail
   const flow = [null, null, null, null, null];
-  if (flowDraw.length) flow[0] = { ...flowDraw.shift() };
 
-  return {
+  let state = {
     turn: 1,
     activePlayer: "player",
     flow,
@@ -167,7 +160,12 @@ export function initState(seed) {
       }
     }
   };
+
+  // ⬇️ Fill Aetherflow with 5 cards on boot
+  state = revealIntoFlow(state, 5);
+  return state;
 }
+
 
 export function serializePublic(state) {
   const s = clone(state);
@@ -185,28 +183,13 @@ export function serializePublic(state) {
 
 export function startTurn(state) {
   if (!state) return state;
-  const hd = state.flowDraw || [];
-  if (!state.flow) state.flow = [null,null,null,null,null];
-  if (!state.flow[0] && hd.length) {
-    state.flow[0] = { ...hd.shift() };
-    // Spotlight: reveal into Aetherflow
-    try {
-      const c = state.flow[0];
-      if (c) {
-        pushEvt(state, {
-          t: "reveal",
-          source: "flow",
-          side: state.activePlayer,
-          flowIndex: 0,
-          cardId: c.id,
-          cardType: c.type,
-          cardData: { ...c }
-        });
-      }
-    } catch(_) {}
-  }
+
+  // Move Aetherflow conveyor by one and reveal a new card
+  state = revealIntoFlow(state, 1);
+
   return state;
 }
+
 
 // END TURN
 export function endTurn(state) {
@@ -214,6 +197,7 @@ export function endTurn(state) {
   const endingPlayer = state.activePlayer;
   const P = state.players[endingPlayer];
 
+  // Discard remaining cards in hand (your existing behavior)
   if (P?.hand?.length){
     while (P.hand.length) {
       const c = P.hand.shift();
@@ -229,23 +213,15 @@ export function endTurn(state) {
     }
   }
 
-  if (endingPlayer === "player") {
-    // Slide cards right into empty slots; do not overwrite occupied slots.
-    for (let i = state.flow.length - 1; i > 0; i--) {
-      if (!state.flow[i] && state.flow[i - 1]) {
-        state.flow[i] = state.flow[i - 1];
-        state.flow[i - 1] = null;
-      }
-    }
-    state.flow[0] = null;
-  }
-
+  // Pass the turn
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
+  // Start the next turn (this will shift + reveal)
   startTurn(state);
   return state;
 }
+
 
 /////////////////////////////
 // Player actions + resolve
@@ -394,6 +370,54 @@ export function drawN(state, playerId, n){
   for (let i=0;i<n;i++) drawOne(state, playerId);
   return state;
 }
+
+
+// --- Aetherflow helpers ---
+function revealOneIntoFlow(s) {
+  // Ensure shape
+  s.flow ||= [null, null, null, null, null];
+  s._events ||= [];
+
+  // Fall off rightmost (index 4) if present
+  const fall = s.flow[4] || null;
+  if (fall) {
+    s._events.push({
+      t: 'resolved',
+      source: 'flow-falloff',
+      side: s.activePlayer,
+      cardData: { ...fall }
+    });
+  }
+
+  // Shift right
+  for (let i = 4; i > 0; i--) s.flow[i] = s.flow[i - 1] || null;
+
+  // Reveal a new card into index 0 from the flow draw pile
+  const pool = s.flowDraw || [];
+  const newCard = pool.length ? { ...pool.shift() } : null;
+  s.flow[0] = newCard;
+
+  // Spotlight the newly revealed card (for UI)
+  if (newCard) {
+    s._events.push({
+      t: 'reveal',
+      source: 'flow',
+      side: s.activePlayer,
+      flowIndex: 0,
+      cardId: newCard.id,
+      cardType: newCard.type,
+      cardData: { ...newCard }
+    });
+  }
+  return s;
+}
+
+export function revealIntoFlow(s, count = 1) {
+  for (let i = 0; i < count; i++) s = revealOneIntoFlow(s);
+  return s;
+}
+
+
 
 // Advance spell
 export function advanceSpell(state, playerId, slotIndex, steps = 1){
