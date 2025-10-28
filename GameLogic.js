@@ -170,19 +170,19 @@ export function serializePublic(state) {
 // Turn / Flow mechanics
 /////////////////////////////
 
+// Turn / Flow mechanics
 export function startTurn(state) {
-  if (!state) return state;
-  // Move Aetherflow conveyor by one and reveal a new card
-  state = revealIntoFlow(state, 1);
+  // No flow changes here anymore (we do it at endTurn)
   return state;
 }
+
 
 export function endTurn(state) {
   if (!state?.flow) return state;
   const endingPlayer = state.activePlayer;
   const P = state.players[endingPlayer];
 
-  // Discard remaining cards in hand
+  // Discard remaining cards in hand (unchanged)
   if (P?.hand?.length){
     while (P.hand.length) {
       const c = P.hand.shift();
@@ -198,6 +198,103 @@ export function endTurn(state) {
     }
   }
 
+  // NEW: settle the Aetherflow conveyor at the end of the turn
+  state = settleFlowAtEndOfTurn(state);
+
+  // Pass the turn
+  state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
+  if (state.activePlayer === "player") state.turn += 1;
+
+  // Start the next turn (no flow changes here)
+  startTurn(state);
+  return state;
+}
+
+
+
+// --- Aetherflow end-of-turn conveyor ---
+function settleFlowAtEndOfTurn(state) {
+  state.flow ||= [null,null,null,null,null];
+  state._events ||= [];
+
+  const before = state.flow.slice();               // keep for animation mapping
+  const idxById = new Map();
+  before.forEach((c,i) => { if (c) idxById.set(c.id, i); });
+
+  // Step A: force a 1-step right shift by temporarily inserting a left null
+  // Step B: close gaps by packing to the RIGHT (keep order)
+  const survivors = [null, ...before].filter(Boolean); // 1-step right, then remove empties
+
+  // Step C: anything that no longer fits in 5 slots "falls off" the right edge
+  const overflow = Math.max(0, survivors.length - 5);
+  const fallen = overflow ? survivors.slice(0, overflow) : [];
+
+  // Announce fall-offs for animation/logging
+  for (const c of fallen) {
+    state._events.push({
+      t: 'resolved',
+      source: 'flow-falloff',
+      side: state.activePlayer,
+      cardId: c.id,
+      cardType: c.type,
+      cardData: { ...c }
+    });
+  }
+
+  // Keep the rightmost 5 survivors
+  const kept = survivors.slice(overflow); // length <= 5
+
+  // Build the new 5-slot rail, placing kept cards on the RIGHT, preserving order
+  const after = [null, null, null, null, null];
+  let j = after.length - 1;
+  for (let i = kept.length - 1; i >= 0; i--) {
+    after[j--] = kept[i];
+  }
+
+  // Emit per-card move events so the UI can animate slides
+  for (const c of kept) {
+    const from = idxById.get(c.id);
+    const to = after.findIndex(x => x && x.id === c.id);
+    if (from != null && to !== -1 && from !== to) {
+      state._events.push({
+        t: 'flow-move',
+        source: 'flow',
+        side: state.activePlayer,
+        fromIndex: from,
+        toIndex: to,
+        cardId: c.id,
+        cardType: c.type,
+        cardData: { ...c }
+      });
+    }
+  }
+
+  // Refill from the left with new reveals until we’re back to 5
+  for (let i = 0; i < after.length; i++) {
+    if (!after[i] && state.flowDraw.length) {
+      const newCard = { ...state.flowDraw.shift() };
+      after[i] = newCard;
+
+      // Spotlight each new reveal
+      state._events.push({
+        t: 'reveal',
+        source: 'flow',
+        side: state.activePlayer,
+        flowIndex: i,
+        cardId: newCard.id,
+        cardType: newCard.type,
+        cardData: { ...newCard }
+      });
+    }
+  }
+
+  state.flow = after;
+  return state;
+}
+
+
+
+  
   // Pass the turn
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
