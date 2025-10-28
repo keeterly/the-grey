@@ -3766,6 +3766,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   seedFlowToFiveOnBoot();   
   await doStartTurn();
   logLine(`Boot on ${BRANCH_VERSION}`);
+  renderAiMini(pub);
 });
 
 
