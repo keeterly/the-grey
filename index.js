@@ -27,6 +27,7 @@ import {
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
   dealDamage,
+   fillFlowToFive,        // ← NEW
 } from "./GameLogic.js";
 
 
@@ -185,6 +186,32 @@ function ensureTopMenu() {
     m.style.gap = '6px';
     document.body.appendChild(m);
   }
+}
+
+
+// put near your other ensure*Styles helpers
+function ensureBoardDimStyles(){
+  if (document.getElementById('board-dim-style')) return;
+  const s = document.createElement('style');
+  s.id = 'board-dim-style';
+  s.textContent = `
+    /* Dim player/AI boards by default */
+    .row .slot.spell,
+    .row .slot.glyph {
+      opacity: .5;
+      transition: opacity .18s ease;
+    }
+
+    /* When a slot actually holds a card, restore full opacity */
+    .row .slot.spell.has-card,
+    .row .slot.glyph.has-card {
+      opacity: 1;
+    }
+
+    /* Leave the Aether Flow area untouched (full opacity) */
+    .flow-board { opacity: 1; }
+  `;
+  document.head.appendChild(s);
 }
 
 
@@ -1384,6 +1411,8 @@ function renderSlots(container, snapshot, isPlayer){
     d.appendChild(label);
 
     const slot = safe[i] || {hasCard:false, card:null};
+    // reflect occupancy so CSS can undim when a card is present
+d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
         art.className = "card";
@@ -3481,7 +3510,11 @@ function makeAiApi() {
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
-
+  
+if (!shuffledOnce) {
+    try { state = fillFlowToFive(state); } catch {}
+  }
+  
   resetTranceFlagsFor("player");
   resetTranceFlagsFor("ai");
 
@@ -3628,6 +3661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTopLeftUI();
   ensureWeaverBackdrop();
   ensureRightHudStrip();
+  ensureBoardDimStyles();
   ensureFlowStyles();
   ensureGlyphFlipStyles();
   ensureGlyphFlipDownStyles();
@@ -3635,6 +3669,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTranceStyles();
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
+  
 
 // 🔒 Gate check
   const gate = window.__greyDemoGate;
