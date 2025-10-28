@@ -373,6 +373,10 @@ function ensureTranceFlags(){
       // Morr
       morrL1Used: false,
       morrL2DiscountUsed: false,
+
+      // Veyra
+      veyraL1Used: false,
+      
       // Kareth
       karethL1Used: false,
       spentThisTurn: 0,
@@ -387,6 +391,7 @@ function resetTranceFlagsFor(side){
   f.enochL1Used = false;
   f.morrL1Used = false;
   f.morrL2DiscountUsed = false;
+  f.veyraL1Used = false;
   f.karethL1Used = false;
   f.spentThisTurn = 0;
 }
@@ -1679,8 +1684,9 @@ async function renderFlow(flowArray){
     card.dataset.flowIndex = String(idx);
     card.innerHTML = cardHTML(c);
 
-    const price = FLOW_PRICE_BY_POS[idx] || 0;
-    const canAfford = !!c && playerAe >= price;
+   const basePrice = FLOW_PRICE_BY_POS[idx] || 0;
+    const effPrice  = effectiveFlowPrice('player', basePrice);
+    const canAfford = !!c && playerAe >= effPrice;
 
     if (!canAfford) card.setAttribute("aria-disabled", "true");
     if (c) attachPeekAndZoom(card, c);
@@ -1702,7 +1708,8 @@ async function renderFlow(flowArray){
         li.style.pointerEvents = "none";
         li.style.opacity = "0.25";
 
-        const price = FLOW_PRICE_BY_POS[idx] || 0;
+        const basePrice = FLOW_PRICE_BY_POS[idx] || 0;
+        const price = effectiveFlowPrice('player', basePrice);
         const useTemp = Math.min(price, (state.players.player.tempAether | 0));
         // virtual top-up (logic spends perm first)
         adjustAe("player", useTemp);
@@ -1721,6 +1728,20 @@ async function renderFlow(flowArray){
 
           // remember for shimmer in hand/slots/spotlight
           if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
+
+
+// Morr II: on the FIRST Flow buy each turn, Channel 1 and mark discount used
+          ensureTranceFlags();
+          if (sideWeaverKey('player') === 'morr' && tranceLevel('player') >= 2) {
+           const f = state.players.player._trFlags;
+            if (!f.morrL2DiscountUsed) {
+             addTemp('player', 1);
+              f.morrL2DiscountUsed = true;
+              Emit(Events.AETHER_GAIN, { side: 'player', amount:1, source:'Morr L2 (Channel 1)' });
+            }
+          }
+
+          
         } catch (e) {
           // rollback
           adjustAe("player", -useTemp);
@@ -1746,8 +1767,8 @@ async function renderFlow(flowArray){
     const priceLbl = document.createElement("div");
     priceLbl.className = "price-label";
     priceLbl.innerHTML = `
-      <span class="flow-price-num" aria-label="${price} Aether to buy">
-        <span class="n">${price}</span>
+      <span class="flow-price-num" aria-label="${effPrice} Aether to buy">
+        <span class="n">${effPrice}</span>
       </span>`;
 
     li.appendChild(card);
@@ -2651,6 +2672,20 @@ function spotlightFromEvents(state){
     try {
       // SPELL: board → discard cinematic
        if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
+         // Morr I: when a card leaves a Slot → +1 Æ (once/turn)
+    try {
+      const side = e.side || 'player';
+      if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
+        ensureTranceFlags();
+        const f = state.players[side]._trFlags;
+        if (!f.morrL1Used) {
+          adjustAe(side, 1);
+          f.morrL1Used = true;
+         Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
+        }
+      }
+    } catch {}
+       
           const rowSel = `.row.${e.side || 'player'}`;
           const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
           const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
@@ -2664,10 +2699,34 @@ function spotlightFromEvents(state){
             stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 0, stackDx: 26, stackDy: 18
           });
         }
-
+    }
 
       // GLYPH: board → discard cinematic (camera fly), we’ll also do the flip below
         if (e.t === 'resolved' && e.source === 'glyph') {
+
+// Morr I: also applies when the glyph leaves its slot
+    try {
+      const side = e.side || 'player';
+      if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
+        ensureTranceFlags();
+        const f = state.players[side]._trFlags;
+        if (!f.morrL1Used) {
+          adjustAe(side, 1);
+          f.morrL1Used = true;
+         Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
+        }
+      }
+    } catch {}
+
+          
+           // Enoch II: when a Glyph reveals, draw 1
+        try {
+          const side = e.side || 'player';
+          if (sideWeaverKey(side) === 'enoch' && tranceLevel(side) >= 2) {
+            reshuffleFromDiscard(side);
+            state = drawN(state, side, 1);
+           }
+        } catch {}
           const rowSel = `.row.${e.side || 'player'}`;
           const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
           const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
@@ -2710,6 +2769,20 @@ function spotlightFromEvents(state){
         logLine(`DAMAGE → ${e.side} -${e.amount}`);
       } else if (e.t === "draw") {
         logLine(`${e.side} draws ${e.amount}`);
+         // Veyra I: draw outside Draw Step → +1 temp Æ once/turn
+    try {
+      const side = e.side || 'player';
+      if (!__IN_DRAW_STEP && sideWeaverKey(side) === 'veyra' && tranceLevel(side) >= 1) {
+        ensureTranceFlags();
+        const f = state.players[side]._trFlags;
+        if (!f.veyraL1Used) {
+          addTemp(side, 1);
+          f.veyraL1Used = true;
+          // This is temp Æ, so we can reuse AETHER_GAIN log, or keep silent.
+          Emit(Events.AETHER_GAIN, { side, amount:1, source:'Veyra I (temp)' });
+        }
+      }
+    } catch {}
       } else if (e.t === "aether") {
         logLine(`${e.side} gains ${e.amount} Æ`);
       }
@@ -3430,8 +3503,10 @@ async function doStartTurn(){
   const active = side;
   reshuffleFromDiscard(active);
   if (need){
+     __IN_DRAW_STEP = true;
     if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
     state = drawN(state, active, need);
+    __IN_DRAW_STEP = false;
   }
 
   Emit(Events.TURN_START, {side});
