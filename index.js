@@ -3262,6 +3262,44 @@ function domRectOfTempCrescent(side){
 }
 
 
+// === Prime Aether Flow: reveal up to N cards before the first real turn ===
+async function primeAetherFlow(n = 5) {
+  try {
+    const want = Math.max(0, n|0);
+    const have = (state?.flow || []).filter(Boolean).length;
+    if (have >= want) return;
+
+    // Clone vital player stats so we can restore them cleanly
+    const orig = {
+      players: JSON.parse(JSON.stringify(state.players || {})),
+    };
+
+    // Run dry turns until Flow has N visible cards
+    while (((state.flow || []).filter(Boolean).length) < want) {
+      state = startTurn(state);
+      state = endTurn(state);
+    }
+
+    // Reset key turn state to pre-turn conditions
+    state.turn = 0;
+    state.activePlayer = 'player';
+    (state.players.player.hand = []);
+    (state.players.ai.hand = []);
+    state.players.player.tempAether = 0;
+    state.players.ai.tempAether = 0;
+
+    // Restore base resources
+    state.players.player.vitality = orig.players.player?.vitality ?? 5;
+    state.players.ai.vitality     = orig.players.ai?.vitality ?? 5;
+    state.players.player.aether   = orig.players.player?.aether ?? 0;
+    state.players.ai.aether       = orig.players.ai?.aether ?? 0;
+  } catch (_) {
+    /* Failsafe: skip silently if anything odd happens */
+  }
+}
+
+
+
 
 /* ---------- render root ---------- */
 function ensureSafetyShape(s){
@@ -3669,6 +3707,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTranceStyles();
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
+
   
 
 // 🔒 Gate check
@@ -3677,6 +3716,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (gate) {
       gate._onUnlock = async () => {
         gate._onUnlock = null;
+
+        // 👇 Prime Flow to 5 cards before starting Turn 1
+        await primeAetherFlow(5);
+
         await doStartTurn();
         logLine(`Boot on ${BRANCH_VERSION}`);
       };
@@ -3687,13 +3730,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     return;
   }
 
-
+  // 👇 Prime Flow to 5 cards before starting Turn 1
+  await primeAetherFlow(5);
 
   await doStartTurn();
- 
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
-
 
 
 
