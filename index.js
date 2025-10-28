@@ -346,6 +346,84 @@ function svgAetherGem(size = 36){
 }
 
 
+/* ---------- Trance runtime (per-turn flags + helpers) ---------- */
+function sideWeaverKey(side){
+  const nm = state?.players?.[side]?.weaver?.name || "";
+  const k = String(nm).trim().toLowerCase();
+  if (k.startsWith("aria"))   return "aria";
+  if (k.startsWith("enoch"))  return "enoch";
+  if (k.startsWith("morr"))   return "morr";
+  if (k.startsWith("veyra"))  return "veyra";
+  if (k.startsWith("kareth")) return "kareth";
+  return "aria";
+}
+function tranceLevel(side){ return (state?.players?.[side]?.tranceLevel|0) || 0; }
+function enemyOf(side){ return side === "player" ? "ai" : "player"; }
+
+/* Per-turn one-shot flags + accounting */
+function ensureTranceFlags(){
+  for (const s of ["player","ai"]) {
+    const p = state.players[s];
+    p._trFlags ??= {
+      // Aria
+      ariaL1GainUsed: false,
+      ariaL2DiscountUsed: false,
+      // Enoch
+      enochL1Used: false,
+      // Morr
+      morrL1Used: false,
+      morrL2DiscountUsed: false,
+      // Kareth
+      karethL1Used: false,
+      spentThisTurn: 0,
+    };
+  }
+}
+function resetTranceFlagsFor(side){
+  ensureTranceFlags();
+  const f = state.players[side]._trFlags;
+  f.ariaL1GainUsed = false;
+  f.ariaL2DiscountUsed = false;
+  f.enochL1Used = false;
+  f.morrL1Used = false;
+  f.morrL2DiscountUsed = false;
+  f.karethL1Used = false;
+  f.spentThisTurn = 0;
+}
+
+/* Central hook for Kareth (“after you spend Æ …”) */
+function karethAfterSpend(side, spentNow){
+  if (!spentNow) return;
+  ensureTranceFlags();
+  const key = sideWeaverKey(side);
+  const lvl = tranceLevel(side);
+  const f = state.players[side]._trFlags;
+
+  if (key === "kareth") {
+    // L1: once/turn ping for any play/advance spend
+    if (lvl >= 1 && !f.karethL1Used) {
+      state = dealDamage(state, enemyOf(side), 1, { source:"kareth-L1" });
+      f.karethL1Used = true;
+    }
+    // L2: if a single spend is 3+ Æ, deal +1 more
+    if (lvl >= 2 && (spentNow|0) >= 3) {
+      state = dealDamage(state, enemyOf(side), 1, { source:"kareth-L2" });
+    }
+    // running total in case you want to extend later
+    f.spentThisTurn += (spentNow|0);
+  }
+}
+
+/* Flow price helper for Morr L2 (“first Flow buy costs 1 less and Channel 1”) */
+function effectiveFlowPrice(side, base){
+  ensureTranceFlags();
+  if (sideWeaverKey(side) !== "morr") return base|0;
+  if (tranceLevel(side) < 2) return base|0;
+  const f = state.players[side]._trFlags;
+  return (f.morrL2DiscountUsed ? base|0 : Math.max(0, (base|0) - 1));
+}
+
+
 // --- helpers for slot/node targeting
 function rectOfAny(target, fallback) {
   if (!target) return fallback || centerRect();
@@ -562,7 +640,7 @@ function updateWeaverBackdrop() {
 function toggleWeaverBackdrop() {
   backdropOn = !backdropOn;
   updateWeaverBackdrop();
-  const btn = document.getElementById("btn-toggle-backdrop");
+  const btn = document.getElementById("toggle-backdrop");
   if (btn) btn.textContent = backdropOn ? "Hide Character Backdrop" : "Show Character Backdrop";
 }
 
@@ -621,23 +699,22 @@ function ensurePipHandlers() {
 
   // Delegate from the player slots row so re-renders are safe
   document.getElementById('player-slots')?.addEventListener('click', async (ev) => {
-    const track = ev.target.closest('.pip-track');
-    if (!track) return;
+  const track = ev.target.closest('.pip-track');
+  if (!track) return;
 
-    const slotEl = track.closest('.slot.spell');
-    const i = Number(slotEl?.dataset?.slotIndex ?? -1);
-    const pub = serializePublic(state) || {};
+  const slotEl = track.closest('.slot.spell');
+  const i = Number(slotEl?.dataset?.slotIndex ?? -1);
+  const pub = serializePublic(state) || {};
 
-    // Guard rails: only advance if it's your turn and the slot can advance
-    if (pub.activePlayer !== 'player') return;
-    if (!Number.isFinite(i) || i < 0 || i > 2) return;
-    if (!canAdvanceSlot(pub, i)) return;
+  if (pub.activePlayer !== 'player') return;
+  if (!Number.isFinite(i) || i < 0 || i > 2) return;
+  if (!canAdvanceSlot(pub, i)) return;
 
-    try {
-      state = advanceSpell(state, "player", i, 1); // +1 pip
-      await render();
-    } catch (_) {}
-  }, { passive: true });
+  try {
+    advanceSpellAt("player", i);   // ← use our wrapper
+  } catch (_) {}
+}, { passive: true });
+
 }
 
 
@@ -1252,16 +1329,37 @@ function advanceSpellAt(side, slotIndex){
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return;
 
-  // spend 1 Æ (temp first) — same as before
-  if (getTotal(side) < 1){ showToast("Not enough Æther."); return; }
-  spendAe(side, 1);
+  ensureTranceFlags();
+  const key   = sideWeaverKey(side);
+  const lvl   = tranceLevel(side);
+  const flags = state.players[side]._trFlags;
+
+  // === cost (Aria L2: first Advance each turn costs 1 less; min 0) ===
+  let advanceCost = 1;
+  if (key === "aria" && lvl >= 2 && !flags.ariaL2DiscountUsed) {
+    advanceCost = Math.max(0, advanceCost - 1);
+    flags.ariaL2DiscountUsed = true;
+  }
+
+  if (getTotal(side) < advanceCost){ showToast("Not enough Æther."); return; }
+  if (advanceCost) spendAe(side, advanceCost);
 
   // advance in logic; it will auto-discard when complete and enqueue an event
   state = advanceSpell(state, side, slotIndex, 1);
 
-  // re-render quickly so the pip fills immediately
+  // Aria L1: on advance → gain +1 Æ (once/turn)
+  if (key === "aria" && lvl >= 1 && !flags.ariaL1GainUsed) {
+    adjustAe(side, 1);
+    flags.ariaL1GainUsed = true;
+    Emit(Events.AETHER_GAIN, { side, amount:1, source:"Aria L1" });
+  }
+
+  // Kareth reacts to this spend
+  karethAfterSpend(side, advanceCost);
+
   render();
 }
+
 
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
@@ -2584,6 +2682,8 @@ function spotlightFromEvents(state){
           } : {
             centerScale: 1.12, holdMs: 300
           });
+
+          
         
           // (keep your existing flip/pulse/remove block that follows)
         }
@@ -2694,53 +2794,66 @@ function tranceDiscount(side, cost){
   return cost|0;
 }
 async function playSpellFromHandWithTemp(side, cardId, slotIndex){
-  const pub = serializePublic(state)||{};
+  const pub  = serializePublic(state)||{};
   const hand = pub.players?.[side]?.hand||[];
   const card = hand.find(c=> c.id===cardId);
   const rawCost = card?.cost|0;
-  const cost = tranceDiscount(side, rawCost);
-  const useTemp = Math.min(cost, getTemp(side));
+
+  if (getTotal(side) < rawCost){ showToast("Not enough Æther."); return; }
+
+  const useTemp = Math.min(rawCost, getTemp(side));
   adjustAe(side, useTemp); // virtual top-up (GameLogic checks aether)
 
-  // 🔸 Use the SLOT as the destination (selector), not the inner .card
-  const destSel = `.row.player .slot.spell[data-slot-index="${slotIndex}"]`;
+  const destSel = `.row.${side} .slot.spell[data-slot-index="${slotIndex}"]`;
   const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
-cine(cardId, destSel, 'play-spell', { slotIndex });
-
+  cine(cardId, destSel, 'play-spell', { slotIndex });
 
   try {
     state = playCardToSpellSlot(state, side, cardId, slotIndex);
     const slot = state?.players?.[side]?.slots?.[slotIndex];
     if (slot?.card && slot.card.type === "SPELL") setProgress(slot.card, 0);
     if (useTemp) addTemp(side, -useTemp);
-    Emit(Events.CARD_PLAYED, {side, cardId, cost});
+    Emit(Events.CARD_PLAYED, {side, cardId, cost:rawCost});
+
+    // Kareth: react to spend
+    karethAfterSpend(side, rawCost);
   } catch(e){
     if (useTemp) adjustAe(side, -useTemp);
     throw e;
   }
 }
 
+
 let lastGlyphJustSetFor = null;  // ← put near other module-level state
 
 async function setGlyphFromHandWithTemp(side, cardId){
-  // fly the card to the glyph slot
+  // cine → glyph slot
   const destSel = `.row.${side} .slot.glyph`;
   const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
-cine(cardId, destSel, 'set-glyph');
-
+  cine(cardId, destSel, 'set-glyph');
 
   state = setGlyphFromHand(state, side, cardId);
-    lastGlyphJustSetFor = side;
-    
-    const slot = document.querySelector(`.row.${side} .slot.glyph`);
-    if (slot) {
-      slot.classList.add('flipping-down');
-      slot.addEventListener('animationend', () => slot.classList.remove('flipping-down'), { once: true });
-    }
-    
-    Emit(Events.CARD_SET, {side, cardId});
+  Emit(Events.CARD_SET, {side, cardId});
 
+  // Enoch L1: on set, Channel 1 (once/turn)
+  ensureTranceFlags();
+  if (sideWeaverKey(side) === "enoch" && tranceLevel(side) >= 1) {
+    const f = state.players[side]._trFlags;
+    if (!f.enochL1Used) {
+      addTemp(side, 1);
+      f.enochL1Used = true;
+      Emit(Events.AETHER_GAIN, { side, amount:1, source:"Enoch L1" });
+    }
+  }
+
+  // quick flip feedback you had
+  const slot = document.querySelector(`.row.${side} .slot.glyph`);
+  if (slot) {
+    slot.classList.add('flipping-down');
+    slot.addEventListener('animationend', () => slot.classList.remove('flipping-down'), { once: true });
+  }
 }
+
 
 // --- Spotlight stack coordination (for spell → glyph resolution pairs)
 const SPOTLIGHT_STACKS = new Map();  // key -> anchor pose rect (center size)
@@ -2851,7 +2964,7 @@ window.castInstantFromHand = async function(_state, side, cardId){
   if (!card || card.type!=="INSTANT") return state;
 
   const rawCost = card.cost|0;
-  const cost = tranceDiscount(side, rawCost);
+ const cost = rawCost; // Instants should not be discounted by Aria L2
   if (getTotal(side) < cost){ showToast("Not enough Æther."); return state; }
 
   const useTemp = Math.min(cost, getTemp(side));
@@ -2868,6 +2981,8 @@ cine(cardId, destSel, 'instant');
     // resolve to discard + event for spotlight
     state = resolveInstantFromHand(state, side, cardId);
     Emit(Events.CARD_CAST, {side, cardId, cost});
+    karethAfterSpend(side, rawCost);
+
     await render();
   } catch(e) {
     if (useTemp) adjustAe(side, -useTemp);
@@ -3096,7 +3211,6 @@ renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 5, 5);
  removeLegacyTranceText();
   renderTranceTrack('player');
 renderTranceTrack('ai');
-  ensurePipHandlers();
   refreshPipAdvanceClasses();
 
  
@@ -3291,6 +3405,10 @@ function makeAiApi() {
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
+
+  resetTranceFlagsFor("player");
+  resetTranceFlagsFor("ai");
+
 
   if (!shuffledOnce){
     shuffleInPlace(state.players.player.deck || []);
