@@ -27,7 +27,7 @@ import {
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
   dealDamage,
-   fillFlowToFive,        // ← NEW
+
 } from "./GameLogic.js";
 
 
@@ -3578,9 +3578,7 @@ function makeAiApi() {
 async function doStartTurn(){
   state = startTurn(state);
   
-if (!shuffledOnce) {
-    try { state = fillFlowToFive(state); } catch {}
-  }
+
   
   resetTranceFlagsFor("player");
   resetTranceFlagsFor("ai");
