@@ -188,6 +188,35 @@ function ensureTopMenu() {
   }
 }
 
+// --- draw-step sentinel (used only for Veyra I logic) ---
+let __IN_DRAW_STEP = false;
+
+/** Run a block while we're *inside* the official Draw Step. */
+async function withDrawStep(fn){
+  const prev = __IN_DRAW_STEP;
+  __IN_DRAW_STEP = true;
+  try { return await fn(); }
+  finally { __IN_DRAW_STEP = prev; }
+}
+
+
+// Fill the Flow row to 5 visible cells on first boot.
+// Relies on GameLogic turning any falsy cells into reveals on the next render.
+// If your GameLogic does not auto-fill, replace the body with your own
+// reveal call(s) that put real card objects into state.flow[0..4].
+function seedFlowToFiveOnBoot() {
+  // Only do this one time if flow is empty/partial:
+  const f = state?.flow || [];
+  const visible = f.slice(0,5).filter(Boolean).length;
+  if (visible >= 5) return;
+
+  // Hint to logic/UI: ensure array exists with 5 placeholders so render path paints 5 cells.
+  // Your renderFlow already takes first 5. If your GameLogic has a "revealFlow()" function,
+  // you can call it 5 times instead of this placeholder approach.
+  state.flow = [null, null, null, null, null];
+}
+
+
 
 // put near your other ensure*Styles helpers
 function ensureBoardDimStyles(){
@@ -3577,10 +3606,10 @@ if (!shuffledOnce) {
   const active = side;
   reshuffleFromDiscard(active);
   if (need){
-     __IN_DRAW_STEP = true;
-    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
-    state = drawN(state, active, need);
-    __IN_DRAW_STEP = false;
+       if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
+    await withDrawStep(async () => {
+      state = drawN(state, active, need);
+    });
   }
 
   Emit(Events.TURN_START, {side});
@@ -3720,6 +3749,8 @@ document.addEventListener("DOMContentLoaded", async () => {
         // 👇 Prime Flow to 5 cards before starting Turn 1
         await primeAetherFlow(5);
 
+         seedFlowToFiveOnBoot(); 
+        
         await doStartTurn();
         logLine(`Boot on ${BRANCH_VERSION}`);
       };
@@ -3732,7 +3763,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // 👇 Prime Flow to 5 cards before starting Turn 1
   await primeAetherFlow(5);
-
+  seedFlowToFiveOnBoot();   
   await doStartTurn();
   logLine(`Boot on ${BRANCH_VERSION}`);
 });
