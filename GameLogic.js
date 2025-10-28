@@ -32,6 +32,15 @@ export function drainEvents(state){
   return q;
 }
 
+// GameLogic.js
+export function fillFlowToFive(state) {
+  // repeatedly call your existing single-reveal helper until 5 shown
+  while ((state.flow || []).filter(Boolean).length < 5) {
+    state = revealNextFlow(state);  // <-- use your existing reveal
+  }
+  return state;
+}
+
 
 
 
