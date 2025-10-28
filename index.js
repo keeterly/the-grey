@@ -2699,36 +2699,34 @@ function spotlightFromEvents(state){
             stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 0, stackDx: 26, stackDy: 18
           });
         }
-    }
+    
 
       // GLYPH: board → discard cinematic (camera fly), we’ll also do the flip below
         if (e.t === 'resolved' && e.source === 'glyph') {
 
-// Morr I: also applies when the glyph leaves its slot
-    try {
-      const side = e.side || 'player';
-      if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
-        ensureTranceFlags();
-        const f = state.players[side]._trFlags;
-        if (!f.morrL1Used) {
-          adjustAe(side, 1);
-          f.morrL1Used = true;
-         Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
-        }
-      }
-    } catch {}
+      // Morr I: also applies when the glyph leaves its slot
+          try {
+            const side = e.side || 'player';
+            if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
+              ensureTranceFlags();
+              const f = state.players[side]._trFlags;
+              if (!f.morrL1Used) {
+                adjustAe(side, 1);
+                f.morrL1Used = true;
+               Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
+              }
+            }
+          } catch {}
 
           
-           // Enoch II: when a Glyph reveals, draw 1
+      // Enoch II: when a Glyph reveals, draw 1
         try {
-  const side = e.side || 'player';
-  if (sideWeaverKey(side) === 'enoch' && tranceLevel(side) >= 2) {
-    reshuffleFromDiscard(side);
-    state = drawN(state, side, 1);
-  }
-} catch (err) {
-  console.warn('Enoch II draw failed', err);
-}
+          const side = e.side || 'player';
+          if (sideWeaverKey(side) === 'enoch' && tranceLevel(side) >= 2) {
+            reshuffleFromDiscard(side);
+            state = drawN(state, side, 1);
+            }
+          } catch (err) {console.warn('Enoch II draw failed', err);}
 
 
           
