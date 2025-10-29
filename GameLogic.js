@@ -66,36 +66,148 @@ function computePipAdvanceCostsForCard(card) {
 // Card Pools (Data)
 /////////////////////////////
 
+/**
+ * v2.66 Card Pools — from Game Doc
+ * NOTE: Some effects in the doc aren’t yet supported by the parser.
+ * I’ve aligned text to current grammar where possible:
+ *  - “Gain N Æ”      → aether gain
+ *  - “Channel N”     → adds Æ + triggers “When you Channel Aether…” glyphs
+ *  - “Draw N”        → draw
+ *  - “Advance another/target Spell 1” → advance
+ */
+
 const BASE_DECK_LIST = [
-  { name: "Pulse of the Grey",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Draw 1, Gain 1 Æ",           aetherValue: 0, role: "Starter draw/flow",    qty: 3 },
-  { name: "Wispform Surge",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Chain enabler",    qty: 1 },
-  { name: "Greyfire Bloom",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Advance another Spell for free", aetherValue: 0, role: "Aggro chain",      qty: 1 },
-  { name: "Echoing Reservoir",       type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1",                  aetherValue: 2, role: "Aether generator",   qty: 2 },
-  { name: "Dormant Catalyst",        type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2",                  aetherValue: 1, role: "Ramp starter",       qty: 1 },
-  { name: "Ashen Focus",             type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 1 and Draw 1",       aetherValue: 1, role: "Draw + Aether",      qty: 1 },
-  { name: "Surge of Ash",            type: "INSTANT", cost: 1, pip: 0, text: "Target Spell advances 1 step free",      aetherValue: 0, role: "Tempo burst",        qty: 1 },
-  { name: "Veil of Dust",            type: "INSTANT", cost: 1, pip: 0, text: "Prevent 1 damage or negate a hostile Instant", aetherValue: 0, role: "Defense",       qty: 1 },
-  { name: "Glyph of Remnant Light",  type: "GLYPH",   cost: 0, pip: 0, text: "When a Spell resolves → Gain 1 Æ",       aetherValue: 0, role: "Passive economy",    qty: 1 },
-  { name: "Glyph of Returning Echo", type: "GLYPH",   cost: 0, pip: 0, text: "When you Channel Aether → Draw 1 card",  aetherValue: 0, role: "Draw engine",        qty: 1 },
+  // 8. Starting Deck (v2 — Strategic Aggression)
+
+  // Spell — ① — 1 Æ — On Resolve: Draw 1, gain 1 Channelled Aether.
+  { name: "Pulse of the Grey", type: "SPELL", cost: 1, pip: 1,
+    text: "On Resolve: Draw 1, Gain 1 Æ",
+    aetherValue: 0, role: "Starter draw/flow", qty: 3 },
+
+  // Spell — ① — 1 Æ — On Resolve: Advance another Spell 1 step.
+  { name: "Wispform Surge", type: "SPELL", cost: 1, pip: 1,
+    text: "On Resolve: Advance another Spell for free",
+    aetherValue: 0, role: "Chain enabler", qty: 1 },
+
+  // Spell — ② — 1 per step — On Resolve: Deal 1 damage per step (max 2).
+  // Current engine resolves only at full pip; approximate as 2 damage on resolve.
+  { name: "Greyfire Bloom", type: "SPELL", cost: 1, pip: 2,
+    text: "On Resolve: Deal 2 damage",
+    aetherValue: 0, role: "Aggro (per-step in doc)", qty: 1 },
+
+  // Spell — ① — 2 Æ — On Resolve: Store 1 in Aetherwell.
+  { name: "Echoing Reservoir", type: "SPELL", cost: 2, pip: 1,
+    text: "On Resolve: Channel 1",
+    aetherValue: 2, role: "Aether generator", qty: 2 },
+
+  // Spell — ① — 2 Æ — On Resolve: Store 2 in Aetherwell.
+  { name: "Dormant Catalyst", type: "SPELL", cost: 2, pip: 1,
+    text: "On Resolve: Channel 2",
+    aetherValue: 1, role: "Ramp starter", qty: 1 },
+
+  // Spell — ② — 1 per step — On Resolve: Draw 1, store 1 in Aetherwell.
+  // Engine resolves on full pip; we keep both effects on resolve.
+  { name: "Ashen Focus", type: "SPELL", cost: 1, pip: 2,
+    text: "On Resolve: Draw 1 and Channel 1",
+    aetherValue: 1, role: "Draw + Aether", qty: 1 },
+
+  // Instant — cost 1 Æ — Target Spell advances 1.
+  { name: "Surge of Ash", type: "INSTANT", cost: 1, pip: 0,
+    text: "Target Spell advances 1 step free",
+    aetherValue: 0, role: "Tempo burst", qty: 1 },
+
+  // Instant — cost 1 Æ — Prevent 1 damage or deal 1 damage.
+  // Prevention isn’t modeled; keep a functional half.
+  { name: "Veil of Dust", type: "INSTANT", cost: 1, pip: 0,
+    text: "Deal 1 damage",
+    aetherValue: 0, role: "Defense (partial)", qty: 1 },
+
+  // Glyph — When a Spell resolves → gain 1 Channelled Aether.
+  { name: "Glyph of Remnant Light", type: "GLYPH", cost: 0, pip: 0,
+    text: "When a Spell resolves → Gain 1 Æ",
+    aetherValue: 0, role: "Passive economy", qty: 1 },
+
+  // Glyph — When you Store Aether → draw 1 card. (use Channel for current engine)
+  { name: "Glyph of Returning Echo", type: "GLYPH", cost: 0, pip: 0,
+    text: "When you Channel Aether → Draw 1 card",
+    aetherValue: 0, role: "Draw engine", qty: 1 },
 ];
 
 const AETHERFLOW_LIST = [
-  { name: "Surge of Cinders",         type: "INSTANT", cost: 2, pip: 0, text: "Deal 2 damage to any target", aetherValue: 0, role: "Aggression", qty: 1 },
-  { name: "Pulse Feedback",           type: "INSTANT", cost: 3, pip: 0, text: "Advance all Spells you control by 1", aetherValue: 0, role: "Momentum", qty: 1 },
-  { name: "Refracted Will",           type: "INSTANT", cost: 2, pip: 0, text: "Counter an Instant or negate a Glyph trigger", aetherValue: 0, role: "Answer", qty: 1 },
-  { name: "Aether Impel",             type: "INSTANT", cost: 4, pip: 0, text: "Gain 3 Æ this turn", aetherValue: 0, role: "Boost", qty: 1 },
-  { name: "Cascade Insight",          type: "INSTANT", cost: 3, pip: 0, text: "Draw 2 cards, then discard 1", aetherValue: 0, role: "Filter", qty: 1 },
-  { name: "Resonant Chorus",          type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Gain 2 Æ and Channel 1", aetherValue: 1, role: "Hybrid", qty: 1 },
-  { name: "Emberline Pulse",          type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Deal 2 damage and Draw 1", aetherValue: 0, role: "Tempo", qty: 1 },
-  { name: "Fractured Memory",         type: "SPELL",   cost: 0, pip: 2, text: "On Resolve: Draw 2 cards", aetherValue: 0, role: "Advantage", qty: 1 },
-  { name: "Obsidian Vault",           type: "SPELL",   cost: 0, pip: 1, text: "On Resolve: Channel 2 and Gain 1 Æ", aetherValue: 1, role: "Economy", qty: 1 },
-  { name: "Mirror Cascade",           type: "SPELL",   cost: 1, pip: 1, text: "On Resolve: Copy the next Instant you play this turn", aetherValue: 0, role: "Combo", qty: 1 },
-  { name: "Sanguine Flow",            type: "SPELL",   cost: 2, pip: 1, text: "On Resolve: Lose 1 Vitality, Gain 3 Æ", aetherValue: 0, role: "Risk", qty: 1 },
-  { name: "Glyph of Withering Light", type: "GLYPH",   cost: 0, pip: 0, text: "When an opponent plays a Spell → They lose 1 Æ", aetherValue: 0, role: "Tax", qty: 1 },
-  { name: "Glyph of Vigilant Echo",   type: "GLYPH",   cost: 0, pip: 0, text: "At end of your turn → Channel 1", aetherValue: 0, role: "Engine", qty: 1 },
-  { name: "Glyph of Buried Heat",     type: "GLYPH",   cost: 0, pip: 0, text: "When you discard a card for Æ → Gain 1 extra Æ", aetherValue: 0, role: "Economy", qty: 1 },
-  { name: "Glyph of Soulglass",       type: "GLYPH",   cost: 0, pip: 0, text: "When you buy a card from Aether Flow → Draw 1 card", aetherValue: 0, role: "Growth", qty: 1 },
+  // 9. The Aetherflow Deck (v2 — Harmonized Progression Pool)
+
+  // Instant — 2 Æ — Deal 2 damage.
+  { name: "Surge of Cinders", type: "INSTANT", cost: 2, pip: 0,
+    text: "Deal 2 damage", aetherValue: 0, role: "Burn", qty: 1 },
+
+  // Instant — 3 Æ — Deal 1 damage and gain 1 Channelled Aether.
+  { name: "Pulse Feedback", type: "INSTANT", cost: 3, pip: 0,
+    text: "Deal 1 damage and Gain 1 Æ", aetherValue: 0, role: "Utility", qty: 1 },
+
+  // Instant — 2 Æ — Cancel a Spell/Instant. Draw 1. (cancel not modeled; keep draw)
+  { name: "Refracted Will", type: "INSTANT", cost: 2, pip: 0,
+    text: "Draw 1", aetherValue: 0, role: "Utility (partial)", qty: 1 },
+
+  // Instant — 4 Æ — Advance all your active Spells 1 step. (not modeled yet)
+  { name: "Aether Impel", type: "INSTANT", cost: 4, pip: 0,
+    text: "Advance all your active Spells by 1 (not yet implemented)",
+    aetherValue: 0, role: "Ramp (pending engine support)", qty: 1 },
+
+  // Instant — 3 Æ — Draw 2 cards, then discard 1. (discard not modeled; keep draw 2)
+  { name: "Cascade Insight", type: "INSTANT", cost: 3, pip: 0,
+    text: "Draw 2 cards", aetherValue: 0, role: "Utility (partial)", qty: 1 },
+
+  // Spell — ① — 2 per step — Gain 2 Æ and Store 1.
+  { name: "Resonant Chorus", type: "SPELL", cost: 2, pip: 1,
+    text: "On Resolve: Gain 2 Æ and Channel 1",
+    aetherValue: 1, role: "Ramp", qty: 1 },
+
+  // Spell — ① — 2 Æ — Deal 1 damage and draw 1.
+  { name: "Emberline Pulse", type: "SPELL", cost: 2, pip: 1,
+    text: "On Resolve: Deal 1 damage and Draw 1",
+    aetherValue: 0, role: "Burn", qty: 1 },
+
+  // Spell — ② — 1 per step — Draw 2.
+  { name: "Fractured Memory", type: "SPELL", cost: 1, pip: 2,
+    text: "On Resolve: Draw 2 cards",
+    aetherValue: 0, role: "Utility", qty: 1 },
+
+  // Spell — ① — 3 Æ — Store 2 and gain 1 Æ.
+  { name: "Obsidian Vault", type: "SPELL", cost: 3, pip: 1,
+    text: "On Resolve: Channel 2 and Gain 1 Æ",
+    aetherValue: 1, role: "Ramp", qty: 1 },
+
+  // Spell — ② — 2 per step — Copy your next resolve effect. (not modeled yet)
+  { name: "Mirror Cascade", type: "SPELL", cost: 2, pip: 2,
+    text: "On Resolve: Copy your next Instant or Spell resolve effect (not yet implemented)",
+    aetherValue: 0, role: "Utility (pending)", qty: 1 },
+
+  // Spell — ① — 2 Æ — Gain 3 Æ, lose 1 Vitality.
+  { name: "Sanguine Flow", type: "SPELL", cost: 2, pip: 1,
+    text: "On Resolve: Lose 1 Vitality, Gain 3 Æ",
+    aetherValue: 0, role: "Burn / Ramp", qty: 1 },
+
+  // Spell — ② — 1 per step — Return 1 from discard to hand. (not modeled yet)
+  { name: "Echoflame Sigil", type: "SPELL", cost: 1, pip: 2,
+    text: "On Resolve: Return 1 card from your discard pile to your hand (not yet implemented)",
+    aetherValue: 1, role: "Recursion (pending)", qty: 1 },
+
+  // Glyph — When opponent resolves a Spell → deal 1 damage. (opponent trigger not modeled)
+  { name: "Glyph of Withering Light", type: "GLYPH", cost: 0, pip: 0,
+    text: "When opponent resolves a Spell → Deal 1 damage (not yet implemented)",
+    aetherValue: 0, role: "Burn (reactive)", qty: 1 },
+
+  // Glyph — When you take damage → Channel 2 Aether. (damage trigger not modeled)
+  { name: "Glyph of Buried Heat", type: "GLYPH", cost: 0, pip: 0,
+    text: "When you take damage → Channel 2 (not yet implemented)",
+    aetherValue: 0, role: "Ramp / Defense (reactive)", qty: 1 },
+
+  // Glyph — When you draw outside Draw Step → Gain 1 Æ. (timing trigger not modeled)
+  { name: "Glyph of Soulglass", type: "GLYPH", cost: 0, pip: 0,
+    text: "When you draw outside your Draw Step → Gain 1 Æ (not yet implemented)",
+    aetherValue: 0, role: "Utility (reactive)", qty: 1 },
 ];
+
 
 function expandList(list) {
   const out = [];
