@@ -1435,41 +1435,6 @@ function spendAe(side, amount){
 }
 function getProgress(card){ return Math.max(0, card?.progress|0); }
 function setProgress(card, n){ if (card) card.progress = Math.max(0, n|0); }
-function advanceSpellAt(side, slotIndex){
-  const slot = state?.players?.[side]?.slots?.[slotIndex];
-  const c = slot?.card;
-  if (!slot?.hasCard || !c || c.type !== "SPELL") return;
-
-  ensureTranceFlags();
-  const key   = sideWeaverKey(side);
-  const lvl   = tranceLevel(side);
-  const flags = state.players[side]._trFlags;
-
-  // === cost (Aria L2: first Advance each turn costs 1 less; min 0) ===
-  let advanceCost = 1;
-  if (key === "aria" && lvl >= 2 && !flags.ariaL2DiscountUsed) {
-    advanceCost = Math.max(0, advanceCost - 1);
-    flags.ariaL2DiscountUsed = true;
-  }
-
-  if (getTotal(side) < advanceCost){ showToast("Not enough Æther."); return; }
-  if (advanceCost) spendAe(side, advanceCost);
-
-  // advance in logic; it will auto-discard when complete and enqueue an event
-  state = advanceSpell(state, side, slotIndex, 1);
-
-  // Aria L1: on advance → gain +1 Æ (once/turn)
-  if (key === "aria" && lvl >= 1 && !flags.ariaL1GainUsed) {
-    adjustAe(side, 1);
-    flags.ariaL1GainUsed = true;
-    Emit(Events.AETHER_GAIN, { side, amount:1, source:"Aria L1" });
-  }
-
-  // Kareth reacts to this spend
-  karethAfterSpend(side, advanceCost);
-
-  render();
-}
 
 
 function renderSlots(container, snapshot, isPlayer){
