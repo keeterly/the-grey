@@ -23,13 +23,15 @@ import {
   buyFromFlow,
   discardForAether,
   withAetherText,
-  advanceSpell,               // ← NEW
-  resolveInstantFromHand,     // ← NEW
-  drainEvents,                // ← NEW
+  advanceSpell,                    // existing
+  resolveInstantFromHand,          // existing
+  drainEvents,                     // existing
   dealDamage,
 
+  // NEW: pip-advance pricing + single-step spender
+  computePipAdvanceCostsForCard,
+  payAndAdvanceOne,
 } from "./GameLogic.js";
-
 
 function withAetherIcons(txt){
   if (!txt) return "";
@@ -732,6 +734,64 @@ const peekEl        = $("peek-card");
 const aiMiniHandEl   = $("ai-mini-hand");
 const aiMiniDeckEl   = $("ai-mini-deck");
 const aiMiniDiscardEl= $("ai-mini-discard");
+
+
+
+/* ---------- Pip advance helpers (cost + UI) ---------- */
+
+/** Spend the correct Æ (temp first), advance one pip, then re-render. */
+async function advanceSpellAt(side, slotIndex) {
+  try {
+    // Pay + advance (engine will throw if not legal / not enough Æ)
+    state = payAndAdvanceOne(state, side, slotIndex);
+
+    // Optional: hook Kareth’s “after spend” logic if you use it centrally
+    try {
+      const pubAfter = serializePublic(state) || {};
+      // If you keep per-spend accounting, you can detect the delta here, but
+      // your engine already applies Kareth inside payAndAdvanceOne; safe to skip.
+    } catch {}
+
+    await render();
+  } catch (err) {
+    // Soft guard: show a tiny toast/log instead of breaking
+    logLine?.(`Could not advance pip at slot ${slotIndex}: ${err?.message || err}`);
+  }
+}
+
+/** Write pip-cost numbers into each pip circle (player side only). */
+function paintPipNumbersFor(side = "player") {
+  const pub = serializePublic(state) || {};
+  const slots = pub?.players?.[side]?.slots || [];
+
+  // For each player spell slot that has a card, put numbers into its pips
+  document
+    .querySelectorAll(`.row.${side} .slot.spell`)
+    .forEach((slotEl) => {
+      const i = Number(slotEl?.dataset?.slotIndex ?? -1);
+      const snap = slots[i];
+      const card = snap?.card;
+      const track = slotEl.querySelector(".pip-track");
+      if (!track) return;
+
+      // Clear existing digits (if any)
+      track.querySelectorAll(".pip .pip-num")?.forEach(n => n.remove());
+
+      if (!snap?.hasCard || !card || card.type !== "SPELL") return;
+
+      // Pull costs from the engine for THIS card’s pip track
+      const costs = computePipAdvanceCostsForCard(card) || [];
+
+      const pipEls = track.querySelectorAll(".pip");
+      pipEls.forEach((pipEl, idx) => {
+        const n = document.createElement("span");
+        n.className = "pip-num";
+        // If costs[idx] is undefined, show nothing (handles 1-pip cards cleanly)
+        n.textContent = (costs[idx] ?? "") + "";
+        pipEl.appendChild(n);
+      });
+    });
+}
 
 
 /* ---------- Pip track interactions (delegated, one-time) ---------- */
@@ -3438,6 +3498,8 @@ if (hudDiscardBtn){
   
   ensureRightHudStrip();
   renderSlots(playerSlotsEl, s.players?.player?.slots || [], true);
+  paintPipNumbersFor('player');   // ← write per-pip costs into the circles
+  paintPipNumbersFor('ai');
   // (Re)bind pile modal handlers once the buttons exist.
 // This function is idempotent; calling it on every render is safe.
 if (typeof window.__wirePileModals === 'function') {
@@ -3537,6 +3599,22 @@ function makeAiApi() {
       if (cost - useTemp) adjustAe(side, -(cost - useTemp));
     },
 
+// Flexible per-pip advance cost.
+// Default: 1 Æ per pip if nothing special is provided.
+// If you want a card to carry its own costs later, set card.advanceCosts = [c1, c2, ...].
+function getAdvanceCostForStep(card, stepIdx /* 0-based */) {
+  if (!card) return 1;
+  // card.advanceCosts preferred if present
+  if (Array.isArray(card.advanceCosts) && card.advanceCosts[stepIdx] != null) {
+    return Number(card.advanceCosts[stepIdx]) || 0;
+  }
+  // Fallback heuristic: use play cost if set, otherwise 1.
+  // (Feel free to change this formula anytime — UI updates automatically.)
+  if (typeof card.cost === "number") return Math.max(1, Number(card.cost));
+  return 1;
+}
+
+    
     // These call the wrapped, animated helpers you already have so cinematics fire
     playSpellFromHand: (side, cardId, slotIndex) => {
       // will emit cine + update, then we render outside
