@@ -1273,6 +1273,11 @@ body.mobile-landscape #zoom-card.card.zoom{
 
 
 
+/* Bigger pip numbers (+50%) and bold */
+.card .pip::after {
+  font-size: calc(var(--pip-d) * 0.78); /* was 0.52 */
+  font-weight: 900;                      /* already bold—kept for clarity */
+}
 
 
 /* Small-height screens: scale a touch */
