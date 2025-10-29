@@ -23,15 +23,16 @@ import {
   buyFromFlow,
   discardForAether,
   withAetherText,
-  advanceSpell,                    // existing
-  resolveInstantFromHand,          // existing
-  drainEvents,                     // existing
+  advanceSpell,
+  resolveInstantFromHand,
+  drainEvents,
   dealDamage,
 
   // NEW: pip-advance pricing + single-step spender
   computePipAdvanceCostsForCard,
   payAndAdvanceOne,
 } from "./GameLogic.js";
+
 
 function withAetherIcons(txt){
   if (!txt) return "";
@@ -742,19 +743,9 @@ const aiMiniDiscardEl= $("ai-mini-discard");
 /** Spend the correct Æ (temp first), advance one pip, then re-render. */
 async function advanceSpellAt(side, slotIndex) {
   try {
-    // Pay + advance (engine will throw if not legal / not enough Æ)
     state = payAndAdvanceOne(state, side, slotIndex);
-
-    // Optional: hook Kareth’s “after spend” logic if you use it centrally
-    try {
-      const pubAfter = serializePublic(state) || {};
-      // If you keep per-spend accounting, you can detect the delta here, but
-      // your engine already applies Kareth inside payAndAdvanceOne; safe to skip.
-    } catch {}
-
     await render();
   } catch (err) {
-    // Soft guard: show a tiny toast/log instead of breaking
     logLine?.(`Could not advance pip at slot ${slotIndex}: ${err?.message || err}`);
   }
 }
@@ -764,7 +755,6 @@ function paintPipNumbersFor(side = "player") {
   const pub = serializePublic(state) || {};
   const slots = pub?.players?.[side]?.slots || [];
 
-  // For each player spell slot that has a card, put numbers into its pips
   document
     .querySelectorAll(`.row.${side} .slot.spell`)
     .forEach((slotEl) => {
@@ -774,24 +764,24 @@ function paintPipNumbersFor(side = "player") {
       const track = slotEl.querySelector(".pip-track");
       if (!track) return;
 
-      // Clear existing digits (if any)
+      // clear old numerals
       track.querySelectorAll(".pip .pip-num")?.forEach(n => n.remove());
 
       if (!snap?.hasCard || !card || card.type !== "SPELL") return;
 
-      // Pull costs from the engine for THIS card’s pip track
+      // pull live costs from engine for this card
       const costs = computePipAdvanceCostsForCard(card) || [];
 
       const pipEls = track.querySelectorAll(".pip");
       pipEls.forEach((pipEl, idx) => {
         const n = document.createElement("span");
         n.className = "pip-num";
-        // If costs[idx] is undefined, show nothing (handles 1-pip cards cleanly)
         n.textContent = (costs[idx] ?? "") + "";
         pipEl.appendChild(n);
       });
     });
 }
+
 
 
 /* ---------- Pip track interactions (delegated, one-time) ---------- */
