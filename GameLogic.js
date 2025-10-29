@@ -167,42 +167,66 @@ export function serializePublic(state) {
   return s;
 }
 
+
+
+
 /////////////////////////////
 // Turn / Flow mechanics
 /////////////////////////////
 
-// --- Aetherflow: compact + slide-right-by-one + reveal ---
+// Fill the rail with up to 5 cards on boot (no slide/falloff).
+function initialFillFlow(state) {
+  state.flow ||= [null, null, null, null, null];
+  state._events ||= [];
+  while ((state.flow || []).filter(Boolean).length < 5 && (state.flowDraw || []).length) {
+    const c = { ...(state.flowDraw.shift()) };
+    const idx = state.flow.findIndex(x => !x); // leftmost empty
+    state.flow[idx] = c;
+    state._events.push({
+      t: 'reveal',
+      source: 'flow',
+      side: state.activePlayer,
+      flowIndex: idx,
+      cardId: c.id,
+      cardType: c.type,
+      cardData: { ...c }
+    });
+  }
+  return state;
+}
+
+// At end of each turn: compact gaps, slide right by one, reveal 1 into index 0.
+// If the rail was full, the rightmost card falls off.
 function slideFlowRightAndReveal(state) {
   state.flow ||= [null, null, null, null, null];
   state._events ||= [];
-  const before = (state.flow || []).map(c => c ? { id: c.id } : null);
 
-  // 1) Remove empties caused by buys, preserving left→right order.
+  const before = (state.flow || []).map(c => (c ? { id: c.id } : null));
+
+  // Remove empties left by buys (preserve left→right order)
   const survivors = (state.flow || []).filter(Boolean);
 
-  // 2) If the rail was full (5 cards), the rightmost falls off.
-  //    Otherwise nothing falls off this turn.
+  // If we had 5, the rightmost falls; otherwise nothing falls off this turn.
   let fellOff = null;
   let carry = survivors;
   if (survivors.length === 5) {
-    fellOff = survivors[4];           // rightmost
-    carry   = survivors.slice(0, 4);  // the other 4 will shift right
+    fellOff = survivors[4];
+    carry   = survivors.slice(0, 4); // these will shift right into 1..4
   }
 
-  // 3) Build the new rail: carry goes into indexes 1..(carry.length),
-  //    keeping order; index 0 will be revealed below.
+  // Build next rail: carry goes into 1..(carry.length); we’ll reveal at 0.
   const next = [null, null, null, null, null];
   for (let i = 0; i < carry.length; i++) next[i + 1] = carry[i];
 
-  // 4) Reveal exactly one new card into index 0.
+  // Reveal exactly one new card into index 0
   const pool = state.flowDraw || [];
   const newCard = pool.length ? { ...pool.shift() } : null;
   next[0] = newCard;
 
-  // 5) Commit.
+  // Commit
   state.flow = next;
 
-  // 6) Events so the UI can animate/log.
+  // Events for animations/logs
   if (fellOff) {
     state._events.push({
       t: 'resolved',
@@ -211,14 +235,14 @@ function slideFlowRightAndReveal(state) {
       cardData: { ...fellOff }
     });
   }
-  // Describe how cards moved, for a slide-right animation.
-  const after = (state.flow || []).map(c => c ? { id: c.id } : null);
+
+  const after = (state.flow || []).map(c => (c ? { id: c.id } : null));
   state._events.push({
     t: 'flow_slide',
     source: 'flow',
     side: state.activePlayer,
-    before,  // array of {id}|null length 5
-    after    // array of {id}|null length 5
+    before,
+    after
   });
 
   if (newCard) {
@@ -232,22 +256,23 @@ function slideFlowRightAndReveal(state) {
       cardData: { ...newCard }
     });
   }
+
   return state;
 }
 
-// Start of turn: no Flow movement now (we move at end of turn).
+// Start of turn: no Flow movement (we move at end of turn).
 export function startTurn(state) {
   return state;
 }
 
-// End of turn: discard hand, pass priority, then slide & reveal Flow.
+// End of turn: discard hand, slide/reveal Flow, then pass priority.
 export function endTurn(state) {
   if (!state?.flow) return state;
 
   const endingPlayer = state.activePlayer;
   const P = state.players[endingPlayer];
 
-  // Discard remaining cards in hand (existing behavior)
+  // Discard remaining cards in hand
   if (P?.hand?.length) {
     while (P.hand.length) {
       const c = P.hand.shift();
@@ -263,33 +288,59 @@ export function endTurn(state) {
     }
   }
 
-  // Slide Aetherflow to the right (filling holes) and reveal 1 fresh card.
+  // Slide Aetherflow right and reveal 1 fresh card
   state = slideFlowRightAndReveal(state);
 
- 
+  // Pass the turn (AI ↔ player), and bump turn when it becomes the player's
+  state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
+  if (state.activePlayer === "player") state.turn += 1;
 
-// Initial fill at game start: reveal 5 to populate the rail.
-function initialFillFlow(state) {
-  state.flow ||= [null, null, null, null, null];
-  while ((state.flow || []).filter(Boolean).length < 5 && (state.flowDraw || []).length) {
-    const c = { ...(state.flowDraw.shift()) };
-    // push into the leftmost empty slot
-    const idx = state.flow.findIndex(x => !x);
-    state.flow[idx] = c;
-    (state._events ||= []).push({
-      t: 'reveal',
-      source: 'flow',
-      side: state.activePlayer,
-      flowIndex: idx,
-      cardId: c.id,
-      cardType: c.type,
-      cardData: { ...c }
-    });
-  }
-  return state;
+  // Begin next turn (no Flow change here)
+  return startTurn(state);
 }
 
+// --- Aetherflow helpers used elsewhere (e.g., if you still call revealIntoFlow) ---
+function revealOneIntoFlow(s) {
+  s.flow ||= [null, null, null, null, null];
+  s._events ||= [];
 
+  // Fall off the rightmost card if present
+  const fall = s.flow[4] || null;
+  if (fall) {
+    s._events.push({
+      t: 'resolved',
+      source: 'flow-falloff',
+      side: s.activePlayer,
+      cardData: { ...fall }
+    });
+  }
+
+  // Shift right
+  for (let i = 4; i > 0; i--) s.flow[i] = s.flow[i - 1] || null;
+
+  // Reveal a new card into index 0 from the flow draw pile
+  const pool = s.flowDraw || [];
+  const newCard = pool.length ? { ...pool.shift() } : null;
+  s.flow[0] = newCard;
+
+  if (newCard) {
+    s._events.push({
+      t: 'reveal',
+      source: 'flow',
+      side: s.activePlayer,
+      flowIndex: 0,
+      cardId: newCard.id,
+      cardType: newCard.type,
+      cardData: { ...newCard }
+    });
+  }
+  return s;
+}
+
+export function revealIntoFlow(s, count = 1) {
+  for (let i = 0; i < count; i++) s = revealOneIntoFlow(s);
+  return s;
+}
 
   
   
