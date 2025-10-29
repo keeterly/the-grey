@@ -152,9 +152,30 @@ export function initState(seed) {
   };
 
   // Fill Aetherflow with 5 cards on boot
-  state = revealIntoFlow(state, 5);
+  state = initialFillFlow(state);
   return state;
 }
+
+
+function initialFillFlow(state) {
+  state.flow ||= [null, null, null, null, null];
+  const pool = state.flowDraw || [];
+  for (let i = 0; i < 5 && pool.length; i++) {
+    const c = { ...pool.shift() };
+    state.flow[i] = c;
+    (state._events ||= []).push({
+      t: 'reveal',
+      source: 'flow',
+      side: state.activePlayer,
+      flowIndex: i,
+      cardId: c.id,
+      cardType: c.type,
+      cardData: { ...c }
+    });
+  }
+  return state;
+}
+
 
 export function serializePublic(state) {
   const s = clone(state);
@@ -249,10 +270,11 @@ export function startTurn(state) {
 
 export function endTurn(state) {
   if (!state?.flow) return state;
+
   const endingPlayer = state.activePlayer;
   const P = state.players[endingPlayer];
 
-  // Discard remaining cards in hand
+  // discard remaining cards
   if (P?.hand?.length){
     while (P.hand.length) {
       const c = P.hand.shift();
@@ -268,19 +290,20 @@ export function endTurn(state) {
     }
   }
 
-  // ✅ On AI end turn ONLY: compact gaps, shift right once, reveal one, and fall off if needed.
-  if (endingPlayer === "ai") {
-    state = slideFlowRightOnceAndReveal(state);
+  // 👉 Flow slides right and reveals a new card ONLY when AI ends its turn
+  if (endingPlayer === 'ai') {
+    state = compactSlideRightAndReveal(state);
   }
 
-  // Pass the turn
+  // pass turn
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
-  // Start next turn (no flow movement here)
+  // no auto-move at start of turn anymore
   startTurn(state);
   return state;
 }
+
 
 
 /////////////////////////////
@@ -374,19 +397,29 @@ export function setGlyphFromHand(state, playerId, cardId){
 }
 
 // Buy → discard
-export function buyFromFlow(state, playerId, flowIndex){
+export function buyFromFlow(state, playerId, flowIndexRaw){
+  const flowIndex = (Number(flowIndexRaw) | 0);
+  if (flowIndex < 0 || flowIndex > 4) throw new Error("bad flow index");
+
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
   if (!state.flow) throw new Error("no flow");
+
   const card = state.flow[flowIndex];
   if (!card) throw new Error("no card at flow index");
+
   const price = FLOW_COSTS[flowIndex] || 0;
   if ((P.aether || 0) < price) throw new Error("Not enough Æ");
 
-  P.aether -= price;
-  P.discard.push(card);
+  // Clear the slot first so renderers see it empty immediately
   state.flow[flowIndex] = null;
+  pushEvt(state, { t: 'flow_slot_empty', side: playerId, flowIndex });
 
+  // Take payment and move the card to discard
+  P.aether -= price;
+  P.discard.push({ ...card });
+
+  // Normal buy event (kept as-is)
   pushEvt(state, {
     t: "resolved",
     source: "buy",
@@ -397,9 +430,11 @@ export function buyFromFlow(state, playerId, flowIndex){
     cardData: { ...card }
   });
 
+  // Glyph passive: buy
   state = applyGlyphPassives(state, playerId, "buy");
   return state;
 }
+
 
 /////////////////////////////
 // Resolving helpers
@@ -469,6 +504,67 @@ export function revealIntoFlow(s, count = 1) {
   for (let i = 0; i < count; i++) s = revealOneIntoFlow(s);
   return s;
 }
+
+function compactSlideRightAndReveal(state) {
+  state.flow ||= [null, null, null, null, null];
+  state._events ||= [];
+
+  const before = state.flow.map(c => (c ? { id: c.id } : null));
+
+  // Remove gaps created by buys, preserving order
+  const survivors = state.flow.filter(Boolean);
+
+  // If rail was full (5), the rightmost falls off; otherwise nothing falls off
+  let fellOff = null;
+  let carry = survivors;
+  if (survivors.length === 5) {
+    fellOff = survivors[4];
+    carry   = survivors.slice(0, 4);
+  }
+
+  // Place carry into indexes 1..n, reveal new into 0
+  const next = [null, null, null, null, null];
+  for (let i = 0; i < carry.length; i++) next[i + 1] = carry[i];
+
+  const pool = state.flowDraw || [];
+  const newCard = pool.length ? { ...pool.shift() } : null;
+  next[0] = newCard;
+
+  state.flow = next;
+
+  if (fellOff) {
+    state._events.push({
+      t: 'resolved',
+      source: 'flow-falloff',
+      side: state.activePlayer,
+      cardData: { ...fellOff }
+    });
+  }
+
+  const after = state.flow.map(c => (c ? { id: c.id } : null));
+  state._events.push({
+    t: 'flow_slide',
+    source: 'flow',
+    side: state.activePlayer,
+    before,
+    after
+  });
+
+  if (newCard) {
+    state._events.push({
+      t: 'reveal',
+      source: 'flow',
+      side: state.activePlayer,
+      flowIndex: 0,
+      cardId: newCard.id,
+      cardType: newCard.type,
+      cardData: { ...newCard }
+    });
+  }
+
+  return state;
+}
+
 
 // Advance spell
 export function advanceSpell(state, playerId, slotIndex, steps = 1){
