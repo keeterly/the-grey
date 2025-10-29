@@ -23,16 +23,15 @@ import {
   buyFromFlow,
   discardForAether,
   withAetherText,
-  advanceSpell,
-  resolveInstantFromHand,
-  drainEvents,
+  advanceSpell,                    // existing
+  resolveInstantFromHand,          // existing
+  drainEvents,                     // existing
   dealDamage,
 
   // NEW: pip-advance pricing + single-step spender
   computePipAdvanceCostsForCard,
   payAndAdvanceOne,
 } from "./GameLogic.js";
-
 
 function withAetherIcons(txt){
   if (!txt) return "";
@@ -743,9 +742,19 @@ const aiMiniDiscardEl= $("ai-mini-discard");
 /** Spend the correct Æ (temp first), advance one pip, then re-render. */
 async function advanceSpellAt(side, slotIndex) {
   try {
+    // Pay + advance (engine will throw if not legal / not enough Æ)
     state = payAndAdvanceOne(state, side, slotIndex);
+
+    // Optional: hook Kareth’s “after spend” logic if you use it centrally
+    try {
+      const pubAfter = serializePublic(state) || {};
+      // If you keep per-spend accounting, you can detect the delta here, but
+      // your engine already applies Kareth inside payAndAdvanceOne; safe to skip.
+    } catch {}
+
     await render();
   } catch (err) {
+    // Soft guard: show a tiny toast/log instead of breaking
     logLine?.(`Could not advance pip at slot ${slotIndex}: ${err?.message || err}`);
   }
 }
@@ -755,6 +764,7 @@ function paintPipNumbersFor(side = "player") {
   const pub = serializePublic(state) || {};
   const slots = pub?.players?.[side]?.slots || [];
 
+  // For each player spell slot that has a card, put numbers into its pips
   document
     .querySelectorAll(`.row.${side} .slot.spell`)
     .forEach((slotEl) => {
@@ -764,24 +774,24 @@ function paintPipNumbersFor(side = "player") {
       const track = slotEl.querySelector(".pip-track");
       if (!track) return;
 
-      // clear old numerals
+      // Clear existing digits (if any)
       track.querySelectorAll(".pip .pip-num")?.forEach(n => n.remove());
 
       if (!snap?.hasCard || !card || card.type !== "SPELL") return;
 
-      // pull live costs from engine for this card
+      // Pull costs from the engine for THIS card’s pip track
       const costs = computePipAdvanceCostsForCard(card) || [];
 
       const pipEls = track.querySelectorAll(".pip");
       pipEls.forEach((pipEl, idx) => {
         const n = document.createElement("span");
         n.className = "pip-num";
+        // If costs[idx] is undefined, show nothing (handles 1-pip cards cleanly)
         n.textContent = (costs[idx] ?? "") + "";
         pipEl.appendChild(n);
       });
     });
 }
-
 
 
 /* ---------- Pip track interactions (delegated, one-time) ---------- */
@@ -1435,6 +1445,41 @@ function spendAe(side, amount){
 }
 function getProgress(card){ return Math.max(0, card?.progress|0); }
 function setProgress(card, n){ if (card) card.progress = Math.max(0, n|0); }
+function advanceSpellAt(side, slotIndex){
+  const slot = state?.players?.[side]?.slots?.[slotIndex];
+  const c = slot?.card;
+  if (!slot?.hasCard || !c || c.type !== "SPELL") return;
+
+  ensureTranceFlags();
+  const key   = sideWeaverKey(side);
+  const lvl   = tranceLevel(side);
+  const flags = state.players[side]._trFlags;
+
+  // === cost (Aria L2: first Advance each turn costs 1 less; min 0) ===
+  let advanceCost = 1;
+  if (key === "aria" && lvl >= 2 && !flags.ariaL2DiscountUsed) {
+    advanceCost = Math.max(0, advanceCost - 1);
+    flags.ariaL2DiscountUsed = true;
+  }
+
+  if (getTotal(side) < advanceCost){ showToast("Not enough Æther."); return; }
+  if (advanceCost) spendAe(side, advanceCost);
+
+  // advance in logic; it will auto-discard when complete and enqueue an event
+  state = advanceSpell(state, side, slotIndex, 1);
+
+  // Aria L1: on advance → gain +1 Æ (once/turn)
+  if (key === "aria" && lvl >= 1 && !flags.ariaL1GainUsed) {
+    adjustAe(side, 1);
+    flags.ariaL1GainUsed = true;
+    Emit(Events.AETHER_GAIN, { side, amount:1, source:"Aria L1" });
+  }
+
+  // Kareth reacts to this spend
+  karethAfterSpend(side, advanceCost);
+
+  render();
+}
 
 
 function renderSlots(container, snapshot, isPlayer){
