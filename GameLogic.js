@@ -499,7 +499,7 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
   return state;
 }
 
-// Play Spell to slot
+// ⬇️ REPLACE your existing playCardToSpellSlot with this
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -512,14 +512,25 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   const card = P.hand[i];
   if (card.type !== "SPELL") throw new Error("only SPELL can be played to spell slots");
 
+  const playCost = Number(card.playCost || 0);
+  if ((P.aether|0) < playCost) throw new Error("Not enough Æ to play this Spell");
+
+  // pay to play (if any)
+  if (playCost > 0) P.aether -= playCost;
+
   P.hand.splice(i,1);
   card.progress = 0;
   slot.card = card;
   slot.hasCard = true;
+
+  // (Optional) event for the payment
+  if (playCost > 0) pushEvt(state, { t:"aether", side: playerId, amount: -playCost, by: card.id });
+
   return state;
 }
 
-// Set Glyph to slot 3
+
+// ⬇️ REPLACE your existing setGlyphFromHand with this
 export function setGlyphFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
@@ -532,11 +543,16 @@ export function setGlyphFromHand(state, playerId, cardId){
   const card = P.hand[i];
   if (card.type !== "GLYPH") throw new Error("only GLYPH may be set");
 
+  const playCost = Number(card.playCost || 0);
+  if ((P.aether|0) < playCost) throw new Error("Not enough Æ to set this Glyph");
+  if (playCost > 0) { P.aether -= playCost; pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id}); }
+
   P.hand.splice(i,1);
   slot.card = card;
   slot.hasCard = true;
   return state;
 }
+
 
 // Buy → discard
 export function buyFromFlow(state, playerId, flowIndexRaw){
@@ -708,12 +724,25 @@ function compactSlideRightAndReveal(state) {
 }
 
 
-// Advance spell
-export function advanceSpell(state, playerId, slotIndex, steps = 1){
+// ⬇️ REPLACE your existing advanceSpell with this
+export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false){
   const P = state.players[playerId];
   const slot = P?.slots?.[slotIndex];
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
+
+  const stepCost = Number(c.stepCost || c.cost || 0);
+  const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
+
+  if ((P.aether|0) < totalCost) {
+    // Not enough Æ to advance — do nothing
+    return state;
+  }
+
+  if (totalCost > 0) {
+    P.aether -= totalCost;
+    pushEvt(state, { t:"aether", side:playerId, amount:-totalCost, by:c.id });
+  }
 
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
   if ((c.progress|0) >= (c.pip|0)) {
@@ -769,13 +798,19 @@ export function payAndAdvanceOne(state, side, slotIndex) {
 
 
 
-// Resolve Instant
+// ⬇️ REPLACE your existing resolveInstantFromHand with this
 export function resolveInstantFromHand(state, playerId, cardId){
   const P = state.players[playerId];
   const i = P.hand.findIndex(c => c.id === cardId && c.type==="INSTANT");
   if (i < 0) return state;
-  const card = P.hand.splice(i,1)[0];
+  const card = P.hand[i];
 
+  const playCost = Number(card.playCost || 0);
+  if ((P.aether|0) < playCost) throw new Error("Not enough Æ to cast this Instant");
+  if (playCost > 0) { P.aether -= playCost; pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id}); }
+
+  // move to stack resolution
+  P.hand.splice(i,1)[0];
   state = applyParsedEffects(state, playerId, card);
 
   P.discard.push(card);
@@ -789,6 +824,7 @@ export function resolveInstantFromHand(state, playerId, cardId){
   });
   return state;
 }
+
 
 // Resolve Glyph
 export function resolveGlyphFromSlot(state, playerId){
@@ -912,17 +948,13 @@ function parseEffectsFromText(raw) {
   // Draw N
   { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
 
-  // Gain N Æ / Aether (but NOT "... this turn")
-  { 
-    const m = t.match(/\b(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)\b(?!\s*this\s+turn)/i);
-    if (m) fx.push({ t: "aether", n: +m[1] });
-  }
+  // Gain N Æ (normal) — exclude "... this turn" separately below
+  { const m = t.match(/\b(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)\b(?!\s*this\s+turn)/i);
+    if (m) fx.push({ t: "aether", n: +m[1] }); }
 
-  // "Gain N Æ this turn" → treat as normal gain for now
-  {
-    const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn\b/i);
-    if (m) fx.push({ t: "aether", n: +m[1] });
-  }
+  // "Gain N Æ this turn" — treat as normal gain for now
+  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn\b/i);
+    if (m) fx.push({ t: "aether", n: +m[1] }); }
 
   // Channel N
   { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
@@ -934,12 +966,19 @@ function parseEffectsFromText(raw) {
   { const m = t.match(/\bheal\s+(\d+)/); if (m) fx.push({t:"heal", n:+m[1]}); }
   { const m = t.match(/\blose\s+(\d+)\s+vitality/); if (m) fx.push({t:"selfLose", n:+m[1]}); }
 
-  // Advance another spell / target spell advances 1
-  if (/\badvance\s+another\s+spell\b/.test(t)) fx.push({t:"advanceOther", n:1});
-  if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) fx.push({t:"advanceTarget", n:1});
+  // Advance another spell / target spell — detect "free"
+  if (/\badvance\s+another\s+spell\b/.test(t)) {
+    const isFree = /\bfree\b/.test(t);
+    fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
+  }
+  if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) {
+    const isFree = /\bfree\b/.test(t);
+    fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
+  }
 
   return fx;
 }
+
 
 function applyGlyphPassives(state, side, trigger){
   const slot = state.players?.[side]?.slots?.[3];
@@ -1031,12 +1070,24 @@ function applyParsedEffects(state, side, card, opts = {}) {
         if (e.n > 0) state = dealDamage(state, side, e.n, { source: "self", cardId: card.id });
         break;
 
-      case "advanceOther": {
+            case "advanceOther": {
         const slots = state.players[side]?.slots || [];
         for (let i=0;i<3;i++){
-          const s = slots[i], c = s?.card;
-          if (s?.hasCard && c?.type === "SPELL" && c.id !== card.id && (c.progress|0) < (c.pip|0)) {
-            state = advanceSpell(state, side, i, 1);
+          const s = slots[i], c2 = s?.card;
+          if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
+            state = advanceSpell(state, side, i, 1, /*free=*/false);
+            break;
+          }
+        }
+        break;
+      }
+
+      case "advanceOtherFree": {
+        const slots = state.players[side]?.slots || [];
+        for (let i=0;i<3;i++){
+          const s = slots[i], c2 = s?.card;
+          if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
+            state = advanceSpell(state, side, i, 1, /*free=*/true);
             break;
           }
         }
@@ -1044,10 +1095,31 @@ function applyParsedEffects(state, side, card, opts = {}) {
       }
 
       case "advanceTarget": {
-        const idx = (opts.targetSlotIndex ?? pickOwnAdvancableSlot());
-        if (idx >= 0) state = advanceSpell(state, side, idx, 1);
+        const idx = (opts.targetSlotIndex ?? (() => {
+          const slots = state.players[side]?.slots || [];
+          for (let i=0;i<3;i++){
+            const s = slots[i], c2 = s?.card;
+            if (s?.hasCard && c2?.type === "SPELL" && (c2.progress|0) < (c2.pip|0)) return i;
+          }
+          return -1;
+        })());
+        if (idx >= 0) state = advanceSpell(state, side, idx, 1, /*free=*/false);
         break;
       }
+
+      case "advanceTargetFree": {
+        const idx = (opts.targetSlotIndex ?? (() => {
+          const slots = state.players[side]?.slots || [];
+          for (let i=0;i<3;i++){
+            const s = slots[i], c2 = s?.card;
+            if (s?.hasCard && c2?.type === "SPELL" && (c2.progress|0) < (c2.pip|0)) return i;
+          }
+          return -1;
+        })());
+        if (idx >= 0) state = advanceSpell(state, side, idx, 1, /*free=*/true);
+        break;
+      }
+
 
       default: break;
     }
