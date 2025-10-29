@@ -292,14 +292,7 @@ function initialFillFlow(state) {
 
 
   
-  // Pass the turn
-  state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
-  if (state.activePlayer === "player") state.turn += 1;
-
-  // Start the next turn (shift + reveal)
-  startTurn(state);
-  return state;
-}
+  
 
 /////////////////////////////
 // Player actions + resolve
