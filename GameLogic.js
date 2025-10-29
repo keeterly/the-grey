@@ -315,27 +315,7 @@ function revealOneIntoFlow(s) {
     });
   }
 
-  // Shift right
-  for (let i = 4; i > 0; i--) s.flow[i] = s.flow[i - 1] || null;
-
-  // Reveal a new card into index 0 from the flow draw pile
-  const pool = s.flowDraw || [];
-  const newCard = pool.length ? { ...pool.shift() } : null;
-  s.flow[0] = newCard;
-
-  if (newCard) {
-    s._events.push({
-      t: 'reveal',
-      source: 'flow',
-      side: s.activePlayer,
-      flowIndex: 0,
-      cardId: newCard.id,
-      cardType: newCard.type,
-      cardData: { ...newCard }
-    });
-  }
-  return s;
-}
+ 
 
 export function revealIntoFlow(s, count = 1) {
   for (let i = 0; i < count; i++) s = revealOneIntoFlow(s);
