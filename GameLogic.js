@@ -166,16 +166,86 @@ export function serializePublic(state) {
   return s;
 }
 
+
+// --- Aetherflow: compact gaps, shift right by one, reveal one ---
+function slideFlowRightOnceAndReveal(state) {
+  state.flow ||= [null, null, null, null, null];
+  state._events ||= [];
+
+  const before = (state.flow || []).map(c => c ? { id: c.id } : null);
+
+  // Did we have a card in the rightmost slot BEFORE the move?
+  const hadRightmost = !!before[4];
+
+  // Survivors in order (remove holes)
+  const survivors = (state.flow || []).filter(Boolean);
+
+  // Build the next rail: reserve index 0 for the new reveal,
+  // place survivors starting at index 1 (keeping order).
+  const next = [null, null, null, null, null];
+  for (let i = 0; i < Math.min(4, survivors.length); i++) {
+    next[i + 1] = survivors[i];
+  }
+
+  // Reveal a single new card into index 0
+  const pool = state.flowDraw || [];
+  const newCard = pool.length ? { ...pool.shift() } : null;
+  next[0] = newCard;
+
+  // Commit
+  state.flow = next;
+
+  // Emit falloff if there *was* a card in index 4 before the shift
+  if (hadRightmost) {
+    // Find which card fell off: it’s the rightmost in the old rail
+    // that wasn’t bought, i.e., before[4]’s id (if any)
+    const fell = before[4];
+    if (fell) {
+      state._events.push({
+        t: 'resolved',
+        source: 'flow-falloff',
+        side: state.activePlayer,
+        cardData: { id: fell.id }   // enough for UI to animate/log
+      });
+    }
+  }
+
+  // Slide description for animation
+  const after = (state.flow || []).map(c => c ? { id: c.id } : null);
+  state._events.push({
+    t: 'flow_slide',
+    source: 'flow',
+    side: state.activePlayer,
+    before,
+    after
+  });
+
+  // Spotlight the newly revealed card
+  if (newCard) {
+    state._events.push({
+      t: 'reveal',
+      source: 'flow',
+      side: state.activePlayer,
+      flowIndex: 0,
+      cardId: newCard.id,
+      cardType: newCard.type,
+      cardData: { ...newCard }
+    });
+  }
+
+  return state;
+}
+
+
+
 /////////////////////////////
 // Turn / Flow mechanics
 /////////////////////////////
 
 export function startTurn(state) {
-  if (!state) return state;
-  // Move Aetherflow conveyor by one and reveal a new card
-  state = revealIntoFlow(state, 1);
-  return state;
+  return state; // no flow movement here anymore
 }
+
 
 export function endTurn(state) {
   if (!state?.flow) return state;
@@ -198,14 +268,20 @@ export function endTurn(state) {
     }
   }
 
+  // ✅ On AI end turn ONLY: compact gaps, shift right once, reveal one, and fall off if needed.
+  if (endingPlayer === "ai") {
+    state = slideFlowRightOnceAndReveal(state);
+  }
+
   // Pass the turn
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
-  // Start the next turn (shift + reveal)
+  // Start next turn (no flow movement here)
   startTurn(state);
   return state;
 }
+
 
 /////////////////////////////
 // Player actions + resolve
