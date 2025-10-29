@@ -44,6 +44,24 @@ function uid() {
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
+
+
+// Split a total cost across p pips, biasing later pips slightly.
+// Example: cost=5, pip=2 -> [2,3]; cost=3, pip=3 -> [1,1,1]
+function computePipAdvanceCostsForCard(card) {
+  const p = Math.max(1, card.pip | 0);
+  const total = Math.max(0, card.cost | 0);
+  const base = Math.floor(total / p);
+  const extra = total % p; // distribute +1 to the rightmost `extra` pips
+  const arr = Array.from({ length: p }, (_, i) =>
+    base + (i >= (p - extra) ? 1 : 0)
+  );
+  return arr;
+}
+
+
+
+
 /////////////////////////////
 // Card Pools (Data)
 /////////////////////////////
@@ -83,22 +101,26 @@ function expandList(list) {
   const out = [];
   list.forEach(c => {
     for (let i = 0; i < (c.qty || 1); i++) {
-      out.push({
+      const proto = {
         id: uid(),
         name: c.name,
         type: c.type,
         cost: c.cost || 0,
-        pip: c.pip || 0,
+        pip:  c.pip  || 0,
         text: c.text || "",
         aetherValue: c.aetherValue || 0,
         role: c.role || "",
         price: c.cost || 0,
         progress: 0,
-      });
+      };
+      // ← NEW: per-pip costs live on the card
+      proto.pipCosts = computePipAdvanceCostsForCard(proto);
+      out.push(proto);
     }
   });
   return out;
 }
+
 
 /////////////////////////////
 // State init / serialization
@@ -596,6 +618,36 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1){
   }
   return state;
 }
+
+
+export function payAndAdvanceOne(state, side, slotIndex) {
+  const P = state.players?.[side];
+  const slot = P?.slots?.[slotIndex];
+  const c = slot?.card;
+  if (!P || !slot?.hasCard || !c || c.type !== "SPELL") return state;
+
+  const cur = c.progress | 0;
+  const need = (c.pip | 0) - cur;
+  if (need <= 0) return state; // already complete
+
+  // Cost for the *next* pip:
+  const nextCost = (c.pipCosts?.[cur] ?? 1) | 0;
+
+  if ((P.aether | 0) < nextCost) {
+    // Not enough Æ — you can throw or just no-op
+    throw new Error("Not enough Æ to advance this pip");
+  }
+
+  // Pay
+  P.aether = (P.aether | 0) - nextCost;
+  pushEvt(state, { t: "aether", side, amount: -nextCost, by: c.id, reason: "advance" });
+
+  // Advance exactly 1 step (still uses your existing resolve logic)
+  state = advanceSpell(state, side, slotIndex, 1);
+  return state;
+}
+
+
 
 // Resolve Instant
 export function resolveInstantFromHand(state, playerId, cardId){
