@@ -27,6 +27,7 @@ import {
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
   dealDamage,
+  discardFromHand,
 
 } from "./GameLogic.js";
 
@@ -740,8 +741,12 @@ let pipHandlersBound = false;
 function canAdvanceSlot(pub, slotIndex) {
   const s = pub?.players?.player?.slots?.[slotIndex];
   const c = s?.card;
-  return !!(s?.hasCard && c?.type === "SPELL" && (c.progress|0) < (c.pip|0));
+  if (!(s?.hasCard && c?.type === "SPELL")) return false;
+  if ((c.progress|0) >= (c.pip|0)) return false;
+  if (s.advancedThisTurn) return false; // ← NEW: one advance per turn
+  return true;
 }
+
 
 function refreshPipAdvanceClasses() {
   const pub = serializePublic(state) || {};
