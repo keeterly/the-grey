@@ -425,19 +425,6 @@ export function endTurn(state) {
 }
 
 
-  // 👉 Flow slides right and reveals a new card ONLY when AI ends its turn
-  if (endingPlayer === 'ai') {
-    state = compactSlideRightAndReveal(state);
-  }
-
-  // pass turn
-  state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
-  if (state.activePlayer === "player") state.turn += 1;
-
-  // no auto-move at start of turn anymore
-  startTurn(state);
-  return state;
-}
 
 
 
