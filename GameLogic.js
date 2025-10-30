@@ -5,7 +5,7 @@
 // Constants & Helpers
 /////////////////////////////
 
-export const FLOW_COSTS = [4, 3, 3, 2, 2];
+export const FLOW_COSTS = [4, 3, 2, 2, 2];
 export const STARTING_HAND = 5;
 export const STARTING_VITALITY = 5;
 
