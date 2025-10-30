@@ -27,7 +27,6 @@ import {
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
   dealDamage,
-  discardFromHand,
 
 } from "./GameLogic.js";
 
@@ -741,12 +740,8 @@ let pipHandlersBound = false;
 function canAdvanceSlot(pub, slotIndex) {
   const s = pub?.players?.player?.slots?.[slotIndex];
   const c = s?.card;
-  if (!(s?.hasCard && c?.type === "SPELL")) return false;
-  if ((c.progress|0) >= (c.pip|0)) return false;
-  if (s.advancedThisTurn) return false; // ← NEW: one advance per turn
-  return true;
+  return !!(s?.hasCard && c?.type === "SPELL" && (c.progress|0) < (c.pip|0));
 }
-
 
 function refreshPipAdvanceClasses() {
   const pub = serializePublic(state) || {};
@@ -781,46 +776,6 @@ function ensurePipHandlers() {
   } catch (_) {}
 }, { passive: true });
 
-}
-
-
-/* ---------- Flow buy (delegated, one-time) ---------- */
-let flowBuyBound = false;
-function ensureFlowBuyHandler() {
-  if (flowBuyBound) return;
-  flowBuyBound = true;
-
-  document.getElementById('flow-row')?.addEventListener('click', async (ev) => {
-    // Find the containing LI so we can trust its index (not a stale dataset on the card)
-    const li = ev.target.closest('.flow-card');
-    if (!li || !flowRowEl.contains(li)) return;
-
-    const flowIndex = Array.prototype.indexOf.call(flowRowEl.children, li);
-    if (flowIndex < 0 || flowIndex > 4) return;
-
-    // Read the current snapshot to see if there’s a card there
-    const pub = serializePublic(state) || {};
-    const c = (pub.flow || [])[flowIndex];
-    if (!c) return; // empty bay
-
-    // Double-guard: disabled? bail
-    const cardNode = li.querySelector('.card.market');
-    if (cardNode?.getAttribute('aria-disabled') === 'true') return;
-
-    try {
-      // Optional: cinematic first
-      Emit?.('aetherflow:bought', { node: cardNode });
-
-      // Engine buy
-      state = buyFromFlow(state, 'player', flowIndex);
-
-      // Re-render
-      await render();
-    } catch (err) {
-      // UI feedback if you want: insufficient Æ, etc.
-      console.warn('Flow buy failed', err);
-    }
-  }, { passive: true });
 }
 
 
@@ -1768,56 +1723,124 @@ function ensureFlowScaffold(){
   return { wrap, board, row };
 }
 
-// ---------- Flow row (5 columns) ----------
-function renderFlow(nextFlow = []) {
-  // 1) Rebuild the list fresh
-  flowRowEl.replaceChildren();
+async function renderFlow(flowArray){
+  if (!flowRowEl) return;
+  const scaffold = ensureFlowScaffold(); if (!scaffold) return;
+  const { wrap, board, row } = scaffold;
 
-  // 2) Paint exactly 5 cells, left→right
-  nextFlow.slice(0, 5).forEach((c, i) => {
+  const nextIds = (flowArray || []).slice(0, 5).map(c => c ? c.id : null);
+  row.replaceChildren();
+
+  const playerAe = getTotal("player");
+
+  (flowArray || []).slice(0, 5).forEach((c, idx) => {
     const li = document.createElement("li");
     li.className = "flow-card";
-    li.dataset.flowIndex = String(i); // <-- keep the index on the LI
 
-    // Inner market card node (clean slate each render)
     const card = document.createElement("article");
     card.className = "card market";
-    card.tabIndex = 0;
+    card.dataset.flowIndex = String(idx);
+    card.innerHTML = cardHTML(c);
 
-    // STEP C: clear ANY stale inline state if this DOM node survives re-renders
-    // (defensive: if your renderer ever reuses nodes)
-    card.removeAttribute("style");
-    card.removeAttribute("aria-disabled");
-    card.classList.remove("flow-fall", "grey-hide-during-flight");
+   const basePrice = FLOW_PRICE_BY_POS[idx] || 0;
+    const effPrice  = effectiveFlowPrice('player', basePrice);
+    const canAfford = !!c && playerAe >= effPrice;
 
-    // If no card (hole), paint an empty bay
-    if (!c) {
-      card.setAttribute("aria-disabled", "true");
-      card.innerHTML = `
-        <div class="title">—</div>
-        <div class="type" data-k="">(empty)</div>
-      `;
-      li.appendChild(card);
-      flowRowEl.appendChild(li);
-      return;
+    if (!canAfford) card.setAttribute("aria-disabled", "true");
+    if (c) attachPeekAndZoom(card, c);
+
+    // buyable pulse
+    if (c && canAfford) card.classList.add("buyable");
+
+    // click to buy
+    if (c && canAfford) {
+      card.addEventListener("click", async () => {
+        // prevent double buy
+        if (card.dataset.buying === "1") return;
+        card.dataset.buying = "1";
+        card.setAttribute("aria-disabled", "true");
+
+        const boughtId = c?.id || null;
+
+        // visually disable the cell immediately
+        li.style.pointerEvents = "none";
+        li.style.opacity = "0.25";
+
+        const basePrice = FLOW_PRICE_BY_POS[idx] || 0;
+        const price = effectiveFlowPrice('player', basePrice);
+        const useTemp = Math.min(price, (state.players.player.tempAether | 0));
+        // virtual top-up (logic spends perm first)
+        adjustAe("player", useTemp);
+
+        try {
+          // cinematic
+          Emit("aetherflow:bought", { node: card });
+
+          // commit purchase
+          state = buyFromFlow(state, "player", idx);
+
+          // burn the temp that actually contributed
+          if (useTemp) addTemp("player", -useTemp);
+
+          Emit(Events.BUY, { side: "player", idx, price });
+
+          // remember for shimmer in hand/slots/spotlight
+          if (boughtId) FLOW_BOUGHT_IDS.add(boughtId);
+
+
+// Morr II: on the FIRST Flow buy each turn, Channel 1 and mark discount used
+          ensureTranceFlags();
+          if (sideWeaverKey('player') === 'morr' && tranceLevel('player') >= 2) {
+           const f = state.players.player._trFlags;
+            if (!f.morrL2DiscountUsed) {
+             addTemp('player', 1);
+              f.morrL2DiscountUsed = true;
+              Emit(Events.AETHER_GAIN, { side: 'player', amount:1, source:'Morr L2 (Channel 1)' });
+            }
+          }
+
+          
+        } catch (e) {
+          // rollback
+          adjustAe("player", -useTemp);
+          li.style.pointerEvents = "";
+          li.style.opacity = "";
+          card.dataset.buying = "";
+          card.removeAttribute("aria-disabled");
+        }
+
+        await render();
+
+        // ===== STEP C: clear any stale inline styles/flags if this node still exists
+        if (document.body.contains(li)) {
+          li.style.pointerEvents = "";
+          li.style.opacity = "";
+          card.dataset.buying = "";
+          card.removeAttribute("aria-disabled");
+        }
+      });
     }
 
-    // Real card
-    card.dataset.cardId = c.id;
-    card.dataset.type = c.type;
-    card.innerHTML = `
-      <div class="title">${c.name}</div>
-      <div class="type" data-k="${c.type}">${c.type}</div>
-
-      <!-- price chip under card; we’ll read from array position -->
-      <div class="price-label" aria-hidden="true">Æ ${String(c.price ?? "")}</div>
-    `;
+    // price label under each cell
+    const priceLbl = document.createElement("div");
+    priceLbl.className = "price-label";
+    priceLbl.innerHTML = `
+      <span class="flow-price-num" aria-label="${effPrice} Aether to buy">
+        <span class="n">${effPrice}</span>
+      </span>`;
 
     li.appendChild(card);
-    flowRowEl.appendChild(li);
+    li.appendChild(priceLbl);
+    row.appendChild(li);
+  });
+
+  prevFlowIds = nextIds;
+
+  // update measured width for any dependent styles
+  queueMicrotask(() => {
+    wrap.style.setProperty("--flow-width", `${Math.round(board.getBoundingClientRect().width)}px`);
   });
 }
-
 
 
 
@@ -3425,7 +3448,7 @@ if (typeof window.__wirePileModals === 'function') {
   renderAiMini(s);
 
   ensureGlyphPlaceholderStyles();
-  ensureCrescentChipStyles();
+ensureCrescentChipStyles();
   
   await renderFlow(s.flow);
   updateWeaverBackdrop();
@@ -3711,7 +3734,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTranceStyles();
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
-  ensureFlowBuyHandler();
+
   
 
 // 🔒 Gate check
