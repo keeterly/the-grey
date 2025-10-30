@@ -247,26 +247,24 @@ export function initState(seed) {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deck: playerDeck, hand: handP, discard: [],
-                slots: [
-          { hasCard:false, card:null, advancedThisTurn:false },
-          { hasCard:false, card:null, advancedThisTurn:false },
-          { hasCard:false, card:null, advancedThisTurn:false },
-          { isGlyph:true, hasCard:false, card:null }, // glyph slot
+        slots: [
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { isGlyph:true, hasCard:false, card:null },
         ],
-
         weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria_Portrait.jpg" },
       },
       ai: {
         vitality: STARTING_VITALITY,
         aether: 0, channeled: 0,
         deck: aiDeck, hand: handAI, discard: [],
-                slots: [
-          { hasCard:false, card:null, advancedThisTurn:false },
-          { hasCard:false, card:null, advancedThisTurn:false },
-          { hasCard:false, card:null, advancedThisTurn:false },
-          { isGlyph:true, hasCard:false, card:null }, // glyph slot
+        slots: [
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { hasCard:false, card:null },
+          { isGlyph:true, hasCard:false, card:null },
         ],
-
         weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr_Portrait.jpg" },
       }
     }
@@ -385,45 +383,31 @@ function slideFlowRightOnceAndReveal(state) {
 /////////////////////////////
 
 export function startTurn(state) {
-  if (!state) return state;
-  const side = state.activePlayer;
-  const P = state.players?.[side];
-  if (!P) return state;
-
-  // 1) Reset per-slot "advanced once" gate for this side
-  for (let i = 0; i < 3; i++) {
-    if (P.slots[i]) P.slots[i].advancedThisTurn = false;
-  }
-
-  // 2) Draw up to STARTING_HAND (5)
-  const need = Math.max(0, (STARTING_HAND | 0) - (P.hand?.length || 0));
-  if (need > 0) state = drawN(state, side, need);
-
-  // (No Aetherflow movement here; happens only when AI ends its turn)
-  return state;
+  return state; // no flow movement here anymore
 }
-
 
 
 export function endTurn(state) {
   if (!state?.flow) return state;
 
   const endingPlayer = state.activePlayer;
+  const P = state.players[endingPlayer];
 
-  // Aetherflow slides right + reveal only when AI ends its turn
-  if (endingPlayer === 'ai') {
-    state = compactSlideRightAndReveal(state);
+  // discard remaining cards
+  if (P?.hand?.length){
+    while (P.hand.length) {
+      const c = P.hand.shift();
+      P.discard.push(c);
+      pushEvt(state, {
+        t: "resolved",
+        source: "hand-discard",
+        side: endingPlayer,
+        cardId: c.id,
+        cardType: c.type,
+        cardData: { ...c }
+      });
+    }
   }
-
-  // Pass turn
-  state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
-  if (state.activePlayer === "player") state.turn += 1;
-
-  // Begin next turn (draw up to 5 + reset advance gates)
-  startTurn(state);
-  return state;
-}
-
 
   // 👉 Flow slides right and reveals a new card ONLY when AI ends its turn
   if (endingPlayer === 'ai') {
@@ -472,27 +456,6 @@ export function discardForAether(state, playerId, cardId){
   });
   return state;
 }
-
-
-export function discardFromHand(state, playerId, cardId){
-  const P = state.players[playerId];
-  if (!P) throw new Error("bad player");
-  const idx = P.hand.findIndex(c => c.id === cardId);
-  if (idx < 0) throw new Error("card not in hand");
-  const card = P.hand.splice(idx, 1)[0];
-  P.discard.push(card);
-
-  pushEvt(state, {
-    t: "resolved",
-    source: "discard",
-    side: playerId,
-    cardId: card.id,
-    cardType: card.type,
-    cardData: { ...card }
-  });
-  return state;
-}
-
 
 export function dealDamage(state, targetSide, amount = 1, meta = {}) {
   const P = state.players?.[targetSide];
@@ -738,48 +701,31 @@ function compactSlideRightAndReveal(state) {
 }
 
 
+// ⬇️ REPLACE your existing advanceSpell with this
 export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false){
   const P = state.players[playerId];
   const slot = P?.slots?.[slotIndex];
   const c = slot?.card;
-  if (!slot?.hasCard || !c || c.type !== "SPELL") return state;
+  if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
 
-  // Gate: once per spell per turn
-  if (slot.advancedThisTurn) {
-    // already advanced this turn → no-op
+  const stepCost = Number(c.stepCost || c.cost || 0);
+  const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
+
+  if ((P.aether|0) < totalCost) {
+    // Not enough Æ to advance — do nothing
     return state;
   }
 
-  // Only advance ONE pip per click (UI will call repeatedly if needed)
-  const cur = c.progress | 0;
-  const need = (c.pip | 0) - cur;
-  if (need <= 0) return state;
-
-  // Next pip’s cost: take from pipCosts[progress] if present, else fall back
-  const nextCost = free ? 0 : ((c.pipCosts?.[cur] ?? (c.stepCost ?? c.cost ?? 0)) | 0);
-
-  if ((P.aether | 0) < nextCost) {
-    // Not enough Æ to advance the next pip
-    return state;
+  if (totalCost > 0) {
+    P.aether -= totalCost;
+    pushEvt(state, { t:"aether", side:playerId, amount:-totalCost, by:c.id });
   }
 
-  // Pay for exactly one pip
-  if (nextCost > 0) {
-    P.aether -= nextCost;
-    pushEvt(state, { t:"aether", side:playerId, amount:-nextCost, by:c.id });
-  }
-
-  // Advance exactly one step
-  c.progress = cur + 1;
-
-  // Mark gate consumed
-  slot.advancedThisTurn = true;
-
-  // Resolve when complete
-  if ((c.progress | 0) >= (c.pip | 0)) {
+  c.progress = Math.max(0, (c.progress|0) + (steps|0));
+  if ((c.progress|0) >= (c.pip|0)) {
     state = applyParsedEffects(state, playerId, c);
 
-    // to discard
+    // move to discard & emit
     slot.card = null;
     slot.hasCard = false;
     c.progress = 0;
@@ -798,7 +744,6 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false
   }
   return state;
 }
-
 
 
 export function payAndAdvanceOne(state, side, slotIndex) {
