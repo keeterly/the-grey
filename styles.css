@@ -1280,6 +1280,23 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
+
+/* pip number inside the circle */
+.card .pip { position: relative; }
+.card .pip .pip-v {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 800;                       /* bold */
+  font-size: calc(1.05rem * var(--card-scale)); /* larger; tune as you like */
+  line-height: 1;
+  pointer-events: none;
+}
+
+
+
+
 /* Small-height screens: scale a touch */
 @media (max-height: 740px){
   :root{
