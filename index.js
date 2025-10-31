@@ -826,29 +826,68 @@ function refreshPipAdvanceClasses() {
     });
 }
 
-function ensurePipHandlers() {
-  if (pipHandlersBound) return;
-  pipHandlersBound = true;
 
-  // Delegate from the player slots row so re-renders are safe
-  document.getElementById('player-slots')?.addEventListener('click', async (ev) => {
-  const track = ev.target.closest('.pip-track');
-  if (!track) return;
-
-  const slotEl = track.closest('.slot.spell');
-  const i = Number(slotEl?.dataset?.slotIndex ?? -1);
-  const pub = serializePublic(state) || {};
-
-  if (pub.activePlayer !== 'player') return;
-  if (!Number.isFinite(i) || i < 0 || i > 2) return;
-  if (!canAdvanceSlot(pub, i)) return;
-
-  try {
-    advanceSpellAt("player", i);   // ← use our wrapper
-  } catch (_) {}
-}, { passive: true });
-
+// === Pip track HTML builder (put above ensurePipHandlers) ===
+function buildPipTrackHTML({ pip, progress, stepCost }) {
+  // pip = total steps (1 or 2), progress = filled steps (0..pip), stepCost = number shown in each circle
+  const circles = [];
+  for (let i = 0; i < pip; i++) {
+    const filled = i < progress ? 'filled' : '';
+    circles.push(
+      `<span class="pip ${filled}"><span class="v">${stepCost}</span></span>`
+    );
+  }
+  return `<div class="pip-track">${circles.join('')}</div>`;
 }
+
+
+
+function ensurePipHandlers() {
+  const row = document.getElementById('player-slots'); // delegate from the row that contains the spell slots
+  if (!row) return;
+
+  // Avoid duplicate listeners
+  if (row._pipBound) return;
+  row._pipBound = true;
+
+  row.addEventListener('click', async (ev) => {
+    const track = ev.target.closest('.pip-track');
+    if (!track) return;
+
+    const side = track.dataset.side;           // "player" or "ai"
+    const slotIndex = Number(track.dataset.slotIndex || -1);
+    const stepCost  = Number(track.dataset.cost || 1);
+
+    // Only the active player's tracks should be clickable
+    if (state.activePlayer !== side) return;
+
+    // Strict rule check: once/turn & aether ≥ stepCost & slot is a spell with room to advance
+    if (!canAdvanceSlot(side, slotIndex, stepCost)) {
+      // Optional: give a small tooltip/toast
+      toast("Can't advance: need Æ or already advanced this turn.");
+      return;
+    }
+
+    try {
+      // Spend aether & advance exactly 1 step (GameLogic enforces resolve on completion)
+      state = advanceSpellAt(state, side, slotIndex, { pay: stepCost });
+
+      // Mark “advanced this turn” on the slot so the UI knows
+      const S = state.players?.[side]?.slots?.[slotIndex];
+      if (S) S.advancedThisTurn = true;
+
+      // Re-evaluate the track’s availability immediately
+      const stillCan = canAdvanceSlot(side, slotIndex, stepCost);
+      track.classList.toggle('can-advance', !!stillCan);
+
+      await render();
+    } catch (e) {
+      console.error(e);
+      toast('Could not advance.');
+    }
+  });
+}
+
 
 
 /* ---------- state ---------- */
