@@ -457,11 +457,55 @@ function resetAdvanceFlagsFor(side) {
   const slots = state.players?.[side]?.slots || [];
   for (let i = 0; i < 3; i++) {
     if (slots[i]) {
-      // keep the flag on the live state object the UI reads from
       slots[i].advancedThisTurn = false;
     }
   }
 }
+
+async function doStartTurn(){
+  state = startTurn(state);
+
+  const side = state.activePlayer;
+
+  // Clear per-turn flags for this side only
+  resetTranceFlagsFor(side);
+  resetAdvanceFlagsFor(side);     // ← NEW: per-slot once-per-turn flag reset
+
+  if (!shuffledOnce){
+    shuffleInPlace(state.players.player.deck || []);
+    shuffleInPlace(state.players.ai.deck || []);
+    shuffledOnce = true;
+  }
+
+  // clear temp aether at start
+  state.players.player.tempAether = 0;
+  state.players.ai.tempAether = 0;
+
+  // Draw up to 5 + Trance L1 bonus
+  const tranceL = (state.players[side].tranceLevel|0);
+  const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
+  const bonus = tranceL >= 1 ? 1 : 0;
+  const need = baseNeed + bonus;
+
+  const active = side;
+  reshuffleFromDiscard(active);
+  if (need){
+    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
+    await withDrawStep(async () => {
+      state = drawN(state, active, need);
+    });
+  }
+
+  Emit(Events.TURN_START, {side});
+  await render();
+}
+
+async function doEndTurn() {
+  Emit(Events.TURN_END, { side: state.activePlayer });
+  state = endTurn(state);
+  await doStartTurn();   // loops cleanly into next side’s Start Turn
+}
+
 
 
 /* Central hook for Kareth (“after you spend Æ …”) */
@@ -3637,47 +3681,6 @@ function makeAiApi() {
   };
 }
 
-
-
-/* ---------- turn loop ---------- */
-async function doStartTurn(){
-  state = startTurn(state);
-
-  // Whose turn is starting?
-  const side = state.activePlayer;
-
-  // Clear per-turn flags only for the active side
-  resetTranceFlagsFor(side);
-  resetAdvanceFlagsFor(side);         // <-- NEW (part 2 of step 1)
-
-  if (!shuffledOnce){
-    shuffleInPlace(state.players.player.deck || []);
-    shuffleInPlace(state.players.ai.deck || []);
-    shuffledOnce = true;
-  }
-
-  // clear temp aether at start (both sides is fine; keep as-is if you prefer)
-  state.players.player.tempAether = 0;
-  state.players.ai.tempAether = 0;
-
-  // Draw up to 5 + Trance L1 bonus
-  const tranceL = (state.players[side].tranceLevel|0);
-  const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
-  const bonus = tranceL >= 1 ? 1 : 0;
-  const need = baseNeed + bonus;
-
-  const active = side;
-  reshuffleFromDiscard(active);
-  if (need){
-    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
-    await withDrawStep(async () => {
-      state = drawN(state, active, need);
-    });
-  }
-
-  Emit(Events.TURN_START, {side});
-  await render();
-}
 
 
 
