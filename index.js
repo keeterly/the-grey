@@ -452,6 +452,18 @@ function resetTranceFlagsFor(side){
   f.spentThisTurn = 0;
 }
 
+// Allow each spell to advance once per turn (cleared at the *start* of that side's turn)
+function resetAdvanceFlagsFor(side) {
+  const slots = state.players?.[side]?.slots || [];
+  for (let i = 0; i < 3; i++) {
+    if (slots[i]) {
+      // keep the flag on the live state object the UI reads from
+      slots[i].advancedThisTurn = false;
+    }
+  }
+}
+
+
 /* Central hook for Kareth (“after you spend Æ …”) */
 function karethAfterSpend(side, spentNow){
   if (!spentNow) return;
@@ -3630,12 +3642,13 @@ function makeAiApi() {
 /* ---------- turn loop ---------- */
 async function doStartTurn(){
   state = startTurn(state);
-  
 
-  
-  resetTranceFlagsFor("player");
-  resetTranceFlagsFor("ai");
+  // Whose turn is starting?
+  const side = state.activePlayer;
 
+  // Clear per-turn flags only for the active side
+  resetTranceFlagsFor(side);
+  resetAdvanceFlagsFor(side);         // <-- NEW (part 2 of step 1)
 
   if (!shuffledOnce){
     shuffleInPlace(state.players.player.deck || []);
@@ -3643,12 +3656,11 @@ async function doStartTurn(){
     shuffledOnce = true;
   }
 
-  // clear temp aether at start
+  // clear temp aether at start (both sides is fine; keep as-is if you prefer)
   state.players.player.tempAether = 0;
   state.players.ai.tempAether = 0;
 
-  // Trance L1: +1 opening draw
-  const side = state.activePlayer;
+  // Draw up to 5 + Trance L1 bonus
   const tranceL = (state.players[side].tranceLevel|0);
   const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
   const bonus = tranceL >= 1 ? 1 : 0;
@@ -3657,7 +3669,7 @@ async function doStartTurn(){
   const active = side;
   reshuffleFromDiscard(active);
   if (need){
-       if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
+    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
     await withDrawStep(async () => {
       state = drawN(state, active, need);
     });
@@ -3667,12 +3679,6 @@ async function doStartTurn(){
   await render();
 }
 
-async function doEndTurn() {
-  // (optional) a small visual beat for the player's discard you already do
-  Emit(Events.TURN_END, { side: state.activePlayer });
-  state = endTurn(state);
-  await doStartTurn();   // This will emit TURN_START and the sequencer above takes it from there.
-}
 
 
 /* ---------- events ---------- */
