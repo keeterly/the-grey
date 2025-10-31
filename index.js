@@ -740,8 +740,24 @@ let pipHandlersBound = false;
 function canAdvanceSlot(pub, slotIndex) {
   const s = pub?.players?.player?.slots?.[slotIndex];
   const c = s?.card;
-  return !!(s?.hasCard && c?.type === "SPELL" && (c.progress|0) < (c.pip|0));
+  if (!s?.hasCard || !c || c.type !== "SPELL") return false;
+
+  // respect once-per-spell-per-turn flag coming from logic
+  if (s.advancedThisTurn) return false;
+
+  const pipTotal = (c.pip|0);
+  const prog     = (c.progress|0);
+  if (prog >= pipTotal) return false;
+
+  // flexible per-step cost: prefer card.advanceCost or card.stepCost; fallback to 1
+  const stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
+                 : Number.isFinite(c.stepCost)     ? c.stepCost
+                 : 1;
+
+  // must be able to pay (perm + temp)
+  return (getTotal("player") >= stepCost);
 }
+
 
 function refreshPipAdvanceClasses() {
   const pub = serializePublic(state) || {};
@@ -1022,11 +1038,19 @@ function cardShellHTML(c){
   const pipTotal = Number.isFinite(c.pip) ? Math.max(0, c.pip|0) : 0;
   const prog = Math.min(Math.max(0, c.progress|0), pipTotal);
 
-  const pipDots = `<div class="pip-track">${
-    pipTotal>0
-      ? Array.from({length:pipTotal}).map((_,i)=>`<span class="pip${i<prog?' filled':''}"></span>`).join("")
-      : ""
-  }</div>`;
+ const stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
+               : Number.isFinite(c.stepCost)     ? c.stepCost
+               : 1;
+
+const pipDots = `<div class="pip-track">${
+  pipTotal > 0
+    ? Array.from({length:pipTotal}).map((_,i)=>`
+        <span class="pip${i<prog?' filled':''}">
+          <span class="n">${stepCost}</span>
+        </span>`).join("")
+    : ""
+}</div>`;
+
 
   const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
 
@@ -1390,36 +1414,53 @@ function advanceSpellAt(side, slotIndex){
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return;
 
+  // once-per-spell-per-turn guard (UI level; logic also enforces)
+  if (slot.advancedThisTurn) {
+    showToast("This spell has already advanced this turn.");
+    return;
+  }
+
+  // figure the per-step cost
+  let stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
+               : Number.isFinite(c.stepCost)     ? c.stepCost
+               : 1;
+
+  // Aria L2 discount applies to advance (first time each turn, min 0)
   ensureTranceFlags();
   const key   = sideWeaverKey(side);
   const lvl   = tranceLevel(side);
   const flags = state.players[side]._trFlags;
 
-  // === cost (Aria L2: first Advance each turn costs 1 less; min 0) ===
-  let advanceCost = 1;
   if (key === "aria" && lvl >= 2 && !flags.ariaL2DiscountUsed) {
-    advanceCost = Math.max(0, advanceCost - 1);
+    stepCost = Math.max(0, stepCost - 1);
     flags.ariaL2DiscountUsed = true;
   }
 
-  if (getTotal(side) < advanceCost){ showToast("Not enough Æther."); return; }
-  if (advanceCost) spendAe(side, advanceCost);
+  if (getTotal(side) < stepCost){
+    showToast("Not enough Æther.");
+    return;
+  }
 
-  // advance in logic; it will auto-discard when complete and enqueue an event
+  // spend temp first, then perm
+  if (stepCost) spendAe(side, stepCost);
+
+  // advance in core logic (which sets slot.advancedThisTurn and handles resolve)
   state = advanceSpell(state, side, slotIndex, 1);
 
-  // Aria L1: on advance → gain +1 Æ (once/turn)
+  // Aria L1: gain +1 Æ once/turn after an advance
   if (key === "aria" && lvl >= 1 && !flags.ariaL1GainUsed) {
     adjustAe(side, 1);
     flags.ariaL1GainUsed = true;
     Emit(Events.AETHER_GAIN, { side, amount:1, source:"Aria L1" });
   }
 
-  // Kareth reacts to this spend
-  karethAfterSpend(side, advanceCost);
+  // Kareth: react to spend
+  karethAfterSpend(side, stepCost);
 
+  // repaint so the track deactivates after the one advance
   render();
 }
+
 
 
 function renderSlots(container, snapshot, isPlayer){
@@ -2719,9 +2760,21 @@ function getTotal(side){ return getAe(side) + getTemp(side); }
 function canAdvanceSpell(side, slot){
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return false;
-  const need = Math.max(0, (c.pip|0) - (c.progress|0));
-  return need > 0 && getTotal(side) >= 1;
+
+  // deny if this spell already advanced this turn
+  if (slot.advancedThisTurn) return false;
+
+  const pipTotal = (c.pip|0);
+  const prog     = (c.progress|0);
+  if (prog >= pipTotal) return false;
+
+  const stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
+                 : Number.isFinite(c.stepCost)     ? c.stepCost
+                 : 1;
+
+  return getTotal(side) >= stepCost;
 }
+
 
 function spotlightFromEvents(state){
   const evts = drainEvents(state) || [];
