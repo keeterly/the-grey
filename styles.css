@@ -1295,6 +1295,29 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
+/* --- PIP: show value inside the circle; kill old under-text --- */
+.card .pip {
+  position: relative;
+  display: grid;
+  place-items: center;
+  /* your size/border rules can stay as-is */
+}
+
+/* the number you render inside the pip (e.g., <span class="pip-v">1</span>) */
+.card .pip .pip-v {
+  font-weight: 900;                                  /* bold */
+  font-size: calc(1.5 * 0.9rem * var(--card-scale)); /* 50% larger than before */
+  line-height: 1;
+}
+
+/* remove the old “1” that was appearing *below* the circle */
+.card .pip::after {
+  content: none !important;
+}
+
+/* if you had spacing for that old under-text, nuke it */
+.card .pip { margin-bottom: 0 !important; }
+.card .pip-track { line-height: 1; }
 
 
 /* Small-height screens: scale a touch */
