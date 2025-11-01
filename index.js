@@ -793,100 +793,120 @@ const aiMiniDiscardEl= $("ai-mini-discard");
 /* ---------- Pip track interactions (delegated, one-time) ---------- */
 let pipHandlersBound = false;
 
-function canAdvanceSlot(pub, slotIndex) {
-  const s = pub?.players?.player?.slots?.[slotIndex];
-  const c = s?.card;
-  if (!s?.hasCard || !c || c.type !== "SPELL") return false;
+// =====================================================
+// Pip track interactions (delegated, one-time) — FIXED
+// =====================================================
 
-  // respect once-per-spell-per-turn flag coming from logic
-  if (s.advancedThisTurn) return false;
+// true if this slot can advance right now (once/turn + enough Æ)
+function canAdvanceSlot(side, slotIndex, stepCost) {
+  const P = state.players?.[side];
+  const slot = P?.slots?.[slotIndex];
+  const c    = slot?.card;
 
-  const pipTotal = (c.pip|0);
-  const prog     = (c.progress|0);
-  if (prog >= pipTotal) return false;
+  if (!P || !slot || !slot.hasCard || !c || c.type !== "SPELL") return false;
 
-  // flexible per-step cost: prefer card.advanceCost or card.stepCost; fallback to 1
-  const stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
-                 : Number.isFinite(c.stepCost)     ? c.stepCost
-                 : 1;
+  // enforce "once per spell per turn"
+  if (slot.advancedThisTurn) return false;
 
-  // must be able to pay (perm + temp)
-  return (getTotal("player") >= stepCost);
+  const need = Number(stepCost || 1);
+
+  // spend temp Æ first, then regular Æ
+  const haveTemp = Number(P.tempAether || 0);
+  const have     = Number(P.aether || 0);
+
+  return (haveTemp + have) >= need;
 }
 
+// build pip HTML with the cost INSIDE each circle
+function buildPipTrackHTML({ pip = 1, progress = 0, stepCost = 1 }) {
+  const p = Number(pip);
+  const prog = Number(progress);
+  const cost = String(stepCost);
 
-function refreshPipAdvanceClasses() {
-  const pub = serializePublic(state) || {};
-  document
-    .querySelectorAll('.row.player .slot.spell')
-    .forEach((slot) => {
-      const i = Number(slot.dataset.slotIndex || -1);
-      const track = slot.querySelector('.pip-track');
-      if (track) track.classList.toggle('can-advance', canAdvanceSlot(pub, i));
-    });
-}
-
-
-// === Pip track HTML builder (put above ensurePipHandlers) ===
-function buildPipTrackHTML({ pip, progress, stepCost }) {
-  // pip = total steps (1 or 2), progress = filled steps (0..pip), stepCost = number shown in each circle
-  const circles = [];
-  for (let i = 0; i < pip; i++) {
-    const filled = i < progress ? 'filled' : '';
-    circles.push(
-      `<span class="pip ${filled}"><span class="v">${stepCost}</span></span>`
-    );
+  let dots = "";
+  for (let i = 0; i < p; i++) {
+    const filled = i < prog ? " filled" : "";
+    // number is inside the circle
+    dots += `<span class="pip${filled}"><span class="v">${cost}</span></span>`;
   }
-  return `<div class="pip-track">${circles.join('')}</div>`;
+  return `<div class="pip-track" role="button" tabindex="0" aria-label="Advance Spell">${dots}</div>`;
 }
 
+// refreshes .can-advance on all visible tracks
+function refreshPipAdvanceClasses() {
+  // Player row only (AI doesn’t click)
+  document.querySelectorAll('#player-slots .slot.spell .card').forEach((el, i) => {
+    const side = 'player';
+    // read card data the renderer already put on the element
+    const stepCost  = Number(el.dataset.stepCost || 1);
+    const canNow    = canAdvanceSlot(side, i, stepCost);
+    const track     = el.querySelector('.pip-track');
+    if (track) track.classList.toggle('can-advance', !!canNow);
+  });
+}
 
-
+// click handler: pay cost and advance exactly 1 step
 function ensurePipHandlers() {
-  const row = document.getElementById('player-slots'); // delegate from the row that contains the spell slots
-  if (!row) return;
+  // Delegate on the player slot row
+  const host = document.getElementById('player-slots');
+  if (!host) return;
 
-  // Avoid duplicate listeners
-  if (row._pipBound) return;
-  row._pipBound = true;
-
-  row.addEventListener('click', async (ev) => {
+  host.addEventListener('click', async (ev) => {
     const track = ev.target.closest('.pip-track');
     if (!track) return;
 
-    const side = track.dataset.side;           // "player" or "ai"
-    const slotIndex = Number(track.dataset.slotIndex || -1);
-    const stepCost  = Number(track.dataset.cost || 1);
+    // find the enclosing card
+    const cardEl = track.closest('.card');
+    if (!cardEl) return;
 
-    // Only the active player's tracks should be clickable
-    if (state.activePlayer !== side) return;
+    const side      = 'player';
+    const slotIndex = Number(cardEl.dataset.slotIndex || track.dataset.slotIndex || 0);
+    const stepCost  = Number(cardEl.dataset.stepCost || track.dataset.cost || 1);
 
-    // Strict rule check: once/turn & aether ≥ stepCost & slot is a spell with room to advance
-    if (!canAdvanceSlot(side, slotIndex, stepCost)) {
-      // Optional: give a small tooltip/toast
-      toast("Can't advance: need Æ or already advanced this turn.");
-      return;
+    if (!canAdvanceSlot(side, slotIndex, stepCost)) return;
+
+    // --- pay cost: temp Æ then regular Æ
+    const P = state.players[side];
+    let need = stepCost;
+
+    const useTemp = Math.min(P.tempAether || 0, need);
+    if (useTemp > 0) {
+      P.tempAether = Number(P.tempAether || 0) - useTemp;
+      need -= useTemp;
+    }
+    if (need > 0) {
+      P.aether = Number(P.aether || 0) - need;
+      need = 0;
     }
 
-    try {
-      // Spend aether & advance exactly 1 step (GameLogic enforces resolve on completion)
-      state = advanceSpellAt(state, side, slotIndex, { pay: stepCost });
+    // set once-per-turn flag on this slot
+    const slot = P.slots?.[slotIndex];
+    if (slot) slot.advancedThisTurn = true;
 
-      // Mark “advanced this turn” on the slot so the UI knows
-      const S = state.players?.[side]?.slots?.[slotIndex];
-      if (S) S.advancedThisTurn = true;
+    // actually advance 1 step; GameLogic resolves when pip threshold is met
+    state = advanceSpell(state, side, slotIndex, 1);
 
-      // Re-evaluate the track’s availability immediately
-      const stillCan = canAdvanceSlot(side, slotIndex, stepCost);
-      track.classList.toggle('can-advance', !!stillCan);
+    // re-render UI and classes
+    await render();
+    refreshPipAdvanceClasses();
+  });
 
-      await render();
-    } catch (e) {
-      console.error(e);
-      toast('Could not advance.');
-    }
+  // keyboard (Enter/Space) on focused track
+  host.addEventListener('keydown', (ev) => {
+    if (ev.key !== 'Enter' && ev.key !== ' ') return;
+    const track = ev.target.closest('.pip-track');
+    if (!track) return;
+    ev.preventDefault();
+    track.click();
   });
 }
+
+// call once after you’ve rendered the player slots
+function initPipTrackUIOnce() {
+  ensurePipHandlers();
+  refreshPipAdvanceClasses();
+}
+
 
 
 
