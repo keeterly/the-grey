@@ -297,12 +297,35 @@ function initialFillFlow(state) {
 
 
 export function serializePublic(state) {
-  const s = clone(state);
-  s.flow = (s.flow || []).map((c, idx) => c ? ({...c, price: FLOW_COSTS[idx]}) : null);
+ const s = clone(state);
+
+  // Aetherflow: publish slot prices
+  s.flow = (s.flow || []).map((c, idx) => c ? ({ ...c, price: FLOW_COSTS[idx] }) : null);
+
+  // Deck/discard counts only
   s.players.player.deckCount    = s.players.player.deck.length;
   s.players.player.discardCount = s.players.player.discard.length;
   s.players.ai.deckCount        = s.players.ai.deck.length;
   s.players.ai.discardCount     = s.players.ai.discard.length;
+
+  // Compute canAdvance for *your* spell slots; UI uses this to control pip pulse/enable.
+  const me = s.players.player;
+  for (let i = 0; i < 3; i++) {
+    const slot = me.slots[i];
+    const c = slot?.card;
+    if (slot?.hasCard && c?.type === "SPELL") {
+      const notSameTurn        = c._enteredTurn !== s.turn;
+     const notAlreadyAdvanced = c._advancedTurn !== s.turn;
+      const notComplete        = (c.progress | 0) < (c.pip | 0);
+      const stepCost           = Number(c.stepCost ?? c.cost ?? 0);
+      const affordable         = ((me.aether | 0) + (me.tempAether | 0)) >= stepCost;
+      slot.canAdvance = notSameTurn && notAlreadyAdvanced && notComplete && affordable;
+    } else if (slot) {
+      slot.canAdvance = false;
+    }
+  }
+
+  // (We intentionally do NOT expose canAdvance for the AI slots.)
   return s;
 }
 
