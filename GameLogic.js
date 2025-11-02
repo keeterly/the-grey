@@ -732,8 +732,8 @@ function compactSlideRightAndReveal(state) {
 }
 
 
-// ⬇️ REPLACE your existing advanceSpell with this
-export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false){
+// Added param: bypassPlacementLock (default false). Used by Instants like Surge of Ash.
+export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false, bypassPlacementLock = false){
   const P = state.players[playerId];
   const slot = P?.slots?.[slotIndex];
   const c = slot?.card;
@@ -741,8 +741,8 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false
 
 
 // --- New rules ---
-  // 1) Cannot advance a pip on the same turn it was placed
-  if (c._enteredTurn === state.turn) return state;
+// Rule: cannot advance the same turn it was placed — unless explicitly bypassed (e.g., Instant)
+  if (!bypassPlacementLock && c?._enteredTurn === state.turn) return state;
   // 2) Only one advance per spell per turn
   if (c._advancedTurn === state.turn) return state;
   // Enforce single-step per call
