@@ -805,6 +805,10 @@ function canAdvanceSlot(side, slotIndex, stepCost) {
 
   if (!P || !slot || !slot.hasCard || !c || c.type !== "SPELL") return false;
 
+// NEW: placement lock — cannot advance the same turn it was played
+  if ((c._enteredTurn|0) === (state.turn|0)) return false;
+
+  
   // enforce "once per spell per turn"
   if (slot.advancedThisTurn) return false;
 
@@ -863,6 +867,7 @@ function ensurePipHandlers() {
     const slotIndex = Number(cardEl.dataset.slotIndex || track.dataset.slotIndex || 0);
     const stepCost  = Number(cardEl.dataset.stepCost || track.dataset.cost || 1);
 
+    // Guard before any spend: respect placement lock + once/turn + affordability
     if (!canAdvanceSlot(side, slotIndex, stepCost)) return;
 
     // --- pay cost: temp Æ then regular Æ
@@ -2877,6 +2882,10 @@ function canAdvanceSpell(side, slot){
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return false;
 
+ // NEW: placement lock — no pulse the turn it’s played
+  if ((c._enteredTurn|0) === (state.turn|0)) return false;
+
+  
   // deny if this spell already advanced this turn
   if (slot.advancedThisTurn) return false;
 
