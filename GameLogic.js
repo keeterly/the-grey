@@ -499,6 +499,9 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   card.progress = 0;
   slot.card = card;
   slot.hasCard = true;
+   // New: mark entry turn so it cannot advance this same turn
+  card._enteredTurn = state.turn;
+  delete card._advancedTurn;
 
   // (Optional) event for the payment
   if (playCost > 0) pushEvt(state, { t:"aether", side: playerId, amount: -playCost, by: card.id });
@@ -708,29 +711,46 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
 
+
+// --- New rules ---
+  // 1) Cannot advance a pip on the same turn it was placed
+  if (c._enteredTurn === state.turn) return state;
+  // 2) Only one advance per spell per turn
+  if (c._advancedTurn === state.turn) return state;
+  // Enforce single-step per call
+    steps = 1;
+
+
+  
   const stepCost = Number(c.stepCost || c.cost || 0);
   const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
 
-  // Pay with temp Æ first, then regular Æ (matches UI affordance)
-if (totalCost > 0) {
+
+
+
+
+// Pay temp Æ first, then regular Æ (matches the UI affordance)
+  if (totalCost > 0) {
     const haveTemp = (P.tempAether|0);
-    const have     = (P.aether|0);
-    const available = haveTemp + have;
-    if (available < totalCost) {
-      // Not enough combined Æ to advance — do nothing
-      return state;
-    }
+    const haveReg  = (P.aether|0);
+    const available = haveTemp + haveReg;
+    if (available < totalCost) return state;
     const spendTemp = Math.min(haveTemp, totalCost);
     const spendReg  = totalCost - spendTemp;
     if (spendTemp > 0) P.tempAether = haveTemp - spendTemp;
     if (spendReg  > 0) {
-      P.aether = have - spendReg;
-      // Keep existing event for regular Æ so counters/animations stay consistent
+      P.aether = haveReg - spendReg;
       pushEvt(state, { t:"aether", side:playerId, amount:-spendReg, by:c.id });
     }
   }
 
+
+  
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
+
+// Mark that this card has advanced this turn
+  c._advancedTurn = state.turn;
+  
   if ((c.progress|0) >= (c.pip|0)) {
     state = applyParsedEffects(state, playerId, c);
 
