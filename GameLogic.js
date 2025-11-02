@@ -308,17 +308,17 @@ export function serializePublic(state) {
   s.players.ai.deckCount        = s.players.ai.deck.length;
   s.players.ai.discardCount     = s.players.ai.discard.length;
 
-  // Compute canAdvance for *your* spell slots; UI uses this to control pip pulse/enable.
+  // Compute canAdvance for player's spell slots (used by UI to control pip pulse/click)
   const me = s.players.player;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < (me.slots?.length || 0); i++) {
     const slot = me.slots[i];
     const c = slot?.card;
     if (slot?.hasCard && c?.type === "SPELL") {
-      const notSameTurn        = c._enteredTurn !== s.turn;
-     const notAlreadyAdvanced = c._advancedTurn !== s.turn;
-      const notComplete        = (c.progress | 0) < (c.pip | 0);
+     const notSameTurn        = c._enteredTurn !== s.turn;
+      const notAlreadyAdvanced = c._advancedTurn !== s.turn;
+      const notComplete        = ((c.progress|0) < (c.pip|0));
       const stepCost           = Number(c.stepCost ?? c.cost ?? 0);
-      const affordable         = ((me.aether | 0) + (me.tempAether | 0)) >= stepCost;
+      const affordable         = (((me.aether|0)+(me.tempAether|0)) >= stepCost);
       slot.canAdvance = notSameTurn && notAlreadyAdvanced && notComplete && affordable;
     } else if (slot) {
       slot.canAdvance = false;
@@ -807,25 +807,31 @@ export function payAndAdvanceOne(state, side, slotIndex) {
   const P = state.players?.[side];
   const slot = P?.slots?.[slotIndex];
   const c = slot?.card;
+  
   if (!P || !slot?.hasCard || !c || c.type !== "SPELL") return state;
 
   const cur = c.progress | 0;
   const need = (c.pip | 0) - cur;
   if (need <= 0) return state; // already complete
 
-  // Cost for the *next* pip:
-  const nextCost = (c.pipCosts?.[cur] ?? 1) | 0;
+  // New guards: placement lock & once-per-turn
+  if (c._enteredTurn === state.turn) return state;
+  if (c._advancedTurn === state.turn) return state;
 
-  if ((P.aether | 0) < nextCost) {
-    // Not enough Æ — you can throw or just no-op
-    throw new Error("Not enough Æ to advance this pip");
-  }
+  // Cost for the *next* pip (single step): use stepCost/cost
+  const nextCost = Number(c.stepCost ?? c.cost ?? 1);
 
-  // Pay
-  P.aether = (P.aether | 0) - nextCost;
-  pushEvt(state, { t: "aether", side, amount: -nextCost, by: c.id, reason: "advance" });
+  const haveTemp = (P.tempAether | 0);
+  const haveReg  = (P.aether | 0);
+  if (haveTemp + haveReg < nextCost) return state; // not enough combined Æ
 
-  // Advance exactly 1 step (still uses your existing resolve logic)
+  // Pay temp Æ first, then regular Æ
+  const spendTemp = Math.min(haveTemp, nextCost);
+  const spendReg  = nextCost - spendTemp;
+  if (spendTemp) P.tempAether = haveTemp - spendTemp;
+  if (spendReg)  { P.aether = haveReg - spendReg; pushEvt(state, { t: "aether", side, amount: -spendReg, by: c.id, reason: "advance" }); }
+
+  // Advance exactly 1 step (engine still enforces resolve logic)
   state = advanceSpell(state, side, slotIndex, 1);
   return state;
 }
