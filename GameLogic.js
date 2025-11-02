@@ -570,14 +570,19 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   if (!card) throw new Error("no card at flow index");
 
   const price = FLOW_COSTS[flowIndex] || 0;
-  if ((P.aether || 0) < price) throw new Error("Not enough Æ");
+  const haveTemp = (P.tempAether | 0);
+  const haveReg  = (P.aether | 0);
+  if (haveTemp + haveReg < price) throw new Error("Not enough Æ");
 
   // Clear the slot first so renderers see it empty immediately
   state.flow[flowIndex] = null;
   pushEvt(state, { t: 'flow_slot_empty', side: playerId, flowIndex });
 
-  // Take payment and move the card to discard
-  P.aether -= price;
+  // Take payment (temp Æ first) and move the card to discard
+  const spendTemp = Math.min(haveTemp, price);
+  const spendReg  = price - spendTemp;
+  if (spendTemp) P.tempAether = haveTemp - spendTemp;
+  if (spendReg)  { P.aether = haveReg - spendReg; pushEvt(state,{t:"aether",side:playerId,amount:-spendReg}); }
   P.discard.push({ ...card });
 
   // Normal buy event (kept as-is)
