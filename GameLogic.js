@@ -711,14 +711,23 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false
   const stepCost = Number(c.stepCost || c.cost || 0);
   const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
 
-  if ((P.aether|0) < totalCost) {
-    // Not enough Æ to advance — do nothing
-    return state;
-  }
-
-  if (totalCost > 0) {
-    P.aether -= totalCost;
-    pushEvt(state, { t:"aether", side:playerId, amount:-totalCost, by:c.id });
+  // Pay with temp Æ first, then regular Æ (matches UI affordance)
+if (totalCost > 0) {
+    const haveTemp = (P.tempAether|0);
+    const have     = (P.aether|0);
+    const available = haveTemp + have;
+    if (available < totalCost) {
+      // Not enough combined Æ to advance — do nothing
+      return state;
+    }
+    const spendTemp = Math.min(haveTemp, totalCost);
+    const spendReg  = totalCost - spendTemp;
+    if (spendTemp > 0) P.tempAether = haveTemp - spendTemp;
+    if (spendReg  > 0) {
+      P.aether = have - spendReg;
+      // Keep existing event for regular Æ so counters/animations stay consistent
+      pushEvt(state, { t:"aether", side:playerId, amount:-spendReg, by:c.id });
+    }
   }
 
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
