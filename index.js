@@ -805,10 +805,6 @@ function canAdvanceSlot(side, slotIndex, stepCost) {
 
   if (!P || !slot || !slot.hasCard || !c || c.type !== "SPELL") return false;
 
-// NEW: cannot advance on the same turn the spell was placed
-  if (c._enteredTurn === state.turn) return false;
-
-  
   // enforce "once per spell per turn"
   if (slot.advancedThisTurn) return false;
 
@@ -1540,14 +1536,6 @@ function advanceSpellAt(side, slotIndex){
     return;
   }
 
- // NEW: first-turn placement lock (UI guard; engine also enforces)
-  if (c._enteredTurn === state.turn) {
-    showToast("You can’t advance a Spell on the turn it’s played.");
-    return;
-  }
-
-
-  
   // figure the per-step cost
   let stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
                : Number.isFinite(c.stepCost)     ? c.stepCost
@@ -2889,9 +2877,6 @@ function canAdvanceSpell(side, slot){
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return false;
 
-// NEW: cannot advance on the same turn the spell was placed
-  if (c._enteredTurn === state.turn) return false;
-  
   // deny if this spell already advanced this turn
   if (slot.advancedThisTurn) return false;
 
