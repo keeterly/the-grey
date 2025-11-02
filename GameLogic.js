@@ -733,7 +733,14 @@ function compactSlideRightAndReveal(state) {
 
 
 // Added param: bypassPlacementLock (default false). Used by Instants like Surge of Ash.
-export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false, bypassPlacementLock = false){
+export function advanceSpell(
+  state,
+  playerId,
+  slotIndex,
+  steps = 1,
+  free = false,
+  bypassPlacementLock = false
+){
   const P = state.players[playerId];
   const slot = P?.slots?.[slotIndex];
   const c = slot?.card;
@@ -741,10 +748,13 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false
 
 
 // --- New rules ---
-// Rule: cannot advance the same turn it was placed — unless explicitly bypassed (e.g., Instant)
+  // 1) Placement lock: cannot advance the same turn it was placed
+  //    (unless a caller explicitly bypasses it, e.g., certain card effects)
   if (!bypassPlacementLock && c?._enteredTurn === state.turn) return state;
-  // 2) Only one advance per spell per turn
-  if (c._advancedTurn === state.turn) return state;
+   // 2) Only one **paid** advance per spell per turn.
+  //    Card effects (Instants/Spells) may still advance even if one paid
+  //    advance already happened this turn.
+  if (!free && c._advancedTurn === state.turn) return state;
   // Enforce single-step per call
     steps = 1;
 
@@ -776,7 +786,7 @@ export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false
   
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
 
-// Mark that this card has advanced this turn
+// Mark that this card has advanced this turn (tracks **paid** advance prevention in UI via serializePublic)
   c._advancedTurn = state.turn;
   
   if ((c.progress|0) >= (c.pip|0)) {
