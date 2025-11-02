@@ -1166,3 +1166,5 @@ function applyParsedEffects(state, side, card, opts = {}) {
     }
   }
 
+  return state;
+}
