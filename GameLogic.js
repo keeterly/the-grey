@@ -1166,5 +1166,35 @@ function applyParsedEffects(state, side, card, opts = {}) {
     }
   }
 
+
+  // ---- explicit named exports (keep at bottom) ----
+export {
+  FLOW_COSTS,
+  STARTING_HAND,
+  STARTING_VITALITY,
+  AE_GEM_SVG,
+  withAetherText,
+  drainEvents,
+  initState,
+  serializePublic,
+  startTurn,
+  endTurn,
+  discardForAether,
+  dealDamage,
+  playCardToSpellSlot,
+  setGlyphFromHand,
+  buyFromFlow,
+  drawOne,
+  drawN,
+  revealIntoFlow,
+  advanceSpell,            // <- ensure this identifier exists above
+  payAndAdvanceOne,
+  resolveInstantFromHand,
+  resolveGlyphFromSlot,
+  getStack,
+};
+export { advanceSpellInternal as advanceSpell };
+
+
   return state;
 }
