@@ -314,12 +314,12 @@ export function serializePublic(state) {
     const slot = me.slots[i];
     const c = slot?.card;
     if (slot?.hasCard && c?.type === "SPELL") {
-     const notSameTurn        = c._enteredTurn !== s.turn;        // paid cannot on placement
-      const notPaidThisTurn    = c._paidAdvancedTurn !== s.turn;   // only one paid per turn
+     const notSameTurn        = c._enteredTurn !== s.turn;
+      const notAlreadyAdvanced = c._advancedTurn !== s.turn;
       const notComplete        = ((c.progress|0) < (c.pip|0));
       const stepCost           = Number(c.stepCost ?? c.cost ?? 0);
       const affordable         = (((me.aether|0)+(me.tempAether|0)) >= stepCost);
-      slot.canAdvance = notSameTurn && notPaidThisTurn && notComplete && affordable;
+      slot.canAdvance = notSameTurn && notAlreadyAdvanced && notComplete && affordable;
     } else if (slot) {
       slot.canAdvance = false;
     }
@@ -732,9 +732,8 @@ function compactSlideRightAndReveal(state) {
 }
 
 
-// New signature: add isPaid flag to enforce "once-per-turn if paid".
-// advanceSpell(..., free=false, bypassPlacementLock=false, isPaid=false)
-function advanceSpell(state, playerId, slotIndex, steps = 1, free = false, bypassPlacementLock = false, isPaid = false){
+// Added param: bypassPlacementLock (default false). Used by Instants like Surge of Ash.
+export function advanceSpell(state, playerId, slotIndex, steps = 1, free = false, bypassPlacementLock = false){
   const P = state.players[playerId];
   const slot = P?.slots?.[slotIndex];
   const c = slot?.card;
@@ -742,10 +741,10 @@ function advanceSpell(state, playerId, slotIndex, steps = 1, free = false, bypas
 
 
 // --- New rules ---
-// cannot advance on placement turn for *paid* advances
-  if (isPaid && !bypassPlacementLock && c?._enteredTurn === state.turn) return state;
-  // only one *paid* advance per card per turn
-  if (isPaid && c?._paidAdvancedTurn === state.turn) return state;
+// Rule: cannot advance the same turn it was placed — unless explicitly bypassed (e.g., Instant)
+  if (!bypassPlacementLock && c?._enteredTurn === state.turn) return state;
+  // 2) Only one advance per spell per turn
+  if (c._advancedTurn === state.turn) return state;
   // Enforce single-step per call
     steps = 1;
 
@@ -776,8 +775,9 @@ function advanceSpell(state, playerId, slotIndex, steps = 1, free = false, bypas
 
   
   c.progress = Math.max(0, (c.progress|0) + (steps|0));
-  // mark "paid advance used this turn" only for paid
-  if (isPaid) c._paidAdvancedTurn = state.turn;
+
+// Mark that this card has advanced this turn
+  c._advancedTurn = state.turn;
   
   if ((c.progress|0) >= (c.pip|0)) {
     state = applyParsedEffects(state, playerId, c);
@@ -814,10 +814,9 @@ export function payAndAdvanceOne(state, side, slotIndex) {
   const need = (c.pip | 0) - cur;
   if (need <= 0) return state; // already complete
 
-  // first-turn placement lock for *paid* advances
+  // New guards: placement lock & once-per-turn
   if (c._enteredTurn === state.turn) return state;
-  // only one *paid* advance per card per turn
-  if (c._paidAdvancedTurn === state.turn) return state;
+  if (c._advancedTurn === state.turn) return state;
 
   // Cost for the *next* pip (single step): use stepCost/cost
   const nextCost = Number(c.stepCost ?? c.cost ?? 1);
@@ -832,8 +831,8 @@ export function payAndAdvanceOne(state, side, slotIndex) {
   if (spendTemp) P.tempAether = haveTemp - spendTemp;
   if (spendReg)  { P.aether = haveReg - spendReg; pushEvt(state, { t: "aether", side, amount: -spendReg, by: c.id, reason: "advance" }); }
 
-  // Advance exactly 1 step (paid=true)
-  state = advanceSpell(state, side, slotIndex, 1, /*free*/false, /*bypassPlacementLock*/false, /*isPaid*/true);
+  // Advance exactly 1 step (engine still enforces resolve logic)
+  state = advanceSpell(state, side, slotIndex, 1);
   return state;
 }
 
