@@ -749,11 +749,12 @@ export function advanceSpell(
 
 // --- New rules ---
   // 1) Placement lock: cannot advance the same turn it was placed
-  //    (unless a caller explicitly bypasses it, e.g., certain card effects)
-  if (!bypassPlacementLock && c?._enteredTurn === state.turn) return state;
-  // 2) Only one **paid** advance per spell per turn.
-  //    Card effects (Instants/Spells) may still advance even if one paid happened.
-  if (!free && c._paidAdvancedTurn === state.turn) return state;
+// paid placement lock (effects may bypass)
+  if (!free && !bypassPlacementLock && c?._enteredTurn === state.turn) return state;
+  // only one PAID advance per card per turn
+  if (!free && c?._paidAdvancedTurn === state.turn) return state;
+
+  
   // Enforce single-step per call
     steps = 1;
 
@@ -785,7 +786,7 @@ export function advanceSpell(
   
 
  c.progress = Math.max(0, (c.progress|0) + (steps|0));
-  // Only mark turn-stamp for **paid** advances
+  // Only mark for PAID advances (free/effect advances don't consume the "once/turn")
   if (!free) c._paidAdvancedTurn = state.turn;
   
   if ((c.progress|0) >= (c.pip|0)) {
@@ -823,8 +824,8 @@ export function payAndAdvanceOne(state, side, slotIndex) {
   const need = (c.pip | 0) - cur;
   if (need <= 0) return state; // already complete
 
-  // New guards: placement lock & once-per-turn (paid only)
-  if (c._enteredTurn === state.turn) return state;
+ if (c._enteredTurn === state.turn) return state;
+  // once-per-turn (paid)
   if (c._paidAdvancedTurn === state.turn) return state;
 
   // Cost for the *next* pip (single step): use stepCost/cost
@@ -1124,7 +1125,8 @@ function applyParsedEffects(state, side, card, opts = {}) {
         for (let i=0;i<3;i++){
           const s = slots[i], c2 = s?.card;
           if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
-            state = advanceSpell(state, side, i, 1, /*free=*/false);
+             // Effect-based advance: free and bypass placement/paid locks
+            state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
             break;
           }
         }
@@ -1136,7 +1138,8 @@ function applyParsedEffects(state, side, card, opts = {}) {
         for (let i=0;i<3;i++){
           const s = slots[i], c2 = s?.card;
           if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
-            state = advanceSpell(state, side, i, 1, /*free=*/true);
+            // Free effect step: also bypass placement lock
+            state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
             break;
           }
         }
@@ -1152,7 +1155,10 @@ function applyParsedEffects(state, side, card, opts = {}) {
           }
           return -1;
         })());
-        if (idx >= 0) state = advanceSpell(state, side, idx, 1, /*free=*/false);
+        if (idx >= 0) {
+          // Effect-based advance: free and bypass placement/paid locks
+          state = advanceSpell(state, side, idx, 1, /*free=*/true, /*bypassPlacementLock=*/true);
+       }
         break;
       }
 
@@ -1165,7 +1171,10 @@ function applyParsedEffects(state, side, card, opts = {}) {
           }
           return -1;
         })());
-        if (idx >= 0) state = advanceSpell(state, side, idx, 1, /*free=*/true);
+        if (idx >= 0) {
+          // Free effect step: also bypass placement lock
+          state = advanceSpell(state, side, idx, 1, /*free=*/true, /*bypassPlacementLock=*/true);
+        }
         break;
       }
 
