@@ -1624,8 +1624,8 @@ d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
       if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
         const track = art.querySelector('.pip-track');
         if (track){
-          const canAdv = canAdvanceSpell('player', slot);
-      
+          // new — trust the engine-computed flag
+          const canAdv = !!slotData.canAdvance;
           track.classList.toggle('can-advance', canAdv);
           track.title = canAdv ? 'Spend 1 Æther to advance' : '';
           track.tabIndex = canAdv ? 0 : -1;  // focusable only if actionable
