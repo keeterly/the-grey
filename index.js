@@ -3091,7 +3091,8 @@ function spotlightFromEvents(state){
 
     
 
- 
+  });
+}
 
 
 
