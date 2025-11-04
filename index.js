@@ -223,25 +223,24 @@ function heartsElFor(side) {
 }
 
 function animateDamage(side, amount = 1) {
-  const hearts = heartsElFor(side);
-  if (!hearts) return;
+  const host = findSideContainer(side);
+  if (!host) return;
 
-  // 1) shake
-  hearts.classList.add('hearts-hit');
-  hearts.addEventListener('animationend', () => hearts.classList.remove('hearts-hit'), { once: true });
+  // flash + shake
+  host.classList.add('hit');
+  host.classList.add('hit-shake');
+  setTimeout(() => host.classList.remove('hit'), 320);
+  setTimeout(() => host.classList.remove('hit-shake'), 360);
 
-  // 2) crack overlay (CSS ::after handles SVG + fade)
-  hearts.classList.add('hearts-crack');
-  // remove class after the crack animation finishes so it can retrigger
-  setTimeout(() => hearts.classList.remove('hearts-crack'), 550);
-
-  // 3) floating "-N" from hearts
+  // floating "-N"
   const floater = document.createElement('div');
-  floater.className = 'hearts-dmg';
-  floater.textContent = `-${Math.max(1, amount|0)}`;
-  hearts.appendChild(floater);
-  floater.addEventListener('animationend', () => floater.remove(), { once: true });
+  floater.className = 'damage-float red';
+  floater.textContent = `-${amount|0 || 1}`;
+  host.appendChild(floater);
+  floater.addEventListener('animationend', () => floater.remove());
 }
+
+
 
 
 
@@ -373,23 +372,7 @@ function findSideContainer(side) {
       || document.body;
 }
 
-function animateDamage(side, amount = 1) {
-  const host = findSideContainer(side);
-  if (!host) return;
 
-  // flash + shake
-  host.classList.add('hit');
-  host.classList.add('hit-shake');
-  setTimeout(() => host.classList.remove('hit'), 320);
-  setTimeout(() => host.classList.remove('hit-shake'), 360);
-
-  // floating "-N"
-  const floater = document.createElement('div');
-  floater.className = 'damage-float red';
-  floater.textContent = `-${amount|0 || 1}`;
-  host.appendChild(floater);
-  floater.addEventListener('animationend', () => floater.remove());
-}
 
 
 
