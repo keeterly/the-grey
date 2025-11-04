@@ -23,7 +23,7 @@ import {
   buyFromFlow,
   discardForAether,
   withAetherText,
-  advanceSpell,               // ← NEW
+  payAndAdvanceOne,          // ← use this for paid pip clicks
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
   dealDamage,
@@ -840,10 +840,8 @@ function buildPipTrackHTML({ pip = 1, progress = 0, stepCost = 1 }) {
 function refreshPipAdvanceClasses() {
   // Player row only (AI doesn’t click)
   document.querySelectorAll('#player-slots .slot.spell .card').forEach((el, i) => {
-    const side = 'player';
-    // read card data the renderer already put on the element
-    const stepCost  = Number(el.dataset.stepCost || 1);
-    const canNow    = canAdvanceSlot(side, i, stepCost);
+   const pub = serializePublic(state) || {};
+    const canNow = !!pub.players?.player?.slots?.[i]?.canAdvance;
     const track     = el.querySelector('.pip-track');
     if (track) track.classList.toggle('can-advance', !!canNow);
   });
@@ -865,31 +863,10 @@ function ensurePipHandlers() {
 
     const side      = 'player';
     const slotIndex = Number(cardEl.dataset.slotIndex || track.dataset.slotIndex || 0);
-    const stepCost  = Number(cardEl.dataset.stepCost || track.dataset.cost || 1);
-
-    // Guard before any spend: respect placement lock + once/turn + affordability
-    if (!canAdvanceSlot(side, slotIndex, stepCost)) return;
-
-    // --- pay cost: temp Æ then regular Æ
-    const P = state.players[side];
-    let need = stepCost;
-
-    const useTemp = Math.min(P.tempAether || 0, need);
-    if (useTemp > 0) {
-      P.tempAether = Number(P.tempAether || 0) - useTemp;
-      need -= useTemp;
-    }
-    if (need > 0) {
-      P.aether = Number(P.aether || 0) - need;
-      need = 0;
-    }
-
-    // set once-per-turn flag on this slot
-    const slot = P.slots?.[slotIndex];
-    if (slot) slot.advancedThisTurn = true;
-
-    // actually advance 1 step; GameLogic resolves when pip threshold is met
-    state = advanceSpell(state, side, slotIndex, 1);
+     // Trust the engine’s serialized flag, then do guard+spend atomically
+    const pub = serializePublic(state) || {};
+    if (!pub.players?.player?.slots?.[slotIndex]?.canAdvance) return;
+    state = payAndAdvanceOne(state, side, slotIndex);
 
     // re-render UI and classes
     await render();
@@ -1531,54 +1508,10 @@ function spendAe(side, amount){
 function getProgress(card){ return Math.max(0, card?.progress|0); }
 function setProgress(card, n){ if (card) card.progress = Math.max(0, n|0); }
 function advanceSpellAt(side, slotIndex){
-  const slot = state?.players?.[side]?.slots?.[slotIndex];
-  const c = slot?.card;
-  if (!slot?.hasCard || !c || c.type !== "SPELL") return;
-
-  // once-per-spell-per-turn guard (UI level; logic also enforces)
-  if (slot.advancedThisTurn) {
-    showToast("This spell has already advanced this turn.");
-    return;
-  }
-
-  // figure the per-step cost
-  let stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
-               : Number.isFinite(c.stepCost)     ? c.stepCost
-               : 1;
-
-  // Aria L2 discount applies to advance (first time each turn, min 0)
-  ensureTranceFlags();
-  const key   = sideWeaverKey(side);
-  const lvl   = tranceLevel(side);
-  const flags = state.players[side]._trFlags;
-
-  if (key === "aria" && lvl >= 2 && !flags.ariaL2DiscountUsed) {
-    stepCost = Math.max(0, stepCost - 1);
-    flags.ariaL2DiscountUsed = true;
-  }
-
-  if (getTotal(side) < stepCost){
-    showToast("Not enough Æther.");
-    return;
-  }
-
-  // spend temp first, then perm
-  if (stepCost) spendAe(side, stepCost);
-
-  // advance in core logic (which sets slot.advancedThisTurn and handles resolve)
-  state = advanceSpell(state, side, slotIndex, 1);
-
-  // Aria L1: gain +1 Æ once/turn after an advance
-  if (key === "aria" && lvl >= 1 && !flags.ariaL1GainUsed) {
-    adjustAe(side, 1);
-    flags.ariaL1GainUsed = true;
-    Emit(Events.AETHER_GAIN, { side, amount:1, source:"Aria L1" });
-  }
-
-  // Kareth: react to spend
-  karethAfterSpend(side, stepCost);
-
-  // repaint so the track deactivates after the one advance
+  // Use engine guard+spend+advance atomically
+  const pub = serializePublic(state) || {};
+  if (!pub.players?.[side]?.slots?.[slotIndex]?.canAdvance) return;
+  state = payAndAdvanceOne(state, side, slotIndex);
   render();
 }
 
@@ -1624,18 +1557,19 @@ d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
       if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
         const track = art.querySelector('.pip-track');
         if (track){
-          // new — trust the engine-computed flag
-          const canAdv = !!slotData.canAdvance;
+          // Trust the engine snapshot
+          const pubSnap = serializePublic(state) || {};
+          const canAdv = !!pubSnap.players?.player?.slots?.[i]?.canAdvance;
           track.classList.toggle('can-advance', canAdv);
           track.title = canAdv ? 'Spend 1 Æther to advance' : '';
           track.tabIndex = canAdv ? 0 : -1;  // focusable only if actionable
           track.setAttribute('role', canAdv ? 'button' : 'presentation');
       
           // replace any previous handlers to avoid duplicates across re-renders
-          track.onclick = canAdv ? (ev) => {
+          track.onclick = canAdv ? async (ev) => {
             ev.stopPropagation();
-            advanceSpellAt('player', i);
-            art.innerHTML = cardHTML(slot.card); // repaint pips fast
+            state = payAndAdvanceOne(state, 'player', i);
+            await render();
           } : null;
       
           track.onkeydown = canAdv ? (ev) => {
