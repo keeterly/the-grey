@@ -1546,11 +1546,7 @@ d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
 
-      // Highlight advanceable spells
-      if (canAdvanceSpell(isPlayer ? "player" : "ai", slot)) {
-        const track = art.querySelector(".pip-track");
-        if (track) track.classList.add("can-advance");
-      }
+      // (Pulse handled below via engine snapshot slot.canAdvance)
 
 
       // make pip track clickable to advance
