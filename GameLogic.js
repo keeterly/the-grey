@@ -814,36 +814,8 @@ export function advanceSpell(
 
 
 export function payAndAdvanceOne(state, side, slotIndex) {
-  const P = state.players?.[side];
-  const slot = P?.slots?.[slotIndex];
-  const c = slot?.card;
-  
-  if (!P || !slot?.hasCard || !c || c.type !== "SPELL") return state;
-
-  const cur = c.progress | 0;
-  const need = (c.pip | 0) - cur;
-  if (need <= 0) return state; // already complete
-
- if (c._enteredTurn === state.turn) return state;
-  // once-per-turn (paid)
-  if (c._paidAdvancedTurn === state.turn) return state;
-
-  // Cost for the *next* pip (single step): use stepCost/cost
-  const nextCost = Number(c.stepCost ?? c.cost ?? 1);
-
-  const haveTemp = (P.tempAether | 0);
-  const haveReg  = (P.aether | 0);
-  if (haveTemp + haveReg < nextCost) return state; // not enough combined Æ
-
-  // Pay temp Æ first, then regular Æ
-  const spendTemp = Math.min(haveTemp, nextCost);
-  const spendReg  = nextCost - spendTemp;
-  if (spendTemp) P.tempAether = haveTemp - spendTemp;
-  if (spendReg)  { P.aether = haveReg - spendReg; pushEvt(state, { t: "aether", side, amount: -spendReg, by: c.id, reason: "advance" }); }
-
-  // Advance exactly 1 step as a **paid** advance
-  state = advanceSpell(state, side, slotIndex, 1 /*steps*/, false /*free*/, false /*bypassPlacementLock*/);
-  return state;
+  // Single-source of truth: advanceSpell does guard + payment + once-per-turn mark.
+  return advanceSpell(state, side, slotIndex, 1 /*steps*/, false /*free*/, false /*bypassPlacementLock*/);
 }
 
 
