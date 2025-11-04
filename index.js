@@ -336,6 +336,38 @@ const Emit  = (e,d)=> window.Grey?.emit?.(e,d);
 const nextFrame = () => new Promise(requestAnimationFrame);
 const onTransitionEnd = (node) => new Promise(res => node.addEventListener("transitionend", res, {once:true}));
 
+
+
+function findSideContainer(side) {
+  // Prefer a side wrapper; fallbacks if structure differs.
+  return document.querySelector(`.side.${side}`)
+      || (side === 'player' ? document.querySelector('#player-slots')?.closest('.side') : null)
+      || (side === 'ai'     ? document.querySelector('#ai-slots')?.closest('.side')     : null)
+      || document.body;
+}
+
+function animateDamage(side, amount = 1) {
+  const host = findSideContainer(side);
+  if (!host) return;
+
+  // flash + shake
+  host.classList.add('hit');
+  host.classList.add('hit-shake');
+  setTimeout(() => host.classList.remove('hit'), 320);
+  setTimeout(() => host.classList.remove('hit-shake'), 360);
+
+  // floating "-N"
+  const floater = document.createElement('div');
+  floater.className = 'damage-float red';
+  floater.textContent = `-${amount|0 || 1}`;
+  host.appendChild(floater);
+  floater.addEventListener('animationend', () => floater.remove());
+}
+
+
+
+
+
 // --- cinematic helper: find the live DOM node for a hand card and emit
 // to can be a selector string or an Element. meta lets us pass slotIndex, etc.
 function cineFromHandCard(cardId, to, pose = '', meta = {}) {
