@@ -218,6 +218,33 @@ function seedFlowToFiveOnBoot() {
 
 
 
+function heartsElFor(side) {
+  return document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+}
+
+function animateDamage(side, amount = 1) {
+  const hearts = heartsElFor(side);
+  if (!hearts) return;
+
+  // 1) shake
+  hearts.classList.add('hearts-hit');
+  hearts.addEventListener('animationend', () => hearts.classList.remove('hearts-hit'), { once: true });
+
+  // 2) crack overlay (CSS ::after handles SVG + fade)
+  hearts.classList.add('hearts-crack');
+  // remove class after the crack animation finishes so it can retrigger
+  setTimeout(() => hearts.classList.remove('hearts-crack'), 550);
+
+  // 3) floating "-N" from hearts
+  const floater = document.createElement('div');
+  floater.className = 'hearts-dmg';
+  floater.textContent = `-${Math.max(1, amount|0)}`;
+  hearts.appendChild(floater);
+  floater.addEventListener('animationend', () => floater.remove(), { once: true });
+}
+
+
+
 // put near your other ensure*Styles helpers
 function ensureBoardDimStyles(){
   if (document.getElementById('board-dim-style')) return;
@@ -3046,20 +3073,23 @@ function spotlightFromEvents(state){
       }
     }
 
-    // Heart “hit” wiggle
-    if (e.t === 'damage' && (e.side === 'player' || e.side === 'ai')) {
-      const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
-      const hearts = document.getElementById(id);
-      if (hearts) {
-        hearts.classList.add('hit');
-        hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
-      }
-    }
-
-        // === NEW: board flash + shake + floating "-N" ===
     if (e.t === 'damage') {
-      animateDamage(e.side, e.amount || 1);
+  // existing small heart wiggle (keep it if you like)
+  if (e.side === 'player' || e.side === 'ai') {
+    const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
+    const hearts = document.getElementById(id);
+    if (hearts) {
+      hearts.classList.add('hit');
+      hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
     }
+  }
+  // NEW: crack + shake + local floater
+  animateDamage(e.side, e.amount || 1);
+}
+
+
+
+    
 
   });
 }
