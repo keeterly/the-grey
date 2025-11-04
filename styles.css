@@ -1371,6 +1371,70 @@ body.mobile-landscape #zoom-card.card.zoom{
 }
 
 
+/* ===== Damage VFX (heart container) ===== */
+#player-hearts, #ai-hearts {
+  position: relative; /* anchor for floater & crack overlay */
+}
+
+/* quick shake on hit */
+.hearts-hit {
+  animation: hearts-shake 360ms ease-out;
+}
+@keyframes hearts-shake {
+  0%   { transform: translateX(0); }
+  20%  { transform: translateX(-5px); }
+  40%  { transform: translateX( 4px); }
+  60%  { transform: translateX(-3px); }
+  80%  { transform: translateX( 2px); }
+  100% { transform: translateX(0); }
+}
+
+/* glassy crack overlay (SVG lines), fades out */
+.hearts-crack::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  background: center / 100% 100% no-repeat
+    url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 240 80'>\
+<g stroke='rgba(255,255,255,0.85)' stroke-width='2.2' stroke-linecap='round' fill='none'>\
+ <path d='M10,55 55,20 80,45 120,18 150,40 190,15 230,35'/>\
+ <path d='M60,70 75,48 95,62 130,45 165,62'/>\
+</g>\
+</svg>");
+  opacity: 0;
+  pointer-events: none;
+  filter: drop-shadow(0 0 6px rgba(255,255,255,.35));
+  animation: hearts-crack-pop 520ms ease-out forwards;
+}
+@keyframes hearts-crack-pop {
+  0%   { opacity: 0; transform: scale(.98); }
+  15%  { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 0; transform: scale(1.00); }
+}
+
+/* local floating damage number from the hearts container */
+.hearts-dmg {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  transform: translateX(-50%) translateY(0) scale(.9);
+  font-weight: 800;
+  font-size: 18px;
+  pointer-events: none;
+  opacity: 0;
+  color: #ff5757;
+  text-shadow: 0 0 8px rgba(255,0,0,.55);
+  animation: hearts-dmg-pop 800ms ease-out forwards;
+}
+@keyframes hearts-dmg-pop {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(0)    scale(.85); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(-8px) scale(1.1); }
+  70%  { opacity: 1; transform: translateX(-50%) translateY(-18px) scale(1.0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-36px) scale(1.0); }
+}
+
+
 
 /* Small-height screens: scale a touch */
 @media (max-height: 740px){
