@@ -3055,6 +3055,12 @@ function spotlightFromEvents(state){
         hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
       }
     }
+
+        // === NEW: board flash + shake + floating "-N" ===
+    if (e.t === 'damage') {
+      animateDamage(e.side, e.amount || 1);
+    }
+
   });
 }
 
