@@ -868,6 +868,9 @@ async function doStartTurn(){
     if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
     await withDrawStep(async () => {
       state = drawN(state, active, need);
+      if (need > 0) {
+    // visual only: deck -> hand chips
+    animateDrawCards(active, need);
     });
   }
 
@@ -877,7 +880,18 @@ async function doStartTurn(){
 
 async function doEndTurn() {
   Emit(Events.TURN_END, { side: state.activePlayer });
+
+ // count what's about to be discarded (most rulesets ditch the whole hand)
+  const prevSide = state.activePlayer;
+  const prevHandN = (serializePublic(state)?.players?.[prevSide]?.hand?.length) | 0;
+  
   state = endTurn(state);
+
+if (prevHandN > 0) {
+    // visual only: hand -> discard chips
+    animateDiscardCards(prevSide, prevHandN);
+  }
+  
   await doStartTurn();   // loops cleanly into next side’s Start Turn
 }
 
