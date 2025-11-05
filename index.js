@@ -191,6 +191,36 @@ function ensureTopMenu() {
 // --- draw-step sentinel (used only for Veyra I logic) ---
 let __IN_DRAW_STEP = false;
 
+
+
+
+function ensureShuffleStyles(){
+  if (document.getElementById('shuffle-style')) return;
+  const s = document.createElement('style');
+  s.id = 'shuffle-style';
+  s.textContent = `
+  .shuffle-fx {
+    position: fixed; left:0; top:0; width:8px; height:12px;
+    border-radius: 2px;
+    background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(220,220,220,.7));
+    box-shadow: 0 1px 3px rgba(0,0,0,.35);
+    transform: translate(-9999px,-9999px);
+    z-index: 9999; pointer-events:none;
+  }
+  @keyframes shuffle-fly {
+    0%   { opacity:0; transform: translate(var(--sx), var(--sy)) rotate(var(--r0)); }
+    10%  { opacity:1; }
+    60%  { opacity:1; transform: translate(var(--mx), var(--my)) rotate(var(--r1)); }
+    100% { opacity:0; transform: translate(var(--dx), var(--dy)) rotate(var(--r2)); }
+  }`;
+  document.head.appendChild(s);
+}
+
+
+
+
+
+
 /** Run a block while we're *inside* the official Draw Step. */
 async function withDrawStep(fn){
   const prev = __IN_DRAW_STEP;
@@ -455,6 +485,63 @@ function markNewestLostHeartShattered(side) {
   }
 }
 
+
+
+
+function pileAnchor(side, pile){ // pile: 'deck' | 'discard'
+  // Try explicit ids first; fall back near the portrait if needed
+  const id = side === 'player'
+    ? (pile === 'deck' ? '#player-deck' : '#player-discard')
+    : (pile === 'deck' ? '#ai-deck'     : '#ai-discard');
+  let el = document.querySelector(id);
+
+  if (!el) {
+    // common fallback: counters or icons near the portrait area
+    const scope = document.querySelector(side==='player' ? '#player-area, .portrait.player' : '#ai-area, .portrait.ai') || document.body;
+    el = scope.querySelector(`[data-pile="${pile}"]`) || scope;
+  }
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+function animateReshuffle(side, count=10){
+  ensureShuffleStyles();
+  // where the cards start (discard), where they end (deck)
+  const src = pileAnchor(side, 'discard');
+  const dst = pileAnchor(side, 'deck');
+
+  // mid-arc control point roughly above/between piles
+  const midX = (src.x + dst.x)/2 + (Math.random()*40-20);
+  const midY = Math.min(src.y, dst.y) - 40 + (Math.random()*20-10);
+
+  const n = Math.min(18, Math.max(6, count || 10));
+  for (let i=0;i<n;i++){
+    const chip = document.createElement('div');
+    chip.className = 'shuffle-fx';
+    document.body.appendChild(chip);
+
+    // randomized small offsets & rotations
+    const r0 = (Math.random()*40-20) + 'deg';
+    const r1 = (Math.random()*70-35) + 'deg';
+    const r2 = (Math.random()*140-70) + 'deg';
+
+    chip.style.setProperty('--sx',  (src.x + (Math.random()*14-7)) + 'px');
+    chip.style.setProperty('--sy',  (src.y + (Math.random()*10-5)) + 'px');
+    chip.style.setProperty('--mx',  (midX   + (Math.random()*20-10)) + 'px');
+    chip.style.setProperty('--my',  (midY   + (Math.random()*12-6))  + 'px');
+    chip.style.setProperty('--dx',  (dst.x  + (Math.random()*12-6))  + 'px');
+    chip.style.setProperty('--dy',  (dst.y  + (Math.random()*8-4))   + 'px');
+    chip.style.setProperty('--r0', r0);
+    chip.style.setProperty('--r1', r1);
+    chip.style.setProperty('--r2', r2);
+
+    const dur = 420 + Math.random()*260;
+    const delay = i * 24; // ripple in
+    chip.style.animation = `shuffle-fly ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms forwards`;
+
+    chip.addEventListener('animationend', () => chip.remove(), { once:true });
+  }
+}
 
 
 
@@ -4011,7 +4098,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
   ensureDamageVFXStyles();
-  
+  ensureShuffleStyles();
+
 
 // 🔒 Gate check
   const gate = window.__greyDemoGate;
