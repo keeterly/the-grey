@@ -3313,93 +3313,133 @@ function canAdvanceSpell(side, slot){
 }
 
 
-function spotlightFromEvents(state){
+async function spotlightFromEvents(state){
   const evts = drainEvents(state) || [];
+  if (!evts.length) return;
 
-  evts.forEach(async (e) => {
+  // NEW: group draw/discard so animations stagger cleanly per frame
+  const drawCounts = { player: 0, ai: 0 };
+  const discardCounts = { player: 0, ai: 0 };
+
+  // Iterate sequentially so awaits (cinematics) actually run in order
+  for (const e of evts) {
     try {
-      // SPELL: board → discard cinematic
-       if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
-         // Morr I: when a card leaves a Slot → +1 Æ (once/turn)
-    try {
-      const side = e.side || 'player';
-      if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
-        ensureTranceFlags();
-        const f = state.players[side]._trFlags;
-        if (!f.morrL1Used) {
-          adjustAe(side, 1);
-          f.morrL1Used = true;
-         Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
-        }
-      }
-    } catch {}
-       
-          const rowSel = `.row.${e.side || 'player'}`;
-          const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
-          const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
-        
-          // start (or refresh) a stack key for this resolve sequence
-          CURRENT_RESOLVE_STACK.key = `resolve-${Date.now()}`;
-          CURRENT_RESOLVE_STACK.at  = performance.now();
-        
-          await playCinematic(e.cardData, slotRect, destRect, {
-            centerScale: 1.16, holdMs: 300,
-            stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 0, stackDx: 26, stackDy: 18
-          });
-        }
-    
-
-      // GLYPH: board → discard cinematic (camera fly), we’ll also do the flip below
-        if (e.t === 'resolved' && e.source === 'glyph') {
-
-      // Morr I: also applies when the glyph leaves its slot
-          try {
-            const side = e.side || 'player';
-            if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
-              ensureTranceFlags();
-              const f = state.players[side]._trFlags;
-              if (!f.morrL1Used) {
-                adjustAe(side, 1);
-                f.morrL1Used = true;
-               Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
-              }
+      // ===== SPELL: board → discard cinematic =====
+      if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
+        // Morr I: when a card leaves a Slot → +1 Æ (once/turn)
+        try {
+          const side = e.side || 'player';
+          if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
+            ensureTranceFlags();
+            const f = state.players[side]._trFlags;
+            if (!f.morrL1Used) {
+              adjustAe(side, 1);
+              f.morrL1Used = true;
+              Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
             }
-          } catch {}
+          }
+        } catch {}
 
-          
-      // Enoch II: when a Glyph reveals, draw 1
+        const rowSel   = `.row.${e.side || 'player'}`;
+        const slotRect = rectOfSelector(`${rowSel} .slot.spell[data-slot-index="${e.slotIndex}"]`) || centerRect();
+        const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
+
+        // start (or refresh) a stack key for this resolve sequence
+        CURRENT_RESOLVE_STACK.key = `resolve-${Date.now()}`;
+        CURRENT_RESOLVE_STACK.at  = performance.now();
+
+        await playCinematic(e.cardData, slotRect, destRect, {
+          centerScale: 1.16, holdMs: 300,
+          stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 0, stackDx: 26, stackDy: 18
+        });
+      }
+
+      // ===== GLYPH: board → discard cinematic =====
+      if (e.t === 'resolved' && e.source === 'glyph') {
+        // Morr I: also applies when the glyph leaves its slot
+        try {
+          const side = e.side || 'player';
+          if (sideWeaverKey(side) === 'morr' && tranceLevel(side) >= 1) {
+            ensureTranceFlags();
+            const f = state.players[side]._trFlags;
+            if (!f.morrL1Used) {
+              adjustAe(side, 1);
+              f.morrL1Used = true;
+              Emit(Events.AETHER_GAIN, { side, amount:1, source:"Morr L1" });
+            }
+          }
+        } catch {}
+
+        // Enoch II: when a Glyph reveals, draw 1
         try {
           const side = e.side || 'player';
           if (sideWeaverKey(side) === 'enoch' && tranceLevel(side) >= 2) {
             reshuffleFromDiscard(side);
             state = drawN(state, side, 1);
+          }
+        } catch (err) { console.warn('Enoch II draw failed', err); }
+
+        const rowSel   = `.row.${e.side || 'player'}`;
+        const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
+        const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
+
+        const recentMs = performance.now() - (CURRENT_RESOLVE_STACK.at || 0);
+        const canStack = recentMs < 1400 && CURRENT_RESOLVE_STACK.key;
+
+        await playCinematic(e.cardData, slotRect, destRect, canStack ? {
+          centerScale: 1.12, holdMs: 300,
+          // glyph goes ON TOP of the thing that triggered it
+          stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 1, stackDx: 26, stackDy: 18
+        } : {
+          centerScale: 1.12, holdMs: 300
+        });
+
+        // === Single, canonical glyph flip/pulse/remove ===
+        {
+          const side = e.side || 'player';
+          const row  = `.row.${side}`;
+          const slot = document.querySelector(`${row} .slot.glyph`);
+          if (slot) {
+            const art = slot.querySelector('.card');
+
+            // backplate
+            if (!slot.querySelector('.glyph-back')) {
+              const back = document.createElement('div');
+              back.className = 'glyph-back';
+              slot.appendChild(back);
             }
-          } catch (err) {console.warn('Enoch II draw failed', err);}
 
+            // flip down, then up
+            slot.classList.add('flipping-down');
+            art?.addEventListener('animationend', () => {
+              slot.classList.remove('flipping-down');
+              slot.classList.add('flipping-up');
+              slot.addEventListener('animationend', () => {
+                slot.classList.remove('flipping-up');
+              }, { once: true });
+            }, { once: true });
 
-          
-          const rowSel = `.row.${e.side || 'player'}`;
-          const slotRect = rectOfSelector(`${rowSel} .slot.glyph`) || centerRect();
-          const destRect = (e.side === 'ai') ? domRectOfAiDiscardHud() : domRectOfDiscardHud();
-        
-          const recentMs = performance.now() - (CURRENT_RESOLVE_STACK.at || 0);
-          const canStack = recentMs < 1400 && CURRENT_RESOLVE_STACK.key;
-        
-          await playCinematic(e.cardData, slotRect, destRect, canStack ? {
-            centerScale: 1.12, holdMs: 300,
-            // glyph goes ON TOP of the thing that triggered it
-            stackKey: CURRENT_RESOLVE_STACK.key, stackIndex: 1, stackDx: 26, stackDy: 18
-          } : {
-            centerScale: 1.12, holdMs: 300
-          });
+            // purple pulse ring
+            const pulse = document.createElement('div');
+            pulse.className = 'glyph-trigger-circle';
+            slot.appendChild(pulse);
+            pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
 
-          
-        
-          // (keep your existing flip/pulse/remove block that follows)
+            // brief purple highlight
+            art?.classList.add('purple-ring');
+            art?.addEventListener('animationend', () => art.classList.remove('purple-ring'), { once: true });
+
+            // remove glyph node after arc
+            setTimeout(() => {
+              art?.remove();
+              slot.classList.remove('has-card');
+            }, 800);
+          }
+          logLine(`${e.side || 'player'} → Glyph triggered & discarded.`);
         }
+      }
 
-
-      // Logging
+      // ===== Logging =====
       if (e.t === "reveal" && e.source === "flow") {
         logLine(`Flow reveal → ${e.cardData?.name || e.cardId}`);
       } else if (e.t === "resolved" && e.source === "spell") {
@@ -3408,121 +3448,82 @@ function spotlightFromEvents(state){
         logLine(`${e.side} RESOLVED instant → ${e.cardData?.name || e.cardId}`);
       } else if (e.t === "resolved" && e.source === "glyph") {
         logLine(`${e.side} RESOLVED glyph → ${e.cardData?.name || e.cardId}`);
-     } else if (e.t === "resolved" && e.source === "buy") {
+      } else if (e.t === "resolved" && e.source === "buy") {
         logLine(`${e.side} BOUGHT → ${e.cardData?.name || e.cardId}`);
         if (e.cardData?.id) FLOW_BOUGHT_IDS.add(e.cardData.id);
-      
-
-        
       } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
         logLine(`${e.side} DISCARD → ${e.cardData?.name || e.cardId}`);
       } else if (e.t === "damage") {
         logLine(`DAMAGE → ${e.side} -${e.amount}`);
       } else if (e.t === "draw") {
-        logLine(`${e.side} draws ${e.amount}`);
-         // Veyra I: draw outside Draw Step → +1 temp Æ once/turn
-    try {
-      const side = e.side || 'player';
-      if (!__IN_DRAW_STEP && sideWeaverKey(side) === 'veyra' && tranceLevel(side) >= 1) {
-        ensureTranceFlags();
-        const f = state.players[side]._trFlags;
-        if (!f.veyraL1Used) {
-          addTemp(side, 1);
-          f.veyraL1Used = true;
-          // This is temp Æ, so we can reuse AETHER_GAIN log, or keep silent.
-          Emit(Events.AETHER_GAIN, { side, amount:1, source:'Veyra I (temp)' });
-        }
-      }
-    } catch {}
+        // e.amount may not be set; the animation below handles visuals
+        logLine(`${e.side} draws`);
+        // Veyra I: draw outside Draw Step → +1 temp Æ once/turn
+        try {
+          const side = e.side || 'player';
+          if (!__IN_DRAW_STEP && sideWeaverKey(side) === 'veyra' && tranceLevel(side) >= 1) {
+            ensureTranceFlags();
+            const f = state.players[side]._trFlags;
+            if (!f.veyraL1Used) {
+              addTemp(side, 1);
+              f.veyraL1Used = true;
+              Emit(Events.AETHER_GAIN, { side, amount:1, source:'Veyra I (temp)' });
+            }
+          }
+        } catch {}
       } else if (e.t === "aether") {
         logLine(`${e.side} gains ${e.amount} Æ`);
       }
-    } catch (_) {}
 
-    // ---- Visual-only reactions (DOM effects) ----
+      // ===== Visual-only reactions =====
 
-    // GLYPH flipdown + pulse + remove (single, canonical handler)
-    if (e.t === 'resolved' && e.source === 'glyph') {
-      const side = e.side || 'player';
-      const rowSel = `.row.${side}`;
-      const slot = document.querySelector(`${rowSel} .slot.glyph`);
-      if (slot) {
-        const art = slot.querySelector('.card');
-
-        // Add backplate once
-        if (!slot.querySelector('.glyph-back')) {
-          const back = document.createElement('div');
-          back.className = 'glyph-back';
-          slot.appendChild(back);
+      // FLOW reveal spotlight
+      if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)) {
+        const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
+        if (flowCard) {
+          flowCard.classList.add('spotlight');
+          flowCard.addEventListener('animationend', () => flowCard.classList.remove('spotlight'), { once:true });
         }
-
-        // Flip down, then back up (so next set starts face-up)
-        slot.classList.add('flipping-down');
-        art?.addEventListener('animationend', () => {
-          slot.classList.remove('flipping-down');
-          slot.classList.add('flipping-up');
-          slot.addEventListener('animationend', () => {
-            slot.classList.remove('flipping-up');
-          }, { once: true });
-        }, { once: true });
-
-        // Purple pulse ring
-        const pulse = document.createElement('div');
-        pulse.className = 'glyph-trigger-circle';
-        slot.appendChild(pulse);
-        pulse.addEventListener('animationend', () => pulse.remove(), { once: true });
-
-        // Brief purple highlight around the glyph card
-        art?.classList.add('purple-ring');
-        art?.addEventListener('animationend', () => art.classList.remove('purple-ring'), { once: true });
-
-        // Remove the glyph card node after the arc
-        setTimeout(() => {
-          art?.remove();
-          slot.classList.remove('has-card');
-        }, 800);
       }
 
-      // Optional log for clarity (already logged above too)
-      logLine(`${side} → Glyph triggered & discarded.`);
-    }
-
-    // FLOW reveal spotlight effect
-    if (e.t === 'reveal' && e.source === 'flow' && Number.isFinite(e.flowIndex)) {
-      const flowCard = document.querySelector(`.flow-card:nth-child(${e.flowIndex + 1}) .card.market`);
-      if (flowCard) {
-        flowCard.classList.add('spotlight');
-        flowCard.addEventListener('animationend', () => flowCard.classList.remove('spotlight'), { once:true });
+      // Damage VFX (hearts + shatter + floater)
+      if (e.t === 'damage') {
+        if (e.side === 'player' || e.side === 'ai') {
+          const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
+          const hearts = document.getElementById(id);
+          if (hearts) {
+            hearts.classList.add('hit');
+            hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
+          }
+        }
+        animateDamage(e.side, e.amount || 1);
+        markNewestLostHeartShattered(e.side);
       }
-    }
 
-    if (e.t === 'damage') {
-  // existing small heart wiggle (keep it if you like)
-  if (e.side === 'player' || e.side === 'ai') {
-    const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
-    const hearts = document.getElementById(id);
-    if (hearts) {
-      hearts.classList.add('hit');
-      hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
+      // Reshuffle VFX (discard → deck)
+      if (e.t === 'reshuffle') {
+        animateReshuffle(e.side, Math.min(18, e.discardCount || 10));
+      }
+
+      // === NEW: Tally for draw/discard animations ===
+      if (e.t === 'draw' && (e.side === 'player' || e.side === 'ai')) {
+        drawCounts[e.side] += 1;
+      }
+      if (e.t === 'resolved' && (e.source === 'hand-discard' || e.source === 'discard-aether')) {
+        discardCounts[e.side] = (discardCounts[e.side] || 0) + 1;
+      }
+
+    } catch (_err) {
+      // swallow to avoid breaking the loop on animation errors
     }
   }
-  // NEW: crack + shake + local floater
-  animateDamage(e.side, e.amount || 1);
-      // NEW: persist shattered look on the newly lost heart
-  markNewestLostHeartShattered(e.side);
-}
 
+  // ===== After processing all events, fire batched draw/discard animations =====
+  if (drawCounts.player)  animateDrawCards('player', drawCounts.player);
+  if (drawCounts.ai)      animateDrawCards('ai',     drawCounts.ai);
 
-     // 🆕 When deck is refilled from discard, show shuffle animation
-  if (e.t === 'reshuffle') {
-    animateReshuffle(e.side, Math.min(18, e.discardCount || 10));
-  }
-
-
-
-    
-
-  });
+  if (discardCounts.player) animateDiscardCards('player', discardCounts.player);
+  if (discardCounts.ai)     animateDiscardCards('ai',     discardCounts.ai);
 }
 
 
