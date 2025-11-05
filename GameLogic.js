@@ -606,8 +606,15 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
 // Resolving helpers
 /////////////////////////////
 
-function restockIfEmpty(P){
+function restockIfEmpty(state, playerId){
+  const P = state.players[playerId];
   if (!P.deck.length && P.discard.length){
+    // tell the UI we’re about to reshuffle
+    pushEvt(state, {
+      t: "reshuffle",
+      side: playerId,
+      discardCount: P.discard.length
+    });
     shuffle(P.discard);
     P.deck = P.discard.splice(0);
   }
@@ -616,14 +623,14 @@ function restockIfEmpty(P){
 export function drawOne(state, playerId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
-  restockIfEmpty(P);
+  restockIfEmpty(state, playerId);
   if (!P.deck.length) return state;
   P.hand.push(P.deck.shift());
   return state;
 }
 
 export function drawN(state, playerId, n){
-  for (let i=0;i<n;i++) drawOne(state, playerId);
+  for (let i=0;i<n;i++) state = drawOne(state, playerId);
   return state;
 }
 
