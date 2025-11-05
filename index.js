@@ -586,6 +586,7 @@ function animateReshuffle(side, count = 14) {
 
 
 
+
 function slotsRect(side) {
   const el = document.querySelector(side === 'player' ? '#player-slots' : '#ai-slots');
   const r = (el || document.body).getBoundingClientRect();
