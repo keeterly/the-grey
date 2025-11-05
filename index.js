@@ -3505,12 +3505,14 @@ async function spotlightFromEvents(state){
         animateReshuffle(e.side, Math.min(18, e.discardCount || 10));
       }
 
-      // === NEW: Tally for draw/discard animations ===
-      if (e.t === 'draw' && (e.side === 'player' || e.side === 'ai')) {
-        drawCounts[e.side] += 1;
+      // === NEW: Tally for draw/discard animations (2B) ===
+      if (e.t === 'draw') {
+        const s = (e.side === 'ai') ? 'ai' : 'player';
+        drawCounts[s] += (e.amount | 0) || 1;
       }
       if (e.t === 'resolved' && (e.source === 'hand-discard' || e.source === 'discard-aether')) {
-        discardCounts[e.side] = (discardCounts[e.side] || 0) + 1;
+        const s = (e.side === 'ai') ? 'ai' : 'player';
+        discardCounts[s] = (discardCounts[s] || 0) + 1;
       }
 
     } catch (_err) {
@@ -3519,11 +3521,11 @@ async function spotlightFromEvents(state){
   }
 
   // ===== After processing all events, fire batched draw/discard animations =====
-  if (drawCounts.player)  animateDrawCards('player', drawCounts.player);
-  if (drawCounts.ai)      animateDrawCards('ai',     drawCounts.ai);
+ if (drawCounts.player > 0)  animateDrawCards('player', drawCounts.player);
+  if (drawCounts.ai > 0)      animateDrawCards('ai',     drawCounts.ai);
 
-  if (discardCounts.player) animateDiscardCards('player', discardCounts.player);
-  if (discardCounts.ai)     animateDiscardCards('ai',     discardCounts.ai);
+  if (discardCounts.player > 0) animateDiscardCards('player', discardCounts.player);
+  if (discardCounts.ai > 0)     animateDiscardCards('ai',     discardCounts.ai);
 }
 
 
