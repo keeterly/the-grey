@@ -871,6 +871,7 @@ async function doStartTurn(){
       if (need > 0) {
     // visual only: deck -> hand chips
     animateDrawCards(active, need);
+      }
     });
   }
 
