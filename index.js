@@ -425,6 +425,31 @@ function heartsHost(side) {
 
 
 
+function heartsWrap(side) {
+  return document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+}
+
+/** Mark the newest lost heart (rightmost empty) as 'shattered'. */
+function markNewestLostHeartShattered(side) {
+  const wrap = heartsWrap(side);
+  if (!wrap) return;
+
+  // We assume hearts render left→right with full hearts first.
+  // Find all hearts and the current vitality from state.
+  const hearts = Array.from(wrap.querySelectorAll('.heart'));
+  const cur = (state?.players?.[side]?.vitality | 0) ?? 0;
+
+  // Hearts at index >= cur are empty. The "newly lost" is at index (cur), if it exists.
+  const idx = cur; // right after the last full one
+  if (hearts[idx] && !hearts[idx].classList.contains('shattered')) {
+    hearts[idx].classList.add('shattered');
+  }
+}
+
+
+
+
+
 // --- cinematic helper: find the live DOM node for a hand card and emit
 // to can be a selector string or an Element. meta lets us pass slotIndex, etc.
 function cineFromHandCard(cardId, to, pose = '', meta = {}) {
@@ -3191,6 +3216,8 @@ function spotlightFromEvents(state){
   }
   // NEW: crack + shake + local floater
   animateDamage(e.side, e.amount || 1);
+      // NEW: persist shattered look on the newly lost heart
+  markNewestLostHeartShattered(e.side);
 }
 
 
