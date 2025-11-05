@@ -194,6 +194,44 @@ let __IN_DRAW_STEP = false;
 
 
 
+
+function ensureCardMotionStyles(){
+  if (document.getElementById('card-motion-style')) return;
+  const s = document.createElement('style');
+  s.id = 'card-motion-style';
+  s.textContent = `
+    .card-fx {
+      position: fixed;
+      width: 90px; height: 130px;   /* visual proxy, not real card */
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(240,240,240,.85));
+      box-shadow: 0 6px 16px rgba(0,0,0,.25);
+      transform: translate(-9999px,-9999px) scale(.9);
+      opacity: 0;
+      z-index: 10000;
+      pointer-events: none;
+    }
+    .card-fx.player { filter: hue-rotate(0deg) saturate(1.05); }
+    .card-fx.ai     { filter: hue-rotate(-8deg) saturate(.95); }
+
+    @keyframes card-in {
+      0%   { opacity: 0; transform: translate(var(--sx), var(--sy)) scale(.86) rotate(var(--r0)); }
+      60%  { opacity: 1; transform: translate(var(--mx), var(--my)) scale(1.02) rotate(var(--r1)); }
+      100% { opacity: 1; transform: translate(var(--dx), var(--dy)) scale(1.00) rotate(0deg);   }
+    }
+    @keyframes card-out {
+      0%   { opacity: 1; transform: translate(var(--sx), var(--sy)) scale(1.00) rotate(0deg); }
+      80%  { opacity: .9; transform: translate(var(--mx), var(--my)) scale(.94) rotate(var(--r1)); }
+      100% { opacity: 0; transform: translate(var(--dx), var(--dy)) scale(.90) rotate(var(--r2)); }
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+
+
+
+
 function ensureShuffleStyles(){
   if (document.getElementById('shuffle-style')) return;
   const s = document.createElement('style');
@@ -2975,6 +3013,113 @@ function centerRect(w = 260, h = 360) {
   const vw = innerWidth, vh = innerHeight;
   return { x: (vw - w)/2, y: (vh - h)/2, w, h, cx: vw/2, cy: vh/2 };
 }
+
+
+
+
+
+
+function centerOf(el){
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width/2, y: r.top + r.height/2 };
+}
+
+function handAnchor(side){
+  // Prefer the actual hand container if present
+  const el = document.querySelector(side === 'player' ? '#player-hand' : '#ai-hand')
+         || document.querySelector(side === 'player' ? '#player-area' : '#ai-area')
+         || document.body;
+  return { el, ...centerOf(el) };
+}
+
+function fanTargetInHand(side, index, total){
+  const { el } = handAnchor(side);
+  const r = el.getBoundingClientRect();
+  // fan across ~70% of hand width
+  const span = r.width * 0.7;
+  const cx = r.left + r.width/2;
+  const start = cx - span/2;
+  const x = start + (total <= 1 ? span/2 : (index / (total - 1)) * span);
+  const y = r.top + r.height * (side==='player' ? 0.15 : 0.20);
+  return { x, y };
+}
+
+function deckAnchor(side){
+  // Uses the same helper you added earlier
+  return pileAnchor(side, 'deck');
+}
+function discardAnchor(side){
+  return pileAnchor(side, 'discard');
+}
+
+
+function animateDrawCards(side, count=1){
+  ensureCardMotionStyles();
+  const src = deckAnchor(side);
+  const hand = handAnchor(side);
+  const total = Math.max(1, count|0);
+
+  for (let i = 0; i < total; i++){
+    const chip = document.createElement('div');
+    chip.className = `card-fx ${side}`;
+    document.body.appendChild(chip);
+
+    const target = fanTargetInHand(side, i, total);
+    const midX = (src.x + target.x)/2 + (Math.random()*40 - 20);
+    const midY = (src.y + target.y)/2 + (side==='player' ? -60 : 60) + (Math.random()*20 - 10);
+
+    chip.style.setProperty('--sx', `${src.x}px`);
+    chip.style.setProperty('--sy', `${src.y}px`);
+    chip.style.setProperty('--mx', `${midX}px`);
+    chip.style.setProperty('--my', `${midY}px`);
+    chip.style.setProperty('--dx', `${target.x}px`);
+    chip.style.setProperty('--dy', `${target.y}px`);
+    chip.style.setProperty('--r0', `${Math.random()*16-8}deg`);
+    chip.style.setProperty('--r1', `${Math.random()*10-5}deg`);
+
+    const dur = 420 + Math.random()*120;
+    const delay = i * 70; // gentle stagger
+    chip.style.animation = `card-in ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms forwards`;
+    chip.addEventListener('animationend', () => chip.remove(), { once:true });
+  }
+}
+
+function animateDiscardCards(side, count=1){
+  ensureCardMotionStyles();
+  const dst = discardAnchor(side);
+  const hand = handAnchor(side);
+  const total = Math.max(1, count|0);
+
+  for (let i = 0; i < total; i++){
+    const chip = document.createElement('div');
+    chip.className = `card-fx ${side}`;
+    document.body.appendChild(chip);
+
+    // start somewhere within hand fan; toss toward discard
+    const start = fanTargetInHand(side, i, Math.max(total, 3));
+    const midX = (start.x + dst.x)/2 + (Math.random()*40 - 20);
+    const midY = (start.y + dst.y)/2 + (side==='player' ? -40 : 40) + (Math.random()*20 - 10);
+
+    chip.style.setProperty('--sx', `${start.x}px`);
+    chip.style.setProperty('--sy', `${start.y}px`);
+    chip.style.setProperty('--mx', `${midX}px`);
+    chip.style.setProperty('--my', `${midY}px`);
+    chip.style.setProperty('--dx', `${dst.x}px`);
+    chip.style.setProperty('--dy', `${dst.y}px`);
+    chip.style.setProperty('--r1', `${Math.random()*20-10}deg`);
+    chip.style.setProperty('--r2', `${Math.random()*80-40}deg`);
+
+    const dur = 380 + Math.random()*140;
+    const delay = i * 60;
+    chip.style.animation = `card-out ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms forwards`;
+    chip.addEventListener('animationend', () => chip.remove(), { once:true });
+  }
+}
+
+
+
+
+
 // --- cinematic helpers ---
 function makeFloatingCard(cardData) {
   const el = document.createElement('article');
@@ -4156,6 +4301,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensurePortraitAeNoGlowStyles();
   ensureDamageVFXStyles();
   ensureShuffleStyles();
+  ensureCardMotionStyles();
 
 
 // 🔒 Gate check
