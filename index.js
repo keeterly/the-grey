@@ -3317,6 +3317,12 @@ function spotlightFromEvents(state){
 }
 
 
+     // 🆕 When deck is refilled from discard, show shuffle animation
+  if (e.t === 'reshuffle') {
+    animateReshuffle(e.side, Math.min(18, e.discardCount || 10));
+  }
+
+
 
     
 
