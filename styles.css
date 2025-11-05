@@ -1436,6 +1436,47 @@ body.mobile-landscape #zoom-card.card.zoom{
 
 
 
+/* ===== Persistent shattered heart ===== */
+#player-hearts .heart,
+#ai-hearts .heart {
+  position: relative;
+}
+
+/* Empty hearts get a faint hollow look already — we enhance that when shattered */
+.heart.shattered {
+  filter: drop-shadow(0 0 6px rgba(255,120,120,.25));
+}
+
+/* hairline cracks overlay kept on the heart */
+.heart.shattered::after {
+  content:"";
+  position:absolute; inset:-2px;
+  pointer-events:none;
+  background: center / 100% 100% no-repeat
+    url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'>\
+ <g stroke='rgba(255,195,195,0.9)' stroke-width='2' stroke-linecap='round' fill='none'>\
+  <path d='M15,55 35,35 48,50 60,28 74,46 92,30 108,42'/>\
+  <path d='M28,78 42,60 55,72 68,58 84,72'/>\
+  <path d='M60,30 53,48 69,60 58,75'/>\
+ </g>\
+</svg>");
+  opacity:.95;
+}
+
+/* a subtle glass sheen on shattered empties */
+.heart.shattered::before {
+  content:"";
+  position:absolute; inset:0;
+  pointer-events:none;
+  background: radial-gradient(120% 90% at 50% 10%, rgba(255,255,255,.12), transparent 40%),
+              radial-gradient(80% 60% at 20% 70%, rgba(255,140,140,.10), transparent 60%);
+  mix-blend-mode: screen;
+  opacity:.9;
+}
+
+
+
 /* Small-height screens: scale a touch */
 @media (max-height: 740px){
   :root{
