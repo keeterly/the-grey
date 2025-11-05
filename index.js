@@ -422,6 +422,15 @@ function heartsHost(side) {
 }
 
 
+function refreshHeartsShatter(side) {
+  const wrap = heartsWrap(side);
+  if (!wrap) return;
+  const hearts = Array.from(wrap.querySelectorAll('.heart'));
+  const cur = (state?.players?.[side]?.vitality | 0) ?? 0;
+  for (let i = cur; i < hearts.length; i++) {
+    hearts[i].classList.add('shattered');
+  }
+}
 
 
 
@@ -3675,8 +3684,8 @@ async function render(){
       PORTRAIT_SRC.ai
     );
 
-  playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
-  aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
+      playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
+      aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
 
 
 
@@ -3686,13 +3695,15 @@ async function render(){
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   // in render()
-renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5, 5);
-renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 5, 5);
+  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5, 5);
+  renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 5, 5);
 
- removeLegacyTranceText();
+  removeLegacyTranceText();
   renderTranceTrack('player');
-renderTranceTrack('ai');
+  renderTranceTrack('ai');
   refreshPipAdvanceClasses();
+   
+
 
  
 
@@ -3757,7 +3768,7 @@ if (typeof window.__wirePileModals === 'function') {
   renderAiMini(s);
 
   ensureGlyphPlaceholderStyles();
-ensureCrescentChipStyles();
+  ensureCrescentChipStyles();
   
   await renderFlow(s.flow);
   updateWeaverBackdrop();
@@ -3819,8 +3830,11 @@ ensureCrescentChipStyles();
   highlightPlayableCards();
 
   // inside your async function render() { ... } — at the very end, after all sub-renders:
-spotlightFromEvents(state);
-  
+  spotlightFromEvents(state);
+
+  // --- maintain shattered-heart visuals after DOM rebuild ---
+  refreshHeartsShatter('player');
+  refreshHeartsShatter('ai');
 }
 
 
