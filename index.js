@@ -520,26 +520,25 @@ function pileAnchor(side, pile) { // pile: 'deck' | 'discard'
 
 
 
-function animateReshuffle(side, count = 14) {
+function animateReshuffle(side, count = 12) {
   ensureShuffleStyles();
 
   const isPlayer = side === 'player';
-  const slotsEl  = document.querySelector(isPlayer ? '#player-slots' : '#ai-slots');
-  const slotsR   = (slotsEl || document.body).getBoundingClientRect();
+  const SR = slotsRect(side);
 
-  // Anchors for piles
-  const src = pileAnchor(side, 'discard'); // where chips start
-  const dst = pileAnchor(side, 'deck');    // where chips land
+  // Work entirely inside the spell-slot band
+  // Y-band: a little above the slots to avoid covering cards too much
+  const yBase = SR.y + (isPlayer ? SR.h * 0.15 : SR.h * 0.20);
+  const ySpan = SR.h * 0.35;
 
-  // Constrain Y to the slots band so the motion reads "on your side"
-  const yBandTop  = slotsR.top  + (isPlayer ? slotsR.height * 0.10 : slotsR.height * 0.15);
-  const yBandBot  = slotsR.top  + (isPlayer ? slotsR.height * 0.55 : slotsR.height * 0.50);
-  const clampY = (y) => Math.min(yBandBot, Math.max(yBandTop, y));
+  // X-band: left→right for player, right→left for AI (feels like "gather → stack")
+  const xStartBand = isPlayer ? [SR.x + SR.w * 0.15, SR.x + SR.w * 0.35]
+                              : [SR.x + SR.w * 0.65, SR.x + SR.w * 0.85];
+  const xEndBand   = isPlayer ? [SR.x + SR.w * 0.55, SR.x + SR.w * 0.85]
+                              : [SR.x + SR.w * 0.15, SR.x + SR.w * 0.45];
 
-  // Midpoint: arch above the midpoint between src/dst; boosted to exaggerate the riffle
-  const baseMidX = (src.x + dst.x) / 2;
-  const baseMidY = (src.y + dst.y) / 2;
-  const archBoost = (isPlayer ? -1 : 1) * Math.max(80, slotsR.height * 0.6);
+  // Midpoint arches higher for a nice "riffle" feel
+  const archBoost = (isPlayer ? -1 : 1) * Math.max(80, SR.h * 0.5);
 
   const n = Math.min(28, Math.max(10, count | 0));
   for (let i = 0; i < n; i++) {
@@ -547,26 +546,27 @@ function animateReshuffle(side, count = 14) {
     chip.className = 'shuffle-fx';
     document.body.appendChild(chip);
 
-    // Size them up a bit so it reads clearly
+    // Larger + slight variety
     const scale = 1.6 + Math.random() * 0.5;
-    chip.style.width  = `${12 * scale}px`;
+    chip.style.width = `${12 * scale}px`;
     chip.style.height = `${18 * scale}px`;
 
-    // Start near discard (src), end near deck (dst)
-    const xS = src.x + (Math.random() * 20 - 10);
-    const yS = clampY(src.y + (Math.random() * 20 - 10));
-    const xD = dst.x + (Math.random() * 20 - 10);
-    const yD = clampY(dst.y + (Math.random() * 16 - 8));
+    // Randomize within bands
+    const xS = xStartBand[0] + Math.random() * (xStartBand[1] - xStartBand[0]);
+    const xD = xEndBand[0]   + Math.random() * (xEndBand[1]   - xEndBand[0]);
+    const yS = yBase + Math.random() * ySpan;
+    const yD = yBase + Math.random() * ySpan;
 
-    // Arch midpoint with some jitter
-    const midX = baseMidX + (Math.random() * 40 - 20);
-    const midY = clampY(baseMidY + archBoost + (Math.random() * 24 - 12));
+    // Arch mid point roughly above the center between start and end
+    const midX = (xS + xD) / 2 + (Math.random() * 40 - 20);
+    const midY = (yS + yD) / 2 + archBoost + (Math.random() * 20 - 10);
 
-    // Rotations along the path
-    const r0 = (Math.random() * 80  - 40) + 'deg';
+    // Rotations
+    const r0 = (Math.random() * 80 - 40) + 'deg';
     const r1 = (Math.random() * 140 - 70) + 'deg';
     const r2 = (Math.random() * 200 - 100) + 'deg';
 
+    // Set path variables for the keyframes
     chip.style.setProperty('--sx', `${xS}px`);
     chip.style.setProperty('--sy', `${yS}px`);
     chip.style.setProperty('--mx', `${midX}px`);
@@ -577,12 +577,14 @@ function animateReshuffle(side, count = 14) {
     chip.style.setProperty('--r1', r1);
     chip.style.setProperty('--r2', r2);
 
-    const dur   = 900 + Math.random() * 450;
-    const delay = i * 34;
+    // Slower + bigger cascade so it reads clearly
+    const dur = 900 + Math.random() * 450;
+    const delay = i * 36;
     chip.style.animation = `shuffle-fly ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms forwards`;
     chip.addEventListener('animationend', () => chip.remove(), { once: true });
   }
 }
+
 
 
 
