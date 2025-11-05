@@ -489,23 +489,35 @@ function markNewestLostHeartShattered(side) {
 
 
 function pileAnchor(side, pile) { // pile: 'deck' | 'discard'
-  // Prefer explicit IDs you might have in your HTML:
-  const sel = side === 'player'
+  // 1) Primary explicit ids (if you ever add them)
+  const explicit = side === 'player'
     ? (pile === 'deck' ? '#player-deck'   : '#player-discard')
     : (pile === 'deck' ? '#ai-deck'       : '#ai-discard');
 
-  let el = document.querySelector(sel);
+  let el = document.querySelector(explicit);
 
-  // Fallbacks: anything marked with data-pile on the side, otherwise the slots row
+  // 2) HUD / mini-HUD fallbacks that you actually have in the DOM
   if (!el) {
-    const sideScope = document.querySelector(side === 'player' ? '#player-area, #player-slots, .portrait.player' 
-                                                               : '#ai-area, #ai-slots, .portrait.ai') || document.body;
+    if (side === 'player') {
+      el = document.querySelector(pile === 'deck' ? '#btn-deck-hud' : '#btn-discard-hud');
+    } else {
+      el = document.querySelector(pile === 'deck' ? '#ai-mini-deck' : '#ai-mini-discard');
+    }
+  }
+
+  // 3) Side-scoped [data-pile="..."] (optional markup you might add later)
+  if (!el) {
+    const sideScope = document.querySelector(
+      side === 'player' ? '#player-area, #player-slots, .portrait.player'
+                        : '#ai-area, #ai-slots, .portrait.ai'
+    ) || document.body;
     el = sideScope.querySelector(`[data-pile="${pile}"]`) || sideScope;
   }
 
   const r = el.getBoundingClientRect();
-  return { el, x: r.left + r.width/2, y: r.top + r.height/2 };
+  return { el, x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
+
 
 
 function animateReshuffle(side, count = 14) {
