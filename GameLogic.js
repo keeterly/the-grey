@@ -625,12 +625,15 @@ export function drawOne(state, playerId){
   if (!P) throw new Error("bad player");
   restockIfEmpty(state, playerId);
   if (!P.deck.length) return state;
-  P.hand.push(P.deck.shift());
+  const card = P.deck.shift();
+  P.hand.push(card);
+  // NEW: tell UI to animate a single draw
+  pushEvt(state, { t: "draw", side: playerId, cardId: card.id });
   return state;
 }
 
 export function drawN(state, playerId, n){
-  for (let i=0;i<n;i++) state = drawOne(state, playerId);
+  for (let i = 0; i < n; i++) state = drawOne(state, playerId);
   return state;
 }
 
