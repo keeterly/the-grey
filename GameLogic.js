@@ -625,10 +625,15 @@ export function drawOne(state, playerId){
   if (!P) throw new Error("bad player");
   restockIfEmpty(state, playerId);
   if (!P.deck.length) return state;
-  const card = P.deck.shift();
-  P.hand.push(card);
-  // NEW: tell UI to animate a single draw
-  pushEvt(state, { t: "draw", side: playerId, cardId: card.id });
+  const c = P.deck.shift();
+  P.hand.push(c);
+  // tell the UI a card was actually drawn (animate from deck → hand)
+  (state._events ||= []).push({
+    t: "draw",
+    side: playerId,
+    amount: 1,
+    cardId: c?.id
+  });
   return state;
 }
 
