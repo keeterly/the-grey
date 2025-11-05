@@ -223,22 +223,63 @@ function heartsElFor(side) {
 }
 
 function animateDamage(side, amount = 1) {
-  const host = findSideContainer(side);
+  const host = heartsHost(side) || document.body;
   if (!host) return;
 
-  // flash + shake
+  // flash + shake the portrait (or hearts wrapper)
   host.classList.add('hit');
   host.classList.add('hit-shake');
   setTimeout(() => host.classList.remove('hit'), 320);
   setTimeout(() => host.classList.remove('hit-shake'), 360);
 
-  // floating "-N"
+  // floating “-N” centered above the hearts
   const floater = document.createElement('div');
   floater.className = 'damage-float red';
   floater.textContent = `-${amount|0 || 1}`;
   host.appendChild(floater);
-  floater.addEventListener('animationend', () => floater.remove());
+  floater.addEventListener('animationend', () => floater.remove(), { once:true });
+
+  // glass crack overlay (SVG path)
+  const crack = document.createElement('div');
+  crack.className = 'heart-crack';
+  crack.innerHTML = `
+    <svg viewBox="0 0 120 120" width="100%" height="100%" aria-hidden="true">
+      <path d="M60 110 C 40 96, 16 80, 10 60 4 42, 12 26, 28 20 40 16, 54 20, 60 30
+               66 20, 80 16, 92 20 108 26, 116 42, 110 60 104 78, 80 96, 60 110z"
+            fill="none" stroke="rgba(255,160,160,.9)" stroke-width="2"/>
+      <path d="M60 30 L52 52 L70 64 L58 78"
+            fill="none" stroke="rgba(255,210,210,.9)" stroke-width="2"/>
+    </svg>`;
+  host.appendChild(crack);
+  crack.addEventListener('animationend', () => crack.remove(), { once:true });
+
+  // radial shards bursting from the heart row center
+  const hearts = document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+  const anchor = hearts || host;
+  const r = anchor.getBoundingClientRect();
+  const cx = (r.left + r.right) / 2 - host.getBoundingClientRect().left;
+  const cy = (r.top + r.bottom) / 2 - host.getBoundingClientRect().top;
+
+  const shardCount = 12 + Math.min(10, (amount|0) * 3);
+  for (let i = 0; i < shardCount; i++) {
+    const p = document.createElement('div');
+    p.className = 'shard';
+    p.style.left = `${cx}px`;
+    p.style.top  = `${cy}px`;
+    const ang = (i / shardCount) * Math.PI * 2 + (Math.random()*0.6 - 0.3);
+    const dist = 26 + Math.random() * 42;
+    const dur  = 420 + Math.random() * 380;
+
+    host.appendChild(p);
+    // web animations → small burst outwards, then fade
+    p.animate([
+      { transform: `translate(0px,0px) rotate(${ang}rad) scale(1)`, opacity: .95 },
+      { transform: `translate(${Math.cos(ang)*dist}px, ${Math.sin(ang)*dist}px) rotate(${ang}rad) scale(.8)`, opacity: .0 }
+    ], { duration: dur, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' })
+     .addEventListener('finish', () => p.remove());
+  }
 }
+
 
 
 
@@ -373,6 +414,12 @@ function findSideContainer(side) {
 }
 
 
+function heartsHost(side) {
+  const hearts = document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+  // prefer the portrait wrapper if present, else the hearts node itself
+  const portrait = hearts?.closest('.portrait');
+  return portrait || hearts || findSideContainer(side);
+}
 
 
 
@@ -442,6 +489,82 @@ function svgAetherGem(size = 36){
     <path d="M12 2l6 6-6 14-6-14 6-6z" fill="none" stroke="currentColor" stroke-width="1.8" />
   </svg>`;
 }
+
+
+
+function ensureDamageVFXStyles() {
+  if (document.getElementById('damage-vfx-style')) return;
+  const s = document.createElement('style');
+  s.id = 'damage-vfx-style';
+  s.textContent = `
+    /* Host gets positioned so overlays/floater place correctly */
+    .portrait { position: relative; }
+
+    /* brief flash */
+    @keyframes heartHitFlash { 
+      0% { filter: brightness(1); } 
+      10% { filter: brightness(1.6) saturate(1.1); } 
+      100% { filter: brightness(1); } 
+    }
+    /* micro shake */
+    @keyframes heartHitShake {
+      0%{ transform: translate(0,0) }
+      20%{ transform: translate(-2px,0) }
+      40%{ transform: translate(2px,0) }
+      60%{ transform: translate(-1px,0) }
+      80%{ transform: translate(1px,0) }
+      100%{ transform: translate(0,0) }
+    }
+    .hit       { animation: heartHitFlash 320ms ease; }
+    .hit-shake { animation: heartHitShake 360ms ease; }
+
+    /* floating damage number anchored near hearts */
+    .damage-float {
+      position: absolute;
+      left: 0; right: 0;               /* center horizontally in host */
+      top: -6px;                        /* just above the hearts row */
+      margin: 0 auto; width: max-content;
+      font-weight: 700; font-size: 22px;
+      text-shadow: 0 1px 0 rgba(0,0,0,.5), 0 0 8px rgba(255,60,60,.45);
+      opacity: 0; transform: translateY(0);
+      animation: dmgFloat 900ms ease-out forwards;
+      pointer-events: none;
+    }
+    .damage-float.red { color: #ff9b9b; }
+    @keyframes dmgFloat {
+      0%   { opacity: 0; transform: translateY(6px) scale(.96); }
+      12%  { opacity: 1; transform: translateY(0)    scale(1.00); }
+      80%  { opacity: 1; transform: translateY(-18px) scale(1.00); }
+      100% { opacity: 0; transform: translateY(-28px) scale(1.00); }
+    }
+
+    /* glass crack overlay */
+    .heart-crack {
+      position:absolute; inset:0; pointer-events:none;
+      display:block; opacity:.0;
+      animation: crackFade 520ms ease-out forwards;
+      filter: drop-shadow(0 0 12px rgba(255,120,120,.25));
+    }
+    @keyframes crackFade {
+      0%   { opacity:.0; transform: scale(.96); }
+      30%  { opacity:.9; transform: scale(1.02); }
+      100% { opacity:.0; transform: scale(1.00); }
+    }
+
+    /* radial shards (tiny triangles) */
+    .shard {
+      position:absolute; width: 8px; height: 8px;
+      background: conic-gradient(from 0deg, rgba(255,180,180,.95), rgba(255,120,120,.85) 60%, transparent 60%);
+      clip-path: polygon(50% 0, 100% 100%, 0 100%);
+      opacity: .9; transform-origin: 50% 100%;
+      filter: drop-shadow(0 0 6px rgba(255,120,120,.5));
+      pointer-events:none;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+
 
 
 /* ---------- Trance runtime (per-turn flags + helpers) ---------- */
@@ -3846,7 +3969,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureTranceStyles();
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
-
+  ensureDamageVFXStyles();
   
 
 // 🔒 Gate check
