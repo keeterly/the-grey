@@ -504,44 +504,57 @@ function pileAnchor(side, pile){ // pile: 'deck' | 'discard'
   return { x: r.left + r.width/2, y: r.top + r.height/2 };
 }
 
-function animateReshuffle(side, count=10){
+function animateReshuffle(side, count = 10) {
   ensureShuffleStyles();
-  // where the cards start (discard), where they end (deck)
+
+  // determine which side of the board we animate toward
+  const isPlayer = side === 'player';
+
+  // find where discard and deck anchors are
   const src = pileAnchor(side, 'discard');
   const dst = pileAnchor(side, 'deck');
 
-  // mid-arc control point roughly above/between piles
-  const midX = (src.x + dst.x)/2 + (Math.random()*40-20);
-  const midY = Math.min(src.y, dst.y) - 40 + (Math.random()*20-10);
+  // widen the motion arc — throw cards higher and further
+  const verticalBoost = isPlayer ? 140 : -140; // player arcs upward, AI downward
+  const midX = (src.x + dst.x) / 2 + (Math.random() * 60 - 30);
+  const midY = (src.y + dst.y) / 2 + verticalBoost + (Math.random() * 40 - 20);
 
-  const n = Math.min(18, Math.max(6, count || 10));
-  for (let i=0;i<n;i++){
+  const n = Math.min(24, Math.max(8, count || 10));
+  for (let i = 0; i < n; i++) {
     const chip = document.createElement('div');
     chip.className = 'shuffle-fx';
     document.body.appendChild(chip);
 
-    // randomized small offsets & rotations
-    const r0 = (Math.random()*40-20) + 'deg';
-    const r1 = (Math.random()*70-35) + 'deg';
-    const r2 = (Math.random()*140-70) + 'deg';
+    // make cards noticeably larger for visibility
+    const scale = 1.5 + Math.random() * 0.5;
+    chip.style.width = `${8 * scale}px`;
+    chip.style.height = `${12 * scale}px`;
 
-    chip.style.setProperty('--sx',  (src.x + (Math.random()*14-7)) + 'px');
-    chip.style.setProperty('--sy',  (src.y + (Math.random()*10-5)) + 'px');
-    chip.style.setProperty('--mx',  (midX   + (Math.random()*20-10)) + 'px');
-    chip.style.setProperty('--my',  (midY   + (Math.random()*12-6))  + 'px');
-    chip.style.setProperty('--dx',  (dst.x  + (Math.random()*12-6))  + 'px');
-    chip.style.setProperty('--dy',  (dst.y  + (Math.random()*8-4))   + 'px');
+    // random rotations and positions
+    const r0 = (Math.random() * 60 - 30) + 'deg';
+    const r1 = (Math.random() * 120 - 60) + 'deg';
+    const r2 = (Math.random() * 180 - 90) + 'deg';
+
+    chip.style.setProperty('--sx', (src.x + (Math.random() * 20 - 10)) + 'px');
+    chip.style.setProperty('--sy', (src.y + (Math.random() * 20 - 10)) + 'px');
+    chip.style.setProperty('--mx', (midX + (Math.random() * 40 - 20)) + 'px');
+    chip.style.setProperty('--my', (midY + (Math.random() * 20 - 10)) + 'px');
+    chip.style.setProperty('--dx', (dst.x + (Math.random() * 20 - 10)) + 'px');
+    chip.style.setProperty('--dy', (dst.y + (Math.random() * 10 - 5)) + 'px');
     chip.style.setProperty('--r0', r0);
     chip.style.setProperty('--r1', r1);
     chip.style.setProperty('--r2', r2);
 
-    const dur = 420 + Math.random()*260;
-    const delay = i * 24; // ripple in
+    // give the animation a bit more air time
+    const dur = 800 + Math.random() * 400;
+    const delay = i * 35; // cascade
+
     chip.style.animation = `shuffle-fly ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms forwards`;
 
-    chip.addEventListener('animationend', () => chip.remove(), { once:true });
+    chip.addEventListener('animationend', () => chip.remove(), { once: true });
   }
 }
+
 
 
 
