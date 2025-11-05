@@ -200,10 +200,10 @@ function ensureShuffleStyles(){
   s.id = 'shuffle-style';
   s.textContent = `
   .shuffle-fx {
-    position: fixed; left:0; top:0; width:8px; height:12px;
+    position: fixed; left:0; top:0; width:12px; height:18px;
     border-radius: 2px;
-    background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(220,220,220,.7));
-    box-shadow: 0 1px 3px rgba(0,0,0,.35);
+    background: linear-gradient(180deg, rgba(255,255,255,.9), rgba(240,240,240,.8));
+    box-shadow: 0 2px 6px rgba(0,0,0,.5);
     transform: translate(-9999px,-9999px);
     z-index: 9999; pointer-events:none;
   }
