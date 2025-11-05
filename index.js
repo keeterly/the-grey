@@ -504,58 +504,77 @@ function pileAnchor(side, pile){ // pile: 'deck' | 'discard'
   return { x: r.left + r.width/2, y: r.top + r.height/2 };
 }
 
-function animateReshuffle(side, count = 10) {
+function animateReshuffle(side, count = 12) {
   ensureShuffleStyles();
 
-  // determine which side of the board we animate toward
   const isPlayer = side === 'player';
+  const SR = slotsRect(side);
 
-  // find where discard and deck anchors are
-  const src = pileAnchor(side, 'discard');
-  const dst = pileAnchor(side, 'deck');
+  // Work entirely inside the spell-slot band
+  // Y-band: a little above the slots to avoid covering cards too much
+  const yBase = SR.y + (isPlayer ? SR.h * 0.15 : SR.h * 0.20);
+  const ySpan = SR.h * 0.35;
 
-  // widen the motion arc — throw cards higher and further
-  const verticalBoost = isPlayer ? 140 : -140; // player arcs upward, AI downward
-  const midX = (src.x + dst.x) / 2 + (Math.random() * 60 - 30);
-  const midY = (src.y + dst.y) / 2 + verticalBoost + (Math.random() * 40 - 20);
+  // X-band: left→right for player, right→left for AI (feels like "gather → stack")
+  const xStartBand = isPlayer ? [SR.x + SR.w * 0.15, SR.x + SR.w * 0.35]
+                              : [SR.x + SR.w * 0.65, SR.x + SR.w * 0.85];
+  const xEndBand   = isPlayer ? [SR.x + SR.w * 0.55, SR.x + SR.w * 0.85]
+                              : [SR.x + SR.w * 0.15, SR.x + SR.w * 0.45];
 
-  const n = Math.min(24, Math.max(8, count || 10));
+  // Midpoint arches higher for a nice "riffle" feel
+  const archBoost = (isPlayer ? -1 : 1) * Math.max(80, SR.h * 0.5);
+
+  const n = Math.min(28, Math.max(10, count | 0));
   for (let i = 0; i < n; i++) {
     const chip = document.createElement('div');
     chip.className = 'shuffle-fx';
     document.body.appendChild(chip);
 
-    // make cards noticeably larger for visibility
-    const scale = 1.5 + Math.random() * 0.5;
-    chip.style.width = `${8 * scale}px`;
-    chip.style.height = `${12 * scale}px`;
+    // Larger + slight variety
+    const scale = 1.6 + Math.random() * 0.5;
+    chip.style.width = `${12 * scale}px`;
+    chip.style.height = `${18 * scale}px`;
 
-    // random rotations and positions
-    const r0 = (Math.random() * 60 - 30) + 'deg';
-    const r1 = (Math.random() * 120 - 60) + 'deg';
-    const r2 = (Math.random() * 180 - 90) + 'deg';
+    // Randomize within bands
+    const xS = xStartBand[0] + Math.random() * (xStartBand[1] - xStartBand[0]);
+    const xD = xEndBand[0]   + Math.random() * (xEndBand[1]   - xEndBand[0]);
+    const yS = yBase + Math.random() * ySpan;
+    const yD = yBase + Math.random() * ySpan;
 
-    chip.style.setProperty('--sx', (src.x + (Math.random() * 20 - 10)) + 'px');
-    chip.style.setProperty('--sy', (src.y + (Math.random() * 20 - 10)) + 'px');
-    chip.style.setProperty('--mx', (midX + (Math.random() * 40 - 20)) + 'px');
-    chip.style.setProperty('--my', (midY + (Math.random() * 20 - 10)) + 'px');
-    chip.style.setProperty('--dx', (dst.x + (Math.random() * 20 - 10)) + 'px');
-    chip.style.setProperty('--dy', (dst.y + (Math.random() * 10 - 5)) + 'px');
+    // Arch mid point roughly above the center between start and end
+    const midX = (xS + xD) / 2 + (Math.random() * 40 - 20);
+    const midY = (yS + yD) / 2 + archBoost + (Math.random() * 20 - 10);
+
+    // Rotations
+    const r0 = (Math.random() * 80 - 40) + 'deg';
+    const r1 = (Math.random() * 140 - 70) + 'deg';
+    const r2 = (Math.random() * 200 - 100) + 'deg';
+
+    // Set path variables for the keyframes
+    chip.style.setProperty('--sx', `${xS}px`);
+    chip.style.setProperty('--sy', `${yS}px`);
+    chip.style.setProperty('--mx', `${midX}px`);
+    chip.style.setProperty('--my', `${midY}px`);
+    chip.style.setProperty('--dx', `${xD}px`);
+    chip.style.setProperty('--dy', `${yD}px`);
     chip.style.setProperty('--r0', r0);
     chip.style.setProperty('--r1', r1);
     chip.style.setProperty('--r2', r2);
 
-    // give the animation a bit more air time
-    const dur = 800 + Math.random() * 400;
-    const delay = i * 35; // cascade
-
+    // Slower + bigger cascade so it reads clearly
+    const dur = 900 + Math.random() * 450;
+    const delay = i * 36;
     chip.style.animation = `shuffle-fly ${dur}ms cubic-bezier(.2,.8,.2,1) ${delay}ms forwards`;
-
     chip.addEventListener('animationend', () => chip.remove(), { once: true });
   }
 }
 
 
+function slotsRect(side) {
+  const el = document.querySelector(side === 'player' ? '#player-slots' : '#ai-slots');
+  const r = (el || document.body).getBoundingClientRect();
+  return { el, x: r.left, y: r.top, w: r.width, h: r.height };
+}
 
 
 
