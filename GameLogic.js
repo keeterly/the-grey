@@ -626,10 +626,14 @@ export function drawOne(state, playerId){
   restockIfEmpty(state, playerId);
   if (!P.deck.length) return state;
   const c = P.deck.shift();
-  const c = P.deck.shift();
   P.hand.push(c);
-  // NEW: tell the UI a card was drawn (so we can animate it)
-  pushEvt(state, { t: "draw", side: playerId, amount: 1 });
+  // tell the UI a card was actually drawn (animate from deck → hand)
+  (state._events ||= []).push({
+    t: "draw",
+    side: playerId,
+    amount: 1,
+    cardId: c?.id
+  });
   return state;
 }
 
