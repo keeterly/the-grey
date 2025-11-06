@@ -873,6 +873,9 @@ async function doStartTurn(){
     animateDrawCards(active, need);
       }
     });
+    // render first, then drain events so animations see real nodes/anchors
+renderPublic(state);
+await spotlightFromEvents(state);
   }
 
   Emit(Events.TURN_START, {side});
