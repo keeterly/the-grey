@@ -896,6 +896,10 @@ if (prevHandN > 0) {
     animateDiscardCards(prevSide, prevHandN);
   }
   
+// render the new board first, then run any animations queued by game events
+renderPublic(state);
+await spotlightFromEvents(state);
+  
   await doStartTurn();   // loops cleanly into next side’s Start Turn
 }
 
