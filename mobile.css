@@ -9,6 +9,14 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   #board-grid.grid{ row-gap:.5rem; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 }
 
+/* On shorter screens (landscape phones/tablets), slightly reduce board gaps */
+@media (max-height:900px){
+  #board-grid.grid{
+    row-gap:1rem;
+    padding-bottom: calc(20vh + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* Hand: flickable carousel with centered cards */
 .hand-wrap{ overflow: visible; }
 .hand{
@@ -36,6 +44,15 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   #hand .card{
     flex:0 0 45vw;
     max-width:420px;
+  }
+}
+
+/* On short screens (landscape phones/tablets), make hand cards wider */
+@media (max-height:900px){
+  .hand .card,
+  #hand .card{
+    flex:0 0 40vw;
+    max-width:520px;
   }
 }
 
@@ -74,6 +91,16 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   }
 }
 
+/* Use a 2‑column grid for slot rows on short screens (landscape phones/tablets) */
+@media (max-height:900px){
+  .slot-row{
+    display:grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:.75rem;
+    align-items:start;
+  }
+}
+
 /* Floating end‑turn FAB: re‑added by JS only on small screens */
 .mobile-fab{
   position:fixed; right:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px));
@@ -103,6 +130,20 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   }
 }
 
+/* On shorter screens (landscape phones/tablets), shrink and reposition the HUD */
+@media (max-height:900px){
+  .hud{
+    right:8px;
+    bottom:10vh;
+    gap:8px;
+  }
+  .hud .hud-btn{
+    width:52px;
+    height:52px;
+    border-radius:10px;
+  }
+}
+
 /* --- Additional tweaks for improved portrait playability --- */
 
 /* 1. Downsize hero names and center them to fit narrow screens */
@@ -124,6 +165,25 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
     line-height:1.2;
     text-align:center;
     width:100%;
+  }
+}
+
+/* Shrink hero names and related UI on shorter screens (landscape phones/tablets) */
+@media (max-height:900px){
+  #player-name,
+  #ai-name{
+    font-size:1.4rem;
+    line-height:1.1;
+    text-align:center;
+    width:100%;
+  }
+  .portrait img{
+    width:64px;
+    height:64px;
+  }
+  .hearts svg{
+    width:28px;
+    height:28px;
   }
 }
 
@@ -149,14 +209,45 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   #flow-row::-webkit-scrollbar{ display:none; }
 }
 
+/* Allow horizontal scroll of the flow row on shorter screens (landscape phones/tablets) */
+@media (max-height:900px){
+  #flow-row{
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    gap:.6rem;
+    padding-bottom:.4rem;
+  }
+  #flow-row::-webkit-scrollbar{ display:none; }
+}
+
 /* 3. Simplify the menu button: hide the label and version text on phones and small tablets */
 @media (max-width:600px){
   .menu-btn .lbl,
   .menu-btn .ver{ display:none; }
 }
 
+/* Hide the menu label and version when the screen height is small (landscape phones/tablets) */
+@media (max-height:900px){
+  .menu-btn .lbl,
+  .menu-btn .ver{
+    display:none;
+  }
+}
+
 /* Make the menu button more compact on medium devices */
 @media (min-width:601px) and (max-width:1024px){
+  .menu-btn{
+    padding:6px 8px;
+    gap:6px;
+  }
+  .menu-btn .ver{
+    font-size:.7rem;
+    padding:1px 6px;
+  }
+}
+
+/* Further compact the menu button for short screens */
+@media (max-height:900px){
   .menu-btn{
     padding:6px 8px;
     gap:6px;
