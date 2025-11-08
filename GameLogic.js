@@ -42,6 +42,48 @@ function uid() {
   return "id_" + Math.random().toString(36).slice(2);
 }
 
+
+// ----------------------------------------------
+// Trance System definitions (WIP)
+// Each Spellweaver has two HP thresholds where their trance power activates.
+// When a player’s vitality falls to or below the first threshold and their
+// weaver.stage is 0, they enter stage 1. When vitality falls to or below
+// the second threshold and stage is 1, they enter stage 2. Effects for
+// each stage should be handled elsewhere (UI or additional game logic).
+// This helper will raise a trance event when the stage changes so that
+// the UI can show a cinematic or apply passives.
+const WEAVER_TRANCE_THRESHOLDS = {
+  // Format: weaverId: { stage1: hpThreshold, stage2: hpThreshold }
+  aria:  { stage1: 4, stage2: 2 }, // Aria, Runesurge Adept
+  enoch: { stage1: 3, stage2: 1 }, // Enoch, Stillmind Scribe
+  morr:  { stage1: 4, stage2: 1 }, // Morr, Gravecurrent Binder
+  veyra: { stage1: 4, stage2: 2 }, // Veyra, Spiral Sage
+  kareth:{ stage1: 3, stage2: 1 }  // Kareth, Ember Architect
+};
+
+function checkTranceThresholds(state, playerId) {
+  const P = state.players?.[playerId];
+  if (!P) return state;
+  const weaver = P.weaver || {};
+  const thresholds = WEAVER_TRANCE_THRESHOLDS[weaver.id];
+  if (!thresholds) return state;
+  const hp = P.vitality | 0;
+  if ((weaver.stage|0) < 1 && hp <= thresholds.stage1) {
+    weaver.stage = 1;
+    pushEvt(state, { t: 'trance', source: 'trance', side: playerId, stage: 1, weaverId: weaver.id });
+  }
+  if ((weaver.stage|0) < 2 && hp <= thresholds.stage2) {
+    weaver.stage = 2;
+    pushEvt(state, { t: 'trance', source: 'trance', side: playerId, stage: 2, weaverId: weaver.id });
+  }
+  return state;
+}
+
+
+
+
+
+
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 
 
@@ -552,6 +594,8 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
 
   const before = P.vitality | 0;
   P.vitality = Math.max(0, before - n);
+  // After dealing damage, check for trance threshold updates
+  state = checkTranceThresholds(state, targetSide);
 
   pushEvt(state, {
     t: "damage",
