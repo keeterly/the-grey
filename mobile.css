@@ -21,12 +21,57 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   scroll-snap-align:center; flex:0 0 70vw; max-width:320px; touch-action:pan-y; will-change:transform;
 }
 
+/* Increase card sizes for phones and small tablets.  On very small screens we use 60% of the viewport width,
+   capped at 400px. On medium screens (601–1024px) we use 45% of the viewport width and cap at 420px. */
+@media (max-width:600px){
+  .hand .card,
+  #hand .card{
+    flex:0 0 60vw;
+    max-width:400px;
+  }
+}
+
+@media (min-width:601px) and (max-width:1024px){
+  .hand .card,
+  #hand .card{
+    flex:0 0 45vw;
+    max-width:420px;
+  }
+}
+
 /* Stack slots into a 2‑column grid on small screens */
 @media (max-width: 420px){
   .slot-row{ display:grid !important; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.75rem; align-items:start; }
   .row .portrait{ opacity:.85; }
-  #zoom-overlay[data-open="true"]{ position:fixed; inset:0; z-index:70; display:grid; place-items:center; background:rgba(0,0,0,.45); backdrop-filter: blur(6px); }
-  #zoom-card.card.zoom{ max-width:min(92vw, 480px); height:auto; }
+  #zoom-overlay[data-open="true"]{ position:fixed; inset:0; z-index:70; display:grid; place-items:center; background:rgba(0,0,0,.55); backdrop-filter: blur(6px); }
+  #zoom-card.card.zoom{ max-width:min(90vw, 480px); height:auto; }
+}
+
+/* Improve zoom overlay scaling on medium-small screens */
+@media (min-width:421px) and (max-width:600px){
+  #zoom-overlay[data-open="true"]{
+    position:fixed;
+    inset:0;
+    z-index:70;
+    display:grid;
+    place-items:center;
+    background:rgba(0,0,0,.60);
+    backdrop-filter: blur(6px);
+  }
+  #zoom-card.card.zoom{
+    max-width:min(540px, 80vw);
+    height:auto;
+  }
+}
+
+/* Extend the stacked slot grid up to 600px wide */
+@media (min-width:421px) and (max-width:600px){
+  .slot-row{
+    display:grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:.75rem;
+    align-items:start;
+  }
 }
 
 /* Floating end‑turn FAB: re‑added by JS only on small screens */
@@ -44,6 +89,20 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   .hud{ visibility:hidden; pointer-events:none; }
 }
 
+/* On medium devices, reduce the HUD size and shift it slightly to avoid overlap */
+@media (min-width:601px) and (max-width:768px){
+  .hud{
+    right:8px;
+    bottom:12vh;
+    gap:8px;
+  }
+  .hud .hud-btn{
+    width:60px;
+    height:60px;
+    border-radius:10px;
+  }
+}
+
 /* --- Additional tweaks for improved portrait playability --- */
 
 /* 1. Downsize hero names and center them to fit narrow screens */
@@ -51,6 +110,17 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   #player-name,
   #ai-name{
     font-size:1.2rem;
+    line-height:1.2;
+    text-align:center;
+    width:100%;
+  }
+}
+
+/* Slightly downsize and center hero names on devices up to 600px wide */
+@media (min-width:421px) and (max-width:600px){
+  #player-name,
+  #ai-name{
+    font-size:1.4rem;
     line-height:1.2;
     text-align:center;
     width:100%;
@@ -68,8 +138,31 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   #flow-row::-webkit-scrollbar{ display:none; }
 }
 
-/* 3. Simplify the menu button: hide the label and version text on very narrow devices */
-@media (max-width:420px){
+/* Let the flow row scroll horizontally on medium-small screens too */
+@media (min-width:421px) and (max-width:600px){
+  #flow-row{
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    gap:.6rem;
+    padding-bottom:.5rem;
+  }
+  #flow-row::-webkit-scrollbar{ display:none; }
+}
+
+/* 3. Simplify the menu button: hide the label and version text on phones and small tablets */
+@media (max-width:600px){
   .menu-btn .lbl,
   .menu-btn .ver{ display:none; }
+}
+
+/* Make the menu button more compact on medium devices */
+@media (min-width:601px) and (max-width:1024px){
+  .menu-btn{
+    padding:6px 8px;
+    gap:6px;
+  }
+  .menu-btn .ver{
+    font-size:.7rem;
+    padding:1px 6px;
+  }
 }
