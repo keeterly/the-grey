@@ -1681,22 +1681,26 @@ function showCardOptions(cardEl, cardData){
           await setGlyphFromHandWithTemp("player", cardData.id);
 
         } else if (o.k === "channel"){
-          // 1) Cine: hand card → discard HUD
-          cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
-
-          // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
-const fromNode = cardEl;
-const fallbackStart = rectOf(fromNode) || centerRect();
-const destRect  = domRectOfTempCrescent('player');
-emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
-
-          // 3) Payoff
-          const before = getAe("player");
-          state = discardForAether(state, "player", cardData.id);
-          const gained = getAe("player") - before;
-          adjustAe("player", -gained);
-          addTemp("player", gained);
-          Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
+          // Distinguish between channeling for Æ and a simple discard (no Æ).
+          if ((cardData?.aetherValue|0) > 0) {
+            // Channeling for Æ: play full animation with particles and award Æ.
+            cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
+            const fromNode = cardEl;
+            const fallbackStart = rectOf(fromNode) || centerRect();
+            const destRect  = domRectOfTempCrescent('player');
+            emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+            const before = getAe("player");
+            state = discardForAether(state, "player", cardData.id);
+            const gained = getAe("player") - before;
+            adjustAe("player", -gained);
+            addTemp("player", gained);
+            Emit(Events.CHANNEL, {side:"player", cardId: cardData.id, gained});
+          } else {
+            // Discard card with no Æ: simple discard animation, no particles.
+            cineFromHandCard(cardData.id, '#btn-discard-hud', 'discard');
+            state = discardForAether(state, "player", cardData.id);
+            Emit(Events.CHANNEL, {side: "player", cardId: cardData.id, gained: 0});
+          }
 
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
@@ -4121,9 +4125,21 @@ if (typeof window.__wirePileModals === 'function') {
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
-      // For newly drawn cards, always slide them in with 'deal-in' but only shuffle the whole hand on the very first deal.
-      addedNodes.forEach(n => n.classList.add('deal-in'));
+      // For newly drawn cards, slide them in from the right. We apply a temporary
+      // translateX and then remove it on the next frame so the transition animates.
+      addedNodes.forEach(n => {
+        n.classList.add('deal-in');
+        // Start off to the right and fade in. Transition defined here to avoid central shuffle.
+        n.style.transform = 'translateX(50%)';
+        n.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out';
+      });
+      // Wait a frame before resetting the transform so the CSS transition plays.
+      await nextFrame();
+      addedNodes.forEach(n => {
+        n.style.transform = '';
+      });
       if (!bootDealt) {
+        // Only during the first deal do we shuffle the whole hand
         handEl.classList.add('dealing');
       }
       setTimeout(() => {
@@ -4134,7 +4150,7 @@ if (typeof window.__wirePileModals === 'function') {
       }, 400);
       // After the initial deal, mark as dealt to avoid future full-hand shuffles
       if (!bootDealt) bootDealt = true;
-    } else if (!bootDealt && domCards.length){
+    } else if (!bootDealt && domCards.length) {
       // Handle the initial boot deal: animate all cards once
       handEl.classList.add('dealing');
       domCards.forEach(n => n.classList.add('grey-hide-during-flight','deal-in'));
