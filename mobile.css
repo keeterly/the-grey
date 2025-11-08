@@ -258,87 +258,81 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   }
 }
 
+/* -------------------------------------------------------------------
+   iPhone landscape specific tweaks
+   When the device is in landscape and the height is quite short (≤500px),
+   we collapse non‑essential UI and enlarge important elements.  This is
+   tailored to iPhone landscape play, where space is scarce.  Feel free
+   to adjust the height threshold if newer devices demand it.  */
 
-/* =========================================================
-   iPhone Landscape pass (short screens in landscape)
-   Targets iPhone heights up to ~414px (390 on most devices)
-   ========================================================= */
-@media (orientation: landscape) and (max-height: 430px){
-
-  /* 0) Global breathing room & safe areas */
-  html, body { overscroll-behavior-y: contain; }
-  #board-grid.grid{
-    row-gap: .6rem;
-    /* leave room for the hand and Safari bars */
-    padding-bottom: calc(12vh + env(safe-area-inset-bottom, 0px));
-  }
-
-  /* 1) Hamburger-only menu (hide label + version pill) */
+@media (orientation: landscape) and (max-height: 500px){
+  /* 1) Collapse the menu into just the hamburger icon.  Remove the label
+     and version pill entirely, and tighten the button to a square. */
   .menu-btn .lbl,
-  .menu-btn .ver { display: none !important; }
-
-  /* 2) Portrait block trims: keep vibe but make room */
-  .row .portrait{ opacity: .85; }
-  #player-name, #ai-name{
-    font-size: 1.1rem; line-height: 1.15; text-align: center; width: 100%;
-  }
-  .hearts svg{ width: 22px; height: 22px; }        /* prevent icon cut-offs */
-
-  /* 3) Slot rows: 2-column grid to free vertical space */
-  .slot-row{
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: .65rem;
-    align-items: start;
+  .menu-btn .ver{ display:none !important; }
+  .menu-btn{
+    width:44px !important;
+    height:44px !important;
+    padding:0 !important;
+    gap:0 !important;
   }
 
-  /* 4) Flow row: horizontal flick with snap */
+  /* 2) Scale down the inactive player's slot area to free up vertical room.
+     The active player's row remains full size, while the inactive row
+     shrinks and gains transparency. */
+  .row.inactive .slot-row{
+    transform:scaleY(0.7);
+    opacity:0.5;
+    transform-origin: top;
+    transition: transform .25s ease-out;
+  }
+  .row.active .slot-row{
+    transform:scaleY(1);
+    opacity:1;
+    transition: transform .25s ease-out;
+  }
+
+  /* 3) Enlarge cards in the hand so their rules text is legible.  Show
+     roughly two cards side‑by‑side and limit the max width so they
+     never exceed the viewport. */
+  .hand .card,
+  #hand .card{
+    flex: 0 0 56vw;
+    max-width:420px;
+  }
+  /* Ensure the hand area leaves room for the Safari bar and FAB */
+  .hand-wrap{
+    padding-bottom: 8vh;
+  }
+
+  /* 4) Always enable horizontal scrolling for the Aether Flow row and
+     adjust spacing so cards aren’t cramped. */
   #flow-row{
-    overflow-x: auto; scroll-snap-type: x mandatory;
-    gap: .5rem; padding-bottom: .25rem;
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    gap:.5rem;
+    padding-bottom:.4rem;
   }
-  #flow-row::-webkit-scrollbar{ display: none; }
+  #flow-row::-webkit-scrollbar{ display:none; }
 
-  /* 5) Hand: larger, more “TCG” feel */
-  .hand-wrap{ overflow: visible; }
-  .hand{
-    display:flex; gap:.5rem; overflow-x:auto; padding:.5rem 1rem;
-    scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
-  }
-  .hand::-webkit-scrollbar{ display:none; }
-
-  /* iPhone landscape: show two big cards comfortably while scrolling */
-  .hand .card, #hand .card{
-    scroll-snap-align:center;
-    flex: 0 0 46vw;            /* ~2 cards visible */
-    max-width: 420px;
-    touch-action: pan-y;
-    will-change: transform;
-  }
-
-  /* 6) Right HUD: shrink + move up so it doesn’t cover the board */
+  /* 5) Tidy the HUD: shrink the deck/discard/end‑turn buttons and lift
+     them slightly off the bottom to avoid overlapping the hand. */
   .hud{
-    right: 10px; bottom: 11vh; gap: 8px;
+    right:8px;
+    bottom:12vh;
+    gap:8px;
   }
   .hud .hud-btn{
-    width: 56px; height: 56px; border-radius: 12px;
+    width:50px;
+    height:50px;
+    border-radius:10px;
   }
 
-  /* 7) Spotlight / zoom overlay: scale card correctly on short screens */
-  #zoom-overlay[data-open="true"]{
-    position: fixed; inset: 0; z-index: 70;
-    display: grid; place-items: center;
-    background: rgba(0,0,0,.55);
-    backdrop-filter: blur(6px);
-  }
-  #zoom-card.card.zoom{
-    max-width: min(88vw, 520px);
-    height: auto;             /* prevent squish */
-    transform: none !important;
-  }
-
-  /* 8) Touch hit-areas feel better on phone */
-  .icon-btn::after, .hud .hud-btn::after{
-    content:""; position:absolute; inset:-8px;  /* invisible padding */
+  /* 6) Make hearts and trance icons smaller so they don't crowd the
+     portraits. */
+  .hearts svg,
+  .trance svg{
+    width:20px;
+    height:20px;
   }
 }

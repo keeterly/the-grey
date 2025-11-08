@@ -30,7 +30,9 @@
   new MutationObserver(ensureFab).observe(document.body, { childList:true, subtree:true });
 
   // -------- Card modal for mobile: tap to read, long press handled by existing zoom --------
-  const mmCards = window.matchMedia('(max-width: 600px)');
+  // Match small screens by width OR short height + landscape.  This ensures
+  // the card reader modal is available in iPhone landscape as well.
+  const mmCards = window.matchMedia('(max-width: 600px), (orientation: landscape) and (max-height: 500px)');
   let modalEl, modalContent, modalClose;
   let touchStartTime = 0;
 
