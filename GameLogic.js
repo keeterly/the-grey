@@ -1125,6 +1125,28 @@ function applyGlyphPassives(state, side, trigger){
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
     fired = true;
   }
+// When opponent resolves a spell → Withering Light
+if (trigger === "spell_resolved_opponent" &&
+    /when\s+opponent\s+resolves\s+a\s+spell\s*→\s*deal\s+1\s+damage/.test(text)) {
+  state = dealDamage(state, 1 - side, 1, { source: "glyph" });
+  fired = true;
+}
+
+// When player takes damage → Buried Heat
+if (trigger === "tookDamage" &&
+    /when\s+you\s+take\s+damage\s*→\s*channel\s+(\d+)\s*aether/.test(text)) {
+  const m = text.match(/channel\s+(\d+)/);
+  const n = parseInt(m?.[1] || 1);
+  state[side].aether += n;
+  fired = true;
+}
+
+// When drawing outside draw step → Soulglass
+if (trigger === "draw_outside" &&
+    /when\s+you\s+draw\s+outside\s+your\s+draw\s+step\s*→\s*gain\s+1\s+channelled\s+aether/.test(text)) {
+  state[side].aether += 1;
+  fired = true;
+}
 
   // Auto-discard once a passive fires
   if (fired) {
