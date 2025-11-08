@@ -76,69 +76,133 @@ function computePipAdvanceCostsForCard(card) {
  *  - “Advance another/target Spell 1” → advance
  */
 
+// =============================================
+// BASE DECK — v2 Strategic Aggression Update
+// =============================================
+
 const BASE_DECK_LIST = [
-  // Pulse of the Grey — ① — play free, advance costs 1 per step
-  { name: "Pulse of the Grey", type: "SPELL",
-    pip: 1, playCost: 0, stepCost: 1, cost: 1,
+  {
+    name: "Pulse of the Grey",
+    type: "SPELL",
+    pip: 1,
+    playCost: 0,
+    stepCost: 1,
+    cost: 1,
     text: "On Resolve: Draw 1, Gain 1 Æ",
-    aetherValue: 0, role: "Starter draw/flow", qty: 3 },
-
-  // Wispform Surge — ① — play free, advance costs 1 per step
-  { name: "Wispform Surge", type: "SPELL",
-    pip: 1, playCost: 0, stepCost: 1, cost: 1,
-    text: "On Resolve: Advance another Spell for free",
-    aetherValue: 0, role: "Chain enabler", qty: 1 },
-
-  // Greyfire Bloom — ② — play free, advance costs 1 per step
-  // (Doc: 1 damage per step; engine resolves on full → deal 2 on resolve)
-  { name: "Greyfire Bloom", type: "SPELL",
-    pip: 2, playCost: 0, stepCost: 1, cost: 1,
-    text: "On Resolve: Deal 2 damage",
-    aetherValue: 0, role: "Aggro chain", qty: 1 },
-
-  // Echoing Reservoir — ① — requires 2 Æ to play, step cost 0 (free advance)
-  { name: "Echoing Reservoir", type: "SPELL",
-    pip: 1, playCost: 2, stepCost: 0, cost: 0,
-    text: "On Resolve: Channel 1",
-    aetherValue: 2, role: "Aether generator", qty: 2 },
-
-  // Dormant Catalyst — ① — requires 2 Æ to play, step cost 0
-  { name: "Dormant Catalyst", type: "SPELL",
-    pip: 1, playCost: 2, stepCost: 0, cost: 0,
-    text: "On Resolve: Channel 2",
-    aetherValue: 1, role: "Ramp starter", qty: 1 },
-
-  // Ashen Focus — ② — play free, advance costs 1 per step
-  { name: "Ashen Focus", type: "SPELL",
-    pip: 2, playCost: 0, stepCost: 1, cost: 1,
-    text: "On Resolve: Draw 1 and Channel 1",
-    aetherValue: 1, role: "Draw + Aether", qty: 1 },
-
-  // Surge of Ash — Instant — costs 1 Æ to play
-  { name: "Surge of Ash", type: "INSTANT",
-    pip: 0, playCost: 1, stepCost: 0, cost: 1,
-    text: "Target Spell advances 1 step free",
-    aetherValue: 0, role: "Tempo burst", qty: 1 },
-
-  // Veil of Dust — Instant — costs 1 Æ to play
-  // (Doc includes prevention; engine uses the damage half to stay functional)
-  { name: "Veil of Dust", type: "INSTANT",
-    pip: 0, playCost: 1, stepCost: 0, cost: 1,
-    text: "Deal 1 damage",
-    aetherValue: 0, role: "Defense (partial)", qty: 1 },
-
-  // Glyph of Remnant Light — set free
-  { name: "Glyph of Remnant Light", type: "GLYPH",
-    pip: 0, playCost: 0, stepCost: 0, cost: 0,
-    text: "When a Spell resolves → Gain 1 Æ",
-    aetherValue: 0, role: "Passive economy", qty: 1 },
-
-  // Glyph of Returning Echo — set free
-  { name: "Glyph of Returning Echo", type: "GLYPH",
-    pip: 0, playCost: 0, stepCost: 0, cost: 0,
-    text: "When you Channel Aether → Draw 1 card",
-    aetherValue: 0, role: "Draw engine", qty: 1 },
+    aetherValue: 0,
+    role: "Starter draw/flow",
+    qty: 1,
+  },
+  {
+    name: "Wispform Surge",
+    type: "SPELL",
+    pip: 1,
+    playCost: 0,
+    stepCost: 1,
+    cost: 1,
+    text: "On Resolve: Advance another Spell 1 step",
+    aetherValue: 0,
+    role: "Chain activator",
+    qty: 1,
+  },
+  {
+    name: "Greyfire Bloom",
+    type: "SPELL",
+    pip: 2,
+    playCost: 0,
+    stepCost: 1,
+    cost: 1,
+    text: "On Resolve: Deal 1 damage per step (max 2)",
+    aetherValue: 0,
+    role: "Early offense",
+    qty: 1,
+  },
+  {
+    name: "Echoing Reservoir",
+    type: "SPELL",
+    pip: 1,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    text: "On Resolve: Store 1 in Aetherwell",
+    aetherValue: 2,
+    role: "Energy storage",
+    qty: 1,
+  },
+  {
+    name: "Dormant Catalyst",
+    type: "SPELL",
+    pip: 1,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    text: "On Resolve: Store 2 in Aetherwell",
+    aetherValue: 1,
+    role: "Aether ramp",
+    qty: 1,
+  },
+  {
+    name: "Ashen Focus",
+    type: "SPELL",
+    pip: 2,
+    playCost: 0,
+    stepCost: 1,
+    cost: 1,
+    text: "On Resolve: Draw 1, Store 1 in Aetherwell",
+    aetherValue: 1,
+    role: "Draw + ramp hybrid",
+    qty: 1,
+  },
+  {
+    name: "Surge of Ash",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 1,
+    stepCost: 0,
+    cost: 1,
+    text: "Target Spell advances 1 step",
+    aetherValue: 0,
+    role: "Tempo accelerator",
+    qty: 1,
+  },
+  {
+    name: "Veil of Dust",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 1,
+    stepCost: 0,
+    cost: 1,
+    text: "Prevent 1 damage or deal 1 damage",
+    aetherValue: 0,
+    role: "Defense / chip offense",
+    qty: 1,
+  },
+  {
+    name: "Glyph of Remnant Light",
+    type: "GLYPH",
+    pip: 0,
+    playCost: 0,
+    stepCost: 0,
+    cost: 0,
+    text: "When a Spell resolves → Gain 1 Channelled Aether",
+    aetherValue: 0,
+    role: "Resource glyph",
+    qty: 1,
+  },
+  {
+    name: "Glyph of Returning Echo",
+    type: "GLYPH",
+    pip: 0,
+    playCost: 0,
+    stepCost: 0,
+    cost: 0,
+    text: "When you Store Aether → Draw 1 card",
+    aetherValue: 0,
+    role: "Draw glyph",
+    qty: 1,
+  },
 ];
+
 
 
 // ===== Aetherflow Deck (v2 — Harmonized Progression Pool) =====
