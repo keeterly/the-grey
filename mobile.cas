@@ -1,0 +1,80 @@
+/* --- Mobile-first variables --------------------------------------------- */
+:root{
+  --u: clamp(8px, 1.8vw + 0.6vh, 14px);      /* base unit for type/spacing */
+  --cost: clamp(18px, 4.8vw, 28px);          /* coin/cost size */
+}
+html { font-size: var(--u); }
+
+/* Prevent iOS bounce from pulling the entire page */
+html, body { overscroll-behavior-y: contain; }
+
+/* --- Header / resource compaction ---------------------------------------- */
+@media (max-width: 420px){
+  .topbar { height: 3.25rem; padding: 0 .75rem; }
+  .resources {
+    position: fixed; right: 8px;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    z-index: 40;
+  }
+}
+
+/* --- Hand: one-thumb carousel ------------------------------------------- */
+.hand{
+  display: flex; gap: .5rem;
+  overflow-x: auto; padding: .75rem 1rem;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.hand::-webkit-scrollbar { display: none; }
+
+/* Cards in hand: big, centered panels you can flick */
+.hand .card{
+  scroll-snap-align: center;
+  flex: 0 0 70vw; max-width: 320px;
+  touch-action: pan-y;          /* prevent accidental page back-swipe */
+  will-change: transform;
+}
+
+/* --- Slots layout: 2-wide grid in portrait ------------------------------- */
+@media (max-width: 420px){
+  .board-slots{
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .75rem;
+  }
+}
+
+/* --- End Turn: thumb FAB -------------------------------------------------- */
+.mobile-fab{
+  position: fixed; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  width: 56px; height: 56px; border-radius: 999px;
+  display: none; place-items: center; z-index: 50;
+}
+@media (max-width: 600px){ .mobile-fab{ display: grid; } }
+@media (min-width: 601px){ .mobile-fab{ display: none !important; } }
+
+/* Make small icons easier to hit without changing visuals */
+.icon-btn{ position: relative; }
+.icon-btn::after{ content:""; position:absolute; inset:-10px; }
+
+/* --- Card reader modal ---------------------------------------------------- */
+.card-modal{ position: fixed; inset: 0; display: none; z-index: 60; }
+.card-modal.open{ display: block; }
+.card-modal::before{
+  content: ""; position: absolute; inset: 0;
+  backdrop-filter: blur(6px); background: rgba(0,0,0,.4);
+}
+.card-modal .sheet{
+  position: absolute; left: 0; right: 0; bottom: 0;
+  max-height: 85vh; overflow: auto;
+  border-radius: 16px 16px 0 0; padding: 1rem;
+}
+
+/* Typography scales that keep the vibe */
+.card-title{ font-size: clamp(1rem, 1.1rem + .4vw, 1.35rem); letter-spacing:.02em; }
+.card-rules{ font-size: clamp(.9rem, .85rem + .3vw, 1rem); line-height: 1.35; }
+
+/* Cost coin scales off a single variable */
+.card-cost{ width: var(--cost); height: var(--cost); font-size: calc(var(--cost) * .55); }
