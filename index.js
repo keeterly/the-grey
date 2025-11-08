@@ -3041,9 +3041,7 @@ function centerOf(el){
 
 function handAnchor(side){
   // Prefer the actual hand container if present
- const el = (side === 'player'
-                ? (document.querySelector('#hand') || document.querySelector('#player-hand'))
-                : document.querySelector('#ai-hand'))
+  const el = document.querySelector(side === 'player' ? '#player-hand' : '#ai-hand')
          || document.querySelector(side === 'player' ? '#player-area' : '#ai-area')
          || document.body;
   return { el, ...centerOf(el) };
