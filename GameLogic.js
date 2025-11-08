@@ -576,6 +576,9 @@ function slideFlowRightOnceAndReveal(state) {
 export function startTurn(state) {
   // Veyra Stage II: allow the player to look at the top two cards at the start of their turn
   state = veyraScry(state, state.activePlayer);
+  // Draw up to 5 cards in hand.  If the player retained cards from the previous turn,
+  // this will only draw the difference.
+  state = drawUpTo(state, state.activePlayer, 5);
   return state; // no flow movement here anymore
 }
 
@@ -586,21 +589,8 @@ export function endTurn(state) {
   const endingPlayer = state.activePlayer;
   const P = state.players[endingPlayer];
 
-  // discard remaining cards
-  if (P?.hand?.length){
-    while (P.hand.length) {
-      const c = P.hand.shift();
-      P.discard.push(c);
-      pushEvt(state, {
-        t: "resolved",
-        source: "hand-discard",
-        side: endingPlayer,
-        cardId: c.id,
-        cardType: c.type,
-        cardData: { ...c }
-      });
-    }
-  }
+  // Players now retain their hand between turns.  We no longer discard
+  // the remaining hand here.
 
   // 👉 Flow slides right and reveals a new card ONLY when AI ends its turn
   if (endingPlayer === 'ai') {
@@ -831,6 +821,20 @@ function restockIfEmpty(state, playerId){
     P.deck = P.discard.splice(0);
   }
 }
+
+// Draw cards until the specified hand size is reached.  If the current hand
+// already meets or exceeds the target size, no cards are drawn.
+function drawUpTo(state, side, target = 5) {
+  const P = state.players?.[side];
+  if (!P) return state;
+  const handCount = (P.hand?.length || 0);
+  if (handCount < target) {
+    const toDraw = target - handCount;
+    state = drawN(state, side, toDraw);
+  }
+  return state;
+}
+
 
 export function drawOne(state, playerId){
   const P = state.players[playerId];
