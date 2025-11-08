@@ -79,6 +79,68 @@ function checkTranceThresholds(state, playerId) {
   return state;
 }
 
+// ----------------------------------------------
+// Weaver Trance Passive Helpers
+//
+// Some weavers gain additional effects when certain game actions occur.
+// Kareth: After spending Æ, deal 1 damage once per turn. On stage II,
+//         also deal 1 extra damage whenever a single spend is 3 or more.
+// Morr:   Gain 1 Æ whenever a card leaves one of your slots (spell or glyph).
+//         On stage II, cards from the Aetherflow cost 1 less (min 0) and
+//         you gain 1 Æ after buying from the flow.
+// Enoch:  Gain 1 Æ when you set a glyph (stage I) and draw 1 card when the
+//         glyph is revealed (stage II). The draw occurs immediately after
+//         placing the glyph.
+// Aria:   Gain 1 Æ each time you advance a spell (stage I). On stage II
+//         the first paid advance each turn costs 1 less (min 0).
+// Veyra:  Gain 1 Æ whenever you draw a card (outside of the normal draw
+//         step is not currently distinguished). On stage II, at the
+//         beginning of your turn you look at the top two cards of your deck
+//         and may reorder or discard one. This implementation pushes a
+//         'veyraScry' event to the UI; reordering/discarding is handled
+//         externally.
+
+function processAetherSpend(state, side, amount) {
+  // Only process non‑zero spends
+  if (!amount || amount <= 0) return state;
+  const w = state.players?.[side]?.weaver;
+  if (!w) return state;
+  // Kareth: Aggression passive
+  if (w.id === "kareth" && (w.stage | 0) >= 1) {
+    // Stage I: once per turn after any spend, deal 1 damage
+    if (w._damageTurn !== state.turn) {
+      state = dealDamage(state, otherSide(side), 1, { source: "trance-kareth" });
+      w._damageTurn = state.turn;
+    }
+    // Stage II: if a single payment is 3 or more, deal 1 extra damage
+    if ((w.stage | 0) >= 2 && amount >= 3) {
+      state = dealDamage(state, otherSide(side), 1, { source: "trance-kareth" });
+    }
+  }
+  return state;
+}
+
+function veyraScry(state, side) {
+  // Stage II Veyra: at the start of your turn, look at the top 2 cards
+  const P = state.players?.[side];
+  const w = P?.weaver;
+  if (!P || !w || w.id !== "veyra" || (w.stage | 0) < 2) return state;
+  // Ensure deck is stocked before peeking
+  restockIfEmpty(state, side);
+  const peek = [];
+  if (P.deck?.length > 0) peek.push(P.deck[0]);
+  if (P.deck?.length > 1) peek.push(P.deck[1]);
+  if (peek.length > 0) {
+    // Emit a veyraScry event with the top two cards. UI can handle reorder/discard.
+    pushEvt(state, {
+      t: "veyraScry",
+      side,
+      cardIds: peek.map(c => c.id),
+      cardData: peek.map(c => ({ ...c }))
+    });
+  }
+  return state;
+}
 
 
 
@@ -512,6 +574,8 @@ function slideFlowRightOnceAndReveal(state) {
 /////////////////////////////
 
 export function startTurn(state) {
+  // Veyra Stage II: allow the player to look at the top two cards at the start of their turn
+  state = veyraScry(state, state.activePlayer);
   return state; // no flow movement here anymore
 }
 
@@ -625,7 +689,11 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
 
   // pay to play (if any)
   if (playCost > 0) P.aether -= playCost;
+ // Process Kareth spend triggers
+  state = processAetherSpend(state, playerId, playCost);
 
+
+  
   P.hand.splice(i,1);
   card.progress = 0;
   slot.card = card;
@@ -658,9 +726,29 @@ export function setGlyphFromHand(state, playerId, cardId){
   if ((P.aether|0) < playCost) throw new Error("Not enough Æ to set this Glyph");
   if (playCost > 0) { P.aether -= playCost; pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id}); }
 
+   // Process Kareth spend triggers
+  state = processAetherSpend(state, playerId, playCost);
+
+
   P.hand.splice(i,1);
   slot.card = card;
   slot.hasCard = true;
+
+ // Enoch trance: gain Æ when setting a glyph (stage I) and draw on stage II
+  const weaver = P.weaver;
+  if (weaver?.id === "enoch") {
+    if ((weaver.stage | 0) >= 1) {
+      P.aether = (P.aether | 0) + 1;
+      pushEvt(state, { t: "aether", side: playerId, amount: 1, by: "trance-enoch" });
+    }
+    if ((weaver.stage | 0) >= 2) {
+      state = drawN(state, playerId, 1);
+      pushEvt(state, { t: "draw", side: playerId, amount: 1, by: "trance-enoch" });
+    }
+  }
+
+
+  
   return state;
 }
 
@@ -677,7 +765,12 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   const card = state.flow[flowIndex];
   if (!card) throw new Error("no card at flow index");
 
-  const price = FLOW_COSTS[flowIndex] || 0;
+ let price = FLOW_COSTS[flowIndex] || 0;
+  // Morr Stage II: flow costs 1 less (minimum 0)
+  const wF = state.players[playerId]?.weaver;
+  if (wF?.id === "morr" && (wF.stage | 0) >= 2) {
+    price = Math.max(0, price - 1);
+  }
   const haveTemp = (P.tempAether | 0);
   const haveReg  = (P.aether | 0);
   if (haveTemp + haveReg < price) throw new Error("Not enough Æ");
@@ -693,6 +786,17 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   if (spendReg)  { P.aether = haveReg - spendReg; pushEvt(state,{t:"aether",side:playerId,amount:-spendReg}); }
   P.discard.push({ ...card });
 
+  // Process Kareth spend triggers
+  state = processAetherSpend(state, playerId, price);
+
+  // Morr Stage II: after buying, gain 1 Æ
+  if (wF?.id === "morr" && (wF.stage | 0) >= 2) {
+    P.aether = (P.aether | 0) + 1;
+    pushEvt(state, { t:"aether", side: playerId, amount: 1, by: "trance-morr" });
+  }
+
+
+  
   // Normal buy event (kept as-is)
   pushEvt(state, {
     t: "resolved",
@@ -742,6 +846,13 @@ export function drawOne(state, playerId){
     amount: 1,
     cardId: c?.id
   });
+  
+  // Veyra Stage I: gain 1 Æ when you draw a card (outside draw step not distinguished)
+  const w = state.players?.[playerId]?.weaver;
+  if (w?.id === "veyra" && (w.stage | 0) >= 1) {
+    state.players[playerId].aether = (state.players[playerId].aether | 0) + 1;
+    pushEvt(state, { t:"aether", side: playerId, amount: 1, by:"trance-veyra" });
+  }
   return state;
 }
 
@@ -886,7 +997,16 @@ export function advanceSpell(
   const stepCost = Number(c.stepCost || c.cost || 0);
   const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
 
-
+// Determine the cost per step.  Aria Stage II discount applies to the first paid advance each turn.
+  let stepCost = Number(c.stepCost || c.cost || 0);
+  const w = state.players[playerId]?.weaver;
+  if (w?.id === "aria" && (w.stage | 0) >= 2 && !free) {
+    if (w._discountTurn !== state.turn) {
+      stepCost = Math.max(0, stepCost - 1);
+      w._discountTurn = state.turn;
+    }
+  }
+  const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
 
 
 
@@ -905,12 +1025,27 @@ export function advanceSpell(
     }
   }
 
+  
+  // Process Kareth spend triggers
+  state = processAetherSpend(state, playerId, totalCost);
 
   
 
  c.progress = Math.max(0, (c.progress|0) + (steps|0));
   // Only mark for PAID advances (free/effect advances don't consume the "once/turn")
   if (!free) c._paidAdvancedTurn = state.turn;
+
+
+
+  // Aria Stage I: gain 1 Æ whenever you advance a spell
+  {
+    const w2 = state.players[playerId]?.weaver;
+    if (w2?.id === "aria" && (w2.stage | 0) >= 1) {
+      state.players[playerId].aether = (state.players[playerId].aether | 0) + 1;
+      pushEvt(state, { t: "aether", side: playerId, amount: 1, by: "trance-aria" });
+    }
+  }
+  
   
   if ((c.progress|0) >= (c.pip|0)) {
     state = applyParsedEffects(state, playerId, c);
@@ -930,6 +1065,15 @@ export function advanceSpell(
       cardData: { ...c }
     });
 
+
+    // Morr Stage I: gain 1 Æ when a card leaves a slot
+    const w3 = P.weaver;
+    if (w3?.id === "morr" && (w3.stage | 0) >= 1) {
+      P.aether = (P.aether | 0) + 1;
+      pushEvt(state, { t: "aether", side: playerId, amount: 1, by: "trance-morr" });
+    }
+
+    
     state = applyGlyphPassives(state, playerId, "spell_resolved");
   }
   return state;
@@ -954,6 +1098,10 @@ export function resolveInstantFromHand(state, playerId, cardId){
   if ((P.aether|0) < playCost) throw new Error("Not enough Æ to cast this Instant");
   if (playCost > 0) { P.aether -= playCost; pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id}); }
 
+// Process Kareth spend triggers
+ state = processAetherSpend(state, playerId, playCost);
+
+  
   // move to stack resolution
   P.hand.splice(i,1)[0];
   state = applyParsedEffects(state, playerId, card);
@@ -988,6 +1136,15 @@ export function resolveGlyphFromSlot(state, playerId){
     slotIndex: 3,
     cardData: { ...g }
   });
+
+  
+  // Morr Stage I: gain 1 Æ when a glyph leaves a slot
+  const w = P.weaver;
+  if (w?.id === "morr" && (w.stage | 0) >= 1) {
+    P.aether = (P.aether | 0) + 1;
+    pushEvt(state, { t:"aether", side: playerId, amount: 1, by: "trance-morr" });
+  }
+  
   return state;
 }
 
