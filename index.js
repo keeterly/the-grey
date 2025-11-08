@@ -1605,7 +1605,10 @@ function firstOpenSpellSlotIndexFor(side, pub){
   return -1;
 }
 function firstOpenSpellSlot(pub){ return firstOpenSpellSlotIndexFor("player", pub); }
-function canChannel(card){ return (card?.aetherValue|0) > 0; }
+function canChannel(card){
+  // Allow discarding any card; cards with zero aetherValue yield 0 Æ.
+  return true;
+}
 function canPlaySpell(pub, card){ return card?.type==="SPELL" && firstOpenSpellSlot(pub) >= 0; }
 function canSetGlyph(pub, card){
   if (card?.type!=="GLYPH") return false;
@@ -1652,7 +1655,11 @@ function showCardOptions(cardEl, cardData){
   if (canPlaySpell(pub, cardData))  opts.push({k:"play",    label:"Play"});
   if (canSetGlyph(pub, cardData))   opts.push({k:"set",     label:"Set"});
   if (canCastInstant(pub, cardData))opts.push({k:"cast",    label:"Cast"});
-  if (canChannel(cardData))         opts.push({k:"channel", label:"Channel"});
+  if (canChannel(cardData)){
+    // Label as "Discard" if the card doesn't grant any Æ when channeled
+    const label = ((cardData?.aetherValue|0) > 0) ? "Channel" : "Discard";
+    opts.push({k:"channel", label});
+  }
   if (!opts.length) return;
 
   const pop = document.createElement("div");
@@ -4114,18 +4121,25 @@ if (typeof window.__wirePileModals === 'function') {
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
-      handEl.classList.add('dealing');
+      // For newly drawn cards, always slide them in with 'deal-in' but only shuffle the whole hand on the very first deal.
       addedNodes.forEach(n => n.classList.add('deal-in'));
-      setTimeout(()=>{
-        addedNodes.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
-        handEl.classList.remove('dealing');
+      if (!bootDealt) {
+        handEl.classList.add('dealing');
+      }
+      setTimeout(() => {
+        addedNodes.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
+        if (!bootDealt) {
+          handEl.classList.remove('dealing');
+        }
       }, 400);
-      bootDealt = true;
+      // After the initial deal, mark as dealt to avoid future full-hand shuffles
+      if (!bootDealt) bootDealt = true;
     } else if (!bootDealt && domCards.length){
+      // Handle the initial boot deal: animate all cards once
       handEl.classList.add('dealing');
-      domCards.forEach(n=> n.classList.add('grey-hide-during-flight','deal-in'));
-      setTimeout(()=>{
-        domCards.forEach(n=> n.classList.remove('grey-hide-during-flight','deal-in'));
+      domCards.forEach(n => n.classList.add('grey-hide-during-flight','deal-in'));
+      setTimeout(() => {
+        domCards.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
         handEl.classList.remove('dealing');
       }, 400);
       bootDealt = true;
