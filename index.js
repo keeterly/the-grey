@@ -873,10 +873,6 @@ async function doStartTurn(){
     animateDrawCards(active, need);
       }
     });
-    // render first, then drain events so animations see real nodes/anchors
-// render first, then drain events so animations see real nodes/anchors
-await render();
-await spotlightFromEvents(state);
   }
 
   Emit(Events.TURN_START, {side});
@@ -896,11 +892,6 @@ if (prevHandN > 0) {
     // visual only: hand -> discard chips
     animateDiscardCards(prevSide, prevHandN);
   }
-  
-// render the new board first, then run any animations queued by game events
-await render();
-await spotlightFromEvents(state);
-
   
   await doStartTurn();   // loops cleanly into next side’s Start Turn
 }
@@ -4358,8 +4349,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   // 👇 Prime Flow to 5 cards before starting Turn 1
   await primeAetherFlow(5);
   seedFlowToFiveOnBoot();   
- await doStartTurn();
-logLine(`Boot on ${BRANCH_VERSION}`);
+  await doStartTurn();
+  logLine(`Boot on ${BRANCH_VERSION}`);
+  renderAiMini(pub);
 });
 
 
