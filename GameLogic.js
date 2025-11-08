@@ -545,23 +545,22 @@ export function discardForAether(state, playerId, cardId){
 }
 
 export function dealDamage(state, targetSide, amount = 1, meta = {}) {
-  const P = state.players?.[targetSide];
-  if (!P) return state;
-  const n = Math.max(0, amount | 0);
-  if (n <= 0) return state;
-
-  const before = P.vitality | 0;
-  P.vitality = Math.max(0, before - n);
+  const n = Math.max(0, amount);
+  const newHP = Math.max(0, state[targetSide].hp - n);
+  state[targetSide].hp = newHP;
 
   pushEvt(state, {
     t: "damage",
     source: meta.source || "effect",
     side: targetSide,
-    amount: n
+    amount: n,
   });
 
+  // Trigger glyphs & trance effects when taking damage
+  state = applyGlyphPassives(state, targetSide, "tookDamage");
   return state;
 }
+
 
 // ⬇️ REPLACE your existing playCardToSpellSlot with this
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
@@ -1040,45 +1039,58 @@ export function getStack(state, playerId, which){
   return [];
 }
 
-function parseEffectsFromText(raw) {
-  if (!raw) return [];
-  const t = String(raw).toLowerCase();
+// =============================================
+// EFFECT PARSER — supports new triggers
+// =============================================
 
+function parseEffectsFromText(raw) {
+  const t = raw.toLowerCase();
   const fx = [];
 
-  // Draw N
-  { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
-
-  // Gain N Æ (normal) — exclude "... this turn" separately below
-  { const m = t.match(/\b(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)\b(?!\s*this\s+turn)/i);
-    if (m) fx.push({ t: "aether", n: +m[1] }); }
-
-  // "Gain N Æ this turn" — treat as normal gain for now
-  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn\b/i);
-    if (m) fx.push({ t: "aether", n: +m[1] }); }
-
-  // Channel N
-  { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
-
-  // Deal N damage
-  { const m = t.match(/\bdeal\s+(\d+)\s+damage/); if (m) fx.push({t:"damage", n:+m[1]}); }
-
-  // Heal / Lose N vitality
-  { const m = t.match(/\bheal\s+(\d+)/); if (m) fx.push({t:"heal", n:+m[1]}); }
-  { const m = t.match(/\blose\s+(\d+)\s+vitality/); if (m) fx.push({t:"selfLose", n:+m[1]}); }
-
-  // Advance another spell / target spell — detect "free"
-  if (/\badvance\s+another\s+spell\b/.test(t)) {
-    const isFree = /\bfree\b/.test(t);
-    fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
+  // Damage patterns
+  if (/deal\s+(\d+)\s+damage/.test(t)) {
+    const n = parseInt(t.match(/deal\s+(\d+)\s+damage/)[1]);
+    fx.push({ t: "damage", n });
   }
-  if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) {
+
+  // Draw patterns
+  if (/draw\s+(\d+)/.test(t)) {
+    const n = parseInt(t.match(/draw\s+(\d+)/)[1]);
+    fx.push({ t: "draw", n });
+  }
+
+  // Store Aether
+  if (/store\s+(\d+)/.test(t)) {
+    const n = parseInt(t.match(/store\s+(\d+)/)[1]);
+    fx.push({ t: "store", n });
+  }
+
+  // Channel Aether
+  if (/gain\s+(\d+)\s+(?:channelled|temporary)?\s*aether/.test(t)) {
+    const n = parseInt(t.match(/gain\s+(\d+)\s+(?:channelled|temporary)?\s*aether/)[1]);
+    fx.push({ t: "channel", n });
+  }
+
+  // Advance single target spell
+  if (/target\s+spell\s+advances?\s+1(?:\s+step)?/.test(t)) {
     const isFree = /\bfree\b/.test(t);
     fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
   }
 
+  // Advance all spells
+  if (/advance\s+all\s+your\s+active\s+spells\s+1\s*step/.test(t)) {
+    fx.push({ t: "advanceAll", n: 1 });
+  }
+
+  // Return cards from discard
+  if (/return\s+(\d+)\s+card/.test(t)) {
+    const n = parseInt(t.match(/return\s+(\d+)\s+card/)[1]);
+    fx.push({ t: "returnFromDiscard", n });
+  }
+
   return fx;
 }
+
 
 
 function applyGlyphPassives(state, side, trigger){
