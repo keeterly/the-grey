@@ -48,7 +48,7 @@ function withAetherIcons(txt){
 
 
 // ===== Version / Menu + Log UI =====
-export const BRANCH_VERSION = "v2.64";
+export const BRANCH_VERSION = "v2.66";
 window.__BRANCH_VERSION__ = BRANCH_VERSION;
 
 let LogStore = [];
