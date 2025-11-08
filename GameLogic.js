@@ -994,10 +994,7 @@ export function advanceSpell(
 
 
   
-  const stepCost = Number(c.stepCost || c.cost || 0);
-  const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
-
-// Determine the cost per step.  Aria Stage II discount applies to the first paid advance each turn.
+ // Determine the cost per step. Aria Stage II discount applies to the first paid advance each turn.
   let stepCost = Number(c.stepCost || c.cost || 0);
   const w = state.players[playerId]?.weaver;
   if (w?.id === "aria" && (w.stage | 0) >= 2 && !free) {
@@ -1006,7 +1003,7 @@ export function advanceSpell(
       w._discountTurn = state.turn;
     }
   }
-  const totalCost = free ? 0 : stepCost * Math.max(1, steps|0);
+  const totalCost = free ? 0 : stepCost * Math.max(1, steps | 0);
 
 
 
