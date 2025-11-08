@@ -15,6 +15,19 @@ export async function runAiTurn(state, api) {
   const handByType = (t) => hand.filter(c => c?.type === t);
   const hasType    = (t) => handByType(t).length > 0;
 
+  // Helper to determine how much a card costs to play.  Many cards in v2.66
+  // separate their playCost (the cost to put the card into play) from
+  // stepCost (the cost to advance a spell).  Use playCost when deciding
+  // whether the AI can afford a card.  If playCost is undefined, fall
+  // back to the legacy cost property if present.
+  const getCardCost = (card) => {
+    if (!card) return 0;
+    if (typeof card.playCost !== 'undefined') {
+      return card.playCost;
+    }
+    return typeof card.cost !== 'undefined' ? card.cost : 0;
+  };
+
   // 0) If we can cheaply advance an AI spell on board, do that (optional polish).
   //    (This keeps pressure without needing extra smarts.)
   try {
@@ -39,7 +52,7 @@ export async function runAiTurn(state, api) {
   // 1) CAST an Instant if we can afford one (fast tempo plays)
   {
     const inst = handByType('INSTANT')
-      .find(c => api.canPay(side, c.cost|0)); // wrapper applies temp/perm in helper
+      .find(c => api.canPay(side, getCardCost(c))); // wrapper applies temp/perm in helper
     if (inst) {
       await api.castInstantFromHand(side, inst.id);
       return state;
@@ -59,12 +72,15 @@ export async function runAiTurn(state, api) {
     if (slot >= 0) {
       // Prefer cheaper spells / ones with lower pip costs to get on board
       const spells = handByType('SPELL')
-        .sort((a, b) => (a.cost|0) - (b.cost|0) || (a.pip|0) - (b.pip|0));
+        .sort((a, b) => getCardCost(a) - getCardCost(b) || (a.pip|0) - (b.pip|0));
       for (const s of spells) {
         // Your wrapped player helper handles trance discount + temp first.
         try {
-          api.playSpellFromHand(side, s.id, slot);
-          return state;
+          // Only attempt to play the spell if we can afford its play cost.
+          if (api.canPay(side, getCardCost(s))) {
+            api.playSpellFromHand(side, s.id, slot);
+            return state;
+          }
         } catch { /* try next */ }
       }
     }
@@ -85,8 +101,8 @@ export async function runAiTurn(state, api) {
       if (!afford) return null;
       let score = 0;
       if (wantGlyph && c.type === 'GLYPH') score += 100;
-      if (c.type === 'SPELL') score += 60 - (c.cost|0)*2 - (c.pip|0);
-      if (c.type === 'INSTANT') score += 40 - (c.cost|0);
+      if (c.type === 'SPELL') score += 60 - (getCardCost(c))*2 - (c.pip|0);
+      if (c.type === 'INSTANT') score += 40 - (getCardCost(c));
       // tiny bias for cheaper options
       score += (10 - price);
       return { idx: i, price, score };
