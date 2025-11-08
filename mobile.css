@@ -1,10 +1,15 @@
+/* Mobile improvements for The Grey */
+
+/* Base scaling knobs (keeps your look, just scales smartly) */
 :root{ --u: clamp(8px, 1.75vw + 0.6vh, 14px); --cost: clamp(18px, 4.8vw, 28px); }
 html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
 
+/* Compact the board grid and leave room for the floating FAB on small screens */
 @media (max-width: 420px){
   #board-grid.grid{ row-gap:.5rem; padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)); }
 }
 
+/* Hand: flickable carousel with centered cards */
 .hand-wrap{ overflow: visible; }
 .hand{
   display:flex; gap:.5rem;
@@ -16,6 +21,7 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   scroll-snap-align:center; flex:0 0 70vw; max-width:320px; touch-action:pan-y; will-change:transform;
 }
 
+/* Stack slots into a 2‑column grid on small screens */
 @media (max-width: 420px){
   .slot-row{ display:grid !important; grid-template-columns: repeat(2, minmax(0,1fr)); gap:.75rem; align-items:start; }
   .row .portrait{ opacity:.85; }
@@ -23,6 +29,7 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
   #zoom-card.card.zoom{ max-width:min(92vw, 480px); height:auto; }
 }
 
+/* Floating end‑turn FAB: re‑added by JS only on small screens */
 .mobile-fab{
   position:fixed; right:12px; bottom:calc(12px + env(safe-area-inset-bottom, 0px));
   width:56px; height:56px; border-radius:999px; display:none; place-items:center; z-index:60;
@@ -32,6 +39,37 @@ html { font-size: var(--u); } html, body { overscroll-behavior-y: contain; }
 @media (min-width:601px){ .mobile-fab{ display:none !important; } }
 .mobile-fab:active{ transform:scale(.98); }
 
+/* Hide the desktop HUD completely on small screens */
 @media (max-width:600px){
   .hud{ visibility:hidden; pointer-events:none; }
+}
+
+/* --- Additional tweaks for improved portrait playability --- */
+
+/* 1. Downsize hero names and center them to fit narrow screens */
+@media (max-width:420px){
+  #player-name,
+  #ai-name{
+    font-size:1.2rem;
+    line-height:1.2;
+    text-align:center;
+    width:100%;
+  }
+}
+
+/* 2. Allow the aether flow row to scroll horizontally on small screens */
+@media (max-width:420px){
+  #flow-row{
+    overflow-x:auto;
+    scroll-snap-type:x mandatory;
+    gap:.5rem;
+    padding-bottom:.5rem;
+  }
+  #flow-row::-webkit-scrollbar{ display:none; }
+}
+
+/* 3. Simplify the menu button: hide the label and version text on very narrow devices */
+@media (max-width:420px){
+  .menu-btn .lbl,
+  .menu-btn .ver{ display:none; }
 }
