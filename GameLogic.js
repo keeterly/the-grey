@@ -205,198 +205,56 @@ const BASE_DECK_LIST = [
 
 
 
-// =============================================
-// AETHERFLOW — v2 Harmonized Progression Pool
-// (Spellweaver-agnostic; effects compatible with current parser)
-// NOTE: Market prices come from slot positions (4,3,2,2,2) — not from these objects.
-// =============================================
-
+// ===== Aetherflow Deck (v2 — Harmonized Progression Pool) =====
 const AETHERFLOW_LIST = [
-  // --- Aggression / Burn ---
-  {
-    name: "Surge of Cinders",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 2,    // cast cost
-    stepCost: 0,
-    text: "Deal 2 damage",
-    aetherValue: 0,
-    role: "Burn finisher",
-    qty: 1,
-  },
-  {
-    name: "Pulse Feedback",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 3,
-    stepCost: 0,
-    text: "Deal 1 damage and gain 1 Channelled Aether",
-    aetherValue: 0,
-    role: "Chip burn + small refund",
-    qty: 1,
-  },
+  // Instants — pay to cast
+  { name: "Surge of Cinders",  type: "INSTANT", pip: 0, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
+    text: "Deal 2 damage to any target.", role: "Burn", qty: 1 },
 
-  // --- Utility / Control / Tempo ---
-  {
-    name: "Refracted Will",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    // NOTE: cancel/counter isn’t in the basic parser; keep the Draw so it always does something.
-    // If/when you add a 'counter' effect in logic, update text to "Cancel a Spell or Instant. Draw 1".
-    text: "Draw 1 card",
-    aetherValue: 0,
-    role: "Light control / cantrip",
-    qty: 1,
-  },
-  {
-    name: "Aether Impel",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 4,
-    stepCost: 0,
-    text: "Advance all your active Spells 1 step",
-    aetherValue: 0,
-    role: "Board accelerator",
-    qty: 1,
-  },
-  {
-    name: "Cascade Insight",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 3,
-    stepCost: 0,
-    // (Parser supports draw; not forced discard yet)
-    text: "Draw 2 cards",
-    aetherValue: 0,
-    role: "Card velocity",
-    qty: 1,
-  },
+  { name: "Pulse Feedback",    type: "INSTANT", pip: 0, playCost: 3, stepCost: 0, cost: 3, aetherValue: 0,
+    text: "Deal 1 damage and gain 1 Æ.", role: "Utility", qty: 1 },
 
-  // --- Ramp / Economy ---
-  {
-    name: "Resonant Chorus",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 2,
-    text: "On Resolve: Gain 2 Channelled Aether and Store 1 in Aetherwell",
-    aetherValue: 1,
-    role: "Ramp burst + store",
-    qty: 1,
-  },
-  {
-    name: "Obsidian Vault",
-    type: "SPELL",
-    pip: 1,
-    playCost: 3,
-    stepCost: 0,
-    text: "On Resolve: Store 2 in Aetherwell and gain 1 Channelled Aether",
-    aetherValue: 1,
-    role: "Heavy investment ramp",
-    qty: 1,
-  },
+  { name: "Refracted Will",    type: "INSTANT", pip: 0, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
+    text: "Cancel a Spell or Instant. Draw 1.", role: "Utility", qty: 1 },
 
-  // --- Hybrid / Offense ---
-  {
-    name: "Emberline Pulse",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 0,
-    text: "On Resolve: Deal 1 damage and Draw 1 card",
-    aetherValue: 0,
-    role: "Ping + cantrip",
-    qty: 1,
-  },
+  { name: "Aether Impel",      type: "INSTANT", pip: 0, playCost: 4, stepCost: 0, cost: 4, aetherValue: 0,
+    text: "Advance all your active Spells 1 step.", role: "Ramp", qty: 1 },
 
-  // --- Draw / Recursion engines ---
-  {
-    name: "Fractured Memory",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 1,
-    text: "On Resolve: Draw 2 cards",
-    aetherValue: 0,
-    role: "Incremental draw",
-    qty: 1,
-  },
-  {
-    name: "Echoflame Sigil",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 1,
-    text: "On Resolve: Return 1 card from your discard pile to your hand",
-    aetherValue: 1,
-    role: "Recursion",
-    qty: 1,
-  },
-  {
-    name: "Mirror Cascade",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 2,
-    // (Changed from “copy next resolve” so it works with current parser)
-    text: "On Resolve: Advance another Spell 1 step",
-    aetherValue: 0,
-    role: "Combo enabler",
-    qty: 1,
-  },
+  { name: "Cascade Insight",   type: "INSTANT", pip: 0, playCost: 3, stepCost: 0, cost: 3, aetherValue: 0,
+    text: "Draw 2 cards, then discard 1.", role: "Utility", qty: 1 },
 
-  // --- Risk / Reward Ramp (simplified to supported effects) ---
-  {
-    name: "Sanguine Flow",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 0,
-    // (Kept the energy; self-damage is not in parser from text. If you add it later, change text to “Deal 1 damage to yourself and gain 3 Channelled Aether.”)
-    text: "On Resolve: Gain 3 Channelled Aether",
-    aetherValue: 0,
-    role: "Tempo burst",
-    qty: 1,
-  },
+  // Spells — some pay to play, some pay per step
+  { name: "Resonant Chorus",   type: "SPELL",   pip: 1, playCost: 0, stepCost: 2, cost: 0, aetherValue: 1,
+    text: "On Resolve: Gain 2 Æ and Channel 1.", role: "Ramp", qty: 1 },
 
-  // --- Glyphs (passives) ---
-  {
-    name: "Glyph of Withering Light",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
-    text: "When opponent resolves a Spell → Deal 1 damage",
-    aetherValue: 0,
-    role: "Punish resolves",
-    qty: 1,
-  },
-  {
-    name: "Glyph of Buried Heat",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
-    text: "When you take damage → Channel 2 Aether",
-    aetherValue: 0,
-    role: "Reactive ramp",
-    qty: 1,
-  },
-  {
-    name: "Glyph of Soulglass",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
-    text: "When you draw outside your Draw Step → Gain 1 Channelled Aether",
-    aetherValue: 0,
-    role: "Draw synergy",
-    qty: 1,
-  },
+  { name: "Emberline Pulse",   type: "SPELL",   pip: 1, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
+    text: "On Resolve: Deal 1 damage and Draw 1.", role: "Burn", qty: 1 },
+
+  { name: "Fractured Memory",  type: "SPELL",   pip: 2, playCost: 0, stepCost: 1, cost: 0, aetherValue: 0,
+    text: "On Resolve: Draw 2 cards.", role: "Utility", qty: 1 },
+
+  { name: "Obsidian Vault",    type: "SPELL",   pip: 1, playCost: 3, stepCost: 0, cost: 3, aetherValue: 1,
+    text: "On Resolve: Channel 2 and gain 1 Æ.", role: "Ramp", qty: 1 },
+
+  { name: "Mirror Cascade",    type: "SPELL",   pip: 2, playCost: 0, stepCost: 2, cost: 0, aetherValue: 0,
+    text: "On Resolve: Copy your next Instant or Spell resolve effect.", role: "Utility", qty: 1 },
+
+  { name: "Sanguine Flow",     type: "SPELL",   pip: 1, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
+    text: "On Resolve: Gain 3 Æ, lose 1 Vitality.", role: "Burn / Ramp", qty: 1 },
+
+  { name: "Echoflame Sigil",   type: "SPELL",   pip: 2, playCost: 0, stepCost: 1, cost: 0, aetherValue: 1,
+    text: "On Resolve: Return 1 card from your discard pile to your hand.", role: "Recursion", qty: 1 },
+
+  // Glyphs — no play cost
+  { name: "Glyph of Withering Light", type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
+    text: "When an opponent resolves a Spell → Deal 1 damage.", role: "Burn", qty: 1 },
+
+  { name: "Glyph of Buried Heat",     type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
+    text: "When you take damage → Channel 2.", role: "Ramp / Defense", qty: 1 },
+
+  { name: "Glyph of Soulglass",       type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
+    text: "When you draw outside your Draw Step → Gain 1 Æ.", role: "Utility", qty: 1 },
 ];
-
 
 
 
@@ -687,22 +545,23 @@ export function discardForAether(state, playerId, cardId){
 }
 
 export function dealDamage(state, targetSide, amount = 1, meta = {}) {
-  const n = Math.max(0, amount);
-  const newHP = Math.max(0, state[targetSide].hp - n);
-  state[targetSide].hp = newHP;
+  const P = state.players?.[targetSide];
+  if (!P) return state;
+  const n = Math.max(0, amount | 0);
+  if (n <= 0) return state;
+
+  const before = P.vitality | 0;
+  P.vitality = Math.max(0, before - n);
 
   pushEvt(state, {
     t: "damage",
     source: meta.source || "effect",
     side: targetSide,
-    amount: n,
+    amount: n
   });
 
-  // Trigger glyphs & trance effects when taking damage
-  state = applyGlyphPassives(state, targetSide, "tookDamage");
   return state;
 }
-
 
 // ⬇️ REPLACE your existing playCardToSpellSlot with this
 export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
@@ -1181,58 +1040,45 @@ export function getStack(state, playerId, which){
   return [];
 }
 
-// =============================================
-// EFFECT PARSER — supports new triggers
-// =============================================
-
 function parseEffectsFromText(raw) {
-  const t = raw.toLowerCase();
+  if (!raw) return [];
+  const t = String(raw).toLowerCase();
+
   const fx = [];
 
-  // Damage patterns
-  if (/deal\s+(\d+)\s+damage/.test(t)) {
-    const n = parseInt(t.match(/deal\s+(\d+)\s+damage/)[1]);
-    fx.push({ t: "damage", n });
-  }
+  // Draw N
+  { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
 
-  // Draw patterns
-  if (/draw\s+(\d+)/.test(t)) {
-    const n = parseInt(t.match(/draw\s+(\d+)/)[1]);
-    fx.push({ t: "draw", n });
-  }
+  // Gain N Æ (normal) — exclude "... this turn" separately below
+  { const m = t.match(/\b(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)\b(?!\s*this\s+turn)/i);
+    if (m) fx.push({ t: "aether", n: +m[1] }); }
 
-  // Store Aether
-  if (/store\s+(\d+)/.test(t)) {
-    const n = parseInt(t.match(/store\s+(\d+)/)[1]);
-    fx.push({ t: "store", n });
-  }
+  // "Gain N Æ this turn" — treat as normal gain for now
+  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn\b/i);
+    if (m) fx.push({ t: "aether", n: +m[1] }); }
 
-  // Channel Aether
-  if (/gain\s+(\d+)\s+(?:channelled|temporary)?\s*aether/.test(t)) {
-    const n = parseInt(t.match(/gain\s+(\d+)\s+(?:channelled|temporary)?\s*aether/)[1]);
-    fx.push({ t: "channel", n });
-  }
+  // Channel N
+  { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
 
-  // Advance single target spell
-  if (/target\s+spell\s+advances?\s+1(?:\s+step)?/.test(t)) {
+  // Deal N damage
+  { const m = t.match(/\bdeal\s+(\d+)\s+damage/); if (m) fx.push({t:"damage", n:+m[1]}); }
+
+  // Heal / Lose N vitality
+  { const m = t.match(/\bheal\s+(\d+)/); if (m) fx.push({t:"heal", n:+m[1]}); }
+  { const m = t.match(/\blose\s+(\d+)\s+vitality/); if (m) fx.push({t:"selfLose", n:+m[1]}); }
+
+  // Advance another spell / target spell — detect "free"
+  if (/\badvance\s+another\s+spell\b/.test(t)) {
+    const isFree = /\bfree\b/.test(t);
+    fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
+  }
+  if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) {
     const isFree = /\bfree\b/.test(t);
     fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
   }
 
-  // Advance all spells
-  if (/advance\s+all\s+your\s+active\s+spells\s+1\s*step/.test(t)) {
-    fx.push({ t: "advanceAll", n: 1 });
-  }
-
-  // Return cards from discard
-  if (/return\s+(\d+)\s+card/.test(t)) {
-    const n = parseInt(t.match(/return\s+(\d+)\s+card/)[1]);
-    fx.push({ t: "returnFromDiscard", n });
-  }
-
   return fx;
 }
-
 
 
 function applyGlyphPassives(state, side, trigger){
@@ -1267,28 +1113,6 @@ function applyGlyphPassives(state, side, trigger){
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
     fired = true;
   }
-// When opponent resolves a spell → Withering Light
-if (trigger === "spell_resolved_opponent" &&
-    /when\s+opponent\s+resolves\s+a\s+spell\s*→\s*deal\s+1\s+damage/.test(text)) {
-  state = dealDamage(state, 1 - side, 1, { source: "glyph" });
-  fired = true;
-}
-
-// When player takes damage → Buried Heat
-if (trigger === "tookDamage" &&
-    /when\s+you\s+take\s+damage\s*→\s*channel\s+(\d+)\s*aether/.test(text)) {
-  const m = text.match(/channel\s+(\d+)/);
-  const n = parseInt(m?.[1] || 1);
-  state[side].aether += n;
-  fired = true;
-}
-
-// When drawing outside draw step → Soulglass
-if (trigger === "draw_outside" &&
-    /when\s+you\s+draw\s+outside\s+your\s+draw\s+step\s*→\s*gain\s+1\s+channelled\s+aether/.test(text)) {
-  state[side].aether += 1;
-  fired = true;
-}
 
   // Auto-discard once a passive fires
   if (fired) {
