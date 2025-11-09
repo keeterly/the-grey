@@ -305,6 +305,35 @@ const BASE_DECK_LIST = [
     role: "Draw glyph",
     qty: 1,
   },
+
+
+// --- v3 Ramp‑Up Additions ---
+  {
+    name: "Wisp of Insight",
+    type: "SPELL",
+    pip: 1,
+    playCost: 0,
+    stepCost: 1,
+    cost: 1,
+    text: "On Resolve: Gain 1 Æ and draw 1 card",
+    aetherValue: 0,
+    role: "Early ramp and cycle",
+    qty: 1,
+  },
+  {
+    name: "Minor Invocation",
+    type: "SPELL",
+    pip: 1,
+    playCost: 0,
+    stepCost: 1,
+    cost: 1,
+    text: "On Resolve: The next card you purchase this turn costs 1 less Æ",
+    aetherValue: 0,
+    role: "Market discount",
+    qty: 1,
+  },
+
+  
 ];
 
 
@@ -358,6 +387,16 @@ const AETHERFLOW_LIST = [
 
   { name: "Glyph of Soulglass",       type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
     text: "When you draw outside your Draw Step → Gain 1 Æ.", role: "Utility", qty: 1 },
+
+
+  // --- v3 Reaction Cards ---
+  { name: "Aether Disruption", type: "REACTION", pip: 0, playCost: 1, stepCost: 0, cost: 1, aetherValue: 0,
+    text: "When your opponent advances a Spell, pay 1 Æ to negate that advancement.", role: "Counter", qty: 1 },
+  { name: "Spell Snuff", type: "REACTION", pip: 0, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
+    text: "When your opponent casts a Spell, pay 2 Æ to cancel that Spell.", role: "Counter", qty: 1 },
+  { name: "Aether Shield", type: "REACTION", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
+    text: "When you would take damage, discard this to reduce that damage by 2.", role: "Defense", qty: 1 },
+  
 ];
 
 
@@ -384,6 +423,58 @@ function expandList(list) {
     }
   });
   return out;
+}
+
+
+// ----------------------------------------------
+// Reaction System (WIP)
+// A reaction window can open after certain triggers (spell advance, spell cast, damage).
+// The state.reactionWindow holds information about the trigger and the side allowed to react.
+function triggerReactionWindow(state, trigger, context) {
+  // If a reaction window is already open, do not open another.
+  if (state.reactionWindow) return state;
+  // The non‑active player gets the chance to react.
+  const nonActiveSide = otherSide(state.activePlayer);
+  state.reactionWindow = { trigger, context, side: nonActiveSide };
+  // Emit an event for the UI to offer reaction options.
+  pushEvt(state, { t: "reaction_window", trigger, context, side: nonActiveSide });
+  return state;
+}
+
+function clearReactionWindow(state) {
+  state.reactionWindow = null;
+  return state;
+}
+
+// Play a Reaction card from hand.  This pays its cost and moves it to the discard.
+// Actual negate/cancel effects must be implemented by the UI or additional logic.
+export function resolveReactionFromHand(state, playerId, cardId) {
+  const P = state.players[playerId];
+  const idx = P.hand.findIndex(c => c.id === cardId && c.type === "REACTION");
+  if (idx < 0) return state;
+  const card = P.hand[idx];
+  const playCost = Number(card.playCost || 0);
+  if ((P.aether|0) < playCost) throw new Error("Not enough Æ to play this Reaction");
+  if (playCost > 0) {
+    P.aether -= playCost;
+    pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id});
+  }
+  // Spending Æ triggers Kareth’s passive
+  state = processAetherSpend(state, playerId, playCost);
+  // Remove from hand and discard
+  P.hand.splice(idx, 1);
+  P.discard.push(card);
+  pushEvt(state, {
+    t: "resolved",
+    source: "reaction",
+    side: playerId,
+    cardId: card.id,
+    cardType: "REACTION",
+    cardData: { ...card }
+  });
+  // Clear the reaction window once a reaction resolves
+  clearReactionWindow(state);
+  return state;
 }
 
 
@@ -646,6 +737,13 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
   const n = Math.max(0, amount | 0);
   if (n <= 0) return state;
 
+
+ // Trigger reaction window before damage is applied (Aether Shield).
+  state = triggerReactionWindow(state, "damage", { targetSide, amount: n, source: meta.source, cardId: meta.cardId });
+
+
+
+  
   const before = P.vitality | 0;
   P.vitality = Math.max(0, before - n);
   // After dealing damage, check for trance threshold updates
@@ -682,6 +780,11 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
  // Process Kareth spend triggers
   state = processAetherSpend(state, playerId, playCost);
 
+
+
+  
+  // Before the spell fully enters play, allow the opponent to react (Spell Snuff).
+  state = triggerReactionWindow(state, "spell_cast", { playerId, cardId });
 
   
   P.hand.splice(i,1);
@@ -985,6 +1088,12 @@ export function advanceSpell(
   if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
 
 
+// Trigger reaction window for the opponent before advancing a spell.
+  state = triggerReactionWindow(state, "spell_advance", { playerId, slotIndex, cardId: c.id });
+
+
+  
+
 // --- New rules ---
   // 1) Placement lock: cannot advance the same turn it was placed
 // paid placement lock (effects may bypass)
@@ -1091,7 +1200,7 @@ export function payAndAdvanceOne(state, side, slotIndex) {
 // ⬇️ REPLACE your existing resolveInstantFromHand with this
 export function resolveInstantFromHand(state, playerId, cardId){
   const P = state.players[playerId];
-  const i = P.hand.findIndex(c => c.id === cardId && c.type==="INSTANT");
+ const i = P.hand.findIndex(c => c.id === cardId && (c.type === "INSTANT" || c.type === "REACTION"));
   if (i < 0) return state;
   const card = P.hand[i];
 
@@ -1103,6 +1212,11 @@ export function resolveInstantFromHand(state, playerId, cardId){
  state = processAetherSpend(state, playerId, playCost);
 
   
+  // If it’s a Reaction card, handle with the Reaction resolver
+  if (card.type === "REACTION") {
+    return resolveReactionFromHand(state, playerId, card.id);
+  }
+  // otherwise handle as normal Instant
   // move to stack resolution
   P.hand.splice(i,1)[0];
   state = applyParsedEffects(state, playerId, card);
