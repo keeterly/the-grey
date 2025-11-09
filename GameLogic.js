@@ -1384,6 +1384,10 @@ function parseEffectsFromText(raw) {
   // Channel N
   { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
 
+  // Treat "Store N in Aetherwell" as channel N for effect resolution
+  { const m = t.match(/\bstore\s+(\d+)\s+in\s+aetherwell\b/i);
+    if (m) fx.push({ t:"channel", n: +m[1] }); }
+
   // Deal N damage
   { const m = t.match(/\bdeal\s+(\d+)\s+damage/); if (m) fx.push({t:"damage", n:+m[1]}); }
 
@@ -1411,7 +1415,12 @@ function applyGlyphPassives(state, side, trigger){
   let fired = false;
 
   if (trigger === "spell_resolved" &&
-      /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text)) {
+      (
+        /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text) ||
+        /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s+channelled\s*(?:æ|ae|aether)/.test(text)
+      )) {
+    // For "gain 1 channelled Aether" we simply add 1 Æ; adjust here if you
+    // later differentiate between regular and channelled Aether.
     state.players[side].aether = (state.players[side].aether|0) + 1;
     pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
     fired = true;
@@ -1446,8 +1455,11 @@ function applyGlyphPassives(state, side, trigger){
     fired = true;
   }
 
-  if (trigger === "channel" &&
-      /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text)) {
+ if (trigger === "channel" &&
+      (
+        /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text) ||
+        /when\s+you\s+store\s+aether\s*→?\s*draw\s+1/.test(text)
+      )) {
     state = drawN(state, side, 1);
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
     fired = true;
