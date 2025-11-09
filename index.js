@@ -278,6 +278,138 @@ function ensureReactionOverlayStyles(){
   document.head.appendChild(s);
 }
 
+
+// === Additional reaction styles and helpers ===
+function ensureReactionStyles() {
+  if (document.getElementById('reaction-style')) return;
+  const s = document.createElement('style');
+  s.id = 'reaction-style';
+  s.textContent = `
+    body.reaction-mode .hand {
+      filter: none !important;
+      position: relative;
+      z-index: 3501;
+    }
+    .card.reaction-candidate {
+      position: relative;
+      z-index: 3502;
+      filter: brightness(1.6) saturate(1.3);
+      box-shadow: 0 0 6px 3px rgba(255,255,255,0.6), 0 0 16px 6px rgba(255,255,255,0.4);
+      transform: translateY(-6px);
+    }
+    .reaction-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3500;
+      background: rgba(0,0,0,0.35);
+      display: grid;
+      place-items: start center;
+      padding-top: 14vh;
+      pointer-events: none;
+    }
+    .reaction-pass {
+      pointer-events: auto;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: rgba(30,30,30,0.85);
+      color: #eee;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// Determine if a hand card can react to a trigger right now
+function canPlayReactionCard(state, defenderSide, card, trigger) {
+  if (!card || card.type !== 'INSTANT') return false;
+  const P = state.players?.[defenderSide];
+  const have = ((P?.aether | 0) + (P?.tempAether | 0));
+  const cost = card.playCost | 0;
+  if (have < cost) return false;
+  const t = String(card.text || '').toLowerCase();
+  if (trigger === 'onAdvance') {
+    return t.includes('cancel a spell') || t.includes('cancel an instant') || t.includes('negate');
+  }
+  if (trigger === 'onCast') {
+    return t.includes('cancel a spell') || t.includes('cancel an instant') || t.includes('negate');
+  }
+  if (trigger === 'onDamage') {
+    return t.includes('prevent') || t.includes('reduce') || t.includes('shield');
+  }
+  return false;
+}
+
+// Get list of playable reaction cards in defender's hand
+function getPlayableReactions(state, defenderSide, trigger) {
+  const hand = state.players?.[defenderSide]?.hand || [];
+  return hand.filter(c => canPlayReactionCard(state, defenderSide, c, trigger));
+}
+
+// Reaction UI state
+let reactionUI = { open: false, overlay: null, trigger: null, defender: null, playable: [] };
+
+// Open a reaction window. Returns true if opened, false if no card is playable.
+function openReactionWindow(trigger, defenderSide) {
+  ensureReactionStyles();
+  const playable = getPlayableReactions(state, defenderSide, trigger);
+  if (!playable.length) return false;
+  // raise the hand above the overlay
+  document.body.classList.add('reaction-mode');
+  // Highlight candidate cards
+  const handRoot = defenderSide === 'player' ? handEl : document.getElementById('ai-mini-hand');
+  if (handRoot) {
+    const ids = new Set(playable.map(c => c.id));
+    handRoot.querySelectorAll('.card').forEach(el => {
+      const id = el.getAttribute('data-card-id');
+      if (ids.has(id)) el.classList.add('reaction-candidate');
+    });
+  }
+  // Create overlay with pass button
+  const ov = document.createElement('div');
+  ov.className = 'reaction-overlay';
+  const passBtn = document.createElement('button');
+  passBtn.className = 'reaction-pass';
+  passBtn.textContent = 'Pass';
+  passBtn.addEventListener('click', () => closeReactionWindow(true));
+  ov.appendChild(passBtn);
+  document.body.appendChild(ov);
+  reactionUI = { open: true, overlay: ov, trigger, defender: defenderSide, playable };
+  return true;
+}
+
+// Close reaction window. If passed=true, indicates the player passed on reacting.
+function closeReactionWindow(passed = false) {
+  document.body.classList.remove('reaction-mode');
+  document.querySelectorAll('.reaction-candidate').forEach(el => el.classList.remove('reaction-candidate'));
+  if (reactionUI.overlay) reactionUI.overlay.remove();
+  reactionUI = { open: false, overlay: null, trigger: null, defender: null, playable: [] };
+  // If player passed, clear the reaction window in state
+  if (passed && state && state.reactionWindow) {
+    state.reactionWindow = null;
+  }
+}
+
+// Click handler for reaction cards
+document.addEventListener('click', async (ev) => {
+  if (!reactionUI.open) return;
+  const cardEl = ev.target.closest('.card.reaction-candidate');
+  if (!cardEl) return;
+  ev.stopPropagation();
+  const cardId = cardEl.getAttribute('data-card-id');
+  const card = reactionUI.playable.find(c => c.id === cardId);
+  if (!card) return;
+  state = await resolveInstantFromHand(state, reactionUI.defender, cardId);
+  closeReactionWindow(false);
+  const evts2 = drainEvents(state) || [];
+  for (const ev2 of evts2) {
+    try { logLine(`Event: ${ev2.t}`); } catch {}
+  }
+  await render();
+});
+
+
+
 // Create the overlay element and attach pass handler
 function ensureReactionOverlay(){
   let overlay = document.getElementById('reaction-overlay');
@@ -3473,9 +3605,8 @@ async function spotlightFromEvents(state){
   for (const e of evts) {
     try {
       // ===== Reaction window handler =====
-      if (e.t === 'reaction_window') {
+     if (e.t === 'reaction_window') {
         const side = e.side || 'player';
-        // Only proceed if a reaction window is active
         if (state.reactionWindow) {
           if (side === 'ai') {
             // AI reaction: pick first affordable reaction card and cast it automatically
@@ -3488,22 +3619,18 @@ async function spotlightFromEvents(state){
             }
             // After AI reacts (or if it cannot), close the reaction window
             state.reactionWindow = null;
-            hideReactionOverlay();
+            closeReactionWindow(true);
           } else if (side === 'player') {
-            // Determine if there is any Reaction card that can actually be played.
-            const hand = state.players?.player?.hand || [];
-            const playable = hand.some(c => c.type === 'REACTION' && ((c.playCost ?? c.cost ?? 0) <= getTotal('player')));
-            if (!playable) {
-              // No valid reaction — skip the overlay and close the window.
+            // Try to open a reaction window for the player based on the trigger
+            const opened = openReactionWindow(e.trigger || 'onCast', 'player');
+            if (!opened) {
+              // No playable reaction: clear the window
               state.reactionWindow = null;
-            } else {
-              // Show the overlay, dimming the board and highlighting reaction cards.
-              showReactionOverlay();
             }
-            // The window remains open until the player reacts or clicks Pass.
+            // If opened, overlay remains until the player reacts or passes
           }
         }
-        // Skip other handling for this event
+        // Skip further handling for this event
         continue;
       }
       // ===== SPELL: board → discard cinematic =====
