@@ -756,6 +756,8 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
     amount: n
   });
 
+  // Trigger any glyph that responds to taking damage
+  state = applyGlyphPassives(state, targetSide, "damage");
   return state;
 }
 
@@ -960,6 +962,8 @@ export function drawOne(state, playerId){
     state.players[playerId].aether = (state.players[playerId].aether | 0) + 1;
     pushEvt(state, { t:"aether", side: playerId, amount: 1, by:"trance-veyra" });
   }
+  // Trigger any glyph that responds to drawing outside the draw step
+  state = applyGlyphPassives(state, playerId, "draw");
   return state;
 }
 
