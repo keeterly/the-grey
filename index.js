@@ -26,7 +26,9 @@ import {
   payAndAdvanceOne,          // ← use this for paid pip clicks
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
-  dealDamage,
+  dealDamage
+  // clearReactionWindow,        // Reaction windows are cleared directly on state
+  // resolveReactionFromHand      // Reaction resolver handled via resolveInstantFromHand
 
 } from "./GameLogic.js";
 
@@ -1616,7 +1618,9 @@ function canSetGlyph(pub, card){
   return slot && !slot.hasCard;
 }
 function canCastInstant(pub, card){
-  if (card?.type!=="INSTANT") return false;
+  // Only allow normal instants to be cast via the popover. Reaction cards
+  // are played during reaction windows via a separate "React" button.
+  if (card?.type !== "INSTANT") return false;
   return typeof window.castInstantFromHand === "function";
 }
 function showToast(msg, ms=1400){
@@ -1654,11 +1658,19 @@ function showCardOptions(cardEl, cardData){
   const opts = [];
   if (canPlaySpell(pub, cardData))  opts.push({k:"play",    label:"Play"});
   if (canSetGlyph(pub, cardData))   opts.push({k:"set",     label:"Set"});
-  if (canCastInstant(pub, cardData))opts.push({k:"cast",    label:"Cast"});
+  // Only offer cast on true INSTANTs; Reaction cards are handled via "React" when a reaction window is active
+  if (canCastInstant(pub, cardData) && cardData.type !== 'REACTION') opts.push({k:"cast",    label:"Cast"});
   if (canChannel(cardData)){
     // Label as "Discard" if the card doesn't grant any Æ when channeled
     const label = ((cardData?.aetherValue|0) > 0) ? "Channel" : "Discard";
     opts.push({k:"channel", label});
+  }
+  // If this is a Reaction card and a reaction window is open for the player,
+  // show a "React" option instead of "Cast". Reaction windows specify which side
+  // may respond. We ignore the trigger match here and leave effect resolution
+  // to the game logic. Reaction windows are stored on state.
+  if (cardData.type === 'REACTION' && state.reactionWindow && state.reactionWindow.side === 'player') {
+    opts.push({k:"react", label:"React"});
   }
   if (!opts.length) return;
 
@@ -1681,29 +1693,30 @@ function showCardOptions(cardEl, cardData){
           await setGlyphFromHandWithTemp("player", cardData.id);
 
         } else if (o.k === "channel"){
-          // Distinguish between channeling for Æ and a simple discard (no Æ).
-          if ((cardData?.aetherValue|0) > 0) {
-            // Channeling for Æ: play full animation with particles and award Æ.
-            cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
-            const fromNode = cardEl;
-            const fallbackStart = rectOf(fromNode) || centerRect();
-            const destRect  = domRectOfTempCrescent('player');
-            emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
-            const before = getAe("player");
-            state = discardForAether(state, "player", cardData.id);
-            const gained = getAe("player") - before;
-            adjustAe("player", -gained);
-            addTemp("player", gained);
-            Emit(Events.CHANNEL, {side:"player", cardId: cardData.id, gained});
-          } else {
-            // Discard card with no Æ: simple discard animation, no particles.
-            cineFromHandCard(cardData.id, '#btn-discard-hud', 'discard');
-            state = discardForAether(state, "player", cardData.id);
-            Emit(Events.CHANNEL, {side: "player", cardId: cardData.id, gained: 0});
-          }
+          // 1) Cine: hand card → discard HUD
+          cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
+
+          // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
+const fromNode = cardEl;
+const fallbackStart = rectOf(fromNode) || centerRect();
+const destRect  = domRectOfTempCrescent('player');
+emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+
+          // 3) Payoff
+          const before = getAe("player");
+          state = discardForAether(state, "player", cardData.id);
+          const gained = getAe("player") - before;
+          adjustAe("player", -gained);
+          addTemp("player", gained);
+          Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
 
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
+        } else if (o.k === "react"){
+          // Playing a reaction card in a reaction window: delegate to castInstantFromHand
+          state = await window.castInstantFromHand(state, "player", cardData.id);
+          // Clear the reaction window after reacting
+          state.reactionWindow = null;
         }
       } catch(e){}
       clearAllActionMenus();
@@ -3350,6 +3363,30 @@ async function spotlightFromEvents(state){
   // Iterate sequentially so awaits (cinematics) actually run in order
   for (const e of evts) {
     try {
+      // ===== Reaction window handler =====
+      if (e.t === 'reaction_window') {
+        const side = e.side || 'player';
+        // Only proceed if a reaction window is active
+        if (state.reactionWindow) {
+          if (side === 'ai') {
+            // AI reaction: pick first affordable reaction card and cast it automatically
+            const hand = state.players?.ai?.hand || [];
+            const reactionCards = hand.filter(c => c.type === 'REACTION' && ((c.playCost ?? c.cost ?? 0) <= getTotal('ai')));
+            if (reactionCards.length > 0) {
+              const card = reactionCards[0];
+              state = await window.castInstantFromHand(state, 'ai', card.id);
+              // Reaction resolved; GameLogic or UI will clear the window
+            }
+            // After AI reacts (or if it cannot), close the reaction window
+            state.reactionWindow = null;
+          } else if (side === 'player') {
+            // For player, do not auto-react.  The UI will present React options.
+            // Reaction window remains open until the player reacts or passes.
+          }
+        }
+        // Skip other handling for this event
+        continue;
+      }
       // ===== SPELL: board → discard cinematic =====
       if (e.t === 'resolved' && e.source === 'spell' && Number.isFinite(e.slotIndex)) {
         // Morr I: when a card leaves a Slot → +1 Æ (once/turn)
@@ -3779,6 +3816,51 @@ function ensureParticleLayer(){
 
 function lerp(a,b,t){ return a + (b-a)*t; }
 
+/*
+ * Override castInstantFromHand to support Reaction cards.  The existing
+ * definition earlier in this file only accepted INSTANT cards and used
+ * their `cost` for payment.  Reaction cards use `playCost` and should
+ * be accepted here as well.  This override supersedes the earlier
+ * definition by reassigning the function on the window object.  It
+ * accepts both Instants and Reactions, calculates cost appropriately,
+ * triggers the correct cinematic label, and resolves via GameLogic
+ * (which handles Reactions automatically).
+ */
+window.castInstantFromHand = async function(_state, side, cardId) {
+  const pub  = serializePublic(state) || {};
+  const hand = pub.players?.[side]?.hand || [];
+  const card = hand.find(c => c.id === cardId);
+  // Accept only Instants or Reactions
+  if (!card || (card.type !== 'INSTANT' && card.type !== 'REACTION')) return state;
+  // Determine cost: reactions use playCost; instants use cost
+  const rawCost = card.type === 'REACTION' ? (card.playCost | 0) : (card.cost | 0);
+  const cost    = rawCost;
+  if (getTotal(side) < cost) {
+    showToast('Not enough Æther.');
+    return state;
+  }
+  // Deduct temp aether first
+  const useTemp = Math.min(cost, getTemp(side));
+  adjustAe(side, useTemp);
+  try {
+    if (useTemp) addTemp(side, -useTemp);
+    // Choose appropriate cinematic source and label
+    const cine    = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+    const destSel = side === 'ai' ? '#ai-mini-discard' : '#btn-discard-hud';
+    const label   = (card.type === 'REACTION') ? 'reaction' : 'instant';
+    cine(cardId, destSel, label);
+    // Resolve via GameLogic; resolveInstantFromHand handles Reactions automatically
+    state = resolveInstantFromHand(state, side, cardId);
+    Emit(Events.CARD_CAST, { side, cardId, cost });
+    karethAfterSpend(side, rawCost);
+    await render();
+  } catch (e) {
+    if (useTemp) adjustAe(side, -useTemp);
+    throw e;
+  }
+  return state;
+};
+
 /**
  * Emit small blue “embers” that fly start → temp-crescent under the portrait.
  * @param {{x:number,y:number,w:number,h:number}} startRect
@@ -4125,21 +4207,9 @@ if (typeof window.__wirePileModals === 'function') {
 
     const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
     if (addedNodes.length){
-      // For newly drawn cards, slide them in from the right. We apply a temporary
-      // translateX and then remove it on the next frame so the transition animates.
-      addedNodes.forEach(n => {
-        n.classList.add('deal-in');
-        // Start off to the right and fade in. Transition defined here to avoid central shuffle.
-        n.style.transform = 'translateX(50%)';
-        n.style.transition = 'transform 0.4s ease-out, opacity 0.4s ease-out';
-      });
-      // Wait a frame before resetting the transform so the CSS transition plays.
-      await nextFrame();
-      addedNodes.forEach(n => {
-        n.style.transform = '';
-      });
+      // For newly drawn cards, always slide them in with 'deal-in' but only shuffle the whole hand on the very first deal.
+      addedNodes.forEach(n => n.classList.add('deal-in'));
       if (!bootDealt) {
-        // Only during the first deal do we shuffle the whole hand
         handEl.classList.add('dealing');
       }
       setTimeout(() => {
@@ -4150,7 +4220,7 @@ if (typeof window.__wirePileModals === 'function') {
       }, 400);
       // After the initial deal, mark as dealt to avoid future full-hand shuffles
       if (!bootDealt) bootDealt = true;
-    } else if (!bootDealt && domCards.length) {
+    } else if (!bootDealt && domCards.length){
       // Handle the initial boot deal: animate all cards once
       handEl.classList.add('dealing');
       domCards.forEach(n => n.classList.add('grey-hide-during-flight','deal-in'));
