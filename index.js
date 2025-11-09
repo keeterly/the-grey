@@ -1542,7 +1542,9 @@ const pipDots = `<div class="pip-track">${
 
 
 
-  const playCost = (c.cost|0) > 0 ? (c.cost|0) : null;
+  // Use the playCost field to display the top-right badge, not the total cost.
+  const playCostVal = Number(c.playCost || 0);
+  const playCost = playCostVal > 0 ? playCostVal : null;
 
   // ⬇️ Crescent TEMP Æ chip (replaces the old gem chip)
   const aetherChip =
