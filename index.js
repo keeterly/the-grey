@@ -1542,12 +1542,18 @@ const pipDots = `<div class="pip-track">${
 
 
 
-  // Use the playCost field to display the top-right badge.  Fall back to `cost`
-  // if playCost isn’t defined, and allow a zero-cost card to show “0”.
-  const pcRaw = Number.isFinite(c.playCost) ? c.playCost
-                : Number.isFinite(c.cost)    ? c.cost
-                : 0;
-  const playCost = (pcRaw !== null && pcRaw !== undefined) ? pcRaw : null;
+ // Determine the play cost badge value.  Prefer playCost if present; fall
+  // back to the legacy cost field.  Do not display the badge when the
+  // play cost is zero.
+  let pcRaw;
+  if (Number.isFinite(c.playCost)) {
+    pcRaw = c.playCost;
+  } else if (Number.isFinite(c.cost)) {
+    pcRaw = c.cost;
+  } else {
+    pcRaw = 0;
+  }
+  const playCost = pcRaw > 0 ? pcRaw : null;
 
   // ⬇️ Crescent TEMP Æ chip (replaces the old gem chip)
   const aetherChip =
@@ -1565,7 +1571,7 @@ const pipDots = `<div class="pip-track">${
   return `
     <div class="title">${c.name}</div>
     <div class="type" data-k="${c.type||""}">${c.type||""}</div>
-   <div class="play-cost-badge"><span class="v">${playCost}</span></div>
+    ${playCost !== null ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
     <div class="divider"></div>
     ${pipDots}
     <div class="textbox">${withAetherIcons(rulesForDisplay)}</div>
