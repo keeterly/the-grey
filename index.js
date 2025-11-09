@@ -279,46 +279,7 @@ function ensureReactionOverlayStyles(){
 }
 
 
-// === Additional reaction styles and helpers ===
-function ensureReactionStyles() {
-  if (document.getElementById('reaction-style')) return;
-  const s = document.createElement('style');
-  s.id = 'reaction-style';
-  s.textContent = `
-    body.reaction-mode .hand {
-      filter: none !important;
-      position: relative;
-      z-index: 3501;
-    }
-    .card.reaction-candidate {
-      position: relative;
-      z-index: 3502;
-      filter: brightness(1.6) saturate(1.3);
-      box-shadow: 0 0 6px 3px rgba(255,255,255,0.6), 0 0 16px 6px rgba(255,255,255,0.4);
-      transform: translateY(-6px);
-    }
-    .reaction-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 3500;
-      background: rgba(0,0,0,0.35);
-      display: grid;
-      place-items: start center;
-      padding-top: 14vh;
-      pointer-events: none;
-    }
-    .reaction-pass {
-      pointer-events: auto;
-      padding: 8px 14px;
-      border-radius: 8px;
-      background: rgba(30,30,30,0.85);
-      color: #eee;
-      border: 1px solid rgba(255,255,255,0.15);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-    }
-  `;
-  document.head.appendChild(s);
-}
+
 
 // Determine if a hand card can react to a trigger right now
 function canPlayReactionCard(state, defenderSide, card, trigger) {
