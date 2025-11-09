@@ -267,8 +267,12 @@ function ensureReactionOverlayStyles(){
        /* React button must be clickable */
       pointer-events: auto;
     }
+     /* Pull reaction cards above the overlay and brighten them */
     .card.reaction-glow {
-      box-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6);
+      position: relative;
+      z-index: 3501; /* higher than overlay's z-index */
+      filter: brightness(1.6) saturate(1.3);
+      box-shadow: 0 0 6px 3px rgba(255,255,255,0.6), 0 0 16px 6px rgba(255,255,255,0.4);
     }
   `;
   document.head.appendChild(s);
