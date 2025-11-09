@@ -185,155 +185,45 @@ function computePipAdvanceCostsForCard(card) {
 // =============================================
 
 const BASE_DECK_LIST = [
-  {
-    name: "Pulse of the Grey",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
+  { name: "Pulse of the Grey", type: "SPELL", playCost: 0, stepCost: 1, pip: 1,
     cost: 1,
-    text: "On Resolve: Draw 1, Gain 1 Æ",
-    aetherValue: 0,
-    role: "Starter draw/flow",
-    qty: 1,
-  },
-  {
-    name: "Wispform Surge",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
+    text: "On Resolve: Draw 1 card and Store 1 Aether.", aetherValue: 0, qty: 1 },
+
+  { name: "Wispform Surge", type: "SPELL", playCost: 0, stepCost: 1, pip: 1,
     cost: 1,
-    text: "On Resolve: Advance another Spell 1 step",
-    aetherValue: 0,
-    role: "Chain activator",
-    qty: 1,
-  },
-  {
-    name: "Greyfire Bloom",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 1,
+    text: "On Resolve: Advance another Spell 1 step and Gain 1 Aether.", aetherValue: 0, qty: 1 },
+
+  { name: "Ashen Focus", type: "SPELL", playCost: 0, stepCost: 1, pip: 2,
     cost: 1,
-    text: "On Resolve: Deal 1 damage per step (max 2)",
-    aetherValue: 0,
-    role: "Early offense",
-    qty: 1,
-  },
-  {
-    name: "Echoing Reservoir",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    text: "On Resolve: Store 1 in Aetherwell",
-    aetherValue: 2,
-    role: "Energy storage",
-    qty: 1,
-  },
-  {
-    name: "Dormant Catalyst",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    text: "On Resolve: Store 2 in Aetherwell",
-    aetherValue: 1,
-    role: "Aether ramp",
-    qty: 1,
-  },
-  {
-    name: "Ashen Focus",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 1,
-    cost: 1,
-    text: "On Resolve: Draw 1, Store 1 in Aetherwell",
-    aetherValue: 1,
-    role: "Draw + ramp hybrid",
-    qty: 1,
-  },
-  {
-    name: "Surge of Ash",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
-    text: "Target Spell advances 1 step",
-    aetherValue: 0,
-    role: "Tempo accelerator",
-    qty: 1,
-  },
-  {
-    name: "Veil of Dust",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
-    text: "Prevent 1 damage or deal 1 damage",
-    aetherValue: 0,
-    role: "Defense / chip offense",
-    qty: 1,
-  },
-  {
-    name: "Glyph of Remnant Light",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
+    text: "On Resolve: Draw 1 card and Store 1 Aether.", aetherValue: 1, qty: 1 },
+
+  { name: "Wisp of Insight", type: "SPELL", playCost: 0, stepCost: 0, pip: 1,
     cost: 0,
-    text: "When a Spell resolves → Gain 1 Channelled Aether",
-    aetherValue: 0,
-    role: "Resource glyph",
-    qty: 1,
-  },
-  {
-    name: "Glyph of Returning Echo",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
+    text: "Gain 1 Aether and Draw 1 card.", aetherValue: 0, qty: 1 },
+
+  { name: "Dormant Catalyst", type: "SPELL", playCost: 2, stepCost: 0, pip: 1,
+    cost: 2,
+    text: "On Resolve: Store 2 Aether and Draw 1 card.", aetherValue: 1, qty: 1 },
+
+  { name: "Greyfire Bloom", type: "SPELL", playCost: 2, stepCost: 0, pip: 1,
+    cost: 2,
+    text: "On Resolve: Deal 1 damage to opponent.", aetherValue: 0, qty: 1 },
+
+  { name: "Surge of Ash", type: "INSTANT", playCost: 1,
+    cost: 1,
+    text: "Target Spell advances 1 step.", aetherValue: 0, qty: 1 },
+
+  { name: "Veil of Dust", type: "INSTANT", playCost: 1,
+    cost: 1,
+    text: "Prevent 1 damage or Draw 1 card.", aetherValue: 0, qty: 1 },
+
+  { name: "Glyph of Remnant Light", type: "GLYPH", playCost: 0,
     cost: 0,
-    text: "When you Store Aether → Draw 1 card",
-    aetherValue: 0,
-    role: "Draw glyph",
-    qty: 1,
-  },
+    text: "When a Spell resolves → Gain 1 Aether.", aetherValue: 0, qty: 1 },
 
-
-// --- v3 Ramp‑Up Additions ---
-  {
-    name: "Wisp of Insight",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
-    cost: 1,
-    text: "On Resolve: Gain 1 Æ and draw 1 card",
-    aetherValue: 0,
-    role: "Early ramp and cycle",
-    qty: 1,
-  },
-  {
-    name: "Minor Invocation",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
-    cost: 1,
-    text: "On Resolve: The next card you purchase this turn costs 1 less Æ",
-    aetherValue: 0,
-    role: "Market discount",
-    qty: 1,
-  },
-
-  
+  { name: "Glyph of Returning Echo", type: "GLYPH", playCost: 0,
+    cost: 0,
+    text: "When you Store Aether → Draw 1 card.", aetherValue: 0, qty: 1 },
 ];
 
 
@@ -1388,6 +1278,11 @@ function parseEffectsFromText(raw) {
   { const m = t.match(/\bstore\s+(\d+)\s+in\s+aetherwell\b/i);
     if (m) fx.push({ t:"channel", n: +m[1] }); }
 
+
+  // Treat "Store N Aether" (no location specified) as channel N
+  { const m = t.match(/\bstore\s+(\d+)\s+aether\b/i);
+    if (m) fx.push({ t:"channel", n: +m[1] }); }
+  
   // Deal N damage
   { const m = t.match(/\bdeal\s+(\d+)\s+damage/); if (m) fx.push({t:"damage", n:+m[1]}); }
 
