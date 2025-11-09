@@ -295,14 +295,13 @@ function expandList(list) {
   const out = [];
   list.forEach(c => {
     for (let i = 0; i < (c.qty || 1); i++) {
-      const proto = {
+     const proto = {
         id: uid(),
         name: c.name,
         type: c.type,
-        // Preserve playCost and stepCost so the UI can display them.
+        // Preserve playCost and stepCost so the engine and UI see them.
         playCost: c.playCost || 0,
         stepCost: c.stepCost || 0,
-        // Keep the legacy cost field for backward compatibility.
         cost: c.cost || 0,
         pip:  c.pip  || 0,
         text: c.text || "",
