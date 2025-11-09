@@ -296,8 +296,10 @@ function showReactionOverlay() {
   try {
     const hand = state?.players?.player?.hand || [];
     hand.forEach(card => {
-      if (card.type === 'REACTION') {
-        const node = handEl?.querySelector(\`.card[data-card-id="\${card.id}"]\`);
+       if (card.type === 'REACTION') {
+        // Build the CSS selector using a normal template literal (no escapes).
+        const selector = `.card[data-card-id="${card.id}"]`;
+        const node = handEl?.querySelector(selector);
         if (node) node.classList.add('reaction-glow');
       }
     });
