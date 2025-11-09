@@ -3615,7 +3615,15 @@ async function playSpellFromHandWithTemp(side, cardId, slotIndex){
   const pub  = serializePublic(state)||{};
   const hand = pub.players?.[side]?.hand||[];
   const card = hand.find(c=> c.id===cardId);
-  const rawCost = card?.cost|0;
+  // Determine the cost to play a spell.  Use the card's playCost if defined;
+    // fall back to its cost field.  This ensures free spells (playCost 0)
+  // can be played even if their legacy cost reflects step costs.
+  let rawCost;
+  if (Number.isFinite(card?.playCost)) {
+    rawCost = card.playCost|0;
+  } else {
+    rawCost = card?.cost|0;
+  }
 
   if (getTotal(side) < rawCost){ showToast("Not enough Æther."); return; }
 
