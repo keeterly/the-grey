@@ -244,7 +244,13 @@ function ensureReactionOverlayStyles(){
       display: none;
       background: rgba(0,0,0,0.45);
       backdrop-filter: blur(6px);
+    /* Let pointer events pass through to underlying cards so the player can
+         click their reaction cards; the pass button will capture clicks itself */
+      pointer-events: none;
     }
+
+
+    
     #reaction-overlay.show { display: block; }
     #reaction-overlay .pass-btn {
       position: absolute;
@@ -258,6 +264,8 @@ function ensureReactionOverlayStyles(){
       border-radius: 8px;
       border: 1px solid rgba(255,255,255,0.25);
       cursor: pointer;
+       /* React button must be clickable */
+      pointer-events: auto;
     }
     .card.reaction-glow {
       box-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6);
@@ -3478,12 +3486,17 @@ async function spotlightFromEvents(state){
             state.reactionWindow = null;
             hideReactionOverlay();
           } else if (side === 'player') {
-            // For player, do not auto-react.  Show an overlay prompting a
-            // reaction; highlight reaction cards and provide a pass button.
-            showReactionOverlay();
-            // The reaction window remains open until the player reacts or
-            // clicks the pass button.  hideReactionOverlay() will be called
-            // when the player passes or after a reaction resolves.
+            // Determine if there is any Reaction card that can actually be played.
+            const hand = state.players?.player?.hand || [];
+            const playable = hand.some(c => c.type === 'REACTION' && ((c.playCost ?? c.cost ?? 0) <= getTotal('player')));
+            if (!playable) {
+              // No valid reaction — skip the overlay and close the window.
+              state.reactionWindow = null;
+            } else {
+              // Show the overlay, dimming the board and highlighting reaction cards.
+              showReactionOverlay();
+            }
+            // The window remains open until the player reacts or clicks Pass.
           }
         }
         // Skip other handling for this event
