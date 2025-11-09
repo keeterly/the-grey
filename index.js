@@ -231,6 +231,88 @@ function ensureCardMotionStyles(){
 }
 
 
+// === Reaction window overlay and styles ===
+function ensureReactionOverlayStyles(){
+  if (document.getElementById('reaction-overlay-style')) return;
+  const s = document.createElement('style');
+  s.id = 'reaction-overlay-style';
+  s.textContent = `
+    #reaction-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3500;
+      display: none;
+      background: rgba(0,0,0,0.45);
+      backdrop-filter: blur(6px);
+    }
+    #reaction-overlay.show { display: block; }
+    #reaction-overlay .pass-btn {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      padding: 12px 20px;
+      font-size: 16px;
+      color: #fff;
+      background: rgba(255,255,255,0.12);
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.25);
+      cursor: pointer;
+    }
+    .card.reaction-glow {
+      box-shadow: 0 0 10px rgba(255,255,255,0.8), 0 0 20px rgba(255,255,255,0.6);
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+// Create the overlay element and attach pass handler
+function ensureReactionOverlay(){
+  let overlay = document.getElementById('reaction-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'reaction-overlay';
+    overlay.innerHTML = `<div class="pass-btn">Pass</div>`;
+    document.body.appendChild(overlay);
+    const btn = overlay.querySelector('.pass-btn');
+    btn.addEventListener('click', () => {
+      hideReactionOverlay();
+      // If a reaction window is open, clear it so the game continues
+      if (state && state.reactionWindow) {
+        state.reactionWindow = null;
+      }
+    });
+  }
+}
+
+// Highlight reaction cards and show the overlay
+function showReactionOverlay() {
+  ensureReactionOverlayStyles();
+  ensureReactionOverlay();
+  const overlay = document.getElementById('reaction-overlay');
+  if (!overlay) return;
+  overlay.classList.add('show');
+  // Highlight player reaction cards in the hand
+  try {
+    const hand = state?.players?.player?.hand || [];
+    hand.forEach(card => {
+      if (card.type === 'REACTION') {
+        const node = handEl?.querySelector(\`.card[data-card-id="\${card.id}"]\`);
+        if (node) node.classList.add('reaction-glow');
+      }
+    });
+  } catch {}
+}
+
+// Remove highlights and hide the overlay
+function hideReactionOverlay() {
+  const overlay = document.getElementById('reaction-overlay');
+  if (overlay) overlay.classList.remove('show');
+  // Remove glow from all hand cards
+  const glows = handEl?.querySelectorAll('.card.reaction-glow') || [];
+  glows.forEach(node => node.classList.remove('reaction-glow'));
+}
+
 
 
 
@@ -1728,6 +1810,8 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
           state = await window.castInstantFromHand(state, "player", cardData.id);
           // Clear the reaction window after reacting
           state.reactionWindow = null;
+          // Hide the reaction overlay and remove highlights
+          hideReactionOverlay();
         }
       } catch(e){}
       clearAllActionMenus();
@@ -3390,9 +3474,14 @@ async function spotlightFromEvents(state){
             }
             // After AI reacts (or if it cannot), close the reaction window
             state.reactionWindow = null;
+            hideReactionOverlay();
           } else if (side === 'player') {
-            // For player, do not auto-react.  The UI will present React options.
-            // Reaction window remains open until the player reacts or passes.
+            // For player, do not auto-react.  Show an overlay prompting a
+            // reaction; highlight reaction cards and provide a pass button.
+            showReactionOverlay();
+            // The reaction window remains open until the player reacts or
+            // clicks the pass button.  hideReactionOverlay() will be called
+            // when the player passes or after a reaction resolves.
           }
         }
         // Skip other handling for this event
@@ -4437,6 +4526,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureFlowBoughtStyles();
   ensurePortraitAeNoGlowStyles();
   ensureDamageVFXStyles();
+  ensureReactionOverlayStyles();
   ensureShuffleStyles();
   ensureCardMotionStyles();
 
