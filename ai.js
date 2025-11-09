@@ -126,6 +126,34 @@ export async function runAiTurn(state, api) {
     }
   }
 
-  // 6) Nothing to do → no-op (ends the AI’s action loop in your TURN_START handler)
+   // 6) As a last resort, DISCARD one low-impact card to improve next draw
+  {
+    // Don't toss glyphs if our slot is empty (we might want to set one)
+    const undesirable = hand
+      .filter(c => !(c.type === 'GLYPH' && firstOpenSpellSlot() < 0))
+      .sort((a, b) => {
+        // prefer ditching cards with lower aetherValue first
+        const av = (a.aetherValue | 0) - (b.aetherValue | 0);
+        if (av !== 0) return av;
+        // prefer discarding higher playCost first
+        const pc = (b.playCost | 0) - (a.playCost | 0);
+        if (pc !== 0) return pc;
+        // prefer discarding less useful types: Instant < Spell < Glyph
+        const tRank = (x) => x.type === 'INSTANT' ? 1 : x.type === 'SPELL' ? 2 : 3;
+        return tRank(a) - tRank(b);
+      });
+    const pick = undesirable[0];
+    if (pick) {
+      // Use discardFromHand if available; otherwise fall back to channelFromHand
+      if (typeof api.discardFromHand === 'function') {
+        api.discardFromHand(side, pick.id);
+      } else if (typeof api.channelFromHand === 'function') {
+        api.channelFromHand(side, pick.id);
+      }
+      return state;
+    }
+  }
+
+  // 7) Nothing to do → no-op (ends the AI’s action loop)
   return state;
 }
