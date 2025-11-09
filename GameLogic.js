@@ -1185,6 +1185,10 @@ export function advanceSpell(
 
     
     state = applyGlyphPassives(state, playerId, "spell_resolved");
+
+    // Also trigger opponent glyphs for “opponent spell resolves”
+      state = applyGlyphPassives(state, otherSide(playerId), "opponent_spell_resolved");
+    
   }
   return state;
 }
@@ -1406,6 +1410,35 @@ function applyGlyphPassives(state, side, trigger){
       /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text)) {
     state.players[side].aether = (state.players[side].aether|0) + 1;
     pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
+    fired = true;
+  }
+
+  // New: opponent spell resolves → deal 1 damage
+  if (trigger === "opponent_spell_resolved" &&
+      /when\s+an\s+opponent\s+resolves?\s+a\s+spell\s*→?\s*deal\s+1\s+damage/.test(text)) {
+    state = dealDamage(state, otherSide(side), 1, { source: "glyph", cardId: slot.card?.id });
+    fired = true;
+  }
+
+  // New: taking damage → channel N Æ (defaults to 2)
+  if (trigger === "damage" &&
+      /when\s+you\s+take\s+damage\s*→?\s*channel\s+(\d+)/.test(text)) {
+    const m = text.match(/channel\s+(\d+)/);
+    const amt = m ? Number(m[1]) : 1;
+    state.players[side].aether = (state.players[side].aether | 0) + amt;
+    pushEvt(state, { t: "aether", side, amount: amt, by: slot.card?.id });
+    // Also trigger channel passives on this player (e.g., Glyph of Returning Echo)
+    state = applyGlyphPassives(state, side, "channel");
+    fired = true;
+  }
+
+  // New: draw outside draw step → gain N Æ (defaults to 1)
+  if (trigger === "draw" &&
+      /when\s+you\s+draw\s+outside\s+your\s+draw\s+step\s*→?\s*gain\s+(\d+)/.test(text)) {
+    const m = text.match(/gain\s+(\d+)/);
+    const amt = m ? Number(m[1]) : 1;
+    state.players[side].aether = (state.players[side].aether | 0) + amt;
+    pushEvt(state, { t: "aether", side, amount: amt, by: slot.card?.id });
     fired = true;
   }
 
