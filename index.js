@@ -1542,9 +1542,12 @@ const pipDots = `<div class="pip-track">${
 
 
 
-  // Use the playCost field to display the top-right badge, not the total cost.
-  const playCostVal = Number(c.playCost || 0);
-  const playCost = playCostVal > 0 ? playCostVal : null;
+  // Use the playCost field to display the top-right badge.  Fall back to `cost`
+  // if playCost isn’t defined, and allow a zero-cost card to show “0”.
+  const pcRaw = Number.isFinite(c.playCost) ? c.playCost
+                : Number.isFinite(c.cost)    ? c.cost
+                : 0;
+  const playCost = (pcRaw !== null && pcRaw !== undefined) ? pcRaw : null;
 
   // ⬇️ Crescent TEMP Æ chip (replaces the old gem chip)
   const aetherChip =
@@ -1562,7 +1565,7 @@ const pipDots = `<div class="pip-track">${
   return `
     <div class="title">${c.name}</div>
     <div class="type" data-k="${c.type||""}">${c.type||""}</div>
-    ${playCost ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
+   <div class="play-cost-badge"><span class="v">${playCost}</span></div>
     <div class="divider"></div>
     ${pipDots}
     <div class="textbox">${withAetherIcons(rulesForDisplay)}</div>
