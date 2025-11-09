@@ -299,6 +299,10 @@ function expandList(list) {
         id: uid(),
         name: c.name,
         type: c.type,
+        // Preserve playCost and stepCost so the UI can display them.
+        playCost: c.playCost || 0,
+        stepCost: c.stepCost || 0,
+        // Keep the legacy cost field for backward compatibility.
         cost: c.cost || 0,
         pip:  c.pip  || 0,
         text: c.text || "",
