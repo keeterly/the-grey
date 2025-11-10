@@ -126,30 +126,29 @@ export async function runAiTurn(state, api) {
     }
   }
 
-   // 6) As a last resort, DISCARD one low-impact card to improve next draw
+  // 6) As a last resort, discard or channel one low-impact card to improve next draw
   {
-    // Don't toss glyphs if our slot is empty (we might want to set one)
+    // Build a list of undesirable cards: avoid discarding a Glyph if no glyph is set
     const undesirable = hand
-      .filter(c => !(c.type === 'GLYPH' && firstOpenSpellSlot() < 0))
+      .filter(c => {
+        // Prefer not to toss a Glyph if we still have an empty glyph slot
+        return !(c.type === 'GLYPH' && api.findFirstOpenSpellSlot(side) < 0);
+      })
       .sort((a, b) => {
-        // prefer ditching cards with lower aetherValue first
+        // Lowest aetherValue first
         const av = (a.aetherValue | 0) - (b.aetherValue | 0);
         if (av !== 0) return av;
-        // prefer discarding higher playCost first
+        // Highest playCost first (discard expensive spells first)
         const pc = (b.playCost | 0) - (a.playCost | 0);
         if (pc !== 0) return pc;
-        // prefer discarding less useful types: Instant < Spell < Glyph
-        const tRank = (x) => x.type === 'INSTANT' ? 1 : x.type === 'SPELL' ? 2 : 3;
-        return tRank(a) - tRank(b);
+        // Type rank: prefer discarding Instants first, then Spells, then Glyphs
+        const rank = (x) => x.type === 'INSTANT' ? 1 : (x.type === 'SPELL' ? 2 : 3);
+        return rank(a) - rank(b);
       });
     const pick = undesirable[0];
     if (pick) {
-      // Use discardFromHand if available; otherwise fall back to channelFromHand
-      if (typeof api.discardFromHand === 'function') {
-        api.discardFromHand(side, pick.id);
-      } else if (typeof api.channelFromHand === 'function') {
-        api.channelFromHand(side, pick.id);
-      }
+      // Use channelFromHand even if aetherValue is 0; this still discards the card
+      api.channelFromHand(side, pick.id);
       return state;
     }
   }
