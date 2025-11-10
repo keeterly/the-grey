@@ -243,20 +243,23 @@ function ensureReactionStyles() {
       z-index: 3501;
     }
     .card.reaction-candidate {
+      /* Draw this candidate above the overlay */
       position: relative;
       z-index: 3502;
-      /* brighten and color reaction cards so they stand out */
-      filter: brightness(1.8) saturate(1.4);
-      transform: translateY(-6px);
-      /* animate a gold pulse around the card */
-      animation: reaction-pulse 1.5s infinite;
+      /* Intensify brightness and saturation so the card is not dimmed under the overlay */
+      filter: brightness(3.0) saturate(2.2);
+      /* Enlarge the card and lift it above its neighbours */
+      transform: translateY(-10px) scale(1.4);
+      /* Pulse a golden glow to draw attention */
+      animation: reaction-pulse 1.2s infinite;
     }
+
     @keyframes reaction-pulse {
       0%, 100% {
-        box-shadow: 0 0 6px 3px rgba(255,215,0,0.6), 0 0 16px 6px rgba(255,215,0,0.4);
+        box-shadow: 0 0 8px 4px rgba(255,215,0,0.65), 0 0 18px 8px rgba(255,215,0,0.4);
       }
       50% {
-        box-shadow: 0 0 12px 6px rgba(255,215,0,0.9), 0 0 24px 8px rgba(255,215,0,0.7);
+        box-shadow: 0 0 16px 8px rgba(255,215,0,1), 0 0 32px 12px rgba(255,215,0,0.8);
       }
     }
     .reaction-overlay {
@@ -317,12 +320,12 @@ let reactionUI = { open: false, overlay: null, trigger: null, defender: null, pl
 
 // Open a reaction window. Returns true if opened, false if no card is playable.
 function openReactionWindow(trigger, defenderSide) {
+  // Ensure styles exist
   ensureReactionStyles();
   const playable = getPlayableReactions(state, defenderSide, trigger);
   if (!playable.length) return false;
-  // raise the hand above the overlay
+  // Raise the hand above the overlay and highlight candidates
   document.body.classList.add('reaction-mode');
-  // Highlight candidate cards
   const handRoot = defenderSide === 'player' ? handEl : document.getElementById('ai-mini-hand');
   if (handRoot) {
     const ids = new Set(playable.map(c => c.id));
@@ -331,11 +334,19 @@ function openReactionWindow(trigger, defenderSide) {
       if (ids.has(id)) el.classList.add('reaction-candidate');
     });
   }
-  // Create overlay to blur the board (pass button will be handled via card options)
+  // Create overlay (no pass button here; pass appears via card popover)
   const ov = document.createElement('div');
   ov.className = 'reaction-overlay';
   document.body.appendChild(ov);
+  // Store UI state
   reactionUI = { open: true, overlay: ov, trigger, defender: defenderSide, playable };
+  // Automatically open popovers for each playable reaction card with React/Pass options
+  if (handRoot) {
+    playable.forEach(card => {
+      const cardEl = handRoot.querySelector(`.card[data-card-id="${card.id}"]`);
+      if (cardEl) showCardOptions(cardEl, card);
+    });
+  }
   return true;
 }
 
@@ -1809,30 +1820,26 @@ function removeLegacyTranceText() {
 function showCardOptions(cardEl, cardData){
   clearAllActionMenus();
   const pub = serializePublic(state) || {};
-  let opts = [];
-  // If a reaction window is open for the player and this card is a Reaction,
-  // override normal options and provide only React and Pass.
-  if (state.reactionWindow && state.reactionWindow.side === 'player' && cardData.type === 'REACTION') {
-    opts.push({k: 'react', label: 'React'});
-    opts.push({k: 'pass', label: 'Pass'});
-  } else {
-    // Normal options
-    if (canPlaySpell(pub, cardData))  opts.push({k:"play",    label:"Play"});
-    if (canSetGlyph(pub, cardData))   opts.push({k:"set",     label:"Set"});
-    // Only offer cast on true INSTANTs; Reaction cards are handled via "React" when a reaction window is active
-    if (canCastInstant(pub, cardData) && cardData.type !== 'REACTION') opts.push({k:"cast",    label:"Cast"});
-    if (canChannel(cardData)){
-      // Label as "Discard" if the card doesn't grant any Æ when channeled
-      const label = ((cardData?.aetherValue|0) > 0) ? "Channel" : "Discard";
-      opts.push({k:"channel", label});
-    }
-    // If this is a Reaction card and a reaction window is open for the player,
-    // show a "React" option instead of "Cast". Reaction windows specify which side
-    // may respond. We ignore the trigger match here and leave effect resolution
-    // to the game logic. Reaction windows are stored on state.
-    if (cardData.type === 'REACTION' && state.reactionWindow && state.reactionWindow.side === 'player') {
-      opts.push({k:"react", label:"React"});
-    }
+  const opts = [];
+  if (canPlaySpell(pub, cardData))  opts.push({k:"play",    label:"Play"});
+  if (canSetGlyph(pub, cardData))   opts.push({k:"set",     label:"Set"});
+  // Only offer cast on true INSTANTs; Reaction cards are handled via "React" when a reaction window is active
+  if (canCastInstant(pub, cardData) && cardData.type !== 'REACTION') opts.push({k:"cast",    label:"Cast"});
+  if (canChannel(cardData)){
+    // Label as "Discard" if the card doesn't grant any Æ when channeled
+    const label = ((cardData?.aetherValue|0) > 0) ? "Channel" : "Discard";
+    opts.push({k:"channel", label});
+  }
+  // If this is a Reaction card and a reaction window is open for the player,
+  // show a "React" option instead of "Cast". Reaction windows specify which side
+  // may respond. We ignore the trigger match here and leave effect resolution
+  // to the game logic. Reaction windows are stored on state.
+  // If this is a Reaction card and a reaction window is open for the player,
+  // override normal options and show only React and Pass
+  if (cardData.type === 'REACTION' && state.reactionWindow && state.reactionWindow.side === 'player') {
+    opts.length = 0;
+    opts.push({k: "react", label: "React"});
+    opts.push({k: "pass", label: "Pass"});
   }
   if (!opts.length) return;
 
@@ -1879,8 +1886,8 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
           state = await window.castInstantFromHand(state, "player", cardData.id);
           // Close the reaction window via helper (clears state.reactionWindow and UI overlay)
           closeReactionWindow(false);
-        } else if (o.k === "pass") {
-          // Player chooses to pass on reacting; close the reaction window and do nothing
+        } else if (o.k === "pass"){
+          // Player chooses to pass on reacting. Clear window and continue
           closeReactionWindow(true);
         }
       } catch(e){}
@@ -1892,6 +1899,8 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
   });
 
   document.body.appendChild(pop);
+  // Ensure reaction popovers appear above the dimming overlay and other UI
+  pop.style.zIndex = 3600;
   const r = cardEl.getBoundingClientRect();
   pop.style.left = `${r.left + r.width/2}px`;
   pop.style.top  = `${r.top  - 12}px`;
