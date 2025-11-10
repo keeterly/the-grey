@@ -185,46 +185,25 @@ function computePipAdvanceCostsForCard(card) {
 // =============================================
 
 const BASE_DECK_LIST = [
-  { name: "Pulse of the Grey", type: "SPELL", playCost: 0, stepCost: 1, pip: 1,
-    cost: 1,
-    text: "On Resolve: Draw 1 card and Store 1 Aether.", aetherValue: 0, qty: 1 },
+  // Spells (5)
+  { name:"Pulse of the Grey", type:"SPELL", playCost:0, stepCost:1, pip:1, text:"Draw 1 card and Store 1 Aether.", aetherValue:0, qty:1 },
+  { name:"Wispform Surge",   type:"SPELL", playCost:0, stepCost:1, pip:1, text:"Advance another Spell 1 step and Gain 1 Aether.", aetherValue:0, qty:1 },
+  { name:"Ashen Focus",      type:"SPELL", playCost:0, stepCost:1, pip:2, text:"Draw 1 card and Store 1 Aether.", aetherValue:1, qty:1 },
+  { name:"Wisp of Insight",  type:"SPELL", playCost:0, stepCost:0, pip:1, text:"Gain 1 Aether and Draw 1 card.", aetherValue:0, qty:1 },
+  { name:"Greyfire Bloom",   type:"SPELL", playCost:2, stepCost:0, pip:1, text:"Deal 1 damage to opponent.", aetherValue:0, qty:1 },
 
-  { name: "Wispform Surge", type: "SPELL", playCost: 0, stepCost: 1, pip: 1,
-    cost: 1,
-    text: "On Resolve: Advance another Spell 1 step and Gain 1 Aether.", aetherValue: 0, qty: 1 },
+  // Instants (3)
+  { name:"Surge of Ash",     type:"INSTANT", playCost:1, text:"Target Spell advances 1 step.", aetherValue:0, qty:1 },
+  { name:"Veil of Dust",     type:"INSTANT", playCost:1, text:"Prevent 1 damage or Draw 1 card.", aetherValue:0, qty:1 },
+  { name:"Minor Invocation", type:"INSTANT", playCost:1, text:"The next card you purchase this turn costs 1 less Æ.", aetherValue:0, qty:1 },
 
-  { name: "Ashen Focus", type: "SPELL", playCost: 0, stepCost: 1, pip: 2,
-    cost: 1,
-    text: "On Resolve: Draw 1 card and Store 1 Aether.", aetherValue: 1, qty: 1 },
+  // Reaction (1)
+  { name:"Spell Snuff",      type:"REACTION", playCost:2, text:"When your opponent casts a Spell, pay 2 Æ to cancel that Spell.", aetherValue:0, qty:1 },
 
-  { name: "Wisp of Insight", type: "SPELL", playCost: 0, stepCost: 0, pip: 1,
-    cost: 0,
-    text: "Gain 1 Aether and Draw 1 card.", aetherValue: 0, qty: 1 },
-
-  { name: "Dormant Catalyst", type: "SPELL", playCost: 2, stepCost: 0, pip: 1,
-    cost: 2,
-    text: "On Resolve: Store 2 Aether and Draw 1 card.", aetherValue: 1, qty: 1 },
-
-  { name: "Greyfire Bloom", type: "SPELL", playCost: 2, stepCost: 0, pip: 1,
-    cost: 2,
-    text: "On Resolve: Deal 1 damage to opponent.", aetherValue: 0, qty: 1 },
-
-  { name: "Surge of Ash", type: "INSTANT", playCost: 1,
-    cost: 1,
-    text: "Target Spell advances 1 step.", aetherValue: 0, qty: 1 },
-
-  { name: "Veil of Dust", type: "INSTANT", playCost: 1,
-    cost: 1,
-    text: "Prevent 1 damage or Draw 1 card.", aetherValue: 0, qty: 1 },
-
-  { name: "Glyph of Remnant Light", type: "GLYPH", playCost: 0,
-    cost: 0,
-    text: "When a Spell resolves → Gain 1 Aether.", aetherValue: 0, qty: 1 },
-
-  { name: "Glyph of Returning Echo", type: "GLYPH", playCost: 0,
-    cost: 0,
-    text: "When you Store Aether → Draw 1 card.", aetherValue: 0, qty: 1 },
+  // Glyph (1)
+  { name:"Glyph of Returning Echo", type:"GLYPH", playCost:0, text:"When you Store Aether → Draw 1 card.", aetherValue:0, qty:1 }
 ];
+
 
 
 
