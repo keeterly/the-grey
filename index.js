@@ -279,7 +279,46 @@ function ensureReactionOverlayStyles(){
 }
 
 
-
+// === Additional reaction styles and helpers ===
+function ensureReactionStyles() {
+  if (document.getElementById('reaction-style')) return;
+  const s = document.createElement('style');
+  s.id = 'reaction-style';
+  s.textContent = `
+    body.reaction-mode .hand {
+      filter: none !important;
+      position: relative;
+      z-index: 3501;
+    }
+    .card.reaction-candidate {
+      position: relative;
+      z-index: 3502;
+      filter: brightness(1.6) saturate(1.3);
+      box-shadow: 0 0 6px 3px rgba(255,255,255,0.6), 0 0 16px 6px rgba(255,255,255,0.4);
+      transform: translateY(-6px);
+    }
+    .reaction-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 3500;
+      background: rgba(0,0,0,0.35);
+      display: grid;
+      place-items: start center;
+      padding-top: 14vh;
+      pointer-events: none;
+    }
+    .reaction-pass {
+      pointer-events: auto;
+      padding: 8px 14px;
+      border-radius: 8px;
+      background: rgba(30,30,30,0.85);
+      color: #eee;
+      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+    }
+  `;
+  document.head.appendChild(s);
+}
 
 // Determine if a hand card can react to a trigger right now
 function canPlayReactionCard(state, defenderSide, card, trigger) {
@@ -416,143 +455,10 @@ function hideReactionOverlay() {
   const overlay = document.getElementById('reaction-overlay');
   if (overlay) overlay.classList.remove('show');
   // Remove glow from all hand cards
-  const glows = handEl?.querySelectorAll('.card.reaction-glow, .card.reaction-candidate') || [];
-  glows.forEach(node => node.classList.remove('reaction-glow', 'reaction-candidate'));
+  const glows = handEl?.querySelectorAll('.card.reaction-glow') || [];
+  glows.forEach(node => node.classList.remove('reaction-glow'));
 }
 
-
-/* 
- * Reaction window helpers
- *
- * These functions manage a modal reaction window that only appears when
- * the defending player actually has a playable reaction card. During
- * the window, the board is dimmed/blurred and candidate reaction cards
- * are highlighted and raised above the overlay. A Pass button allows
- * the player to decline to react. When a reaction card is clicked,
- * it is resolved via resolveInstantFromHand, then the window closes and
- * the game resumes. The AI also uses this infrastructure when it is
- * the defender.
- */
-
-function ensureReactionStyles() {
-  if (document.getElementById('reaction-style')) return;
-  const s = document.createElement('style');
-  s.id = 'reaction-style';
-  s.textContent = `
-    body.reaction-mode .hand {
-      filter: none !important;
-      position: relative;
-      z-index: 3501;
-    }
-    .card.reaction-candidate {
-      position: relative;
-      z-index: 3502;
-      filter: brightness(1.6) saturate(1.3);
-      box-shadow: 0 0 6px 3px rgba(255,255,255,0.6), 0 0 16px 6px rgba(255,255,255,0.4);
-      transform: translateY(-6px);
-    }
-    .reaction-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 3500;
-      background: rgba(0,0,0,0.35);
-      display: grid;
-      place-items: start center;
-      padding-top: 14vh;
-      pointer-events: none;
-    }
-    .reaction-pass {
-      pointer-events: auto;
-      padding: 8px 14px;
-      border-radius: 8px;
-      background: rgba(30,30,30,0.85);
-      color: #eee;
-      border: 1px solid rgba(255,255,255,0.15);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-    }
-  `;
-  document.head.appendChild(s);
-}
-
-function canPlayReactionCard(state, defenderSide, card, trigger) {
-  // Reaction cards may have type "INSTANT" or "REACTION". Ignore others.
-  if (!card || (card.type !== 'INSTANT' && card.type !== 'REACTION')) return false;
-  const P = state.players?.[defenderSide];
-  const have = ((P?.aether | 0) + (P?.tempAether | 0));
-  const cost = card.playCost | 0;
-  if (have < cost) return false;
-  const t = String(card.text || '').toLowerCase();
-  if (trigger === 'onAdvance') {
-    return t.includes('cancel a spell') || t.includes('cancel an instant') || t.includes('negate');
-  }
-  if (trigger === 'onCast') {
-    return t.includes('cancel a spell') || t.includes('cancel an instant') || t.includes('negate');
-  }
-  if (trigger === 'onDamage') {
-    return t.includes('prevent') || t.includes('reduce') || t.includes('shield');
-  }
-  return false;
-}
-
-function getPlayableReactions(state, defenderSide, trigger) {
-  const hand = state.players?.[defenderSide]?.hand || [];
-  return hand.filter(c => canPlayReactionCard(state, defenderSide, c, trigger));
-}
-
-let reactionUI = { open: false, overlay: null, trigger: null, defender: null, playable: [] };
-
-function openReactionWindow(trigger, defenderSide) {
-  ensureReactionStyles();
-  const playable = getPlayableReactions(state, defenderSide, trigger);
-  if (!playable.length) return false;
-  document.body.classList.add('reaction-mode');
-  const handRoot = defenderSide === 'player' ? handEl : document.getElementById('ai-mini-hand');
-  if (handRoot) {
-    const ids = new Set(playable.map(c => c.id));
-    handRoot.querySelectorAll('.card').forEach(el => {
-      const id = el.getAttribute('data-card-id');
-      if (ids.has(id)) el.classList.add('reaction-candidate');
-    });
-  }
-  const ov = document.createElement('div');
-  ov.className = 'reaction-overlay';
-  const passBtn = document.createElement('button');
-  passBtn.className = 'reaction-pass';
-  passBtn.textContent = 'Pass';
-  passBtn.addEventListener('click', () => closeReactionWindow(true));
-  ov.appendChild(passBtn);
-  document.body.appendChild(ov);
-  reactionUI = { open: true, overlay: ov, trigger, defender: defenderSide, playable };
-  return true;
-}
-
-function closeReactionWindow(passed = false) {
-  document.body.classList.remove('reaction-mode');
-  document.querySelectorAll('.reaction-candidate').forEach(el => el.classList.remove('reaction-candidate'));
-  if (reactionUI.overlay) reactionUI.overlay.remove();
-  reactionUI = { open: false, overlay: null, trigger: null, defender: null, playable: [] };
-  if (passed && state && state.reactionWindow) {
-    state.reactionWindow = null;
-  }
-}
-
-// Click handler for reaction cards
-document.addEventListener('click', async (ev) => {
-  if (!reactionUI.open) return;
-  const cardEl = ev.target.closest('.card.reaction-candidate');
-  if (!cardEl) return;
-  ev.stopPropagation();
-  const cardId = cardEl.getAttribute('data-card-id');
-  const card = reactionUI.playable.find(c => c.id === cardId);
-  if (!card) return;
-  state = await resolveInstantFromHand(state, reactionUI.defender, cardId);
-  closeReactionWindow(false);
-  const evts = drainEvents(state) || [];
-  for (const e2 of evts) {
-    try { logLine(`Event: ${e2.t}`); } catch {}
-  }
-  await render();
-});
 
 
 
@@ -3699,7 +3605,7 @@ async function spotlightFromEvents(state){
   for (const e of evts) {
     try {
       // ===== Reaction window handler =====
-      if (e.t === 'reaction_window') {
+     if (e.t === 'reaction_window') {
         const side = e.side || 'player';
         if (state.reactionWindow) {
           if (side === 'ai') {
@@ -3709,24 +3615,22 @@ async function spotlightFromEvents(state){
             if (reactionCards.length > 0) {
               const card = reactionCards[0];
               state = await window.castInstantFromHand(state, 'ai', card.id);
+              // Reaction resolved; GameLogic or UI will clear the window
             }
+            // After AI reacts (or if it cannot), close the reaction window
             state.reactionWindow = null;
             closeReactionWindow(true);
           } else if (side === 'player') {
-            // Map engine triggers to UI triggers
-            const rawTrig = e.trigger || 'spell_cast';
-            let trig;
-            if (rawTrig === 'spell_cast') trig = 'onCast';
-            else if (rawTrig === 'spell_advance') trig = 'onAdvance';
-            else if (rawTrig === 'damage') trig = 'onDamage';
-            else trig = rawTrig;
-            const opened = openReactionWindow(trig, 'player');
+            // Try to open a reaction window for the player based on the trigger
+            const opened = openReactionWindow(e.trigger || 'onCast', 'player');
             if (!opened) {
+              // No playable reaction: clear the window
               state.reactionWindow = null;
             }
-            // if opened, we wait until the player reacts or clicks Pass
+            // If opened, overlay remains until the player reacts or passes
           }
         }
+        // Skip further handling for this event
         continue;
       }
       // ===== SPELL: board → discard cinematic =====
