@@ -4408,6 +4408,16 @@ if (typeof window.__wirePileModals === 'function') {
 
       el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
 
+      // If a reaction window is open, re-highlight and re-open options on playable reaction cards
+      if (reactionUI.open && Array.isArray(reactionUI.playable)) {
+        const isPlayable = reactionUI.playable.some(pc => pc && pc.id === c.id);
+        if (isPlayable) {
+          el.classList.add('reaction-candidate');
+          // Automatically show React/Pass popover for this card
+          showCardOptions(el, c);
+        }
+      }
+
       handEl.appendChild(el); domCards.push(el);
     });
 
