@@ -245,11 +245,12 @@ function ensureReactionStyles() {
     .card.reaction-candidate {
       /* Draw this candidate above the overlay */
       position: relative;
-      z-index: 3502;
-      /* Intensify brightness and saturation so the card is not dimmed under the overlay */
-      filter: brightness(3.0) saturate(2.2);
+      /* Raise z-index so it sits above the blur and other cards */
+      z-index: 3600;
+      /* Intensify brightness and saturation so the card remains fully visible */
+      filter: brightness(5.0) saturate(3.0);
       /* Enlarge the card and lift it above its neighbours */
-      transform: translateY(-10px) scale(1.4);
+      transform: translateY(-15px) scale(1.5);
       /* Pulse a golden glow to draw attention */
       animation: reaction-pulse 1.2s infinite;
     }
@@ -3535,7 +3536,8 @@ async function spotlightFromEvents(state){
   const discardCounts = { player: 0, ai: 0 };
 
   // Iterate sequentially so awaits (cinematics) actually run in order
-  for (const e of evts) {
+  for (let i = 0; i < evts.length; i++) {
+    const e = evts[i];
     try {
       // ===== Reaction window handler =====
      if (e.t === 'reaction_window') {
@@ -3570,6 +3572,15 @@ async function spotlightFromEvents(state){
             if (!opened) {
               // No valid reaction — skip overlay and clear the reaction window
               state.reactionWindow = null;
+            } else {
+              // Reaction window opened: pause processing and requeue remaining events
+              const remaining = evts.slice(i + 1);
+              if (remaining.length) {
+                // Prepend remaining events to the state's event queue so they're processed later
+                state._events = remaining.concat(state._events || []);
+              }
+              // Return immediately to pause further event handling until reaction resolves
+              return;
             }
             // If opened, overlay remains until the player reacts or clicks pass.
           }
