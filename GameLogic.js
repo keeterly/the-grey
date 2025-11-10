@@ -185,155 +185,45 @@ function computePipAdvanceCostsForCard(card) {
 // =============================================
 
 const BASE_DECK_LIST = [
-  {
-    name: "Pulse of the Grey",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
+  { name: "Pulse of the Grey", type: "SPELL", playCost: 0, stepCost: 1, pip: 1,
     cost: 1,
-    text: "On Resolve: Draw 1, Gain 1 Æ",
-    aetherValue: 0,
-    role: "Starter draw/flow",
-    qty: 1,
-  },
-  {
-    name: "Wispform Surge",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
+    text: "On Resolve: Draw 1 card and Store 1 Aether.", aetherValue: 0, qty: 1 },
+
+  { name: "Wispform Surge", type: "SPELL", playCost: 0, stepCost: 1, pip: 1,
     cost: 1,
-    text: "On Resolve: Advance another Spell 1 step",
-    aetherValue: 0,
-    role: "Chain activator",
-    qty: 1,
-  },
-  {
-    name: "Greyfire Bloom",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 1,
+    text: "On Resolve: Advance another Spell 1 step and Gain 1 Aether.", aetherValue: 0, qty: 1 },
+
+  { name: "Ashen Focus", type: "SPELL", playCost: 0, stepCost: 1, pip: 2,
     cost: 1,
-    text: "On Resolve: Deal 1 damage per step (max 2)",
-    aetherValue: 0,
-    role: "Early offense",
-    qty: 1,
-  },
-  {
-    name: "Echoing Reservoir",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    text: "On Resolve: Store 1 in Aetherwell",
-    aetherValue: 2,
-    role: "Energy storage",
-    qty: 1,
-  },
-  {
-    name: "Dormant Catalyst",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    text: "On Resolve: Store 2 in Aetherwell",
-    aetherValue: 1,
-    role: "Aether ramp",
-    qty: 1,
-  },
-  {
-    name: "Ashen Focus",
-    type: "SPELL",
-    pip: 2,
-    playCost: 0,
-    stepCost: 1,
-    cost: 1,
-    text: "On Resolve: Draw 1, Store 1 in Aetherwell",
-    aetherValue: 1,
-    role: "Draw + ramp hybrid",
-    qty: 1,
-  },
-  {
-    name: "Surge of Ash",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
-    text: "Target Spell advances 1 step",
-    aetherValue: 0,
-    role: "Tempo accelerator",
-    qty: 1,
-  },
-  {
-    name: "Veil of Dust",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
-    text: "Prevent 1 damage or deal 1 damage",
-    aetherValue: 0,
-    role: "Defense / chip offense",
-    qty: 1,
-  },
-  {
-    name: "Glyph of Remnant Light",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
+    text: "On Resolve: Draw 1 card and Store 1 Aether.", aetherValue: 1, qty: 1 },
+
+  { name: "Wisp of Insight", type: "SPELL", playCost: 0, stepCost: 0, pip: 1,
     cost: 0,
-    text: "When a Spell resolves → Gain 1 Channelled Aether",
-    aetherValue: 0,
-    role: "Resource glyph",
-    qty: 1,
-  },
-  {
-    name: "Glyph of Returning Echo",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 0,
-    stepCost: 0,
+    text: "Gain 1 Aether and Draw 1 card.", aetherValue: 0, qty: 1 },
+
+  { name: "Dormant Catalyst", type: "SPELL", playCost: 2, stepCost: 0, pip: 1,
+    cost: 2,
+    text: "On Resolve: Store 2 Aether and Draw 1 card.", aetherValue: 1, qty: 1 },
+
+  { name: "Greyfire Bloom", type: "SPELL", playCost: 2, stepCost: 0, pip: 1,
+    cost: 2,
+    text: "On Resolve: Deal 1 damage to opponent.", aetherValue: 0, qty: 1 },
+
+  { name: "Surge of Ash", type: "INSTANT", playCost: 1,
+    cost: 1,
+    text: "Target Spell advances 1 step.", aetherValue: 0, qty: 1 },
+
+  { name: "Veil of Dust", type: "INSTANT", playCost: 1,
+    cost: 1,
+    text: "Prevent 1 damage or Draw 1 card.", aetherValue: 0, qty: 1 },
+
+  { name: "Glyph of Remnant Light", type: "GLYPH", playCost: 0,
     cost: 0,
-    text: "When you Store Aether → Draw 1 card",
-    aetherValue: 0,
-    role: "Draw glyph",
-    qty: 1,
-  },
+    text: "When a Spell resolves → Gain 1 Aether.", aetherValue: 0, qty: 1 },
 
-
-// --- v3 Ramp‑Up Additions ---
-  {
-    name: "Wisp of Insight",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
-    cost: 1,
-    text: "On Resolve: Gain 1 Æ and draw 1 card",
-    aetherValue: 0,
-    role: "Early ramp and cycle",
-    qty: 1,
-  },
-  {
-    name: "Minor Invocation",
-    type: "SPELL",
-    pip: 1,
-    playCost: 0,
-    stepCost: 1,
-    cost: 1,
-    text: "On Resolve: The next card you purchase this turn costs 1 less Æ",
-    aetherValue: 0,
-    role: "Market discount",
-    qty: 1,
-  },
-
-  
+  { name: "Glyph of Returning Echo", type: "GLYPH", playCost: 0,
+    cost: 0,
+    text: "When you Store Aether → Draw 1 card.", aetherValue: 0, qty: 1 },
 ];
 
 
@@ -405,19 +295,13 @@ function expandList(list) {
   const out = [];
   list.forEach(c => {
     for (let i = 0; i < (c.qty || 1); i++) {
-      const proto = {
+     const proto = {
         id: uid(),
         name: c.name,
         type: c.type,
-        // Preserve playCost and stepCost from the card definition.  If missing,
-        // default to 0 to avoid undefined values.  These values are used by
-        // the UI to display the play‑cost badge and by the game engine for
-        // computing advance costs.
+        // Preserve playCost and stepCost so the engine and UI see them.
         playCost: c.playCost || 0,
         stepCost: c.stepCost || 0,
-        // Keep the legacy cost field for backward compatibility.  In v3,
-        // `cost` often equals playCost + stepCost, but the UI now prefers
-        // playCost when displaying the badge.
         cost: c.cost || 0,
         pip:  c.pip  || 0,
         text: c.text || "",
@@ -481,68 +365,6 @@ export function resolveReactionFromHand(state, playerId, cardId) {
     cardType: "REACTION",
     cardData: { ...card }
   });
-  // Apply reaction effect based on the trigger/context before clearing the window
-  const rv = state.reactionWindow;
-  if (rv) {
-    const trig = rv.trigger;
-    const ctx  = rv.context || {};
-    // Spell cast: cancel the spell being cast
-    if (trig === 'spell_cast') {
-      const sideToCancel = ctx.playerId;
-      const cId = ctx.cardId;
-      const slotIdx = ctx.slotIndex;
-      const slots = state.players?.[sideToCancel]?.slots || [];
-      let found = false;
-      // If a slot index is provided, use it directly
-      if (Number.isFinite(slotIdx) && slots[slotIdx] && slots[slotIdx].hasCard && slots[slotIdx].card && slots[slotIdx].card.id === cId) {
-        const slot = slots[slotIdx];
-        const cancelled = slot.card;
-        slot.card = null;
-        slot.hasCard = false;
-        state.players[sideToCancel].discard.push(cancelled);
-        pushEvt(state, { t: 'spell_cancelled', side: sideToCancel, cardId: cancelled.id });
-        found = true;
-      }
-      // Fallback: search all slots by cardId if not found via slotIndex
-      if (!found) {
-        for (let s of slots) {
-          if (s.hasCard && s.card && s.card.id === cId) {
-            const cancelled = s.card;
-            s.card = null;
-            s.hasCard = false;
-            state.players[sideToCancel].discard.push(cancelled);
-            pushEvt(state, { t: 'spell_cancelled', side: sideToCancel, cardId: cancelled.id });
-            break;
-          }
-        }
-      }
-    }
-    // Spell advance: negate the advancement (revert progress by 1)
-    if (trig === 'spell_advance') {
-      const sideAdv  = ctx.playerId;
-      const slotIdx  = ctx.slotIndex;
-      const cId = ctx.cardId;
-      const slots = state.players?.[sideAdv]?.slots || [];
-      const slot = slots[slotIdx];
-      if (slot && slot.hasCard && slot.card && slot.card.id === cId) {
-        // Revert progress by the number of steps advanced (assume 1)
-        slot.card.progress = Math.max(0, (slot.card.progress|0) - 1);
-        pushEvt(state, { t: 'spell_advance_negated', side: sideAdv, cardId: cId });
-      }
-    }
-    // Damage: reduce damage by 2 (heal 2)
-    if (trig === 'damage') {
-      const targetSide = ctx.targetSide;
-      const amount = ctx.amount || 0;
-      // Heal up to 2 vitality (up to original starting vitality)
-      const healAmt = Math.min(2, amount);
-      const Ptarget = state.players?.[targetSide];
-      if (Ptarget) {
-        Ptarget.vitality = Math.min(STARTING_VITALITY, (Ptarget.vitality|0) + healAmt);
-        pushEvt(state, { t: 'heal', side: targetSide, amount: healAmt, by: card.id });
-      }
-    }
-  }
   // Clear the reaction window once a reaction resolves
   clearReactionWindow(state);
   return state;
@@ -827,6 +649,8 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
     amount: n
   });
 
+  // Trigger any glyph that responds to taking damage
+  state = applyGlyphPassives(state, targetSide, "damage");
   return state;
 }
 
@@ -854,22 +678,20 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
 
 
   
-  // Move the card from hand into the spell slot
+  // Before the spell fully enters play, allow the opponent to react (Spell Snuff).
+  state = triggerReactionWindow(state, "spell_cast", { playerId, cardId });
+
+  
   P.hand.splice(i,1);
   card.progress = 0;
   slot.card = card;
   slot.hasCard = true;
-  // New: mark entry turn so it cannot advance this same turn
+   // New: mark entry turn so it cannot advance this same turn
   card._enteredTurn = state.turn;
   delete card._advancedTurn;
 
   // (Optional) event for the payment
   if (playCost > 0) pushEvt(state, { t:"aether", side: playerId, amount: -playCost, by: card.id });
-
-  // Now that the spell is on the board, open a reaction window for the opponent
-  // (e.g., Spell Snuff can cancel the spell). Include slotIndex in context so the
-  // resolver knows which slot to target.
-  state = triggerReactionWindow(state, "spell_cast", { playerId, cardId, slotIndex });
 
   return state;
 }
@@ -1033,6 +855,8 @@ export function drawOne(state, playerId){
     state.players[playerId].aether = (state.players[playerId].aether | 0) + 1;
     pushEvt(state, { t:"aether", side: playerId, amount: 1, by:"trance-veyra" });
   }
+  // Trigger any glyph that responds to drawing outside the draw step
+  state = applyGlyphPassives(state, playerId, "draw");
   return state;
 }
 
@@ -1453,6 +1277,15 @@ function parseEffectsFromText(raw) {
   // Channel N
   { const m = t.match(/\bchannel\s+(\d+)/); if (m) fx.push({t:"channel", n:+m[1]}); }
 
+  // Treat "Store N in Aetherwell" as channel N for effect resolution
+  { const m = t.match(/\bstore\s+(\d+)\s+in\s+aetherwell\b/i);
+    if (m) fx.push({ t:"channel", n: +m[1] }); }
+
+
+  // Treat "Store N Aether" (no location specified) as channel N
+  { const m = t.match(/\bstore\s+(\d+)\s+aether\b/i);
+    if (m) fx.push({ t:"channel", n: +m[1] }); }
+  
   // Deal N damage
   { const m = t.match(/\bdeal\s+(\d+)\s+damage/); if (m) fx.push({t:"damage", n:+m[1]}); }
 
@@ -1480,7 +1313,12 @@ function applyGlyphPassives(state, side, trigger){
   let fired = false;
 
   if (trigger === "spell_resolved" &&
-      /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text)) {
+      (
+        /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text) ||
+        /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s+channelled\s*(?:æ|ae|aether)/.test(text)
+      )) {
+    // For "gain 1 channelled Aether" we simply add 1 Æ; adjust here if you
+    // later differentiate between regular and channelled Aether.
     state.players[side].aether = (state.players[side].aether|0) + 1;
     pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
     fired = true;
@@ -1515,8 +1353,11 @@ function applyGlyphPassives(state, side, trigger){
     fired = true;
   }
 
-  if (trigger === "channel" &&
-      /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text)) {
+ if (trigger === "channel" &&
+      (
+        /when\s+you\s+channel\s+aether\s*→?\s*draw\s+1/.test(text) ||
+        /when\s+you\s+store\s+aether\s*→?\s*draw\s+1/.test(text)
+      )) {
     state = drawN(state, side, 1);
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
     fired = true;
