@@ -28,26 +28,31 @@ export async function runAiTurn(state, api) {
     return typeof card.cost !== 'undefined' ? card.cost : 0;
   };
 
-  // 0) If we can cheaply advance an AI spell on board, do that (optional polish).
-  //    (This keeps pressure without needing extra smarts.)
-  try {
+  // 0) If we can advance a pip on board, do exactly one advance.
+  //    Uses UI API so discounts (stepCost 0, trance, temp Æ first) are respected.
+  {
     const slots = pub.players?.ai?.slots || [];
-    for (let i = 0; i < 3; i++) {
-      const slot = slots[i];
-      const c = slot?.card;
-      if (slot?.hasCard && c?.type === 'SPELL') {
-        // Spend 1 if we have it — your wrapped play handles discounts elsewhere
-        if (aether >= 1 && (c.progress|0) < (c.pip|0)) {
-          // Let GameLogic handle the actual advance via UI wrapper:
-          // we don't have a direct "advance" helper on api, so skip if missing.
-          if (typeof window.advanceSpell === 'function') {
-            window.advanceSpell('ai', i, 1);
-            return state;
-          }
+   for (let i = 0; i < 3; i++) {
+      const s = slots[i];
+      const c = s?.card;
+      if (!s?.hasCard || c?.type !== 'SPELL') continue;
+     if ((c.progress|0) >= (c.pip|0)) continue;
+      // Determine step cost (defaults to 1 if not present) and check if we can pay.
+      const stepCost = (typeof c.stepCost === 'number') ? c.stepCost : 1;
+      if (!api.canPay || api.canPay(side, stepCost)) {
+        if (api.advanceSpellOne) {            // preferred wrapper
+          api.advanceSpellOne(side, i);
+          return state;
+        } else if (api.payAndAdvanceOne) {    // compatible wrapper name
+          api.payAndAdvanceOne(side, i);
+          return state;
+        } else if (typeof window.advanceSpell === 'function') {
+          window.advanceSpell('ai', i, 1);
+          return state;
         }
       }
     }
-  } catch {}
+  }
 
   // 1) CAST an Instant if we can afford one (fast tempo plays)
   {
