@@ -2113,6 +2113,9 @@ function advanceSpellAt(side, slotIndex){
 }
 
 
+// Expose for AI (signature matches what ai.js calls)
+if (typeof window !== 'undefined') window.advanceSpell = (side, slotIndex) => advanceSpellAt(side, slotIndex);
+
 
 function renderSlots(container, snapshot, isPlayer){
   if (!container) return;
