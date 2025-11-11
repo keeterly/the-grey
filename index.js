@@ -248,9 +248,9 @@ function ensureReactionStyles() {
       /* Raise z-index so it sits above the blur and other cards */
       z-index: 3600;
       /* Intensify brightness and saturation so the card remains fully visible */
-      filter: brightness(5.0) saturate(3.0);
+      filter: brightness(6.0) saturate(3.5);
       /* Enlarge the card and lift it above its neighbours */
-      transform: translateY(-15px) scale(1.5);
+      transform: translateY(-18px) scale(1.6);
       /* Pulse a golden glow to draw attention */
       animation: reaction-pulse 1.2s infinite;
     }
@@ -288,24 +288,25 @@ function ensureReactionStyles() {
 
 // Determine if a hand card can react to a trigger right now
 function canPlayReactionCard(state, defenderSide, card, trigger) {
-  // Only instant/reaction cards can be played as reactions
-  if (!card || (card.type !== 'INSTANT' && card.type !== 'REACTION')) return false;
+  // Only true reaction cards can trigger a reaction window
+  if (!card || card.type !== 'REACTION') return false;
   const P = state.players?.[defenderSide];
-  const have = ((P?.aether | 0) + (P?.tempAether | 0));
-  const cost = card.playCost | 0;
-  if (have < cost) return false;
-  const t = String(card.text || '').toLowerCase();
+  // Ensure the player can pay the play cost for this reaction card
+  const available = ((P?.aether | 0) + (P?.tempAether | 0));
+  const playCost = card.playCost | 0;
+  if (available < playCost) return false;
+  const text = String(card.text || '').toLowerCase();
   if (trigger === 'onAdvance') {
-    // For spells advancing, look for keywords like "negate" (as in "negate that advancement")
-    return t.includes('negate') || t.includes('negate that advancement') || t.includes('negate advancement');
+    // Cards that negate spell advancement should include "negate" in their text
+    return text.includes('negate');
   }
   if (trigger === 'onCast') {
-    // For spell cast, look for "cancel" or variants (e.g., "cancel that spell", "spell snuff")
-    return t.includes('cancel') || t.includes('cancel that spell') || t.includes('cancel that instant') || t.includes('snuff');
+    // Cards that cancel spells should include keywords like "cancel" or "snuff"
+    return text.includes('cancel') || text.includes('snuff');
   }
   if (trigger === 'onDamage') {
-    // For damage, look for "reduce" or "prevent" or "shield" phrases
-    return t.includes('reduce') || t.includes('reduce that damage') || t.includes('prevent') || t.includes('shield');
+    // Cards that prevent or reduce damage should include these keywords
+    return text.includes('reduce') || text.includes('prevent') || text.includes('shield');
   }
   return false;
 }
@@ -1673,9 +1674,16 @@ function cleanRulesText(s){ return s ? String(s).replace(/^\s*On\s+Resolve\s*[:\
  *  (Does NOT touch the action button above the card, which stays "Channel".) */
 function resolveTerminologyForDisplay(card, rawText){
   if (!rawText) return "";
-  return (card?.type === "SPELL")
-    ? rawText.replace(/\bChannel\b/gi, "Crystalize")
-    : rawText;
+  // Normalize custom terminology in card rules for display.  The game now uses
+  // unified Aether terminology: “Store X Aether” instead of “Crystallize X” or
+  // “Channel X”.  This replacement is applied to all card types, not only
+  // spells.
+  // Capture the keyword (crystallize/crystalize or channel) and the number that
+  // follows it and replace with "Store <n> Aether".  The regex is case
+  // insensitive and matches both spell and non‑spell cards.
+  return rawText.replace(/\b(crystali[sz]e|channel)\s+(\d+)/gi, (_m, _kw, n) => {
+    return `Store ${n} Aether`;
+  });
 }
 
 function cardShellHTML(c){
