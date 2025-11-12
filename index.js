@@ -4512,40 +4512,56 @@ if (handEl) {
   // 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
-  addedNodes.forEach(n => {
-    n.classList.add('deal-in');                    // perf hint (optional)
+  // Stagger so multiple cards (e.g., at End Turn) don't pop in at the exact same time
+  const PER_CARD_DELAY = 60;        // ms between each new card
+  const SLIDE_PX       = 22;        // how far from the right to start (12–28 works)
+  const TILT_DEG       = 4;         // slight tilt on entry (2–6 looks nice)
+  const FADE_MS        = 260;
+  const MOVE_MS        = 360;
+
+  addedNodes.forEach((n, i) => {
+    n.classList.add('deal-in');                     // perf hint (optional)
     n.classList.remove('grey-hide-during-flight'); // make visible
 
-    // Read the final fan position from CSS variables AFTER layoutHand()
-    const cs = getComputedStyle(n);
-    const finalTx = parseFloat(cs.getPropertyValue('--tx')) || 0;
-    const finalTy = parseFloat(cs.getPropertyValue('--ty')) || 0;
+    // Read the FINAL fan position from CSS variables AFTER layoutHand()
+    const cs   = getComputedStyle(n);
+    const tx   = parseFloat(cs.getPropertyValue('--tx')) || 0;
+    const ty   = parseFloat(cs.getPropertyValue('--ty')) || 0;
+    const rot  = parseFloat(cs.getPropertyValue('--rot')) || 0;
 
-    // Start slightly to the right of the destination and fully transparent
-    n.style.setProperty('--tx', (finalTx + 18) + 'px'); // tweak 12–24px to taste
-    // (We don't touch --ty or --rot; they remain correct.)
-    n.style.opacity = '0';
-    n.style.transition = 'opacity 240ms ease-out, transform 300ms ease-out';
+    // Start pose: a little to the right + slight extra tilt, fully transparent
+    n.style.setProperty('--tx',  (tx + SLIDE_PX) + 'px');
+    n.style.setProperty('--rot', (rot + TILT_DEG) + 'deg');
+    n.style.opacity    = '0';
+    n.style.transition = 'none';
 
-    // Commit the start state so the transition will fire
+    // Commit the start pose
     void n.getBoundingClientRect();
 
-    // Animate to the true destination (the fan's final position)
-    requestAnimationFrame(() => {
-      n.style.setProperty('--tx', finalTx + 'px');
-      n.style.opacity = '1';
-    });
+    // Stagger each card so a batch draw at End Turn looks intentional
+    setTimeout(() => {
+      n.style.transition = `opacity ${FADE_MS}ms ease-out, transform ${MOVE_MS}ms ease-out`;
+
+      // Animate to the real fan position on the next paint
+      requestAnimationFrame(() => {
+        n.style.setProperty('--tx',  tx + 'px');
+        n.style.setProperty('--rot', rot + 'deg');
+        n.style.opacity = '1';
+      });
+    }, i * PER_CARD_DELAY);
   });
 
-  // Cleanup (keep transform driven by variables; do NOT touch transform)
+  // Cleanup (keep the final transform in place; do NOT clear it)
+  const total = MOVE_MS + (addedNodes.length - 1) * PER_CARD_DELAY + 40;
   setTimeout(() => {
     addedNodes.forEach(n => {
       n.style.transition = '';
-      n.style.opacity = '';
+      n.style.opacity    = '';
       n.classList.remove('deal-in');
     });
-  }, 360); // slightly > 300ms transform duration
+  }, total);
 }
+
 
 
 
