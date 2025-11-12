@@ -242,19 +242,27 @@ function ensureReactionStyles() {
       position: relative;
       z-index: 3501;
     }
-    .card.reaction-candidate {
-      /* Draw this candidate above the overlay */
-      position: relative;
-      /* Raise z-index so it sits above the blur and other cards */
-      z-index: 3600;
-      /* Intensify brightness and saturation so the card remains fully visible */
-      filter: brightness(6.0) saturate(3.5);
-      /* Enlarge the card and lift it above its neighbours */
-      transform: translateY(-18px) scale(1.6);
-      /* Pulse a golden glow to draw attention */
-      animation: reaction-pulse 1.2s infinite;
+    /* A reaction card peeks out of the hand with a golden glow outline */
+  .card.reaction-candidate {
+    z-index: 3600;
+    /* remove heavy brightness filter so the card retains its normal colors */
+    filter: none;
+    /* lift slightly and enlarge just a bit */
+    transform: translateY(-8px) scale(1.05);
+    /* golden box-shadow pulses instead of saturating the whole card */
+    box-shadow: 0 0 8px 2px rgba(255,215,0,0.7);
+    animation: reaction-pulse 2s infinite;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  /* Pulse the box-shadow rather than the card brightness */
+  @keyframes reaction-pulse {
+    0%, 100% {
+      box-shadow: 0 0 8px 2px rgba(255,215,0,0.5);
     }
-
+    50% {
+      box-shadow: 0 0 16px 4px rgba(255,215,0,0.9);
+    }
+  }
     @keyframes reaction-pulse {
       0%, 100% {
         box-shadow: 0 0 8px 4px rgba(255,215,0,0.65), 0 0 18px 8px rgba(255,215,0,0.4);
@@ -1845,7 +1853,13 @@ function showCardOptions(cardEl, cardData){
   // to the game logic. Reaction windows are stored on state.
   // If this is a Reaction card and a reaction window is open for the player,
   // override normal options and show only React and Pass
-  if (cardData.type === 'REACTION' && state.reactionWindow && state.reactionWindow.side === 'player') {
+// Show React/Pass only if this is a reaction window for the current player.
+  // state.reactionWindow.defender stores the player index (0 = local player).
+  if (
+    cardData.type === 'REACTION' &&
+    state.reactionWindow &&
+    state.reactionWindow.defender === 0
+  ) {
     opts.length = 0;
     opts.push({k: "react", label: "React"});
     opts.push({k: "pass", label: "Pass"});
