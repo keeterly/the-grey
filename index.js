@@ -4440,76 +4440,98 @@ if (typeof window.__wirePileModals === 'function') {
   await renderFlow(s.flow);
   updateWeaverBackdrop();
   
-  /* ----- HAND ----- */
-  if (handEl){
-    const oldIds = prevHandIds.slice();
-    const newIds = (s.players?.player?.hand || []).map(c => c.id);
+ /* ----- HAND (stable fan; only new cards animate) ----- */
+if (handEl) {
+  const pub = serializePublic(state) || {};
+  const handData = pub.players?.player?.hand || [];
 
-    handEl.replaceChildren();
-    const domCards = [];
+  const oldIds = prevHandIds.slice();
+  const newIds = handData.map(c => c.id);
 
-    (s.players?.player?.hand || []).forEach(c=>{
-      const el = document.createElement("article");
-      el.className = "card";
-      el.dataset.cardId = c.id; 
-      el.dataset.cardType = c.type;
-      
-      if (FLOW_BOUGHT_IDS.has(c.id)) el.classList.add("flow-bought");
+  // 1) Snapshot current transforms/z-index for cards already in the DOM
+  const oldTransforms = {};
+  handEl.querySelectorAll('.card[data-card-id]').forEach(node => {
+    const cid = node.dataset.cardId;
+    oldTransforms[cid] = {
+      transform: node.style.transform,
+      zIndex: node.style.zIndex || ''
+    };
+  });
 
-      el.innerHTML = cardHTML(c);
+  // 2) Rebuild hand DOM (mark only brand-new cards for “deal-in”)
+  handEl.replaceChildren();
+  const domCards = [];
+  handData.forEach(c => {
+    const el = document.createElement('article');
+    el.className = 'card';
+    el.dataset.cardId = c.id;
+    el.dataset.cardType = c.type;
+    if (FLOW_BOUGHT_IDS.has(c.id)) el.classList.add('flow-bought');
 
-      if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
+    el.innerHTML = cardHTML(c);
 
-      wireDesktopDrag(el, c);
-      wireTouchDrag(el, c);
-      attachPeekAndZoom(el, c);
+    // Only new cards start hidden so they can “deal-in” without shuffling others
+    if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
 
-      el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
+    wireDesktopDrag(el, c);
+    wireTouchDrag(el, c);
+    attachPeekAndZoom(el, c);
 
-      // If a reaction window is open, re-highlight and re-open options on playable reaction cards
-      if (reactionUI.open && Array.isArray(reactionUI.playable)) {
-        const isPlayable = reactionUI.playable.some(pc => pc && pc.id === c.id);
-        if (isPlayable) {
-          el.classList.add('reaction-candidate');
-          // Automatically show React/Pass popover for this card
-          showCardOptions(el, c);
-        }
+    // Persist React/Pass popover & glow during an open reaction window
+    if (reactionUI.open && Array.isArray(reactionUI.playable)) {
+      if (reactionUI.playable.some(pc => pc && pc.id === c.id)) {
+        el.classList.add('reaction-candidate');
+        showCardOptions(el, c);
       }
-
-      handEl.appendChild(el); domCards.push(el);
-    });
-
-    layoutHand(handEl, domCards);
-    await nextFrame(); layoutHand(handEl, domCards);
-
-    const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
-    if (addedNodes.length){
-      // For newly drawn cards, always slide them in with 'deal-in' but only shuffle the whole hand on the very first deal.
-      addedNodes.forEach(n => n.classList.add('deal-in'));
-      if (!bootDealt) {
-        handEl.classList.add('dealing');
-      }
-      setTimeout(() => {
-        addedNodes.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
-        if (!bootDealt) {
-          handEl.classList.remove('dealing');
-        }
-      }, 400);
-      // After the initial deal, mark as dealt to avoid future full-hand shuffles
-      if (!bootDealt) bootDealt = true;
-    } else if (!bootDealt && domCards.length){
-      // Handle the initial boot deal: animate all cards once
-      handEl.classList.add('dealing');
-      domCards.forEach(n => n.classList.add('grey-hide-during-flight','deal-in'));
-      setTimeout(() => {
-        domCards.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
-        handEl.classList.remove('dealing');
-      }, 400);
-      bootDealt = true;
     }
 
-    prevHandIds = newIds;
+    handEl.appendChild(el);
+    domCards.push(el);
+  });
+
+  // 3) Disable transitions on existing cards while we compute the fresh layout
+  const existingNodes = domCards.filter(el => oldIds.includes(el.dataset.cardId));
+  existingNodes.forEach(el => {
+    el.dataset._origTransition = el.style.transition || '';
+    el.style.transition = 'none';
+  });
+
+  // 4) Compute layout (measure → apply) with transitions off
+  layoutHand(handEl, domCards);
+  await nextFrame();
+  layoutHand(handEl, domCards);
+
+  // 5) Restore saved transforms/z-index for unchanged cards so they don’t re-animate
+  domCards.forEach(el => {
+    const snap = oldTransforms[el.dataset.cardId];
+    if (snap) {
+      el.style.transform = snap.transform || '';
+      el.style.zIndex = snap.zIndex || '';
+    }
+  });
+
+  // Re-enable transitions for future natural moves
+  existingNodes.forEach(el => {
+    el.style.transition = el.dataset._origTransition || '';
+    delete el.dataset._origTransition;
+  });
+
+  // 6) Only newly drawn cards “deal-in”; everyone else stays locked
+  const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
+  if (addedNodes.length) {
+    addedNodes.forEach(n => n.classList.add('deal-in'));
+    // allow CSS to pick up initial visibility before cleaning flags
+    requestAnimationFrame(() => {
+      setTimeout(() => {
+        addedNodes.forEach(n => n.classList.remove('grey-hide-during-flight', 'deal-in'));
+      }, 400);
+    });
   }
+
+  // 7) Remember for next render
+  prevHandIds = newIds;
+}
+
 
   highlightPlayableCards();
 
