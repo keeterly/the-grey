@@ -4519,24 +4519,29 @@ if (handEl) {
   // 6) Only newly drawn cards “deal-in”; everyone else stays locked
   const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
   if (addedNodes.length) {
-    // Soft fade-in for new cards only (existing cards stay put)
+    // Make visible + set starting opacity *in the same tick*
     addedNodes.forEach(n => {
-      n.classList.add('deal-in');                 // hint for perf, optional style
-      n.classList.remove('grey-hide-during-flight'); // reveal to allow fade
-      n.style.opacity = '0';
+      n.classList.add('deal-in');                    // optional perf hint
+      n.classList.remove('grey-hide-during-flight'); // becomes visible now
+      n.style.opacity = '0';                         // but start fully transparent
       n.style.transition = 'opacity 220ms ease-out';
+      // Force a reflow so the browser commits opacity: 0 as the starting state
+      // (any layout read will do—this is the most reliable one)
+      void n.getBoundingClientRect();
     });
-    // Kick the fade on the next frame so the browser has a starting style
-    await nextFrame();
-    addedNodes.forEach(n => { n.style.opacity = '1'; });
-    // Cleanup after the fade completes
-    setTimeout(() => {
-      addedNodes.forEach(n => {
-        n.style.transition = '';
-        n.style.opacity = '';
-        n.classList.remove('deal-in');
-      });
-    }, 260);
+
+    // Now move to the end state on the next animation frame so the fade runs
+    requestAnimationFrame(() => {
+      addedNodes.forEach(n => { n.style.opacity = '1'; });
+      // Cleanup after the fade completes
+      setTimeout(() => {
+        addedNodes.forEach(n => {
+          n.style.transition = '';
+          n.style.opacity = '';
+          n.classList.remove('deal-in');
+        });
+      }, 240);
+    });
   }
 
   // 7) Remember for next render
