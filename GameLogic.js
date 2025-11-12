@@ -642,12 +642,11 @@ function slideFlowRightOnceAndReveal(state) {
 /////////////////////////////
 
 export function startTurn(state) {
-  // Veyra Stage II: allow the player to look at the top two cards at the start of their turn
+  // Veyra Stage II: allow the player to look at the top two cards
   state = veyraScry(state, state.activePlayer);
-  // Draw up to 5 cards in hand.  If the player retained cards from the previous turn,
-  // this will only draw the difference.
-  state = drawUpTo(state, state.activePlayer, 5);
-  return state; // no flow movement here anymore
+  // ❌ No auto-draws here — the UI will draw ONE AT A TIME so hand animation can run.
+  // (Menu → Draw 1 path is reused repeatedly at turn start.)
+  return state;
 }
 
 
