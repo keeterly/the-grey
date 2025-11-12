@@ -668,8 +668,9 @@ export function endTurn(state) {
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
   if (state.activePlayer === "player") state.turn += 1;
 
-  // no auto-move at start of turn anymore
-  startTurn(state);
+ // 👉 Do not auto-start the next turn here.
+  // The UI will call startTurn(state) and then draw cards sequentially
+  // (reusing the exact Menu → Draw 1 path for perfect animations).
   return state;
 }
 
