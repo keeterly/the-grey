@@ -4629,11 +4629,12 @@ if (handEl) {
 // 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
-  const SLIDE_PX = 22;  // 12–28px feels good
-  const TILT_DEG = 4;   // a touch of entry tilt
-  const FADE_MS  = 260;
-  const MOVE_MS  = 360;
-  const GAP_MS   = 80;  // delay between cards in a batch
+  // Match the gentler Draw-1 / boot vibe
+const SLIDE_PX = 26;
+const TILT_DEG = 5;
+const FADE_MS  = 420;
+const MOVE_MS  = 560;
+const GAP_MS   = 120;
 
 // For reaction candidates, temporarily remove the visual class so it
   // doesn’t fight with the entry transform/opacity. We’ll restore after anim.
@@ -4679,7 +4680,8 @@ if (addedNodes.length) {
       if (runId !== handEl._dealRun) return resolve();
       requestAnimationFrame(() => {
         if (runId !== handEl._dealRun) return resolve();
-        n.style.transition = `opacity ${FADE_MS}ms ease-out, transform ${MOVE_MS}ms ease-out`;
+        n.style.transition = `opacity ${FADE_MS}ms ease-out, transform ${MOVE_MS}ms cubic-bezier(.22,.61,.36,1)`;
+
         n.style.setProperty('--tx',  tx + 'px');
         n.style.setProperty('--rot', rot + 'deg');
         n.style.opacity = '1';
