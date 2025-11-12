@@ -4501,14 +4501,7 @@ if (handEl) {
   await nextFrame();
   layoutHand(handEl, domCards);
 
-  // 5) Restore saved transforms/z-index for unchanged cards so they don’t re-animate
-  domCards.forEach(el => {
-    const snap = oldTransforms[el.dataset.cardId];
-    if (snap) {
-      el.style.transform = snap.transform || '';
-      el.style.zIndex = snap.zIndex || '';
-    }
-  });
+ 
 
   // Re-enable transitions for future natural moves
   existingNodes.forEach(el => {
@@ -4519,42 +4512,41 @@ if (handEl) {
   // 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
-  // IMPORTANT: we are AFTER the two layoutHand() passes.
-  // At this point, each card's final transform is set (may be computed, not inline).
   addedNodes.forEach(n => {
-    n.classList.add('deal-in');                     // perf hint (optional)
-    n.classList.remove('grey-hide-during-flight');  // make visible
+    n.classList.add('deal-in');                    // perf hint (optional)
+    n.classList.remove('grey-hide-during-flight'); // make visible
 
-    // Get the final, real transform (inline or computed) from layoutHand
-    const inlineT  = n.style.transform && n.style.transform.trim();
-    const compT    = getComputedStyle(n).transform; // e.g. "matrix(...)" or "none"
-    const finalT   = inlineT || (compT && compT !== 'none' ? compT : 'translate(0)');
+    // Read the final fan position from CSS variables AFTER layoutHand()
+    const cs = getComputedStyle(n);
+    const finalTx = parseFloat(cs.getPropertyValue('--tx')) || 0;
+    const finalTy = parseFloat(cs.getPropertyValue('--ty')) || 0;
 
-    // Start a little to the right, fully transparent; then animate to finalT
-    n.style.transform  = `${finalT} translateX(18px)`;  // tweak 12–24px as desired
-    n.style.opacity    = '0';
+    // Start slightly to the right of the destination and fully transparent
+    n.style.setProperty('--tx', (finalTx + 18) + 'px'); // tweak 12–24px to taste
+    // (We don't touch --ty or --rot; they remain correct.)
+    n.style.opacity = '0';
     n.style.transition = 'opacity 240ms ease-out, transform 300ms ease-out';
 
-    // Commit the start state before switching to the end state
-    // (forces the browser to register opacity:0 + translated transform)
+    // Commit the start state so the transition will fire
     void n.getBoundingClientRect();
 
+    // Animate to the true destination (the fan's final position)
     requestAnimationFrame(() => {
-      n.style.transform = finalT; // animate back to the true arc position
-      n.style.opacity   = '1';
+      n.style.setProperty('--tx', finalTx + 'px');
+      n.style.opacity = '1';
     });
   });
 
-  // Cleanup AFTER animation — keep transform intact so cards stay put
+  // Cleanup (keep transform driven by variables; do NOT touch transform)
   setTimeout(() => {
     addedNodes.forEach(n => {
       n.style.transition = '';
       n.style.opacity = '';
-      // DO NOT clear transform — it holds the final arc position
       n.classList.remove('deal-in');
     });
-  }, 340); // a bit > transform duration (300ms)
+  }, 360); // slightly > 300ms transform duration
 }
+
 
 
   // 7) Remember for next render
