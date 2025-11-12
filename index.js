@@ -4442,7 +4442,7 @@ if (typeof window.__wirePileModals === 'function') {
   
   /* ----- HAND (stable) ----- */
   if (handEl) {
-    const oldIds = prevHandIds.slice();
+    const oldIds = Array.isArray(prevHandIds) ? prevHandIds.slice() : [];
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
 
     // snapshot transforms of existing DOM nodes so unchanged cards won’t “jump”
@@ -4470,7 +4470,9 @@ if (typeof window.__wirePileModals === 'function') {
     );
 
     const domCards = [];
-    const addedNodes = [];
+    // oldIds should be the previous render’s hand ids, e.g. from prevHandIds
+const addedNodes   = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
+const existingNodes = domCards.filter(el =>  oldIds.includes(el.dataset.cardId));
 
     // We will rebuild the order, but reuse nodes where possible
     handEl.innerHTML = '';
