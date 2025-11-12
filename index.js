@@ -4519,29 +4519,38 @@ if (handEl) {
   // 6) Only newly drawn cards “deal-in”; everyone else stays locked
   const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
   if (addedNodes.length) {
-    // Make visible + set starting opacity *in the same tick*
+    // Fade + subtle slide from the right for new cards only
     addedNodes.forEach(n => {
-      n.classList.add('deal-in');                    // optional perf hint
-      n.classList.remove('grey-hide-during-flight'); // becomes visible now
-      n.style.opacity = '0';                         // but start fully transparent
-      n.style.transition = 'opacity 220ms ease-out';
-      // Force a reflow so the browser commits opacity: 0 as the starting state
-      // (any layout read will do—this is the most reliable one)
-      void n.getBoundingClientRect();
+      n.classList.add('deal-in');                     // perf hint (optional)
+      n.classList.remove('grey-hide-during-flight');  // make visible
+
+      // Grab the final transform computed by layoutHand (the "destination")
+      const finalT = n.style.transform || '';
+
+      // Start pose: a little to the right, fully transparent
+      n.style.transform  = `${finalT} translateX(18px)`;   // tweak 12–24px to taste
+      n.style.opacity    = '0';
+      n.style.transition = 'opacity 240ms ease-out, transform 300ms ease-out';
+
+      // Commit the start state (no pop)…
+      void n.getBoundingClientRect(); // force reflow
+
+      // …then animate to the destination next frame
+      requestAnimationFrame(() => {
+        n.style.transform = finalT;
+        n.style.opacity   = '1';
+      });
     });
 
-    // Now move to the end state on the next animation frame so the fade runs
-    requestAnimationFrame(() => {
-      addedNodes.forEach(n => { n.style.opacity = '1'; });
-      // Cleanup after the fade completes
-      setTimeout(() => {
-        addedNodes.forEach(n => {
-          n.style.transition = '';
-          n.style.opacity = '';
-          n.classList.remove('deal-in');
-        });
-      }, 240);
-    });
+    // Clean up inline styles after the animation completes
+    setTimeout(() => {
+      addedNodes.forEach(n => {
+        n.style.transition = '';
+        n.style.opacity = '';
+        n.style.transform = ''; // keep layoutHand's transform via style attr? (it's re-set each render)
+        n.classList.remove('deal-in');
+      });
+    }, 340); // a bit > transform duration (300ms)
   }
 
   // 7) Remember for next render
