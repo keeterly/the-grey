@@ -4505,19 +4505,28 @@ if (typeof window.__wirePileModals === 'function') {
     // 3) Prevent existing cards from animating when layout changes
     const existingNodes = domCards.filter(el => !addedNodes.includes(el));
     existingNodes.forEach(el => {
-      el.dataset.__origTransition = el.style.transition || '';
-      el.style.transition = 'none';
-    });
+  // Save any inline transition, then hard-disable with !important
+  el.dataset.origTransition = el.getAttribute('style') || '';
+  el.style.setProperty('transition', 'none', 'important');
+});
 
     layoutHand(handEl, domCards);
     await nextFrame();
     layoutHand(handEl, domCards);
 
-    // re-enable transitions for future natural movements
-    existingNodes.forEach(el => {
-      el.style.transition = el.dataset.__origTransition || '';
-      delete el.dataset.__origTransition;
-    });
+    // Force a reflow so the 'no-transition' transform sticks this frame
+// (any of these will do; getBoundingClientRect() is explicit)
+void handEl.getBoundingClientRect();
+
+// Restore transitions on the NEXT frame so browser doesn't animate this transform
+await nextFrame();
+existingNodes.forEach(el => {
+  const prev = el.dataset.origTransition || '';
+  // Clear the whole inline style then restore what was there before
+  el.setAttribute('style', prev);
+  delete el.dataset.origTransition;
+});
+
 
     
 
