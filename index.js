@@ -1061,6 +1061,30 @@ function resetAdvanceFlagsFor(side) {
   }
 }
 
+
+// Draw one card using the SAME visual path as the menu button
+async function drawOneLikeMenu(side) {
+  await withDrawStep(async () => {
+    if ((state.players?.[side]?.deck?.length || 0) < 1) {
+      reshuffleFromDiscard(side);
+    }
+    // engine draw (1)
+    state = drawN(state, side, 1);
+
+    // visual: deck -> hand chip for this single card
+    animateDrawCards(side, 1);
+
+    // IMPORTANT: render while draw-step is active so hand runs deal-in anim
+    await render();
+  });
+
+  // small stagger between sequential draws (feel free to tweak 80–140 ms)
+  await sleep(110);
+}
+
+
+
+
 async function doStartTurn(){
   state = startTurn(state);
 
@@ -1088,16 +1112,14 @@ async function doStartTurn(){
 
   const active = side;
   reshuffleFromDiscard(active);
-if (need) {
-    await withDrawStep(async () => {
-      for (let i = 0; i < need; i++) {
-        if ((state.players[active].deck?.length || 0) < 1) reshuffleFromDiscard(active);
-        state = drawN(state, active, 1);
-        animateDrawCards(active, 1);   // flight chip for THIS card
-        await render();                // keep draw-step true during hand anim
-        await sleep(110);              // tiny stagger between cards (90–130)
-      }
-    });
+// Draw exactly like pressing "Draw 1" repeatedly until we hit hand cap
+  const HAND_CAP = 5; // adjust if you have a constant elsewhere
+  if (need) {
+    // Safety loop to avoid any edge-case infinite
+    let guard = 12;
+    while ((state.players?.[active]?.hand?.length || 0) < HAND_CAP && guard-- > 0) {
+      await drawOneLikeMenu(active);
+    }
   } else {
     await render();
   }
