@@ -1090,16 +1090,16 @@ async function doStartTurn(){
   reshuffleFromDiscard(active);
   if (need) {
     await withDrawStep(async () => {
-      // make sure we have enough cards before drawing
-      if ((state.players[active].deck?.length || 0) < need) reshuffleFromDiscard(active);
-      state = drawN(state, active, need);
-      if (need > 0) {
-        // visual only: deck -> hand chips
-        animateDrawCards(active, need);
+      // Draw *one card at a time*: draw → animate → render → tiny pause
+      for (let i = 0; i < need; i++) {
+        if ((state.players[active].deck?.length || 0) < 1) {
+          reshuffleFromDiscard(active);
+        }
+        state = drawN(state, active, 1);
+        animateDrawCards(active, 1);   // visual flight for this one card
+        await render();                // keeps the “deal-in” hand anim active
+        await sleep(90);               // gentle stagger between cards
       }
-      // ⬅️ do one paint while still inside the draw step so the hand
-      //    can run its sequential “deal-in” animation instead of popping
-      await render();
     });
   } else {
     await render();
