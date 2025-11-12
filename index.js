@@ -4519,13 +4519,24 @@ if (handEl) {
   // 6) Only newly drawn cards “deal-in”; everyone else stays locked
   const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
   if (addedNodes.length) {
-    addedNodes.forEach(n => n.classList.add('deal-in'));
-    // allow CSS to pick up initial visibility before cleaning flags
-    requestAnimationFrame(() => {
-      setTimeout(() => {
-        addedNodes.forEach(n => n.classList.remove('grey-hide-during-flight', 'deal-in'));
-      }, 400);
+    // Soft fade-in for new cards only (existing cards stay put)
+    addedNodes.forEach(n => {
+      n.classList.add('deal-in');                 // hint for perf, optional style
+      n.classList.remove('grey-hide-during-flight'); // reveal to allow fade
+      n.style.opacity = '0';
+      n.style.transition = 'opacity 220ms ease-out';
     });
+    // Kick the fade on the next frame so the browser has a starting style
+    await nextFrame();
+    addedNodes.forEach(n => { n.style.opacity = '1'; });
+    // Cleanup after the fade completes
+    setTimeout(() => {
+      addedNodes.forEach(n => {
+        n.style.transition = '';
+        n.style.opacity = '';
+        n.classList.remove('deal-in');
+      });
+    }, 260);
   }
 
   // 7) Remember for next render
