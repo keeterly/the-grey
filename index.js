@@ -1484,20 +1484,19 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
 
   // Safety: up to N actions max so the AI can’t “lock” a turn
   let safety = 20;
-  
   while (safety-- > 0) {
     const before = serializePublic(state);
-    const beforeSlots = (before?.players?.ai?.slots || []).map(s => (s && s.card) ? { id: s.card.id, prog: s.card.progress|0 } : null);
     const beforeKey = JSON.stringify({
       hand: before?.players?.ai?.hand?.map(c => c.id) || [],
-      slots: beforeSlots,
+      slots: (before?.players?.ai?.slots || []).map(s => s?.card?.id || null),
       ae: {
         p: before?.players?.ai?.aether || 0,
         t: before?.players?.ai?.tempAether || 0
       },
       flow: (before?.flow || []).map(c => c?.id || null),
     });
-// ask AI to take exactly one action
+
+    // ask AI to take exactly one action
     try {
       if (AI?.runAiTurn) state = await AI.runAiTurn(state, api);
     } catch { /* ignore a single AI error and bail */ break; }
@@ -1508,12 +1507,10 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
     await sleep(420);
 
     // Detect “no-op” (nothing changed) → AI is done
-    
     const after = serializePublic(state);
-    const afterSlots = (after?.players?.ai?.slots || []).map(s => (s && s.card) ? { id: s.card.id, prog: s.card.progress|0 } : null);
     const afterKey = JSON.stringify({
       hand: after?.players?.ai?.hand?.map(c => c.id) || [],
-      slots: afterSlots,
+      slots: (after?.players?.ai?.slots || []).map(s => s?.card?.id || null),
       ae: {
         p: after?.players?.ai?.aether || 0,
         t: after?.players?.ai?.tempAether || 0
@@ -1521,7 +1518,6 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
       flow: (after?.flow || []).map(c => c?.id || null),
     });
     if (beforeKey === afterKey) break;
-
   }
 
   // Discard the AI hand at end of AI turn (mirror the player experience)
@@ -3564,47 +3560,38 @@ async function spotlightFromEvents(state){
       // ===== Reaction window handler =====
      if (e.t === 'reaction_window') {
         const side = e.side || 'player';
-        if (state.reactionWindow) {
-          if (side === 'ai') {
-            // AI reaction: pick first affordable reaction card and cast it automatically
-            const hand = state.players?.ai?.hand || [];
-            const reactionCards = hand.filter(c => c.type === 'REACTION' && ((c.playCost ?? c.cost ?? 0) <= getTotal('ai')));
-            if (reactionCards.length > 0) {
-              const card = reactionCards[0];
-              state = await window.castInstantFromHand(state, 'ai', card.id);
-              // Reaction resolved; GameLogic or UI will clear the window
-            }
-            // After AI reacts (or if it cannot), close the reaction window
+        const trig = e.trigger || 'spell_cast';
+        // Ensure engine + UI agree that a window is open
+        if (!state.reactionWindow) {
+          state.reactionWindow = { side, trigger: trig, defender: (side === 'player' ? 0 : 1) };
+        }
+        if (side === 'ai') {
+          // AI reaction: pick first affordable reaction card and cast it automatically
+          const hand = state.players?.ai?.hand || [];
+          const reactionCards = hand.filter(c => c.type === 'REACTION' && ((c.playCost ?? c.cost ?? 0) <= getTotal('ai')));
+          if (reactionCards.length > 0) {
+            const card = reactionCards[0];
+            state = await window.castInstantFromHand(state, 'ai', card.id);
+          }
+          // After AI reacts (or if it cannot), close the reaction window and continue
+          state.reactionWindow = null;
+          closeReactionWindow(true);
+        } else if (side === 'player') {
+          // Map engine triggers to UI identifiers and open the reaction window
+          let uiTrigger;
+          if (trig === 'spell_cast') uiTrigger = 'onCast';
+          else if (trig === 'spell_advance') uiTrigger = 'onAdvance';
+          else if (trig === 'damage') uiTrigger = 'onDamage';
+          else uiTrigger = 'onCast';
+          const opened = openReactionWindow(uiTrigger, 'player');
+          if (opened) {
+            // Pause: push the remaining events back to the engine queue and return
+            const remaining = evts.slice(i + 1);
+            if (remaining.length) state._events = remaining.concat(state._events || []);
+            return;
+          } else {
+            // No valid reactions; clear the window and continue
             state.reactionWindow = null;
-            closeReactionWindow(true);
-          } else if (side === 'player') {
-            // Map engine trigger (e.trigger) to UI trigger names expected by
-            // canPlayReactionCard and openReactionWindow.  GameLogic uses
-            // 'spell_cast', 'spell_advance', and 'damage' when pushing reaction
-            // window events.  Translate these to our UI-friendly identifiers.
-            let uiTrigger;
-            const rawTrig = e.trigger || '';
-            if (rawTrig === 'spell_cast') uiTrigger = 'onCast';
-            else if (rawTrig === 'spell_advance') uiTrigger = 'onAdvance';
-            else if (rawTrig === 'damage') uiTrigger = 'onDamage';
-            else if (rawTrig) uiTrigger = rawTrig;
-            else uiTrigger = 'onCast';
-            // Try to open a reaction window for the player based on the mapped trigger
-            const opened = openReactionWindow(uiTrigger, 'player');
-            if (!opened) {
-              // No valid reaction — skip overlay and clear the reaction window
-              state.reactionWindow = null;
-            } else {
-              // Reaction window opened: pause processing and requeue remaining events
-              const remaining = evts.slice(i + 1);
-              if (remaining.length) {
-                // Prepend remaining events to the state's event queue so they're processed later
-                state._events = remaining.concat(state._events || []);
-              }
-              // Return immediately to pause further event handling until reaction resolves
-              return;
-            }
-            // If opened, overlay remains until the player reacts or clicks pass.
           }
         }
         // Skip further handling for this event
@@ -4529,13 +4516,6 @@ function makeAiApi() {
       Emit(Events.CHANNEL, { side, cardId, gained });
       return state;
     },
-    // Advance exactly one pip in a spell slot (spends temp Æ first)
-    advanceSpellOne: (side, slotIndex) => {
-      // Use engine's atomic guard+spend+advance to avoid desyncs
-      state = payAndAdvanceOne(state, side, slotIndex);
-      return state;
-    },
-
 
     // Flow
     buyFromFlowIndex: (side, idx, price) => {
