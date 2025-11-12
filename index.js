@@ -1485,6 +1485,8 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
   // Safety: up to N actions max so the AI can’t “lock” a turn
   let safety = 20;
   while (safety-- > 0) {
+    // Hard stop while the player’s reaction window is open
+    while (reactionUI?.open) { await sleep(40); }
     const before = serializePublic(state);
     const beforeKey = JSON.stringify({
       hand: before?.players?.ai?.hand?.map(c => c.id) || [],
@@ -1772,7 +1774,12 @@ function attachPeekAndZoom(el, data){
 }
 
 /* ---------- action popover ---------- */
-function clearAllActionMenus(){ document.querySelectorAll(".action-pop").forEach(n => n.remove()); }
+function clearAllActionMenus(){
+   // Keep the React/Pass popover alive during a reaction window
+   if (reactionUI?.open) return;
+   document.querySelectorAll(".action-pop").forEach(n => n.remove());
+ }
+
 function firstOpenSpellSlotIndexFor(side, pub){
   const slots = pub.players?.[side]?.slots || [];
   for (let i=0;i<3;i++) if (!slots[i]?.hasCard) return i;
@@ -1897,14 +1904,14 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
 
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
-        } else if (o.k === "react"){
-          // Playing a reaction card in a reaction window: delegate to castInstantFromHand
-          state = await window.castInstantFromHand(state, "player", cardData.id);
-          // Close the reaction window via helper (clears state.reactionWindow and UI overlay)
-          closeReactionWindow(false);
+       } else if (o.k === "react"){
+        // Resolve the reaction as an instant from hand (pays Æ + applies effect)
+        state = await resolveInstantFromHand(state, "player", cardData.id);
+        // Close reaction UI, then the AI loop will continue automatically
+        closeReactionWindow(false);
         } else if (o.k === "pass"){
-          // Player chooses to pass on reacting. Clear window and continue
-          closeReactionWindow(true);
+          // Just close the window; AI loop resumes
+        closeReactionWindow(true);
         }
       } catch(e){}
       clearAllActionMenus();
