@@ -242,19 +242,17 @@ function ensureReactionStyles() {
       position: relative;
       z-index: 3501;
     }
-    /* A reaction card peeks out of the hand with a golden glow outline */
+    /* A reaction card stays in the hand and glows with a pulsing golden outline.
+       We avoid overriding its transform here so the card stays anchored to its slot. */
   .card.reaction-candidate {
     z-index: 3600;
-    /* remove heavy brightness filter so the card retains its normal colors */
     filter: none;
-    /* lift slightly and enlarge just a bit */
-    transform: translateY(-8px) scale(1.05);
     /* golden box-shadow pulses instead of saturating the whole card */
     box-shadow: 0 0 8px 2px rgba(255,215,0,0.7);
     animation: reaction-pulse 2s infinite;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: box-shadow 0.2s ease;
   }
-  /* Pulse the box-shadow rather than the card brightness */
+  /* Pulse the box-shadow for the golden glow */
   @keyframes reaction-pulse {
     0%, 100% {
       box-shadow: 0 0 8px 2px rgba(255,215,0,0.5);
@@ -263,14 +261,6 @@ function ensureReactionStyles() {
       box-shadow: 0 0 16px 4px rgba(255,215,0,0.9);
     }
   }
-    @keyframes reaction-pulse {
-      0%, 100% {
-        box-shadow: 0 0 8px 4px rgba(255,215,0,0.65), 0 0 18px 8px rgba(255,215,0,0.4);
-      }
-      50% {
-        box-shadow: 0 0 16px 8px rgba(255,215,0,1), 0 0 32px 12px rgba(255,215,0,0.8);
-      }
-    }
     .reaction-overlay {
       position: fixed;
       inset: 0;
@@ -1855,14 +1845,17 @@ function showCardOptions(cardEl, cardData){
   // override normal options and show only React and Pass
 // Show React/Pass only if this is a reaction window for the current player.
   // state.reactionWindow.defender stores the player index (0 = local player).
+  // For reaction cards, override normal actions and show React/Pass only when a reaction window
+  // is open for the player.  reactionUI.defender will be 'player' when it's the player's turn to respond.
   if (
     cardData.type === 'REACTION' &&
-    state.reactionWindow &&
-    state.reactionWindow.defender === 0
+    reactionUI &&
+    reactionUI.open &&
+    reactionUI.defender === 'player'
   ) {
     opts.length = 0;
-    opts.push({k: "react", label: "React"});
-    opts.push({k: "pass", label: "Pass"});
+    opts.push({ k: "react", label: "React" });
+    opts.push({ k: "pass", label: "Pass" });
   }
   if (!opts.length) return;
 
