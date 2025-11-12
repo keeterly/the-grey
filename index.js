@@ -4566,11 +4566,14 @@ if (handEl) {
   // 2) Rebuild hand DOM (mark only brand-new cards for “deal-in”)
   handEl.replaceChildren();
   const domCards = [];
+  const cardById = new Map();   // <-- NEW: remember cards by id for later
   handData.forEach(c => {
     const el = document.createElement('article');
     el.className = 'card';
     el.dataset.cardId = c.id;
-    el.dataset.cardType = c.type;
+    el.dataset.cardType = c.type
+    cardById.set(c.id, c);      // <-- NEW
+    
     if (FLOW_BOUGHT_IDS.has(c.id)) el.classList.add('flow-bought');
 
     el.innerHTML = cardHTML(c);
@@ -4582,11 +4585,14 @@ if (handEl) {
     wireTouchDrag(el, c);
     attachPeekAndZoom(el, c);
 
-    // Persist React/Pass popover & glow during an open reaction window
+    // If reaction window is open and this card is playable, mark it
+    // BUT do NOT open popover yet (we’ll re-open after entry animation)
     if (reactionUI.open && Array.isArray(reactionUI.playable)) {
-      if (reactionUI.playable.some(pc => pc && pc.id === c.id)) {
+      const isPlayable = reactionUI.playable.some(pc => pc && pc.id === c.id);
+      if (isPlayable) {
         el.classList.add('reaction-candidate');
-        showCardOptions(el, c);
+        // Defer showCardOptions until after the deal-in finishes
+        el.dataset.deferReactionPopover = '1';
       }
     }
 
@@ -4629,6 +4635,16 @@ if (addedNodes.length) {
   const MOVE_MS  = 360;
   const GAP_MS   = 80;  // delay between cards in a batch
 
+// For reaction candidates, temporarily remove the visual class so it
+  // doesn’t fight with the entry transform/opacity. We’ll restore after anim.
+  const reactionToRestore = [];
+  addedNodes.forEach(n => {
+    if (n.classList.contains('reaction-candidate')) {
+      n.classList.remove('reaction-candidate');
+      reactionToRestore.push(n);
+    }
+  });
+  
   // Cancel token so a newer render interrupts any in-progress sequence
   handEl._dealRun = (handEl._dealRun || 0) + 1;
   const runId = handEl._dealRun;
@@ -4687,6 +4703,18 @@ if (addedNodes.length) {
       await animateOne(addedNodes[i]);
       if (i < addedNodes.length - 1) await new Promise(r => setTimeout(r, GAP_MS));
     }
+
+    // Restore reaction visual + open popover only AFTER entry animation ends
+    reactionToRestore.forEach(n => {
+      n.classList.add('reaction-candidate');
+      if (n.dataset.deferReactionPopover === '1') {
+        const id = n.dataset.cardId;
+        const card = cardById.get(id);
+        if (card) showCardOptions(n, card);
+        delete n.dataset.deferReactionPopover;
+      }
+    });
+    
   })();
 }
 
