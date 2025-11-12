@@ -166,6 +166,73 @@ function computePipAdvanceCostsForCard(card) {
 
 
 
+
+/**
+ * Apply a reaction card’s effect based on its name and the trigger.
+ * Reaction cards currently supported:
+ *  - Spell Snuff: cancel an opponent’s spell cast.
+ *  - Aether Disruption: negate an opponent’s spell advancement.
+ *  - Aether Shield: reduce incoming damage by 2.
+ *
+ * @param {Object} state The game state.
+ * @param {Object} reactionCard The reaction card being played.
+ * @param {String} trigger The trigger type ('spell_cast', 'spell_advance', or 'damage').
+ * @param {Object|null} triggeringSpell The spell card that caused the trigger, if any.
+ * @param {Number|null} damage The amount of damage that would be dealt, if any.
+ * @param {Number} reactingPlayer The player index (0 or 1) who is playing the reaction.
+ */
+function applyReactionEffect(state, reactionCard, trigger, triggeringSpell, damage, reactingPlayer) {
+  const opponent = 1 - reactingPlayer;
+  // Cancel a spell cast: remove from opponent’s board and move it to their graveyard
+  if (reactionCard.name === 'Spell Snuff' && trigger === 'spell_cast' && triggeringSpell) {
+    const slot = state.board[opponent].indexOf(triggeringSpell);
+    if (slot >= 0) {
+      // Remove the spell and reset progress
+      state.board[opponent][slot] = null;
+      state.spellProgress[opponent][slot] = 0;
+      state.graveyards[opponent].push(triggeringSpell);
+      state._events.push({
+        type: 'spell_snuffed',
+        player: reactingPlayer,
+        targetPlayer: opponent,
+        card: triggeringSpell
+      });
+    }
+  }
+  // Negate an advancement: decrement the opponent’s spell progress by one
+  else if (reactionCard.name === 'Aether Disruption' && trigger === 'spell_advance' && triggeringSpell) {
+    const slot = state.board[opponent].indexOf(triggeringSpell);
+    if (slot >= 0) {
+      const current = state.spellProgress[opponent][slot];
+      state.spellProgress[opponent][slot] = current > 0 ? current - 1 : 0;
+      state._events.push({
+        type: 'advance_negated',
+        player: reactingPlayer,
+        targetPlayer: opponent,
+        card: triggeringSpell
+      });
+    }
+  }
+  // Shield: reduce incoming damage by 2 (increase vitality by 2) without exceeding starting vitality
+  else if (reactionCard.name === 'Aether Shield' && trigger === 'damage') {
+    // Assuming VITALITY_START defines the max starting vitality (imported or defined elsewhere)
+    const maxVitality = typeof VITALITY_START !== 'undefined' ? VITALITY_START : 30;
+    state.vitality[reactingPlayer] = Math.min(
+      state.vitality[reactingPlayer] + 2,
+      maxVitality
+   );
+    state._events.push({
+      type: 'shield_used',
+     player: reactingPlayer,
+      amount: 2
+    });
+  }
+}
+
+
+
+
+
 /////////////////////////////
 // Card Pools (Data)
 /////////////////////////////
