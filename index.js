@@ -4454,75 +4454,93 @@ if (typeof window.__wirePileModals === 'function') {
       };
     });
 
-    handEl.replaceChildren();
+    // --- Reconcile hand without re-creating existing nodes ---
+    // 1) Snapshot current transforms so re-append doesn’t jump
+    const oldTransforms = {};
+    Array.from(handEl.children).forEach(n => {
+      oldTransforms[n.dataset.cardId] = {
+        transform: n.style.transform,
+        zIndex: n.style.zIndex
+      };
+    });
+
+    // 2) Map existing DOM nodes by id so we can reuse them
+    const existingById = new Map(
+      Array.from(handEl.children).map(n => [n.dataset.cardId, n])
+    );
+
     const domCards = [];
+    const addedNodes = [];
+
+    // We will rebuild the order, but reuse nodes where possible
+    handEl.innerHTML = '';
 
     (s.players?.player?.hand || []).forEach(c => {
-      const el = document.createElement('article');
-      el.className       = 'card';
-      el.dataset.cardId  = c.id;
-      el.dataset.cardType= c.type;
-      if (FLOW_BOUGHT_IDS.has(c.id)) el.classList.add('flow-bought');
-      el.innerHTML = cardHTML(c);
+      let el = existingById.get(c.id);
+      if (!el) {
+        el = document.createElement('article');
+        el.className = 'card';
+        el.dataset.cardId = c.id;
+        el.dataset.cardType = c.type;
+        if (FLOW_BOUGHT_IDS.has(c.id)) el.classList.add('flow-bought');
+        el.innerHTML = cardHTML(c);
+        wireDesktopDrag(el, c);
+        wireTouchDrag(el, c);
+        attachPeekAndZoom(el, c);
+        el.addEventListener('touchend', (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, {passive:false});
+        addedNodes.push(el);
+      }
 
-      // only brand-new cards start hidden (so they can “deal-in” without the whole hand moving)
-      if (!oldIds.includes(c.id)) el.classList.add('grey-hide-during-flight');
-
-      wireDesktopDrag(el, c);
-      wireTouchDrag(el, c);
-      attachPeekAndZoom(el, c);
-      el.addEventListener('touchend', (e)=>{ e.stopPropagation(); showCardOptions(el, c); }, { passive:false });
-
-      // keep Reaction popover/cards persistent while a window is open
+      // Keep reaction UI consistent across renders
       if (reactionUI.open && Array.isArray(reactionUI.playable)) {
         const isPlayable = reactionUI.playable.some(pc => pc && pc.id === c.id);
-        if (isPlayable) {
-          el.classList.add('reaction-candidate');
-          showCardOptions(el, c);
-        }
+        el.classList.toggle('reaction-candidate', !!isPlayable);
+        if (isPlayable) showCardOptions(el, c);
       }
 
       handEl.appendChild(el);
       domCards.push(el);
     });
 
-    // 1) temporarily disable transitions on cards that already existed
-    const existingNodes = domCards.filter(el => oldIds.includes(el.dataset.cardId));
+    // 3) Prevent existing cards from animating when layout changes
+    const existingNodes = domCards.filter(el => !addedNodes.includes(el));
     existingNodes.forEach(el => {
-      el.dataset.origTransition = el.style.transition || '';
+      el.dataset.__origTransition = el.style.transition || '';
       el.style.transition = 'none';
     });
 
-    // 2) layout twice (measure → apply) while transitions are off
     layoutHand(handEl, domCards);
     await nextFrame();
     layoutHand(handEl, domCards);
 
-    // 3) restore transforms/zIndex on unchanged cards so they don’t re-animate
+    // Restore transitions
+    existingNodes.forEach(el => {
+      el.style.transition = el.dataset.__origTransition || '';
+      delete el.dataset.__origTransition;
+    });
+
+    // 4) Restore saved transforms (prevents snap when re-appended)
     domCards.forEach(el => {
       const saved = oldTransforms[el.dataset.cardId];
       if (saved) {
         el.style.transform = saved.transform || '';
-        el.style.zIndex    = saved.zIndex    || '';
+        el.style.zIndex = saved.zIndex || '';
       }
     });
-    // and re-enable transitions for future natural movements
-    existingNodes.forEach(el => { el.style.transition = el.dataset.origTransition || ''; delete el.dataset.origTransition; });
 
-    // 4) only new cards “deal-in” (right→left) — existing cards stay put
-    const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
+    // 5) Only animate newly drawn cards
     if (addedNodes.length) {
       addedNodes.forEach(n => n.classList.add('deal-in'));
       setTimeout(() => {
-        addedNodes.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
+        addedNodes.forEach(n => n.classList.remove('deal-in'));
       }, 400);
       if (!bootDealt) bootDealt = true;
     } else if (!bootDealt && domCards.length) {
-      // initial boot deal: animate everything once
+      // Initial boot deal: animate all cards once
       handEl.classList.add('dealing');
-      domCards.forEach(n => n.classList.add('grey-hide-during-flight','deal-in'));
+      domCards.forEach(n => n.classList.add('deal-in'));
       setTimeout(() => {
-        domCards.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
+        domCards.forEach(n => n.classList.remove('deal-in'));
         handEl.classList.remove('dealing');
       }, 400);
       bootDealt = true;
