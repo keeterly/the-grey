@@ -373,10 +373,8 @@ document.addEventListener('click', async (ev) => {
   if (!card) return;
   state = await resolveInstantFromHand(state, reactionUI.defender, cardId);
   closeReactionWindow(false);
-  const evts2 = drainEvents(state) || [];
-  for (const ev2 of evts2) {
-    try { logLine(`Event: ${ev2.t}`); } catch {}
-  }
+  // Resume queued events when the player reacts
+  await spotlightFromEvents(state);
   await render();
 });
 
@@ -1491,6 +1489,8 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
     const beforeKey = JSON.stringify({
       hand: before?.players?.ai?.hand?.map(c => c.id) || [],
       slots: (before?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      // Track spell progress so free advances count as a change
+      slotsProg: (before?.players?.ai?.slots || []).map(s => s?.card?.progress || 0),
       ae: {
         p: before?.players?.ai?.aether || 0,
         t: before?.players?.ai?.tempAether || 0
@@ -1513,6 +1513,8 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
     const afterKey = JSON.stringify({
       hand: after?.players?.ai?.hand?.map(c => c.id) || [],
       slots: (after?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      // Track spell progress so free advances count as a change
+      slotsProg: (after?.players?.ai?.slots || []).map(s => s?.card?.progress || 0),
       ae: {
         p: after?.players?.ai?.aether || 0,
         t: after?.players?.ai?.tempAether || 0
@@ -1907,11 +1909,13 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
        } else if (o.k === "react"){
         // Resolve the reaction as an instant from hand (pays Æ + applies effect)
         state = await resolveInstantFromHand(state, "player", cardData.id);
-        // Close reaction UI, then the AI loop will continue automatically
-        closeReactionWindow(false);
+       // Resume any paused events (reaction windows pause the event queue)
+       await spotlightFromEvents(state);
         } else if (o.k === "pass"){
-          // Just close the window; AI loop resumes
+          // Player chooses to pass: close the window
         closeReactionWindow(true);
+        // Resume any paused events
+        await spotlightFromEvents(state);
         }
       } catch(e){}
       clearAllActionMenus();
@@ -4524,6 +4528,20 @@ function makeAiApi() {
       return state;
     },
 
+// === Added advance helpers for AI ===
+    // Advance a spell by one step. Uses payAndAdvanceOne so that cost and
+    // temporary Æ are handled consistently with cinematics.
+    advanceSpellOne: (side, slotIndex) => {
+      state = payAndAdvanceOne(state, side, slotIndex);
+      return state;
+    },
+    payAndAdvanceOne: (side, slotIndex) => {
+      state = payAndAdvanceOne(state, side, slotIndex);
+      return state;
+    },
+
+
+    
     // Flow
     buyFromFlowIndex: (side, idx, price) => {
       const useTemp = Math.min(price, getTemp(side));
