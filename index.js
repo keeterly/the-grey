@@ -231,6 +231,69 @@ function ensureCardMotionStyles(){
 }
 
 
+
+
+
+// ---- Hand animation helper (sequential fade+slide+tilt) ----
+let handAnimRunId = 0;
+
+async function animateHandCardsSequential(nodes, {
+  slidePx = 22,   // 12–28 feels good
+  tiltDeg = 4,    // slight entry tilt
+  fadeMs  = 260,
+  moveMs  = 360,
+  gapMs   = 80    // delay between cards in a batch
+} = {}) {
+  const runId = ++handAnimRunId;
+
+  const animateOne = (n) => new Promise((resolve) => {
+    // Read final fan pose from CSS variables (already set by layoutHand)
+    const cs  = getComputedStyle(n);
+    const tx  = parseFloat(cs.getPropertyValue('--tx'))  || 0;
+    const rot = parseFloat(cs.getPropertyValue('--rot')) || 0;
+
+    // Start: a bit to the right + a touch more tilt, fully transparent
+    n.classList.add('deal-in');            // perf hint (optional)
+    n.style.setProperty('--tx',  (tx + slidePx) + 'px');
+    n.style.setProperty('--rot', (rot + tiltDeg) + 'deg');
+    n.style.opacity    = '0';
+    n.style.transition = 'none';
+    // Reveal now that opacity is 0 (no flash)
+    n.classList.remove('grey-hide-during-flight');
+
+    // Commit start pose
+    void n.getBoundingClientRect();
+
+    // Animate to final pose
+    n.style.transition = `opacity ${fadeMs}ms ease-out, transform ${moveMs}ms ease-out`;
+    requestAnimationFrame(() => {
+      n.style.setProperty('--tx',  tx + 'px');
+      n.style.setProperty('--rot', rot + 'deg');
+      n.style.opacity = '1';
+    });
+
+    // Cleanup for this node
+    setTimeout(() => {
+      if (runId !== handAnimRunId) return resolve(); // canceled by a newer render
+      n.style.transition = '';
+      n.style.opacity    = '';
+      n.classList.remove('deal-in');
+      resolve();
+    }, moveMs + 50);
+  });
+
+  // Animate sequentially so batches (draw-up-to-5, end turn) feel like repeated Draw 1
+  for (let i = 0; i < nodes.length; i++) {
+    if (runId !== handAnimRunId) break;
+    await animateOne(nodes[i]);
+    if (i < nodes.length - 1) await new Promise(r => setTimeout(r, gapMs));
+  }
+}
+
+
+
+
+
 // === Additional reaction styles and helpers ===
 function ensureReactionStyles() {
   if (document.getElementById('reaction-style')) return;
