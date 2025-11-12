@@ -4509,58 +4509,78 @@ if (handEl) {
     delete el.dataset._origTransition;
   });
 
-  // 6) Only newly drawn cards “deal-in”; everyone else stays locked
+
+
+
+
+
+  
+ // 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
-  // Stagger so multiple cards (e.g., at End Turn) don't pop in at the exact same time
-  const PER_CARD_DELAY = 60;        // ms between each new card
-  const SLIDE_PX       = 22;        // how far from the right to start (12–28 works)
-  const TILT_DEG       = 4;         // slight tilt on entry (2–6 looks nice)
-  const FADE_MS        = 260;
-  const MOVE_MS        = 360;
+  // Reveal and animate new cards strictly one-by-one so End Turn looks like Draw 1
+  const SLIDE_PX = 22;   // 12–28 feels good
+  const TILT_DEG = 4;    // a small entry tilt
+  const FADE_MS  = 260;
+  const MOVE_MS  = 360;
+  const GAP_MS   = 80;   // delay between cards
 
-  addedNodes.forEach((n, i) => {
-    n.classList.add('deal-in');                     // perf hint (optional)
-    n.classList.remove('grey-hide-during-flight'); // make visible
+  // Helper to animate a single card from right+fade to its final fan pose
+  const animateOne = (n) => new Promise((resolve) => {
+    // Ensure the card starts hidden (we do not reveal all at once)
+    n.classList.add('deal-in');              // perf hint
+    // NOTE: do NOT remove 'grey-hide-during-flight' yet; keep it hidden until we set opacity 0
 
-    // Read the FINAL fan position from CSS variables AFTER layoutHand()
-    const cs   = getComputedStyle(n);
-    const tx   = parseFloat(cs.getPropertyValue('--tx')) || 0;
-    const ty   = parseFloat(cs.getPropertyValue('--ty')) || 0;
-    const rot  = parseFloat(cs.getPropertyValue('--rot')) || 0;
+    // Read the FINAL pose that layoutHand computed
+    const cs  = getComputedStyle(n);
+    const tx  = parseFloat(cs.getPropertyValue('--tx'))  || 0;
+    const ty  = parseFloat(cs.getPropertyValue('--ty'))  || 0;
+    const rot = parseFloat(cs.getPropertyValue('--rot')) || 0;
 
-    // Start pose: a little to the right + slight extra tilt, fully transparent
+    // Set start pose (slightly right and tilted), fully transparent
     n.style.setProperty('--tx',  (tx + SLIDE_PX) + 'px');
     n.style.setProperty('--rot', (rot + TILT_DEG) + 'deg');
     n.style.opacity    = '0';
     n.style.transition = 'none';
 
-    // Commit the start pose
+    // Make it visible *now* that it has opacity 0, so no flash
+    n.classList.remove('grey-hide-during-flight');
+
+    // Commit the start state
     void n.getBoundingClientRect();
 
-    // Stagger each card so a batch draw at End Turn looks intentional
+    // Animate to final pose
+    n.style.transition = `opacity ${FADE_MS}ms ease-out, transform ${MOVE_MS}ms ease-out`;
+    requestAnimationFrame(() => {
+      n.style.setProperty('--tx',  tx + 'px');
+      n.style.setProperty('--rot', rot + 'deg');
+      n.style.opacity = '1';
+    });
+
+    // Cleanup after this card’s animation completes
     setTimeout(() => {
-      n.style.transition = `opacity ${FADE_MS}ms ease-out, transform ${MOVE_MS}ms ease-out`;
-
-      // Animate to the real fan position on the next paint
-      requestAnimationFrame(() => {
-        n.style.setProperty('--tx',  tx + 'px');
-        n.style.setProperty('--rot', rot + 'deg');
-        n.style.opacity = '1';
-      });
-    }, i * PER_CARD_DELAY);
-  });
-
-  // Cleanup (keep the final transform in place; do NOT clear it)
-  const total = MOVE_MS + (addedNodes.length - 1) * PER_CARD_DELAY + 40;
-  setTimeout(() => {
-    addedNodes.forEach(n => {
       n.style.transition = '';
       n.style.opacity    = '';
       n.classList.remove('deal-in');
-    });
-  }, total);
+      resolve();
+    }, MOVE_MS + 40);
+  });
+
+  // Sequentially animate the batch so End Turn mirrors Draw 1
+  (async () => {
+    for (let i = 0; i < addedNodes.length; i++) {
+      const n = addedNodes[i];
+      await animateOne(n);
+      if (i < addedNodes.length - 1) await new Promise(r => setTimeout(r, GAP_MS));
+    }
+  })();
 }
+
+
+
+
+
+  
 
 
 
