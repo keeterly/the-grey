@@ -1484,19 +1484,20 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
 
   // Safety: up to N actions max so the AI can’t “lock” a turn
   let safety = 20;
+  
   while (safety-- > 0) {
     const before = serializePublic(state);
+    const beforeSlots = (before?.players?.ai?.slots || []).map(s => (s && s.card) ? { id: s.card.id, prog: s.card.progress|0 } : null);
     const beforeKey = JSON.stringify({
       hand: before?.players?.ai?.hand?.map(c => c.id) || [],
-      slots: (before?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      slots: beforeSlots,
       ae: {
         p: before?.players?.ai?.aether || 0,
         t: before?.players?.ai?.tempAether || 0
       },
       flow: (before?.flow || []).map(c => c?.id || null),
     });
-
-    // ask AI to take exactly one action
+// ask AI to take exactly one action
     try {
       if (AI?.runAiTurn) state = await AI.runAiTurn(state, api);
     } catch { /* ignore a single AI error and bail */ break; }
@@ -1507,10 +1508,12 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
     await sleep(420);
 
     // Detect “no-op” (nothing changed) → AI is done
+    
     const after = serializePublic(state);
+    const afterSlots = (after?.players?.ai?.slots || []).map(s => (s && s.card) ? { id: s.card.id, prog: s.card.progress|0 } : null);
     const afterKey = JSON.stringify({
       hand: after?.players?.ai?.hand?.map(c => c.id) || [],
-      slots: (after?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      slots: afterSlots,
       ae: {
         p: after?.players?.ai?.aether || 0,
         t: after?.players?.ai?.tempAether || 0
@@ -1518,6 +1521,7 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
       flow: (after?.flow || []).map(c => c?.id || null),
     });
     if (beforeKey === afterKey) break;
+
   }
 
   // Discard the AI hand at end of AI turn (mirror the player experience)
@@ -4525,6 +4529,13 @@ function makeAiApi() {
       Emit(Events.CHANNEL, { side, cardId, gained });
       return state;
     },
+    // Advance exactly one pip in a spell slot (spends temp Æ first)
+    advanceSpellOne: (side, slotIndex) => {
+      // Use engine's atomic guard+spend+advance to avoid desyncs
+      state = payAndAdvanceOne(state, side, slotIndex);
+      return state;
+    },
+
 
     // Flow
     buyFromFlowIndex: (side, idx, price) => {
