@@ -1113,9 +1113,9 @@ async function doStartTurn(){
   const active = side;
   reshuffleFromDiscard(active);
 // Draw exactly like pressing "Draw 1" repeatedly until we hit hand cap
-  const HAND_CAP = 5; // adjust if you have a constant elsewhere
+  const HAND_CAP = 5;
   if (need) {
-    // Safety loop to avoid any edge-case infinite
+    // Safety loop: call the same path as the menu "Draw 1" until we hit cap
     let guard = 12;
     while ((state.players?.[active]?.hand?.length || 0) < HAND_CAP && guard-- > 0) {
       await drawOneLikeMenu(active);
