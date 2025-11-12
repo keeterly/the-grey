@@ -1088,23 +1088,22 @@ async function doStartTurn(){
 
   const active = side;
   reshuffleFromDiscard(active);
-  if (need) {
+ if (need) {
     await withDrawStep(async () => {
-      // Draw *one card at a time*: draw → animate → render → tiny pause
+      // Draw → animate → render → brief pause (repeat per card)
       for (let i = 0; i < need; i++) {
         if ((state.players[active].deck?.length || 0) < 1) {
           reshuffleFromDiscard(active);
         }
         state = drawN(state, active, 1);
-        animateDrawCards(active, 1);   // visual flight for this one card
-        await render();                // keeps the “deal-in” hand anim active
-        await sleep(90);               // gentle stagger between cards
+        animateDrawCards(active, 1);       // deck→hand chip for this one card
+        await render();                    // lets the hand animate this single addition
+        await sleep(100);                  // gentle stagger; adjust 80–140ms to taste
       }
     });
   } else {
     await render();
   }
-
   Emit(Events.TURN_START, { side });
 }
 
@@ -4583,66 +4582,75 @@ if (handEl) {
 
 
   
- // 6) Only newly drawn cards “deal-in”; everyone else stays locked
+// 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
-  // Reveal and animate new cards strictly one-by-one so End Turn looks like Draw 1
-  const SLIDE_PX = 22;   // 12–28 feels good
-  const TILT_DEG = 4;    // a small entry tilt
+  // Parameters for the entry animation
+  const SLIDE_PX = 22;  // 12–28px feels good
+  const TILT_DEG = 4;   // small entry tilt
   const FADE_MS  = 260;
   const MOVE_MS  = 360;
-  const GAP_MS   = 80;   // delay between cards
+  const GAP_MS   = 80;  // delay between cards in a batch
 
-  // Helper to animate a single card from right+fade to its final fan pose
+  // Cancellation token so a newer render interrupts any in-flight sequence
+  handEl._dealRun = (handEl._dealRun || 0) + 1;
+  const runId = handEl._dealRun;
+
+  // Helper to animate a single node from right+tilt+fade to its final fan pose
   const animateOne = (n) => new Promise((resolve) => {
-    // Ensure the card starts hidden (we do not reveal all at once)
-    n.classList.add('deal-in');              // perf hint
-    // NOTE: do NOT remove 'grey-hide-during-flight' yet; keep it hidden until we set opacity 0
+    if (runId !== handEl._dealRun) return resolve(); // render changed; abort
 
-    // Read the FINAL pose that layoutHand computed
+    // Read the FINAL pose from CSS variables AFTER layoutHand()
     const cs  = getComputedStyle(n);
     const tx  = parseFloat(cs.getPropertyValue('--tx'))  || 0;
-    const ty  = parseFloat(cs.getPropertyValue('--ty'))  || 0;
     const rot = parseFloat(cs.getPropertyValue('--rot')) || 0;
+    // (We leave --ty as-is)
 
-    // Set start pose (slightly right and tilted), fully transparent
+    // Start pose: slightly to the right + extra tilt, fully transparent
+    n.classList.add('deal-in');            // perf hint (optional)
     n.style.setProperty('--tx',  (tx + SLIDE_PX) + 'px');
     n.style.setProperty('--rot', (rot + TILT_DEG) + 'deg');
     n.style.opacity    = '0';
     n.style.transition = 'none';
 
-    // Make it visible *now* that it has opacity 0, so no flash
+    // Reveal this ONE card now that opacity is 0 (others remain hidden)
     n.classList.remove('grey-hide-during-flight');
 
-    // Commit the start state
+    // Commit start state so the transition will fire
     void n.getBoundingClientRect();
+    if (runId !== handEl._dealRun) return resolve();
 
     // Animate to final pose
     n.style.transition = `opacity ${FADE_MS}ms ease-out, transform ${MOVE_MS}ms ease-out`;
     requestAnimationFrame(() => {
+      if (runId !== handEl._dealRun) return resolve();
       n.style.setProperty('--tx',  tx + 'px');
       n.style.setProperty('--rot', rot + 'deg');
       n.style.opacity = '1';
     });
 
-    // Cleanup after this card’s animation completes
+    // Cleanup for this card (keep transform via CSS vars; do NOT clear transform)
     setTimeout(() => {
+      if (runId !== handEl._dealRun) return resolve();
       n.style.transition = '';
       n.style.opacity    = '';
       n.classList.remove('deal-in');
       resolve();
-    }, MOVE_MS + 40);
+    }, MOVE_MS + 50);
   });
 
-  // Sequentially animate the batch so End Turn mirrors Draw 1
+  // Run them strictly one-by-one so start-of-turn “draw up to 5” mirrors Draw 1
   (async () => {
     for (let i = 0; i < addedNodes.length; i++) {
-      const n = addedNodes[i];
-      await animateOne(n);
-      if (i < addedNodes.length - 1) await new Promise(r => setTimeout(r, GAP_MS));
+      if (runId !== handEl._dealRun) break;
+      await animateOne(addedNodes[i]);
+      if (i < addedNodes.length - 1) {
+        await new Promise(r => setTimeout(r, GAP_MS));
+      }
     }
   })();
 }
+
 
 
 
