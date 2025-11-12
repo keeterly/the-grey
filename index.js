@@ -4629,16 +4629,7 @@ if (handEl) {
 // 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
- // Enter newest cards from the right side first (based on final tx)
-  addedNodes.sort((a, b) => {
-    const ca = getComputedStyle(a), cb = getComputedStyle(b);
-    const txA = parseFloat(ca.getPropertyValue('--tx')) || 0;
-   const txB = parseFloat(cb.getPropertyValue('--tx')) || 0;
-    return txB - txA; // bigger tx (more right) goes first
-  });
-
   // Match the gentler Draw-1 / boot vibe
-
 const SLIDE_PX = 26;
 const TILT_DEG = 5;
 const FADE_MS  = 420;
