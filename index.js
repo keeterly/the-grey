@@ -244,8 +244,8 @@ async function animateHandCardsSequential(
     slidePx = 26,                 // was ~22; a bit more drift from the right
     tiltDeg = 5,                  // was ~4; slightly more character
     fadeMs  = 360,                // was ~260
-    moveMs  = 520,                // was ~360
-    gapMs   = 120,                // was ~80; adds gentle spacing when multiple cards enter
+    moveMs  = 620,                // was ~360
+    gapMs   = 160,                // was ~80; adds gentle spacing when multiple cards enter
     easing  = 'cubic-bezier(0.22, 0.61, 0.36, 1)' // smooth ease-out (feels natural)
   } = {}
 ) {
