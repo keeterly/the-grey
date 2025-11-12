@@ -1088,19 +1088,24 @@ async function doStartTurn(){
 
   const active = side;
   reshuffleFromDiscard(active);
-  if (need){
-    if ((state.players[active].deck?.length||0) < need) reshuffleFromDiscard(active);
+  if (need) {
     await withDrawStep(async () => {
+      // make sure we have enough cards before drawing
+      if ((state.players[active].deck?.length || 0) < need) reshuffleFromDiscard(active);
       state = drawN(state, active, need);
       if (need > 0) {
-    // visual only: deck -> hand chips
-    animateDrawCards(active, need);
+        // visual only: deck -> hand chips
+        animateDrawCards(active, need);
       }
+      // ⬅️ do one paint while still inside the draw step so the hand
+      //    can run its sequential “deal-in” animation instead of popping
+      await render();
     });
+  } else {
+    await render();
   }
 
-  Emit(Events.TURN_START, {side});
-  await render();
+  Emit(Events.TURN_START, { side });
 }
 
 async function doEndTurn() {
