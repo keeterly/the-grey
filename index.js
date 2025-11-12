@@ -4445,6 +4445,18 @@ if (typeof window.__wirePileModals === 'function') {
     const oldIds = prevHandIds.slice();
     const newIds = (s.players?.player?.hand || []).map(c => c.id);
 
+    // Store current transforms of existing cards so we can restore them.
+    const oldTransforms = {};
+    Array.from(handEl.children).forEach(child => {
+      const cid = child.dataset.cardId;
+      if (cid) {
+        oldTransforms[cid] = {
+          transform: child.style.transform,
+          zIndex: child.style.zIndex || ''
+        };
+      }
+    });
+    // Clear hand for re-render
     handEl.replaceChildren();
     const domCards = [];
 
@@ -4493,10 +4505,13 @@ if (typeof window.__wirePileModals === 'function') {
     await nextFrame();
     layoutHand(handEl, domCards);
 
-    // Restore the transitions after positions have been updated
-    existingNodes.forEach(el => {
-      el.style.transition = el.dataset.origTransition || '';
-      delete el.dataset.origTransition;
+    // Restore the previous transform and z-index on cards that were already in hand.
+    domCards.forEach(el => {
+      const saved = oldTransforms[el.dataset.cardId];
+      if (saved) {
+        el.style.transform = saved.transform || '';
+        el.style.zIndex = saved.zIndex || '';
+      }
     });
 
     if (addedNodes.length){
