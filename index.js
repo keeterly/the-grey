@@ -1490,10 +1490,14 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
   // Safety: up to N actions max so the AI can’t “lock” a turn
   let safety = 20;
   while (safety-- > 0) {
+    // Wait if the player’s reaction popover is open.
+  while (reactionUI?.open) await sleep(40);
     const before = serializePublic(state);
     const beforeKey = JSON.stringify({
       hand: before?.players?.ai?.hand?.map(c => c.id) || [],
       slots: (before?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+       // Include progress so a free advance counts as a change.
+    slotsProg: (before?.players?.ai?.slots || []).map(s => s?.card?.progress || 0),
       ae: {
         p: before?.players?.ai?.aether || 0,
         t: before?.players?.ai?.tempAether || 0
@@ -1516,6 +1520,7 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
     const afterKey = JSON.stringify({
       hand: after?.players?.ai?.hand?.map(c => c.id) || [],
       slots: (after?.players?.ai?.slots || []).map(s => s?.card?.id || null),
+      slotsProg: (after?.players?.ai?.slots || []).map(s => s?.card?.progress || 0),
       ae: {
         p: after?.players?.ai?.aether || 0,
         t: after?.players?.ai?.tempAether || 0
@@ -2126,8 +2131,11 @@ function getProgress(card){ return Math.max(0, card?.progress|0); }
 function setProgress(card, n){ if (card) card.progress = Math.max(0, n|0); }
 function advanceSpellAt(side, slotIndex){
   // Use engine guard+spend+advance atomically
-  const pub = serializePublic(state) || {};
-  if (!pub.players?.[side]?.slots?.[slotIndex]?.canAdvance) return;
+ const pub = serializePublic(state) || {};
+  // Only enforce canAdvance for the player’s side; AI uses engine rules.
+  if (side === 'player') {
+    if (!pub.players?.[side]?.slots?.[slotIndex]?.canAdvance) return;
+  }
   state = payAndAdvanceOne(state, side, slotIndex);
   render();
 }
@@ -4534,6 +4542,17 @@ function makeAiApi() {
       const useTemp = Math.min(cost, getTemp(side));
       if (useTemp) addTemp(side, -useTemp);
       if (cost - useTemp) adjustAe(side, -(cost - useTemp));
+    },
+
+    // Allow the AI to advance spells. These wrappers use the engine’s
+    // pay‑and‑advance function so temp Æ and regular Æ are handled correctly.
+    advanceSpellOne: (side, slotIndex) => {
+      state = payAndAdvanceOne(state, side, slotIndex);
+      return state;
+    },
+    payAndAdvanceOne: (side, slotIndex) => {
+      state = payAndAdvanceOne(state, side, slotIndex);
+      return state;
     },
 
     // These call the wrapped, animated helpers you already have so cinematics fire
