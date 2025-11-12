@@ -4517,41 +4517,45 @@ if (handEl) {
   });
 
   // 6) Only newly drawn cards “deal-in”; everyone else stays locked
-  const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
-  if (addedNodes.length) {
-    // Fade + subtle slide from the right for new cards only
-    addedNodes.forEach(n => {
-      n.classList.add('deal-in');                     // perf hint (optional)
-      n.classList.remove('grey-hide-during-flight');  // make visible
+const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
+if (addedNodes.length) {
+  // IMPORTANT: we are AFTER the two layoutHand() passes.
+  // At this point, each card's final transform is set (may be computed, not inline).
+  addedNodes.forEach(n => {
+    n.classList.add('deal-in');                     // perf hint (optional)
+    n.classList.remove('grey-hide-during-flight');  // make visible
 
-      // Grab the final transform computed by layoutHand (the "destination")
-      const finalT = n.style.transform || '';
+    // Get the final, real transform (inline or computed) from layoutHand
+    const inlineT  = n.style.transform && n.style.transform.trim();
+    const compT    = getComputedStyle(n).transform; // e.g. "matrix(...)" or "none"
+    const finalT   = inlineT || (compT && compT !== 'none' ? compT : 'translate(0)');
 
-      // Start pose: a little to the right, fully transparent
-      n.style.transform  = `${finalT} translateX(18px)`;   // tweak 12–24px to taste
-      n.style.opacity    = '0';
-      n.style.transition = 'opacity 240ms ease-out, transform 300ms ease-out';
+    // Start a little to the right, fully transparent; then animate to finalT
+    n.style.transform  = `${finalT} translateX(18px)`;  // tweak 12–24px as desired
+    n.style.opacity    = '0';
+    n.style.transition = 'opacity 240ms ease-out, transform 300ms ease-out';
 
-      // Commit the start state (no pop)…
-      void n.getBoundingClientRect(); // force reflow
+    // Commit the start state before switching to the end state
+    // (forces the browser to register opacity:0 + translated transform)
+    void n.getBoundingClientRect();
 
-      // …then animate to the destination next frame
-      requestAnimationFrame(() => {
-        n.style.transform = finalT;
-        n.style.opacity   = '1';
-      });
+    requestAnimationFrame(() => {
+      n.style.transform = finalT; // animate back to the true arc position
+      n.style.opacity   = '1';
     });
+  });
 
-   // Clean up inline styles after the animation completes (keep transform!)
-    setTimeout(() => {
-      addedNodes.forEach(n => {
-        n.style.transition = '';
-        n.style.opacity = '';
-        // DO NOT clear transform; it holds the final arc position from layoutHand
-        n.classList.remove('deal-in');
-      });
-    }, 340); // a bit > transform duration (300ms)
-  }
+  // Cleanup AFTER animation — keep transform intact so cards stay put
+  setTimeout(() => {
+    addedNodes.forEach(n => {
+      n.style.transition = '';
+      n.style.opacity = '';
+      // DO NOT clear transform — it holds the final arc position
+      n.classList.remove('deal-in');
+    });
+  }, 340); // a bit > transform duration (300ms)
+}
+
 
   // 7) Remember for next render
   prevHandIds = newIds;
