@@ -4513,20 +4513,13 @@ if (typeof window.__wirePileModals === 'function') {
     await nextFrame();
     layoutHand(handEl, domCards);
 
-    // Restore transitions
+    // re-enable transitions for future natural movements
     existingNodes.forEach(el => {
       el.style.transition = el.dataset.__origTransition || '';
       delete el.dataset.__origTransition;
     });
 
-    // 4) Restore saved transforms (prevents snap when re-appended)
-    domCards.forEach(el => {
-      const saved = oldTransforms[el.dataset.cardId];
-      if (saved) {
-        el.style.transform = saved.transform || '';
-        el.style.zIndex = saved.zIndex || '';
-      }
-    });
+    
 
     // 5) Only animate newly drawn cards
     if (addedNodes.length) {
