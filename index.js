@@ -4479,23 +4479,37 @@ if (typeof window.__wirePileModals === 'function') {
       handEl.appendChild(el); domCards.push(el);
     });
 
-    layoutHand(handEl, domCards);
-    await nextFrame(); layoutHand(handEl, domCards);
+    
+    
+    // Temporarily disable transitions on existing cards so adding a new card
+    // doesn't cause the entire hand to re-animate or shuffle positions.
+    const existingNodes = domCards.filter(el => oldIds.includes(el.dataset.cardId));
+    existingNodes.forEach(el => {
+      el.dataset.origTransition = el.style.transition || '';
+      el.style.transition = 'none';
+    });
 
-    const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
+    layoutHand(handEl, domCards);
+    await nextFrame();
+    layoutHand(handEl, domCards);
+
+    // Restore the transitions after positions have been updated
+    existingNodes.forEach(el => {
+      el.style.transition = el.dataset.origTransition || '';
+      delete el.dataset.origTransition;
+    });
+
     if (addedNodes.length){
-      // For newly drawn cards, always slide them in with 'deal-in' but only shuffle the whole hand on the very first deal.
+      // Animate newly drawn cards with the existing 'deal-in' class.
       addedNodes.forEach(n => n.classList.add('deal-in'));
-      if (!bootDealt) {
-        handEl.classList.add('dealing');
-      }
       setTimeout(() => {
         addedNodes.forEach(n => n.classList.remove('grey-hide-during-flight','deal-in'));
-        if (!bootDealt) {
-          handEl.classList.remove('dealing');
-        }
       }, 400);
-      // After the initial deal, mark as dealt to avoid future full-hand shuffles
+    }
+    
+    
+    
+    // After the initial deal, mark as dealt to avoid future full-hand shuffles
       if (!bootDealt) bootDealt = true;
     } else if (!bootDealt && domCards.length){
       // Handle the initial boot deal: animate all cards once
