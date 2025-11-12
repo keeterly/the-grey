@@ -237,7 +237,13 @@ function ensureReactionStyles() {
   const s = document.createElement('style');
   s.id = 'reaction-style';
   s.textContent = `
-    body.reaction-mode .hand {
+    /* During a reaction window, keep the player’s hand (and player row) above the
+       dimming overlay so that cards remain fully visible. This targets
+       both class-based and id-based containers as well as the entire
+       player row. */
+    body.reaction-mode .hand,
+    body.reaction-mode #hand,
+    body.reaction-mode .row.player {
       filter: none !important;
       position: relative;
       z-index: 3501;
@@ -373,7 +379,7 @@ document.addEventListener('click', async (ev) => {
   if (!card) return;
   state = await resolveInstantFromHand(state, reactionUI.defender, cardId);
   closeReactionWindow(false);
-  // Resume queued events when the player reacts
+  // Resume any queued events that were paused when the reaction window opened
   await spotlightFromEvents(state);
   await render();
 });
@@ -1483,14 +1489,10 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
   // Safety: up to N actions max so the AI can’t “lock” a turn
   let safety = 20;
   while (safety-- > 0) {
-    // Hard stop while the player’s reaction window is open
-    while (reactionUI?.open) { await sleep(40); }
     const before = serializePublic(state);
     const beforeKey = JSON.stringify({
       hand: before?.players?.ai?.hand?.map(c => c.id) || [],
       slots: (before?.players?.ai?.slots || []).map(s => s?.card?.id || null),
-      // Track spell progress so free advances count as a change
-      slotsProg: (before?.players?.ai?.slots || []).map(s => s?.card?.progress || 0),
       ae: {
         p: before?.players?.ai?.aether || 0,
         t: before?.players?.ai?.tempAether || 0
@@ -1513,8 +1515,6 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
     const afterKey = JSON.stringify({
       hand: after?.players?.ai?.hand?.map(c => c.id) || [],
       slots: (after?.players?.ai?.slots || []).map(s => s?.card?.id || null),
-      // Track spell progress so free advances count as a change
-      slotsProg: (after?.players?.ai?.slots || []).map(s => s?.card?.progress || 0),
       ae: {
         p: after?.players?.ai?.aether || 0,
         t: after?.players?.ai?.tempAether || 0
@@ -1777,11 +1777,10 @@ function attachPeekAndZoom(el, data){
 
 /* ---------- action popover ---------- */
 function clearAllActionMenus(){
-   // Keep the React/Pass popover alive during a reaction window
-   if (reactionUI?.open) return;
-   document.querySelectorAll(".action-pop").forEach(n => n.remove());
- }
-
+  // Do not remove the React/Pass popover while a reaction window is open.
+  if (reactionUI && reactionUI.open) return;
+  document.querySelectorAll('.action-pop').forEach(n => n.remove());
+}
 function firstOpenSpellSlotIndexFor(side, pub){
   const slots = pub.players?.[side]?.slots || [];
   for (let i=0;i<3;i++) if (!slots[i]?.hasCard) return i;
@@ -1906,16 +1905,18 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
 
         } else if (o.k === "cast"){
           state = await window.castInstantFromHand(state, "player", cardData.id);
-       } else if (o.k === "react"){
-        // Resolve the reaction as an instant from hand (pays Æ + applies effect)
-        state = await resolveInstantFromHand(state, "player", cardData.id);
-       // Resume any paused events (reaction windows pause the event queue)
-       await spotlightFromEvents(state);
+        } else if (o.k === "react"){
+          // Playing a reaction card in a reaction window: delegate to castInstantFromHand,
+          // which resolves Reactions via GameLogic
+          state = await window.castInstantFromHand(state, "player", cardData.id);
+          closeReactionWindow(false);
+          // Resume any queued events that were paused by the reaction window
+          await spotlightFromEvents(state);
         } else if (o.k === "pass"){
-          // Player chooses to pass: close the window
-        closeReactionWindow(true);
-        // Resume any paused events
-        await spotlightFromEvents(state);
+          // Player chooses to pass on reacting. Clear window and continue
+          closeReactionWindow(true);
+          // Resume any queued events when passing
+          await spotlightFromEvents(state);
         }
       } catch(e){}
       clearAllActionMenus();
@@ -4528,20 +4529,6 @@ function makeAiApi() {
       return state;
     },
 
-// === Added advance helpers for AI ===
-    // Advance a spell by one step. Uses payAndAdvanceOne so that cost and
-    // temporary Æ are handled consistently with cinematics.
-    advanceSpellOne: (side, slotIndex) => {
-      state = payAndAdvanceOne(state, side, slotIndex);
-      return state;
-    },
-    payAndAdvanceOne: (side, slotIndex) => {
-      state = payAndAdvanceOne(state, side, slotIndex);
-      return state;
-    },
-
-
-    
     // Flow
     buyFromFlowIndex: (side, idx, price) => {
       const useTemp = Math.min(price, getTemp(side));

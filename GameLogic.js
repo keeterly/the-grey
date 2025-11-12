@@ -181,52 +181,80 @@ function computePipAdvanceCostsForCard(card) {
  * @param {Number|null} damage The amount of damage that would be dealt, if any.
  * @param {Number} reactingPlayer The player index (0 or 1) who is playing the reaction.
  */
-function applyReactionEffect(state, reactionCard, trigger, triggeringSpell, damage, reactingPlayer) {
-  const opponent = 1 - reactingPlayer;
-  // Cancel a spell cast: remove from opponent’s board and move it to their graveyard
-  if (reactionCard.name === 'Spell Snuff' && trigger === 'spell_cast' && triggeringSpell) {
-    const slot = state.board[opponent].indexOf(triggeringSpell);
-    if (slot >= 0) {
-      // Remove the spell and reset progress
-      state.board[opponent][slot] = null;
-      state.spellProgress[opponent][slot] = 0;
-      state.graveyards[opponent].push(triggeringSpell);
-      state._events.push({
-        type: 'spell_snuffed',
-        player: reactingPlayer,
-        targetPlayer: opponent,
-        card: triggeringSpell
+//
+// Apply a reaction card’s effect. This helper operates on the modern state structure
+// where each player has a `slots` array of objects { hasCard, card } and spells
+// track their progress on the card itself (card.progress). The context passed
+// from `triggerReactionWindow` tells us which side and card triggered the
+// reaction. Supported reactions:
+//   • Spell Snuff: cancel an opponent’s spell cast (remove from slot and
+//     discard it).
+//   • Aether Disruption: negate an opponent’s spell advancement (reduce
+//     progress by 1 on the targeted spell).
+//   • Aether Shield: when you would take damage, restore 2 vitality (not
+//     exceeding STARTING_VITALITY) to the reacting player.
+//
+function applyReactionEffect(state, reactionCard, trigger, context, reactingSide) {
+  // Spell Snuff: when opponent casts a spell, cancel it.
+  if (reactionCard?.name === 'Spell Snuff' && trigger === 'spell_cast' && context?.cardId) {
+    // The context.playerId holds the side of the casting player (the opponent).
+    const casterSide = context.playerId;
+    const opponentSlots = state.players?.[casterSide]?.slots || [];
+    for (let i = 0; i < opponentSlots.length; i++) {
+      const slot = opponentSlots[i];
+      const c    = slot?.card;
+      if (slot?.hasCard && c?.id === context.cardId) {
+        // Remove the spell from the slot
+        slot.hasCard = false;
+        slot.card    = null;
+        // Discard the spell
+        state.players[casterSide].discard.push(c);
+        // Notify the UI
+        pushEvt(state, {
+          t: 'spell_snuffed',
+          side: reactingSide,
+          targetSide: casterSide,
+          cardId: c.id,
+          cardData: { ...c }
+        });
+        break;
+      }
+    }
+  }
+  // Aether Disruption: when opponent advances a spell, negate that advancement.
+  else if (reactionCard?.name === 'Aether Disruption' && trigger === 'spell_advance' && context?.playerId != null && Number.isFinite(context?.slotIndex)) {
+    const casterSide = context.playerId;
+    const slotIndex  = context.slotIndex;
+    const slot       = state.players?.[casterSide]?.slots?.[slotIndex];
+    const c          = slot?.card;
+    if (slot && slot.hasCard && c?.type === 'SPELL') {
+      // Reduce progress by one (min 0)
+      c.progress = Math.max(0, (c.progress | 0) - 1);
+      pushEvt(state, {
+        t: 'advance_negated',
+        side: reactingSide,
+        targetSide: casterSide,
+        slotIndex,
+        cardId: c.id,
+        cardData: { ...c }
       });
     }
   }
-  // Negate an advancement: decrement the opponent’s spell progress by one
-  else if (reactionCard.name === 'Aether Disruption' && trigger === 'spell_advance' && triggeringSpell) {
-    const slot = state.board[opponent].indexOf(triggeringSpell);
-    if (slot >= 0) {
-      const current = state.spellProgress[opponent][slot];
-      state.spellProgress[opponent][slot] = current > 0 ? current - 1 : 0;
-      state._events.push({
-        type: 'advance_negated',
-        player: reactingPlayer,
-        targetPlayer: opponent,
-        card: triggeringSpell
+  // Aether Shield: restore 2 vitality to the reacting player (up to max)
+  else if (reactionCard?.name === 'Aether Shield' && trigger === 'damage') {
+    const P = state.players?.[reactingSide];
+    if (P) {
+      // Determine the maximum vitality (STARTING_VITALITY constant).
+      const maxVitality = typeof STARTING_VITALITY !== 'undefined' ? STARTING_VITALITY : 30;
+      P.vitality = Math.min(maxVitality, (P.vitality | 0) + 2);
+      pushEvt(state, {
+        t: 'shield_used',
+        side: reactingSide,
+        amount: 2
       });
     }
   }
-  // Shield: reduce incoming damage by 2 (increase vitality by 2) without exceeding starting vitality
-  else if (reactionCard.name === 'Aether Shield' && trigger === 'damage') {
-    // Assuming VITALITY_START defines the max starting vitality (imported or defined elsewhere)
-    const maxVitality = typeof VITALITY_START !== 'undefined' ? VITALITY_START : 30;
-    state.vitality[reactingPlayer] = Math.min(
-      state.vitality[reactingPlayer] + 2,
-      maxVitality
-   );
-    state._events.push({
-      type: 'shield_used',
-     player: reactingPlayer,
-      amount: 2
-    });
-  }
+  return state;
 }
 
 
@@ -400,15 +428,27 @@ export function resolveReactionFromHand(state, playerId, cardId) {
   }
   // Spending Æ triggers Kareth’s passive
   state = processAetherSpend(state, playerId, playCost);
-  // Remove from hand and discard
+  // Remove the reaction card from hand
   P.hand.splice(idx, 1);
+  // Apply the reaction effect using the current reaction window context
+  try {
+    const rw = state.reactionWindow || {};
+    const trigger = rw.trigger;
+    const context = rw.context;
+    // Apply effect prior to discarding so that the cancellation/negation occurs
+    state = applyReactionEffect(state, card, trigger, context, playerId);
+  } catch (err) {
+    /* Ignore reaction effect errors; continue resolution */
+  }
+  // Discard the reaction card
   P.discard.push(card);
+  // Emit a resolved event for the reaction
   pushEvt(state, {
-    t: "resolved",
-    source: "reaction",
+    t: 'resolved',
+    source: 'reaction',
     side: playerId,
     cardId: card.id,
-    cardType: "REACTION",
+    cardType: 'REACTION',
     cardData: { ...card }
   });
   // Clear the reaction window once a reaction resolves
