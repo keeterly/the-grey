@@ -421,13 +421,11 @@ export function resolveReactionFromHand(state, playerId, cardId) {
   if (idx < 0) return state;
   const card = P.hand[idx];
   const playCost = Number(card.playCost || 0);
-  if ((P.aether|0) < playCost) throw new Error("Not enough Æ to play this Reaction");
+  // Do not deduct Æ here; the UI (castInstantFromHand) has already paid the cost from temp + regular Æ.
+  // Only process spending triggers for the total playCost.
   if (playCost > 0) {
-    P.aether -= playCost;
-    pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id});
+    state = processAetherSpend(state, playerId, playCost);
   }
-  // Spending Æ triggers Kareth’s passive
-  state = processAetherSpend(state, playerId, playCost);
   // Remove the reaction card from hand
   P.hand.splice(idx, 1);
   // Apply the reaction effect using the current reaction window context
@@ -1187,27 +1185,29 @@ export function payAndAdvanceOne(state, side, slotIndex) {
 // ⬇️ REPLACE your existing resolveInstantFromHand with this
 export function resolveInstantFromHand(state, playerId, cardId){
   const P = state.players[playerId];
- const i = P.hand.findIndex(c => c.id === cardId && (c.type === "INSTANT" || c.type === "REACTION"));
+  // Locate the card in hand by id that is either an Instant or Reaction
+  const i = P.hand.findIndex(c => c.id === cardId && (c.type === "INSTANT" || c.type === "REACTION"));
   if (i < 0) return state;
   const card = P.hand[i];
 
-  const playCost = Number(card.playCost || 0);
-  if ((P.aether|0) < playCost) throw new Error("Not enough Æ to cast this Instant");
-  if (playCost > 0) { P.aether -= playCost; pushEvt(state,{t:"aether",side:playerId,amount:-playCost,by:card.id}); }
-
-// Process Kareth spend triggers
- state = processAetherSpend(state, playerId, playCost);
-
-  
-  // If it’s a Reaction card, handle with the Reaction resolver
+  // For Reaction cards, do not deduct cost here. Delegate to the reaction resolver which
+  // handles cost payment, discard and effect resolution. This avoids double-paying.
   if (card.type === "REACTION") {
     return resolveReactionFromHand(state, playerId, card.id);
   }
-  // otherwise handle as normal Instant
-  // move to stack resolution
-  P.hand.splice(i,1)[0];
-  state = applyParsedEffects(state, playerId, card);
 
+  // For Instant cards, use their `cost` property (not playCost) to determine Aether cost.
+  const cost = Number(card.cost || 0);
+  // Do not deduct Æ here; the UI (castInstantFromHand) has already paid the cost.
+  // Only process spending triggers for the total cost.
+  if (cost > 0) {
+    state = processAetherSpend(state, playerId, cost);
+  }
+  // Remove the instant from the hand
+  P.hand.splice(i, 1)[0];
+  // Apply its parsed effects (these may enqueue additional events)
+  state = applyParsedEffects(state, playerId, card);
+  // Move the card to the discard pile
   P.discard.push(card);
   pushEvt(state, {
     t: "resolved",

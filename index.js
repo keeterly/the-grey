@@ -377,7 +377,8 @@ document.addEventListener('click', async (ev) => {
   const cardId = cardEl.getAttribute('data-card-id');
   const card = reactionUI.playable.find(c => c.id === cardId);
   if (!card) return;
-  state = await resolveInstantFromHand(state, reactionUI.defender, cardId);
+  // Use castInstantFromHand to handle cost payment and resolution for reaction cards
+  state = await window.castInstantFromHand(state, reactionUI.defender, cardId);
   closeReactionWindow(false);
   // Resume any queued events that were paused when the reaction window opened
   await spotlightFromEvents(state);
@@ -4062,32 +4063,60 @@ window.castInstantFromHand = async function(_state, side, cardId) {
   const card = hand.find(c => c.id === cardId);
   // Accept only Instants or Reactions
   if (!card || (card.type !== 'INSTANT' && card.type !== 'REACTION')) return state;
-  // Determine cost: reactions use playCost; instants use cost
+  // Determine the raw cost based on card type
   const rawCost = card.type === 'REACTION' ? (card.playCost | 0) : (card.cost | 0);
-  const cost    = rawCost;
-  if (getTotal(side) < cost) {
+  if (getTotal(side) < rawCost) {
     showToast('Not enough Æther.');
     return state;
   }
-  // Deduct temp aether first
-  const useTemp = Math.min(cost, getTemp(side));
-  adjustAe(side, useTemp);
+  // Choose appropriate cinematic source and label
+  const cine    = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+  const destSel = side === 'ai' ? '#ai-mini-discard' : '#btn-discard-hud';
+  const label   = (card.type === 'REACTION') ? 'reaction' : 'instant';
+  // Play the cinematic immediately
+  cine(cardId, destSel, label);
+
+  if (card.type === 'REACTION') {
+    // For reactions, pay the playCost using temp Æ first and then regular Æ.
+    const useTemp = Math.min(rawCost, getTemp(side));
+    const spendReg = rawCost - useTemp;
+    // Deduct the remainder from regular Æ (negative delta to subtract)
+    if (spendReg > 0) adjustAe(side, -spendReg);
+    // Deduct from temp Æ
+    if (useTemp > 0) addTemp(side, -useTemp);
+    try {
+      state = resolveInstantFromHand(state, side, cardId);
+      Emit(Events.CARD_CAST, { side, cardId, cost: rawCost });
+      // Trigger Kareth’s after-spend effects
+      karethAfterSpend(side, rawCost);
+      await render();
+    } catch (e) {
+      // Refund payments if the reaction fails
+      if (spendReg > 0) adjustAe(side, spendReg);
+      if (useTemp > 0) addTemp(side, useTemp);
+      throw e;
+    }
+    return state;
+  }
+  // For instant cards, pay cost from temp Æ first
+  const useTemp = Math.min(rawCost, getTemp(side));
+  const spendReg = rawCost - useTemp;
+  // Deduct the remainder from regular Æ (use negative delta to subtract)
+  if (spendReg > 0) adjustAe(side, -spendReg);
+  // Deduct from temp Æ
+  if (useTemp > 0) addTemp(side, -useTemp);
   try {
-    if (useTemp) addTemp(side, -useTemp);
-    // Choose appropriate cinematic source and label
-    const cine    = side === 'ai' ? cineFromAiMini : cineFromHandCard;
-    const destSel = side === 'ai' ? '#ai-mini-discard' : '#btn-discard-hud';
-    const label   = (card.type === 'REACTION') ? 'reaction' : 'instant';
-    cine(cardId, destSel, label);
-    // Resolve via GameLogic; resolveInstantFromHand handles Reactions automatically
     state = resolveInstantFromHand(state, side, cardId);
-    Emit(Events.CARD_CAST, { side, cardId, cost });
+    Emit(Events.CARD_CAST, { side, cardId, cost: rawCost });
+    // Trigger Kareth’s after-spend effects
     karethAfterSpend(side, rawCost);
     await render();
-  } catch (e) {
-    if (useTemp) adjustAe(side, -useTemp);
-    throw e;
-  }
+    } catch (e) {
+      // Refund payments if the instant fails
+      if (spendReg > 0) adjustAe(side, spendReg);
+      if (useTemp > 0) addTemp(side, useTemp);
+      throw e;
+    }
   return state;
 };
 
