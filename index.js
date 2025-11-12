@@ -4542,12 +4542,12 @@ if (handEl) {
       });
     });
 
-    // Clean up inline styles after the animation completes
+   // Clean up inline styles after the animation completes (keep transform!)
     setTimeout(() => {
       addedNodes.forEach(n => {
         n.style.transition = '';
         n.style.opacity = '';
-        n.style.transform = ''; // keep layoutHand's transform via style attr? (it's re-set each render)
+        // DO NOT clear transform; it holds the final arc position from layoutHand
         n.classList.remove('deal-in');
       });
     }, 340); // a bit > transform duration (300ms)
