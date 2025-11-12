@@ -234,61 +234,80 @@ function ensureCardMotionStyles(){
 
 
 
-// ---- Hand animation helper (sequential fade+slide+tilt) ----
+// ---- Hand animation helper (sequential fade+slide+tilt; softer timing) ----
 let handAnimRunId = 0;
 
-async function animateHandCardsSequential(nodes, {
-  slidePx = 22,   // 12–28 feels good
-  tiltDeg = 4,    // slight entry tilt
-  fadeMs  = 260,
-  moveMs  = 360,
-  gapMs   = 80    // delay between cards in a batch
-} = {}) {
+async function animateHandCardsSequential(
+  nodes,
+  {
+    // softer defaults
+    slidePx = 26,                 // was ~22; a bit more drift from the right
+    tiltDeg = 5,                  // was ~4; slightly more character
+    fadeMs  = 360,                // was ~260
+    moveMs  = 520,                // was ~360
+    gapMs   = 120,                // was ~80; adds gentle spacing when multiple cards enter
+    easing  = 'cubic-bezier(0.22, 0.61, 0.36, 1)' // smooth ease-out (feels natural)
+  } = {}
+) {
   const runId = ++handAnimRunId;
 
   const animateOne = (n) => new Promise((resolve) => {
-    // Read final fan pose from CSS variables (already set by layoutHand)
+    if (runId !== handAnimRunId) return resolve();
+
+    // Read final fan pose (layoutHand already set CSS vars for this)
     const cs  = getComputedStyle(n);
     const tx  = parseFloat(cs.getPropertyValue('--tx'))  || 0;
     const rot = parseFloat(cs.getPropertyValue('--rot')) || 0;
 
-    // Start: a bit to the right + a touch more tilt, fully transparent
+    // Start: slightly to the right + gentle extra tilt; fully transparent
     n.classList.add('deal-in');            // perf hint (optional)
     n.style.setProperty('--tx',  (tx + slidePx) + 'px');
     n.style.setProperty('--rot', (rot + tiltDeg) + 'deg');
     n.style.opacity    = '0';
     n.style.transition = 'none';
-    // Reveal now that opacity is 0 (no flash)
+
+    // Reveal THIS card only (others remain hidden until their turn)
     n.classList.remove('grey-hide-during-flight');
 
     // Commit start pose
     void n.getBoundingClientRect();
+    if (runId !== handAnimRunId) return resolve();
 
-    // Animate to final pose
-    n.style.transition = `opacity ${fadeMs}ms ease-out, transform ${moveMs}ms ease-out`;
+    // Double-RAF to avoid any “pop” on slower paints
     requestAnimationFrame(() => {
-      n.style.setProperty('--tx',  tx + 'px');
-      n.style.setProperty('--rot', rot + 'deg');
-      n.style.opacity = '1';
-    });
+      if (runId !== handAnimRunId) return resolve();
+      requestAnimationFrame(() => {
+        if (runId !== handAnimRunId) return resolve();
 
-    // Cleanup for this node
-    setTimeout(() => {
-      if (runId !== handAnimRunId) return resolve(); // canceled by a newer render
-      n.style.transition = '';
-      n.style.opacity    = '';
-      n.classList.remove('deal-in');
-      resolve();
-    }, moveMs + 50);
+        // Softer, longer easing for both opacity + transform
+        n.style.transition =
+          `opacity ${fadeMs}ms ${easing}, transform ${moveMs}ms ${easing}`;
+
+        // Animate to the final fan pose
+        n.style.setProperty('--tx',  tx + 'px');
+        n.style.setProperty('--rot', rot + 'deg');
+        n.style.opacity = '1';
+
+        // Cleanup after this card finishes
+        setTimeout(() => {
+          if (runId !== handAnimRunId) return resolve();
+          n.style.transition = '';
+          n.style.opacity    = '';
+          n.classList.remove('deal-in');
+          resolve();
+        }, moveMs + 60);
+      });
+    });
   });
 
-  // Animate sequentially so batches (draw-up-to-5, end turn) feel like repeated Draw 1
+  // Sequential—so batches (turn-start draw-up-to-5, end-turn) feel like repeated Draw 1
   for (let i = 0; i < nodes.length; i++) {
     if (runId !== handAnimRunId) break;
     await animateOne(nodes[i]);
     if (i < nodes.length - 1) await new Promise(r => setTimeout(r, gapMs));
   }
 }
+
 
 
 
