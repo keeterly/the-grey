@@ -4634,12 +4634,18 @@ if (handEl) {
 // 6) Only newly drawn cards “deal-in”; everyone else stays locked
 const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
 if (addedNodes.length) {
-  // Match the gentler Draw-1 / boot vibe
-const SLIDE_PX = 26;
-const TILT_DEG = 5;
-const FADE_MS  = 420;
-const MOVE_MS  = 560;
-const GAP_MS   = 120;
+  // Opening hand / menu draws vs. begin-of-turn draws:
+  // __IN_DRAW_STEP is true when we’re in the official Draw Step
+  const isTurnStartDraw = __IN_DRAW_STEP === true;
+
+  const SLIDE_PX = 26;
+  const TILT_DEG = 5;
+
+  // Opening hand & menu Draw1  → a bit quicker but still soft
+  // Begin-of-turn draw-up-to-5 → a bit slower / more cinematic
+  const FADE_MS = isTurnStartDraw ? 460 : 320;
+  const MOVE_MS = isTurnStartDraw ? 620 : 420;
+  const GAP_MS  = isTurnStartDraw ? 150 : 70;
 
 // For reaction candidates, temporarily remove the visual class so it
   // doesn’t fight with the entry transform/opacity. We’ll restore after anim.
