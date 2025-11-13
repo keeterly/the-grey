@@ -1126,22 +1126,27 @@ async function doStartTurn(){
   // Draw up to 5 + Trance L1 bonus
   const tranceL = (state.players[side].tranceLevel|0);
   const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
-  const bonus = tranceL >= 1 ? 1 : 0;
-  const need = baseNeed + bonus;
+  const bonus    = tranceL >= 1 ? 1 : 0;
+  const need     = baseNeed + bonus;
 
   const active = side;
   reshuffleFromDiscard(active);
-// Draw exactly like pressing "Draw 1" repeatedly until we hit hand cap
-  const HAND_CAP = 5;
-  if (need) {
-    // Safety loop: call the same path as the menu "Draw 1" until we hit cap
-    let guard = 12;
-    while ((state.players?.[active]?.hand?.length || 0) < HAND_CAP && guard-- > 0) {
-      await drawOneLikeMenu(active);
+
+  // IMPORTANT: run the draw-up sequence *inside* the official Draw Step
+  await withDrawStep(async () => {
+    const HAND_CAP = 5;
+    if (need) {
+      // Same path as the menu "Draw 1", but with a gentle stagger so it reads clearly
+      let guard = 12;
+      while ((state.players?.[active]?.hand?.length || 0) < HAND_CAP && guard-- > 0) {
+        await drawOneLikeMenu(active);
+        await sleep(140); // make the entry feel like the menu Draw 1
+      }
+    } else {
+      await render();
     }
-  } else {
-    await render();
-  }
+  });
+
   Emit(Events.TURN_START, { side });
 }
 
