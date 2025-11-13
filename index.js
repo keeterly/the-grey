@@ -4644,7 +4644,7 @@ if (addedNodes.length) {
   // Opening hand & menu Draw1  → a bit quicker but still soft
   // Begin-of-turn draw-up-to-5 → a bit slower / more cinematic
   const FADE_MS = isTurnStartDraw ? 320 : 320;
-  const MOVE_MS = isTurnStartDraw ? 320 : 320;
+  const MOVE_MS = isTurnStartDraw ? 160 : 320;
   const GAP_MS  = isTurnStartDraw ? 80 : 80;
 
 // For reaction candidates, temporarily remove the visual class so it
