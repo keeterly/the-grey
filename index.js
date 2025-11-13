@@ -4645,7 +4645,7 @@ if (addedNodes.length) {
   // Begin-of-turn draw-up-to-5 → a bit slower / more cinematic
   const FADE_MS = isTurnStartDraw ? 320 : 320;
   const MOVE_MS = isTurnStartDraw ? 240 : 240;
-  const GAP_MS  = isTurnStartDraw ? 320 : 70;
+  const GAP_MS  = isTurnStartDraw ? 180 : 70;
 
 // For reaction candidates, temporarily remove the visual class so it
   // doesn’t fight with the entry transform/opacity. We’ll restore after anim.
