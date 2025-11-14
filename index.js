@@ -2802,9 +2802,8 @@ function ensureFlowBoughtStyles(){
       50% { opacity: 0.75; transform: scale(1.03); }
     }
 
-    /* keep inner content above glow */
+     /* keep inner content above glow, but don't break absolute layouts like play-cost-badge */
     .card.flow-bought > * {
-      position: relative;
       z-index: 2;
     }
 
