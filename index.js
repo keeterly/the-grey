@@ -4631,7 +4631,13 @@ if (handEl) {
 
   
 // 6) Only newly drawn cards “deal-in”; everyone else stays locked
-const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
+// Treat a node as “new” if:
+//   - its card id was not in the previous hand, OR
+//   - it is still hidden with grey-hide-during-flight (safety for edge cases,
+//     e.g. reactions / flow-bought cards where ids might be reused).
+const addedNodes = domCards.filter(el =>
+  !oldIds.includes(el.dataset.cardId) || el.classList.contains('grey-hide-during-flight')
+);
 if (addedNodes.length) {
   // Opening hand / menu draws vs. begin-of-turn draws:
   // __IN_DRAW_STEP is true when we’re in the official Draw Step
