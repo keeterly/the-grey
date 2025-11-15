@@ -4630,45 +4630,37 @@ if (handEl) {
 
 
   
-// 6) Only newly added cards should “deal-in”
-const addedNodes = domCards.filter(el => !oldIds.includes(el.dataset.cardId));
-
+// 6) Only newly drawn cards “deal-in”; everyone else stays locked
+// Treat a node as “new” if:
+//   - its card id was not in the previous hand, OR
+//   - it is still hidden with grey-hide-during-flight (safety for edge cases,
+//     e.g. reactions / flow-bought cards where ids might be reused).
+const addedNodes = domCards.filter(el =>
+  !oldIds.includes(el.dataset.cardId) || el.classList.contains('grey-hide-during-flight')
+);
 if (addedNodes.length) {
-  // If any of the new cards are reaction candidates, temporarily
-  // strip the glow class so it doesn’t fight the slide/fade.
-  const restoreReaction = [];
-  for (const n of addedNodes) {
+  // Opening hand / menu draws vs. begin-of-turn draws:
+  // __IN_DRAW_STEP is true when we’re in the official Draw Step
+  const isTurnStartDraw = __IN_DRAW_STEP === true;
+
+  const SLIDE_PX = 26;
+  const TILT_DEG = 5;
+
+  // Opening hand & menu Draw1  → a bit quicker but still soft
+  // Begin-of-turn draw-up-to-5 → a bit slower / more cinematic
+  const FADE_MS = isTurnStartDraw ? 320 : 320;
+  const MOVE_MS = isTurnStartDraw ? 160 : 320;
+  const GAP_MS  = isTurnStartDraw ? 80 : 80;
+
+// For reaction candidates, temporarily remove the visual class so it
+  // doesn’t fight with the entry transform/opacity. We’ll restore after anim.
+  const reactionToRestore = [];
+  addedNodes.forEach(n => {
     if (n.classList.contains('reaction-candidate')) {
       n.classList.remove('reaction-candidate');
-      restoreReaction.push(n);
+      reactionToRestore.push(n);
     }
-  }
-
-  // Enter newest cards from the right side first (based on final tx)
-  addedNodes.sort((a, b) => {
-    const ca = getComputedStyle(a), cb = getComputedStyle(b);
-    const txA = parseFloat(ca.getPropertyValue('--tx')) || 0;
-    const txB = parseFloat(cb.getPropertyValue('--tx')) || 0;
-    return txB - txA; // bigger tx (more right) goes first
   });
-
-  // Animate with the same timings as your Draw1/menu deal-in
-  await animateHandCardsSequential(addedNodes, {
-    slidePx: 22,   // match your Draw1 settings
-    tiltDeg: 4,
-    fadeMs: 260,
-    moveMs: 360,
-    gapMs: 80
-  });
-
-  // After the slide/fade completes, restore the reaction glow
-  for (const n of restoreReaction) {
-    if (document.body.contains(n)) {
-      n.classList.add('reaction-candidate');
-    }
-  }
-
-
   
   // Cancel token so a newer render interrupts any in-progress sequence
   handEl._dealRun = (handEl._dealRun || 0) + 1;
