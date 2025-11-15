@@ -4667,7 +4667,7 @@ if (addedNodes.length) {
       n.classList.add('reaction-candidate');
     }
   }
-}
+
 
   
   // Cancel token so a newer render interrupts any in-progress sequence
