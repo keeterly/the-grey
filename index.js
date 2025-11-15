@@ -4635,9 +4635,11 @@ if (handEl) {
 //   - its card id was not in the previous hand, OR
 //   - it is still hidden with grey-hide-during-flight (safety for edge cases,
 //     e.g. reactions / flow-bought cards where ids might be reused).
+// Treat a node as new if layout marked it hidden for deal-in
 const addedNodes = domCards.filter(el =>
-  !oldIds.includes(el.dataset.cardId) || el.classList.contains('grey-hide-during-flight')
+  el.classList.contains('grey-hide-during-flight')
 );
+
 if (addedNodes.length) {
   // Opening hand / menu draws vs. begin-of-turn draws:
   // __IN_DRAW_STEP is true when we’re in the official Draw Step
