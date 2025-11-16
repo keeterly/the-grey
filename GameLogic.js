@@ -167,6 +167,43 @@ function computePipAdvanceCostsForCard(card) {
 
 
 
+
+function isHexedSlot(state, side, slotIndex) {
+  const P    = state.players?.[side];
+  const slot = P?.slots?.[slotIndex];
+  return !!(slot && slot.hex);
+}
+
+
+
+
+export function applyHexToSlot(state, casterSide, targetSide, slotIndex, durationTurns = 2) {
+  const T    = state.players?.[targetSide];
+  const slot = T?.slots?.[slotIndex];
+  if (!slot || slotIndex < 0 || slotIndex > 2) return state; // only spell slots 0–2
+
+  // Set or refresh the hex
+  slot.hex = {
+    by: casterSide,
+    // Example: lasts until the start of the caster’s next turn
+    expiresOnTurn: (state.turn|0) + durationTurns
+  };
+
+  // Let UI know a hex was applied
+  pushEvt(state, {
+    t: 'hex_applied',
+    casterSide,
+    targetSide,
+    slotIndex
+  });
+
+  return state;
+}
+
+
+
+
+
 /**
  * Apply a reaction card’s effect based on its name and the trigger.
  * Reaction cards currently supported:
@@ -484,10 +521,10 @@ export function initState(seed) {
         aether: 0, channeled: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { isGlyph:true, hasCard:false, card:null },
+          { hasCard:false, card:null, hex:null },
+          { hasCard:false, card:null, hex:null },
+          { hasCard:false, card:null, hex:null },
+          { isGlyph:true, hasCard:false, card:null, hex:null  },
         ],
         weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria_Portrait.jpg" },
       },
@@ -496,10 +533,10 @@ export function initState(seed) {
         aether: 0, channeled: 0,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { hasCard:false, card:null },
-          { isGlyph:true, hasCard:false, card:null },
+          { hasCard:false, card:null, hex:null },
+          { hasCard:false, card:null, hex:null },
+          { hasCard:false, card:null, hex:null },
+          { isGlyph:true, hasCard:false, card:null, hex:null  },
         ],
         weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr_Portrait.jpg" },
       }
