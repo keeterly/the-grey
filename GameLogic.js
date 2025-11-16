@@ -329,6 +329,12 @@ const BASE_DECK_LIST = [
   { name:"Veil of Dust",     type:"INSTANT", playCost:1, text:"Prevent 1 damage or Draw 1 card.", aetherValue:0, qty:1 },
   { name:"Minor Invocation", type:"INSTANT", playCost:1, text:"The next card you purchase this turn costs 1 less Æ.", aetherValue:1, qty:1 },
 
+// Hex test card
+  { name:"Grim Hex", type:"INSTANT", playCost:1, cost:1,
+    text:"Hex an enemy spell slot until the start of your next turn. That slot cannot hold or advance Spells, and Spells on it cannot resolve.",
+    aetherValue:0, qty:1 },
+
+  
   // Reaction (1)
   { name:"Spell Snuff",      type:"REACTION", playCost:2, text:"When your opponent casts a Spell, pay 2 Æ to cancel that Spell.", aetherValue:1, qty:1 },
 
@@ -679,12 +685,31 @@ function slideFlowRightOnceAndReveal(state) {
 /////////////////////////////
 
 export function startTurn(state) {
+  // Clear any hexes that have expired
+  const currentTurn = state.turn | 0;
+  for (const side of ["player", "ai"]) {
+    const P = state.players?.[side];
+    if (!P?.slots) continue;
+    for (let i = 0; i < 3; i++) {
+      const slot = P.slots[i];
+      if (slot?.hex && slot.hex.expiresOnTurn <= currentTurn) {
+        slot.hex = null;
+        pushEvt(state, {
+          t: "hex_cleared",
+          side,
+          slotIndex: i
+        });
+      }
+    }
+  }
+
   // Veyra Stage II: allow the player to look at the top two cards
   state = veyraScry(state, state.activePlayer);
   // ❌ No auto-draws here — the UI will draw ONE AT A TIME so hand animation can run.
   // (Menu → Draw 1 path is reused repeatedly at turn start.)
   return state;
 }
+
 
 
 export function endTurn(state) {
@@ -781,6 +806,11 @@ export function playCardToSpellSlot(state, playerId, cardId, slotIndex){
   if (!P) throw new Error("bad player");
   if (slotIndex < 0 || slotIndex > 2) throw new Error("spell slot index 0..2");
   const slot = P.slots[slotIndex];
+
+ // HEX: cannot place spells onto a hexed slot
+  if (slot.hex) throw new Error("This spell slot is hexed and cannot receive spells.");
+
+  
   if (slot.hasCard) throw new Error("slot occupied");
 
   const i = P.hand.findIndex(c => c.id === cardId);
@@ -1105,7 +1135,9 @@ export function advanceSpell(
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
 
-
+ // HEX: a hexed slot cannot advance or resolve its spell
+  if (slot.hex) return state;
+  
 // Trigger reaction window for the opponent before advancing a spell.
   state = triggerReactionWindow(state, "spell_advance", { playerId, slotIndex, cardId: c.id });
 
@@ -1242,8 +1274,17 @@ export function resolveInstantFromHand(state, playerId, cardId){
   }
   // Remove the instant from the hand
   P.hand.splice(i, 1)[0];
-  // Apply its parsed effects (these may enqueue additional events)
-  state = applyParsedEffects(state, playerId, card);
+  // Special-case: Grim Hex uses the Hex system instead of text parsing.
+  if (card.name === "Grim Hex") {
+    const targetSide = otherSide(playerId);
+    // UI should set `_pendingHexTargetSlotIndex` before calling this.
+    const idx = (state._pendingHexTargetSlotIndex ?? 0) | 0;
+    delete state._pendingHexTargetSlotIndex;
+    state = applyHexToSlot(state, playerId, targetSide, idx, /*durationTurns=*/2);
+  } else {
+    // Apply its parsed effects (these may enqueue additional events)
+    state = applyParsedEffects(state, playerId, card);
+  }
   // Move the card to the discard pile
   P.discard.push(card);
   pushEvt(state, {
