@@ -640,7 +640,7 @@ function ensureHexStyles(){
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 4.8rem;              /* ~2x original */
+      font-size: 4.8rem;
       pointer-events: none;
       text-shadow: 0 0 18px rgba(0,0,0,0.95);
     }
@@ -672,14 +672,12 @@ function ensureHexStyles(){
       pointer-events: none;
     }
 
-    /* ==== Selectable Hex targets (when choosing a slot) ==== */
+    /* ==== Selectable Hex targets (gold pulse) ==== */
     .slot.spell.hex-targetable {
       position: relative;
       cursor: crosshair;
       transform: translateY(-3px);
-      box-shadow:
-        0 0 0 1px rgba(255,244,214,0.85),
-        0 0 18px rgba(255,210,140,0.65);
+      animation: hexTargetPulse 1.3s ease-in-out infinite;
     }
 
     .slot.spell.hex-targetable::before {
@@ -689,14 +687,34 @@ function ensureHexStyles(){
       border-radius: 22px;
       border: 1px solid rgba(255,230,180,0.9);
       box-shadow:
-        0 0 12px rgba(255,230,180,0.7),
-        0 0 30px rgba(120,80,40,0.7);
-      opacity: 0.95;
+        0 0 10px rgba(255,220,160,0.7),
+        0 0 24px rgba(120,80,40,0.7);
       pointer-events: none;
+    }
+
+    @keyframes hexTargetPulse {
+      0% {
+        box-shadow:
+          0 0 0 0 rgba(255,220,160,0.0),
+          0 0 12px rgba(255,220,160,0.6);
+      }
+      50% {
+        box-shadow:
+          0 0 0 3px rgba(255,220,160,0.4),
+          0 0 24px rgba(255,220,160,0.9);
+        transform: translateY(-4px);
+      }
+      100% {
+        box-shadow:
+          0 0 0 0 rgba(255,220,160,0.0),
+          0 0 12px rgba(255,220,160,0.6);
+        transform: translateY(-3px);
+      }
     }
   `;
   document.head.appendChild(s);
 }
+
 
 
 function ensureGlyphPlaceholderStyles(){
