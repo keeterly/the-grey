@@ -258,6 +258,24 @@ function applyReactionEffect(state, reactionCard, trigger, context, reactingSide
       }
     }
   }
+  // Hexing Wisp: when opponent casts a Spell, Hex that Spell Slot.
+  else if (reactionCard?.name === "Hexing Wisp" &&
+           trigger === "spell_cast" &&
+           context?.cardId) {
+    const casterSide    = context.playerId;               // the side that cast the spell
+    const opponentSlots = state.players?.[casterSide]?.slots || [];
+    for (let i = 0; i < opponentSlots.length; i++) {
+      const slot = opponentSlots[i];
+      const c    = slot?.card;
+      if (slot?.hasCard && c?.id === context.cardId && c?.type === "SPELL") {
+        // Apply a standard 2-turn Hex using the shared hex system (same as Grim Hex)
+        state = applyHexToSlot(state, reactingSide, casterSide, i, /*durationTurns=*/2);
+        break;
+      }
+    }
+  }
+
+    
   // Aether Disruption: when opponent advances a spell, negate that advancement.
   else if (reactionCard?.name === 'Aether Disruption' && trigger === 'spell_advance' && context?.playerId != null && Number.isFinite(context?.slotIndex)) {
     const casterSide = context.playerId;
@@ -313,98 +331,338 @@ function applyReactionEffect(state, reactionCard, trigger, context, reactingSide
  */
 
 // =============================================
-// BASE DECK — v2 Strategic Aggression Update
+// Base Deck (v5) — 12 cards
 // =============================================
-
 const BASE_DECK_LIST = [
-  // Spells (5)
-  { name:"Pulse of the Grey", type:"SPELL", playCost:0, stepCost:1, pip:1, text:"Draw 1 card and Store 1 Aether.", aetherValue:0, qty:1 },
-  { name:"Wispform Surge",   type:"SPELL", playCost:0, stepCost:1, pip:1, text:"Advance another Spell 1 step and Gain 1 Aether.", aetherValue:0, qty:1 },
-  { name:"Ashen Focus",      type:"SPELL", playCost:0, stepCost:1, pip:2, text:"Draw 1 card and Store 1 Aether.", aetherValue:1, qty:1 },
-  { name:"Wisp of Insight",  type:"SPELL", playCost:0, stepCost:0, pip:1, text:"Gain 1 Aether and Draw 1 card.", aetherValue:0, qty:1 },
-  { name:"Greyfire Bloom",   type:"SPELL", playCost:2, stepCost:0, pip:1, text:"Deal 1 damage to opponent.", aetherValue:1, qty:1 },
+  // Spells (7)
+  {
+    name: "Pulse of the Grey",
+    type: "SPELL",
+    playCost: 0,
+    stepCost: 1,
+    pip: 1,
+    text: "Draw 1 card and Store 1 Aether.",
+    aetherValue: 0,
+    qty: 1
+  },
+  {
+    name: "Wisp of Insight",
+    type: "SPELL",
+    playCost: 0,
+    stepCost: 0,
+    pip: 1,
+    text: "Gain 1 Aether and Draw 1 card.",
+    aetherValue: 0,
+    qty: 1
+  },
+  {
+    name: "Ashen Focus",
+    type: "SPELL",
+    playCost: 0,
+    stepCost: 1,
+    pip: 2,
+    text: "Draw 1 card and Store 1 Aether.",
+    aetherValue: 1,
+    qty: 1
+  },
+  {
+    name: "Wispform Surge",
+    type: "SPELL",
+    playCost: 0,
+    stepCost: 1,
+    pip: 1,
+    text: "Advance another Spell 1 step and Gain 1 Aether.",
+    aetherValue: 0,
+    qty: 1
+  },
+  {
+    name: "Dormant Catalyst",
+    type: "SPELL",
+    playCost: 2,
+    stepCost: 0,
+    pip: 1,
+    text: "Store 2 Aether and Draw 1 card.",
+    aetherValue: 2,
+    qty: 1
+  },
+  {
+    name: "Greyfire Bloom",
+    type: "SPELL",
+    playCost: 2,
+    stepCost: 0,
+    pip: 1,
+    text: "Deal 1 damage.",
+    aetherValue: 1,
+    qty: 1
+  },
+  {
+    name: "Ember Sigil",
+    type: "SPELL",
+    playCost: 1,
+    stepCost: 1,
+    pip: 2,
+    text: "Deal 2 damage.",
+    aetherValue: 1,
+    qty: 1
+  },
 
-  // Instants (3)
-  { name:"Surge of Ash",     type:"INSTANT", playCost:1, text:"Target Spell advances 1 step.", aetherValue:0, qty:1 },
-  { name:"Veil of Dust",     type:"INSTANT", playCost:1, text:"Prevent 1 damage or Draw 1 card.", aetherValue:0, qty:1 },
-  { name:"Minor Invocation", type:"INSTANT", playCost:1, text:"The next card you purchase this turn costs 1 less Æ.", aetherValue:1, qty:1 },
+  // Instants (2)
+  {
+    name: "Surge of Ash",
+    type: "INSTANT",
+    playCost: 1,
+    pip: 0,
+    stepCost: 0,
+    text: "Advance a Spell 1 step.",
+    aetherValue: 0,
+    qty: 1
+  },
+  {
+    name: "Veil of Dust",
+    type: "INSTANT",
+    playCost: 1,
+    pip: 0,
+    stepCost: 0,
+    text: "Prevent 1 damage or Draw 1 card.",
+    aetherValue: 0,
+    qty: 1
+  },
 
-// Hex test card
-  { name:"Grim Hex", type:"INSTANT", playCost:1, cost:1,
-    text:"Hex an enemy spell slot until the start of your next turn. That slot cannot hold or advance Spells, and Spells on it cannot resolve.",
-    aetherValue:0, qty:1 },
+  // Glyphs (2)
+  {
+    name: "Glyph of Remnant Light",
+    type: "GLYPH",
+    playCost: 0,
+    pip: 0,
+    stepCost: 0,
+    // Hooked by applyGlyphPassives via the "when a spell resolves → gain 1 Aether" regex
+    text: "When a Spell resolves → Gain 1 Aether.",
+    aetherValue: 1,
+    qty: 1
+  },
+  {
+    name: "Glyph of Returning Echo",
+    type: "GLYPH",
+    playCost: 0,
+    pip: 0,
+    stepCost: 0,
+    text: "When you Store Aether → Draw 1 card.",
+    aetherValue: 1,
+    qty: 1
+  },
 
-  
   // Reaction (1)
-  { name:"Spell Snuff",      type:"REACTION", playCost:2, text:"When your opponent casts a Spell, pay 2 Æ to cancel that Spell.", aetherValue:1, qty:1 },
-
-  // Glyph (1)
-  { name:"Glyph of Returning Echo", type:"GLYPH", playCost:0, text:"When you Store Aether → Draw 1 card.", aetherValue:1, qty:1 }
+  {
+    name: "Hexing Wisp",
+    type: "REACTION",
+    playCost: 1,
+    pip: 0,
+    stepCost: 0,
+    text: "When opponent plays a Spell → Hex that Spell Slot until your next turn.",
+    aetherValue: 1,
+    qty: 1
+  }
 ];
 
 
 
 
-// ===== Aetherflow Deck (v2 — Harmonized Progression Pool) =====
+
+// ===== Aetherflow Deck (v5) — 15 cards =====
 const AETHERFLOW_LIST = [
-  // Instants — pay to cast
-  { name: "Surge of Cinders",  type: "INSTANT", pip: 0, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
-    text: "Deal 2 damage to any target.", role: "Burn", qty: 1 },
+  // Scaling Payoffs
+  {
+    name: "Aether Burst",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 3,
+    stepCost: 0,
+    cost: 3,
+    aetherValue: 0,
+    text: "Deal damage equal to your Stored Aether.",
+    role: "Scaling Payoff",
+    qty: 1
+  },
+  {
+    name: "Reservoir Titan",
+    type: "SPELL",
+    pip: 2,
+    playCost: 4,
+    stepCost: 1,
+    cost: 4,
+    aetherValue: 2,
+    text: "On Resolve → Gain Aether equal to your Stored Aether, then Store 1.",
+    role: "Scaling Ramp",
+    qty: 1
+  },
+  {
+    name: "Echoflame Crusader",
+    type: "SPELL",
+    pip: 2,
+    playCost: 3,
+    stepCost: 1,
+    cost: 3,
+    aetherValue: 1,
+    text: "On Resolve → Deal X damage, where X = Spells you’ve resolved this game (max 5).",
+    role: "Scaling Damage",
+    qty: 1
+  },
+  {
+    name: "Hex Implosion",
+    type: "SPELL",
+    pip: 1,
+    playCost: 2,
+    stepCost: 1,
+    cost: 2,
+    aetherValue: 1,
+    text: "On Resolve → Opponent discards 1 card for each Hexed slot they control.",
+    role: "Hex / Hand Attack",
+    qty: 1
+  },
+  {
+    name: "Rhythm of the Ashen Cycle",
+    type: "GLYPH",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "When you advance a Spell → Gain 1 Aether.",
+    role: "Advance Engine",
+    qty: 1
+  },
 
-  { name: "Pulse Feedback",    type: "INSTANT", pip: 0, playCost: 3, stepCost: 0, cost: 3, aetherValue: 0,
-    text: "Deal 1 damage and gain 1 Æ.", role: "Utility", qty: 1 },
+  // Pip / Slot Control
+  {
+    name: "Reversal Surge",
+    type: "REACTION",
+    pip: 0,
+    playCost: 1,
+    stepCost: 0,
+    cost: 1,
+    aetherValue: 0,
+    text: "When opponent advances a Spell → Roll that Spell back 1 pip.",
+    role: "Pip Control",
+    qty: 1
+  },
+  {
+    name: "Frozen Ember Sigil",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 1,
+    stepCost: 0,
+    cost: 1,
+    aetherValue: 0,
+    text: "Freeze a target Spell Slot this turn.",
+    role: "Slot Control",
+    qty: 1
+  },
+  {
+    name: "Burden of the Grey",
+    type: "REACTION",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "When opponent plays a Spell → It gains +1 Pip until it resolves.",
+    role: "Tax / Tempo Hit",
+    qty: 1
+  },
 
-  { name: "Refracted Will",    type: "INSTANT", pip: 0, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
-    text: "Cancel a Spell or Instant. Draw 1.", role: "Utility", qty: 1 },
+  // Damage & Combat Engine
+  {
+    name: "Cyclebreaker Lash",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "Deal damage equal to the number of times you advanced a Spell this turn.",
+    role: "Advance Payoff",
+    qty: 1
+  },
+  {
+    name: "Scorch the Many",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "Deal 1 damage for each active Spell your opponent controls.",
+    role: "Board Punish",
+    qty: 1
+  },
 
-  { name: "Aether Impel",      type: "INSTANT", pip: 0, playCost: 4, stepCost: 0, cost: 4, aetherValue: 0,
-    text: "Advance all your active Spells 1 step.", role: "Ramp", qty: 1 },
+  // Aether Manipulation & Engines
+  {
+    name: "Devouring Will",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "Steal 1 Stored Aether from opponent for each Spell you control.",
+    role: "Aether Theft",
+    qty: 1
+  },
+  {
+    name: "Flowbinder Wisp",
+    type: "SPELL",
+    pip: 1,
+    playCost: 1,
+    stepCost: 1,
+    cost: 1,
+    aetherValue: 0,
+    text: "On Resolve → Store 1 Aether for each Spell advanced this turn.",
+    role: "Flow Engine",
+    qty: 1
+  },
 
-  { name: "Cascade Insight",   type: "INSTANT", pip: 0, playCost: 3, stepCost: 0, cost: 3, aetherValue: 0,
-    text: "Draw 2 cards, then discard 1.", role: "Utility", qty: 1 },
+  // Hex Synergy
+  {
+    name: "Spite Wisp",
+    type: "REACTION",
+    pip: 0,
+    playCost: 1,
+    stepCost: 0,
+    cost: 1,
+    aetherValue: 0,
+    text: "When opponent advances a Spell → Hex that slot. If it’s already Hexed, they discard 1 card.",
+    role: "Hex Punish",
+    qty: 1
+  },
+  {
+    name: "Creeping Malice",
+    type: "GLYPH",
+    pip: 0,
+    playCost: 3,
+    stepCost: 0,
+    cost: 3,
+    aetherValue: 0,
+    text: "When you Hex a slot → Deal 1 damage.",
+    role: "Hex Payoff",
+    qty: 1
+  },
 
-  // Spells — some pay to play, some pay per step
-  { name: "Resonant Chorus",   type: "SPELL",   pip: 1, playCost: 0, stepCost: 2, cost: 0, aetherValue: 1,
-    text: "On Resolve: Gain 2 Æ and Channel 1.", role: "Ramp", qty: 1 },
-
-  { name: "Emberline Pulse",   type: "SPELL",   pip: 1, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
-    text: "On Resolve: Deal 1 damage and Draw 1.", role: "Burn", qty: 1 },
-
-  { name: "Fractured Memory",  type: "SPELL",   pip: 2, playCost: 0, stepCost: 1, cost: 0, aetherValue: 0,
-    text: "On Resolve: Draw 2 cards.", role: "Utility", qty: 1 },
-
-  { name: "Obsidian Vault",    type: "SPELL",   pip: 1, playCost: 3, stepCost: 0, cost: 3, aetherValue: 1,
-    text: "On Resolve: Channel 2 and gain 1 Æ.", role: "Ramp", qty: 1 },
-
-  { name: "Mirror Cascade",    type: "SPELL",   pip: 2, playCost: 0, stepCost: 2, cost: 0, aetherValue: 0,
-    text: "On Resolve: Copy your next Instant or Spell resolve effect.", role: "Utility", qty: 1 },
-
-  { name: "Sanguine Flow",     type: "SPELL",   pip: 1, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
-    text: "On Resolve: Gain 3 Æ, lose 1 Vitality.", role: "Burn / Ramp", qty: 1 },
-
-  { name: "Echoflame Sigil",   type: "SPELL",   pip: 2, playCost: 0, stepCost: 1, cost: 0, aetherValue: 1,
-    text: "On Resolve: Return 1 card from your discard pile to your hand.", role: "Recursion", qty: 1 },
-
-  // Glyphs — no play cost
-  { name: "Glyph of Withering Light", type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
-    text: "When an opponent resolves a Spell → Deal 1 damage.", role: "Burn", qty: 1 },
-
-  { name: "Glyph of Buried Heat",     type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
-    text: "When you take damage → Channel 2.", role: "Ramp / Defense", qty: 1 },
-
-  { name: "Glyph of Soulglass",       type: "GLYPH", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
-    text: "When you draw outside your Draw Step → Gain 1 Æ.", role: "Utility", qty: 1 },
-
-
-  // --- v3 Reaction Cards ---
-  { name: "Aether Disruption", type: "REACTION", pip: 0, playCost: 1, stepCost: 0, cost: 1, aetherValue: 0,
-    text: "When your opponent advances a Spell, pay 1 Æ to negate that advancement.", role: "Counter", qty: 1 },
-  { name: "Spell Snuff", type: "REACTION", pip: 0, playCost: 2, stepCost: 0, cost: 2, aetherValue: 0,
-    text: "When your opponent casts a Spell, pay 2 Æ to cancel that Spell.", role: "Counter", qty: 1 },
-  { name: "Aether Shield", type: "REACTION", pip: 0, playCost: 0, stepCost: 0, cost: 0, aetherValue: 0,
-    text: "When you would take damage, discard this to reduce that damage by 2.", role: "Defense", qty: 1 },
-  
+  // Utility / Cleanse
+  {
+    name: "Wisp of Purity",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 1,
+    stepCost: 0,
+    cost: 1,
+    aetherValue: 0,
+    text: "Remove all negative effects (Hex, Freeze, Burden) from a slot you control.",
+    role: "Cleanse",
+    qty: 1
+  }
 ];
+
 
 
 
