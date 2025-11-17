@@ -622,6 +622,34 @@ function ensureBoardDimStyles(){
 }
 
 
+function ensureHexStyles(){
+  if (document.getElementById('hex-style')) return;
+  const s = document.createElement('style');
+  s.id = 'hex-style';
+  s.textContent = `
+    .slot.spell.hexed-slot {
+      filter: grayscale(1) brightness(0.7);
+      position: relative;
+    }
+    .slot.spell .hex-skull {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.4rem;
+      pointer-events: none;
+      text-shadow: 0 0 10px rgba(0,0,0,0.9);
+    }
+    .slot.spell.hex-targetable {
+      outline: 2px solid rgba(255,255,255,0.7);
+      box-shadow: 0 0 12px rgba(255,255,255,0.8);
+      cursor: crosshair;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
 function ensureGlyphPlaceholderStyles(){
   if (document.getElementById('glyph-placeholder-style')) return;
   const s = document.createElement('style');
@@ -1559,6 +1587,7 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let prevAiHandIds = [];
+let hexTargetMode = null;   // when non-null, player is choosing a Grim Hex target
 let shuffledOnce = false;
 const FLOW_BOUGHT_IDS = new Set();   // remember exact card IDs bought from Flow
 
@@ -1948,6 +1977,45 @@ function removeLegacyTranceText() {
 }
 
 
+function exitHexTargetMode(){
+  const els = document.querySelectorAll('.slot.spell.hex-targetable');
+  els.forEach(el => {
+    el.classList.remove('hex-targetable');
+    const handler = el._hexClickHandler;
+    if (handler) {
+      el.removeEventListener('click', handler);
+      delete el._hexClickHandler;
+    }
+  });
+  hexTargetMode = null;
+}
+
+function enterHexTargetMode(fromSide, cardId){
+  hexTargetMode = { fromSide, cardId };
+  const pub = serializePublic(state) || {};
+  // For now, Grim Hex always targets the AI's spell row
+  const row = document.querySelector('.row.ai');
+  if (!row) return;
+  const slots = row.querySelectorAll('.slot.spell');
+  slots.forEach((el, idx) => {
+    const slotSnap = pub.players?.ai?.slots?.[idx];
+    if (!slotSnap) return;
+    if (slotSnap.hex) return; // already hexed
+    el.classList.add('hex-targetable');
+    const handler = async (ev) => {
+      ev.stopPropagation();
+      // tell engine which slot index to hex
+      state._pendingHexTargetSlotIndex = idx;
+      exitHexTargetMode();
+      state = await window.castInstantFromHand(state, fromSide, cardId);
+      await spotlightFromEvents(state);
+      await render();
+    };
+    el._hexClickHandler = handler;
+    el.addEventListener('click', handler, { once: true });
+  });
+}
+
 function showCardOptions(cardEl, cardData){
   clearAllActionMenus();
   const pub = serializePublic(state) || {};
@@ -2020,7 +2088,12 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
           Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
 
         } else if (o.k === "cast"){
-          state = await window.castInstantFromHand(state, "player", cardData.id);
+          // Grim Hex: enter target-selection mode instead of resolving immediately
+          if (cardData.name === "Grim Hex") {
+            enterHexTargetMode("player", cardData.id);
+          } else {
+            state = await window.castInstantFromHand(state, "player", cardData.id);
+          }
         } else if (o.k === "react"){
           // Playing a reaction card in a reaction window: delegate to castInstantFromHand,
           // which resolves Reactions via GameLogic
@@ -2261,6 +2334,7 @@ function renderSlots(container, snapshot, isPlayer){
   const safe = Array.isArray(snapshot) ? snapshot : [];
 
   ensureGlyphPlaceholderStyles();
+  ensureHexStyles();
   
   for (let i=0;i<3;i++){
     const d = document.createElement("div");
@@ -2273,6 +2347,21 @@ function renderSlots(container, snapshot, isPlayer){
     d.appendChild(label);
 
     const slot = safe[i] || {hasCard:false, card:null};
+    // Hex visual: grey + skull if engine snapshot marks this slot as hexed
+    const isHexed = !!slot.hex;
+    if (isHexed) {
+      d.classList.add('hexed-slot');
+      if (!d.querySelector('.hex-skull')) {
+        const skull = document.createElement('div');
+        skull.className = 'hex-skull';
+        skull.textContent = '☠';
+        d.appendChild(skull);
+      }
+    } else {
+      d.classList.remove('hexed-slot');
+      const skull = d.querySelector('.hex-skull');
+      if (skull) skull.remove();
+    }
     // reflect occupancy so CSS can undim when a card is present
 d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
     if (slot.hasCard && slot.card){
