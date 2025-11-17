@@ -650,6 +650,7 @@ function ensureHexStyles(){
   document.head.appendChild(s);
 }
 
+
 function ensureGlyphPlaceholderStyles(){
   if (document.getElementById('glyph-placeholder-style')) return;
   const s = document.createElement('style');
@@ -1587,7 +1588,7 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let prevAiHandIds = [];
-let hexTargetMode = null;   // when non-null, player is choosing a Grim Hex target
+let hexTargetMode = null;   // { fromSide: "player", cardId: string } when choosing Grim Hex target
 let shuffledOnce = false;
 const FLOW_BOUGHT_IDS = new Set();   // remember exact card IDs bought from Flow
 
@@ -1977,6 +1978,10 @@ function removeLegacyTranceText() {
 }
 
 
+
+// ──────────────────────────────────────────────────────────────
+// Hex targeting helpers (Grim Hex)
+// ──────────────────────────────────────────────────────────────
 function exitHexTargetMode(){
   const els = document.querySelectorAll('.slot.spell.hex-targetable');
   els.forEach(el => {
@@ -1992,30 +1997,45 @@ function exitHexTargetMode(){
 
 function enterHexTargetMode(fromSide, cardId){
   hexTargetMode = { fromSide, cardId };
-  const pub = serializePublic(state) || {};
-  // For now, Grim Hex always targets the AI's spell row
+
+  // Highlight AI spell slots as valid hex targets
   const row = document.querySelector('.row.ai');
   if (!row) return;
   const slots = row.querySelectorAll('.slot.spell');
+
   slots.forEach((el, idx) => {
-    const slotSnap = pub.players?.ai?.slots?.[idx];
-    if (!slotSnap) return;
-    if (slotSnap.hex) return; // already hexed
+    const snap = state?.players?.ai?.slots?.[idx];
+    if (!snap) return;
+    if (snap.hex) return; // already hexed
+
     el.classList.add('hex-targetable');
+
     const handler = async (ev) => {
       ev.stopPropagation();
-      // tell engine which slot index to hex
+      if (!hexTargetMode) return;
+
+      // Tell GameLogic which slot index to hex
       state._pendingHexTargetSlotIndex = idx;
+
+      const cardIdNow = hexTargetMode.cardId;
       exitHexTargetMode();
-      state = await window.castInstantFromHand(state, fromSide, cardId);
+
+      // Cast Grim Hex like a normal instant; engine will see the target index
+      state = await window.castInstantFromHand(state, fromSide, cardIdNow);
       await spotlightFromEvents(state);
       await render();
     };
+
     el._hexClickHandler = handler;
     el.addEventListener('click', handler, { once: true });
   });
 }
 
+
+
+
+
+ // card popover
 function showCardOptions(cardEl, cardData){
   clearAllActionMenus();
   const pub = serializePublic(state) || {};
@@ -2088,7 +2108,7 @@ emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
           Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
 
         } else if (o.k === "cast"){
-          // Grim Hex: enter target-selection mode instead of resolving immediately
+          // Grim Hex: enter hex targeting mode instead of resolving immediately
           if (cardData.name === "Grim Hex") {
             enterHexTargetMode("player", cardData.id);
           } else {
@@ -2347,9 +2367,9 @@ function renderSlots(container, snapshot, isPlayer){
     d.appendChild(label);
 
     const slot = safe[i] || {hasCard:false, card:null};
-    // Hex visual: grey + skull if engine snapshot marks this slot as hexed
-    const isHexed = !!slot.hex;
-    if (isHexed) {
+
+    // hex visual: grey + skull if engine marks this slot as hexed
+    if (slot.hex) {
       d.classList.add('hexed-slot');
       if (!d.querySelector('.hex-skull')) {
         const skull = document.createElement('div');
@@ -2362,8 +2382,9 @@ function renderSlots(container, snapshot, isPlayer){
       const skull = d.querySelector('.hex-skull');
       if (skull) skull.remove();
     }
+
     // reflect occupancy so CSS can undim when a card is present
-d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
+    d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
         art.className = "card";
@@ -4633,6 +4654,7 @@ if (typeof window.__wirePileModals === 'function') {
   renderAiMini(s);
 
   ensureGlyphPlaceholderStyles();
+  ensureHexStyles();
   ensureCrescentChipStyles();
   
   await renderFlow(s.flow);
