@@ -627,24 +627,84 @@ function ensureHexStyles(){
   const s = document.createElement('style');
   s.id = 'hex-style';
   s.textContent = `
+    /* Hexed slot: greyscale + big skull + chains */
     .slot.spell.hexed-slot {
-      filter: grayscale(1) brightness(0.7);
+      filter: grayscale(1) brightness(0.45);
       position: relative;
+      overflow: hidden;
     }
+
     .slot.spell .hex-skull {
       position: absolute;
       inset: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 2.4rem;
+      font-size: 4.8rem;              /* ~2x the previous size */
       pointer-events: none;
-      text-shadow: 0 0 10px rgba(0,0,0,0.9);
+      text-shadow: 0 0 18px rgba(0,0,0,0.95);
     }
+
+    /* Chain “lock” wrapped around the slot */
+    .slot.spell.hexed-slot::before {
+      content: "⛓⛓⛓⛓";
+      position: absolute;
+      inset: 6px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      letter-spacing: 0.35em;
+      color: rgba(190,180,160,0.95);
+      text-shadow: 0 0 8px rgba(0,0,0,0.85);
+      pointer-events: none;
+      opacity: 0.8;
+    }
+
+    .slot.spell.hexed-slot::after {
+      content: "";
+      position: absolute;
+      inset: 4px;
+      border-radius: 18px;
+      box-shadow:
+        inset 0 0 18px rgba(0,0,0,0.95),
+        0 0 10px rgba(0,0,0,0.8);
+      pointer-events: none;
+    }
+
+    /* Selectable hex targets: mimic drop targets / placement hints */
     .slot.spell.hex-targetable {
-      outline: 2px solid rgba(255,255,255,0.7);
-      box-shadow: 0 0 12px rgba(255,255,255,0.8);
+      position: relative;
       cursor: crosshair;
+      transform: translateY(-4px);
+      box-shadow:
+        0 0 0 1px rgba(255,247,220,0.75),
+        0 0 18px rgba(255,247,220,0.85),
+        0 0 32px rgba(255,200,120,0.65);
+    }
+
+    /* Small pill label, similar feel to placement UI */
+    .slot.spell.hex-targetable::after {
+      content: "Hex Slot";
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      transform: translateX(-50%);
+      padding: 2px 10px;
+      border-radius: 999px;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      background: linear-gradient(
+        90deg,
+        rgba(70,40,20,0.95),
+        rgba(105,70,35,0.95)
+      );
+      color: rgba(255,245,220,0.98);
+      box-shadow: 0 0 12px rgba(255,230,180,0.8);
+      pointer-events: none;
+      white-space: nowrap;
     }
   `;
   document.head.appendChild(s);
