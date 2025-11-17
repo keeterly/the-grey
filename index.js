@@ -2080,57 +2080,72 @@ function showCardOptions(cardEl, cardData){
     b.className = `rune-btn act-${o.k}`;
     b.textContent = o.label;
 
-    b.addEventListener("click", async (ev)=>{
-      ev.stopPropagation();
-      try{
-        if (o.k === "play"){
-          const idx = firstOpenSpellSlot(serializePublic(state)||{});
-          if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
-        } else if (o.k === "set"){
-          await setGlyphFromHandWithTemp("player", cardData.id);
+  b.addEventListener("click", async (ev)=>{
+  ev.stopPropagation();
 
-        } else if (o.k === "channel"){
-          // 1) Cine: hand card → discard HUD
-          cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
-
-          // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
-const fromNode = cardEl;
-const fallbackStart = rectOf(fromNode) || centerRect();
-const destRect  = domRectOfTempCrescent('player');
-emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
-
-          // 3) Payoff
-          const before = getAe("player");
-          state = discardForAether(state, "player", cardData.id);
-          const gained = getAe("player") - before;
-          adjustAe("player", -gained);
-          addTemp("player", gained);
-          Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
-
-        } else if (o.k === "cast"){
-          // Grim Hex: enter hex targeting mode instead of resolving immediately
-          if (cardData.name === "Grim Hex") {
-            enterHexTargetMode("player", cardData.id);
-          } else {
-            state = await window.castInstantFromHand(state, "player", cardData.id);
-          }
-        } else if (o.k === "react"){
-          // Playing a reaction card in a reaction window: delegate to castInstantFromHand,
-          // which resolves Reactions via GameLogic
-          state = await window.castInstantFromHand(state, "player", cardData.id);
-          closeReactionWindow(false);
-          // Resume any queued events that were paused by the reaction window
-          await spotlightFromEvents(state);
-        } else if (o.k === "pass"){
-          // Player chooses to pass on reacting. Clear window and continue
-          closeReactionWindow(true);
-          // Resume any queued events when passing
-          await spotlightFromEvents(state);
-        }
-      } catch(e){}
+  // --- Special case: Grim Hex casting enters target mode, no immediate render ---
+  if (o.k === "cast" && cardData.name === "Grim Hex") {
+    try {
+      // highlights AI slots and wires one-shot click handlers
+      enterHexTargetMode("player", cardData.id);
+    } finally {
+      // just close the little Cast/Discard popup
       clearAllActionMenus();
-      await render();
-    });
+    }
+    // IMPORTANT: don't fall through to the generic render() call below,
+    // or we'll blow away the hex-targetable DOM we just set up.
+    return;
+  }
+
+  try {
+    if (o.k === "play"){
+      const idx = firstOpenSpellSlot(serializePublic(state)||{});
+      if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
+
+    } else if (o.k === "set"){
+      await setGlyphFromHandWithTemp("player", cardData.id);
+
+    } else if (o.k === "channel"){
+      // 1) Cine: hand card → discard HUD
+      cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
+
+      // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
+      const fromNode = cardEl;
+      const fallbackStart = rectOf(fromNode) || centerRect();
+      const destRect  = domRectOfTempCrescent('player');
+      emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+
+      // 3) Payoff
+      const before = getAe("player");
+      state = discardForAether(state, "player", cardData.id);
+      const gained = getAe("player") - before;
+      adjustAe("player", -gained);
+      addTemp("player", gained);
+      Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
+
+    } else if (o.k === "cast"){
+      // normal instant cast (non-Grim-Hex)
+      state = await window.castInstantFromHand(state, "player", cardData.id);
+
+    } else if (o.k === "react"){
+      // Playing a reaction card in a reaction window
+      state = await window.castInstantFromHand(state, "player", cardData.id);
+      closeReactionWindow(false);
+      await spotlightFromEvents(state);
+
+    } else if (o.k === "pass"){
+      closeReactionWindow(true);
+      await spotlightFromEvents(state);
+    }
+  } catch (e) {
+    // you can log if you want
+    // console.error(e);
+  }
+
+  clearAllActionMenus();
+  await render();
+});
+
 
     pop.appendChild(b);
   });
