@@ -627,7 +627,7 @@ function ensureHexStyles(){
   const s = document.createElement('style');
   s.id = 'hex-style';
   s.textContent = `
-    /* Hexed slot: greyscale + big skull + chains */
+    /* ==== Hexed (already locked) slot ==== */
     .slot.spell.hexed-slot {
       filter: grayscale(1) brightness(0.45);
       position: relative;
@@ -640,12 +640,11 @@ function ensureHexStyles(){
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 4.8rem;              /* ~2x the previous size */
+      font-size: 4.8rem;              /* ~2x original */
       pointer-events: none;
       text-shadow: 0 0 18px rgba(0,0,0,0.95);
     }
 
-    /* Chain “lock” wrapped around the slot */
     .slot.spell.hexed-slot::before {
       content: "⛓⛓⛓⛓";
       position: absolute;
@@ -673,38 +672,27 @@ function ensureHexStyles(){
       pointer-events: none;
     }
 
-    /* Selectable hex targets: mimic drop targets / placement hints */
+    /* ==== Selectable Hex targets (when choosing a slot) ==== */
     .slot.spell.hex-targetable {
       position: relative;
       cursor: crosshair;
-      transform: translateY(-4px);
+      transform: translateY(-3px);
       box-shadow:
-        0 0 0 1px rgba(255,247,220,0.75),
-        0 0 18px rgba(255,247,220,0.85),
-        0 0 32px rgba(255,200,120,0.65);
+        0 0 0 1px rgba(255,244,214,0.85),
+        0 0 18px rgba(255,210,140,0.65);
     }
 
-    /* Small pill label, similar feel to placement UI */
-    .slot.spell.hex-targetable::after {
-      content: "Hex Slot";
+    .slot.spell.hex-targetable::before {
+      content: "";
       position: absolute;
-      left: 50%;
-      bottom: 8px;
-      transform: translateX(-50%);
-      padding: 2px 10px;
-      border-radius: 999px;
-      font-size: 0.7rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      background: linear-gradient(
-        90deg,
-        rgba(70,40,20,0.95),
-        rgba(105,70,35,0.95)
-      );
-      color: rgba(255,245,220,0.98);
-      box-shadow: 0 0 12px rgba(255,230,180,0.8);
+      inset: 3px;
+      border-radius: 22px;
+      border: 1px solid rgba(255,230,180,0.9);
+      box-shadow:
+        0 0 12px rgba(255,230,180,0.7),
+        0 0 30px rgba(120,80,40,0.7);
+      opacity: 0.95;
       pointer-events: none;
-      white-space: nowrap;
     }
   `;
   document.head.appendChild(s);
