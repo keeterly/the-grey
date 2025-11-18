@@ -1838,12 +1838,14 @@ function applyParsedEffects(state, side, card, opts = {}) {
   const rival = otherSide(side);
   const effects = parseEffectsFromText(card?.text || "");
 
-  // If the UI set a pending targeted slot (for things like "target Spell"),
-  // prefer that unless an explicit opts.targetSlotIndex is provided.
-  const pendingTargetIdx = (state._pendingTargetSlotIndex ?? null);
-  if (pendingTargetIdx !== null && pendingTargetIdx !== undefined) {
+    // Optional: UI can set a pending target slot index for "target Spell" / "another Spell" effects
+  const pendingTargetIdx = (state._pendingTargetSlotIndex !== undefined)
+    ? (state._pendingTargetSlotIndex | 0)
+    : null;
+  if (state._pendingTargetSlotIndex !== undefined) {
     delete state._pendingTargetSlotIndex;
   }
+
 
   // Allow instant text like "Target Spell advances 1" to pick a target:
   const pickOwnAdvancableSlot = () => {
@@ -1891,25 +1893,48 @@ function applyParsedEffects(state, side, card, opts = {}) {
         if (e.n > 0) state = dealDamage(state, side, e.n, { source: "self", cardId: card.id });
         break;
 
-            case "advanceOther": {
+                 case "advanceOther": {
         const slots = state.players[side]?.slots || [];
+
+        // For Wispform Surge, prefer a UI-chosen target if one was provided
+        if (card?.name === "Wispform Surge" && pendingTargetIdx !== null) {
+          const i = pendingTargetIdx;
+          const s = slots[i];
+          const c2 = s?.card;
+          if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
+            state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
+            break;
+          }
+        }
+
+        // Fallback: original behaviour (first other advancable spell)
         for (let i=0;i<3;i++){
           const s = slots[i], c2 = s?.card;
           if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
-             // Effect-based advance: free and bypass placement/paid locks
-            state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
-            break;
+             state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
+             break;
           }
         }
         break;
       }
 
-      case "advanceOtherFree": {
+
+     case "advanceOtherFree": {
         const slots = state.players[side]?.slots || [];
+
+        if (card?.name === "Wispform Surge" && pendingTargetIdx !== null) {
+          const i = pendingTargetIdx;
+          const s = slots[i];
+          const c2 = s?.card;
+          if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
+            state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
+            break;
+          }
+        }
+
         for (let i=0;i<3;i++){
           const s = slots[i], c2 = s?.card;
           if (s?.hasCard && c2?.type === "SPELL" && c2.id !== card.id && (c2.progress|0) < (c2.pip|0)) {
-            // Free effect step: also bypass placement lock
             state = advanceSpell(state, side, i, 1, /*free=*/true, /*bypassPlacementLock=*/true);
             break;
           }
