@@ -1736,10 +1736,14 @@ function parseEffectsFromText(raw) {
     fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
   }
   // NEW: also handle "advance 1 target spell"
-if (/\badvance\s+1\s+target\s+spell\b/.test(norm) ||
-    /\btarget\s+spell\s+advances?\s+1\b/.test(norm)) {
-  const isFree = /\bfree\b/.test(norm);
-  fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });  }
+  if (
+    /\btarget\s+spell\s+advances?\s+1\b/.test(norm) ||
+    /\badvance\s+1\s+target\s+spell\b/.test(norm)
+  ) {
+    const isFree = /\bfree\b/.test(norm);
+    fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
+  }
+
 
   return fx;
 }
@@ -1834,8 +1838,16 @@ function applyParsedEffects(state, side, card, opts = {}) {
   const rival = otherSide(side);
   const effects = parseEffectsFromText(card?.text || "");
 
+  // If the UI set a pending targeted slot (for things like "target Spell"),
+  // prefer that unless an explicit opts.targetSlotIndex is provided.
+  const pendingTargetIdx = (state._pendingTargetSlotIndex ?? null);
+  if (pendingTargetIdx !== null && pendingTargetIdx !== undefined) {
+    delete state._pendingTargetSlotIndex;
+  }
+
   // Allow instant text like "Target Spell advances 1" to pick a target:
   const pickOwnAdvancableSlot = () => {
+
     const slots = state.players[side]?.slots || [];
     for (let i=0;i<3;i++){
       const s = slots[i];
@@ -1905,37 +1917,44 @@ function applyParsedEffects(state, side, card, opts = {}) {
         break;
       }
 
-      case "advanceTarget": {
-        const idx = (opts.targetSlotIndex ?? (() => {
-          const slots = state.players[side]?.slots || [];
-          for (let i=0;i<3;i++){
-            const s = slots[i], c2 = s?.card;
-            if (s?.hasCard && c2?.type === "SPELL" && (c2.progress|0) < (c2.pip|0)) return i;
-          }
-          return -1;
-        })());
+            case "advanceTarget": {
+        const idx = (
+          opts.targetSlotIndex ??
+          (pendingTargetIdx !== null && pendingTargetIdx !== undefined ? pendingTargetIdx : (() => {
+            const slots = state.players[side]?.slots || [];
+            for (let i=0;i<3;i++){
+              const s = slots[i], c2 = s?.card;
+              if (s?.hasCard && c2?.type === "SPELL" && (c2.progress|0) < (c2.pip|0)) return i;
+            }
+            return -1;
+          })())
+        );
         if (idx >= 0) {
           // Effect-based advance: free and bypass placement/paid locks
           state = advanceSpell(state, side, idx, 1, /*free=*/true, /*bypassPlacementLock=*/true);
-       }
+        }
         break;
       }
 
       case "advanceTargetFree": {
-        const idx = (opts.targetSlotIndex ?? (() => {
-          const slots = state.players[side]?.slots || [];
-          for (let i=0;i<3;i++){
-            const s = slots[i], c2 = s?.card;
-            if (s?.hasCard && c2?.type === "SPELL" && (c2.progress|0) < (c2.pip|0)) return i;
-          }
-          return -1;
-        })());
+        const idx = (
+          opts.targetSlotIndex ??
+          (pendingTargetIdx !== null && pendingTargetIdx !== undefined ? pendingTargetIdx : (() => {
+            const slots = state.players[side]?.slots || [];
+            for (let i=0;i<3;i++){
+              const s = slots[i], c2 = s?.card;
+              if (s?.hasCard && c2?.type === "SPELL" && (c2.progress|0) < (c2.pip|0)) return i;
+            }
+            return -1;
+          })())
+        );
         if (idx >= 0) {
           // Free effect step: also bypass placement lock
           state = advanceSpell(state, side, idx, 1, /*free=*/true, /*bypassPlacementLock=*/true);
         }
         break;
       }
+
 
 
       default: break;
