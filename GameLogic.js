@@ -351,7 +351,7 @@ const BASE_DECK_LIST = [
     playCost: 0,
     stepCost: 0,
     pip: 1,
-    text: "Gain 1 Aether and Draw 1 card.",
+    text: "Channel 1 Aether and Draw 1 card.",
     aetherValue: 0,
     qty: 1
   },
@@ -371,7 +371,7 @@ const BASE_DECK_LIST = [
     playCost: 0,
     stepCost: 1,
     pip: 1,
-    text: "Advance another Spell 1 step and Gain 1 Aether.",
+    text: "Accelerate 1 target Spell and Gain 1 Aether.",
     aetherValue: 0,
     qty: 1
   },
@@ -413,7 +413,7 @@ const BASE_DECK_LIST = [
     playCost: 1,
     pip: 0,
     stepCost: 0,
-    text: "Advance a Spell 1 step.",
+    text: "Accelerate 1 target Spell",
     aetherValue: 0,
     qty: 1
   },
@@ -436,7 +436,7 @@ const BASE_DECK_LIST = [
     pip: 0,
     stepCost: 0,
     // Hooked by applyGlyphPassives via the "when a spell resolves → gain 1 Aether" regex
-    text: "When a Spell resolves → Gain 1 Aether.",
+    text: "When a Spell resolves → Channel 1 Aether.",
     aetherValue: 1,
     qty: 1
   },
@@ -459,6 +459,18 @@ const BASE_DECK_LIST = [
     pip: 0,
     stepCost: 0,
     text: "When opponent plays a Spell → Hex that Spell Slot until your next turn.",
+    aetherValue: 1,
+    qty: 1
+  },
+
+   // Hex Spell (1)
+  {
+    name: "Lingering Hex",
+    type: "SPELL",
+    playCost: 1,
+    stepCost: 1,
+    pip: 1,
+    text: "On Resolve → Hex an enemy Spell Slot until the start of your next turn.",
     aetherValue: 1,
     qty: 1
   }
@@ -491,7 +503,7 @@ const AETHERFLOW_LIST = [
     stepCost: 1,
     cost: 4,
     aetherValue: 2,
-    text: "On Resolve → Gain Aether equal to your Stored Aether, then Store 1.",
+    text: "On Resolve → Channel Aether equal to your Stored Aether, then Store 1.",
     role: "Scaling Ramp",
     qty: 1
   },
@@ -527,8 +539,8 @@ const AETHERFLOW_LIST = [
     stepCost: 0,
     cost: 2,
     aetherValue: 0,
-    text: "When you advance a Spell → Gain 1 Aether.",
-    role: "Advance Engine",
+    text: "When you Accelerate a Spell → Gain 1 Aether.",
+    role: "Accelerate Engine",
     qty: 1
   },
 
@@ -541,7 +553,7 @@ const AETHERFLOW_LIST = [
     stepCost: 0,
     cost: 1,
     aetherValue: 0,
-    text: "When opponent advances a Spell → Roll that Spell back 1 pip.",
+    text: "When opponent Accelerates a Spell → Roll that Spell back 1 pip.",
     role: "Pip Control",
     qty: 1
   },
@@ -579,8 +591,8 @@ const AETHERFLOW_LIST = [
     stepCost: 0,
     cost: 2,
     aetherValue: 0,
-    text: "Deal damage equal to the number of times you advanced a Spell this turn.",
-    role: "Advance Payoff",
+    text: "Deal damage equal to the number of times you have Accelerated a Spell this turn.",
+    role: "Acceleration Payoff",
     qty: 1
   },
   {
@@ -617,7 +629,7 @@ const AETHERFLOW_LIST = [
     stepCost: 1,
     cost: 1,
     aetherValue: 0,
-    text: "On Resolve → Store 1 Aether for each Spell advanced this turn.",
+    text: "On Resolve → Store 1 Aether for each Spell Accelerated this turn.",
     role: "Flow Engine",
     qty: 1
   },
@@ -631,7 +643,7 @@ const AETHERFLOW_LIST = [
     stepCost: 0,
     cost: 1,
     aetherValue: 0,
-    text: "When opponent advances a Spell → Hex that slot. If it’s already Hexed, they discard 1 card.",
+    text: "When opponent Accelerates a Spell → Hex that slot. If it’s already Hexed, they discard 1 card.",
     role: "Hex Punish",
     qty: 1
   },
@@ -1682,8 +1694,11 @@ export function getStack(state, playerId, which){
 function parseEffectsFromText(raw) {
   if (!raw) return [];
   const t = String(raw).toLowerCase();
+  // Treat “Accelerate” as a synonym for “Advance” in the parser
+  const norm = t.replaceAll("accelerate", "advance");
 
   const fx = [];
+
 
   // Draw N
   { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
@@ -1715,13 +1730,13 @@ function parseEffectsFromText(raw) {
   { const m = t.match(/\bheal\s+(\d+)/); if (m) fx.push({t:"heal", n:+m[1]}); }
   { const m = t.match(/\blose\s+(\d+)\s+vitality/); if (m) fx.push({t:"selfLose", n:+m[1]}); }
 
-  // Advance another spell / target spell — detect "free"
-  if (/\badvance\s+another\s+spell\b/.test(t)) {
-    const isFree = /\bfree\b/.test(t);
+ // Advance / Accelerate another spell / target spell — detect "free"
+  if (/\badvance\s+another\s+spell\b/.test(norm)) {
+    const isFree = /\bfree\b/.test(norm);
     fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
   }
-  if (/\btarget\s+spell\s+advances?\s+1\b/.test(t)) {
-    const isFree = /\bfree\b/.test(t);
+  if (/\btarget\s+spell\s+advances?\s+1\b/.test(norm)) {
+    const isFree = /\bfree\b/.test(norm);
     fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
   }
 
@@ -1919,5 +1934,27 @@ function applyParsedEffects(state, side, card, opts = {}) {
     }
   }
 
+
+
+  // ---- Special cases (non-parsable text) ----
+
+  // Lingering Hex (base-deck Hex spell):
+  // On Resolve → Hex an enemy Spell Slot until the start of your next turn.
+  if (card?.name === "Lingering Hex" && card?.type === "SPELL") {
+    const targetSide = otherSide(side);
+    const slots = state.players?.[targetSide]?.slots || [];
+    let idx = -1;
+
+    // Prefer leftmost enemy slot that currently has a spell and is not already hexed
+    for (let i = 0; i < 3; i++) {
+      const s = slots[i];
+      if (s?.hasCard && !s.hex) { idx = i; break; }
+    }
+    // If no active spells, just lock the leftmost slot
+    if (idx < 0) idx = 0;
+
+    state = applyHexToSlot(state, side, targetSide, idx, /*durationTurns=*/2);
+  }
+  
   return state;
 }
