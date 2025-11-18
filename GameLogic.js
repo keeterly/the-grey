@@ -1730,12 +1730,13 @@ function parseEffectsFromText(raw) {
   { const m = t.match(/\bheal\s+(\d+)/); if (m) fx.push({t:"heal", n:+m[1]}); }
   { const m = t.match(/\blose\s+(\d+)\s+vitality/); if (m) fx.push({t:"selfLose", n:+m[1]}); }
 
- // Advance / Accelerate another spell / target spell — detect "free"
+// Advance / Accelerate another spell / target spell — detect "free"
   if (/\badvance\s+another\s+spell\b/.test(norm)) {
     const isFree = /\bfree\b/.test(norm);
     fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
   }
-  // NEW: also handle "advance 1 target spell"
+
+ // IMPORTANT: use norm here so “Accelerate 1 target Spell” is caught
   if (
     /\btarget\s+spell\s+advances?\s+1\b/.test(norm) ||
     /\badvance\s+1\s+target\s+spell\b/.test(norm)
@@ -1743,6 +1744,7 @@ function parseEffectsFromText(raw) {
     const isFree = /\bfree\b/.test(norm);
     fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
   }
+
 
 
   return fx;
