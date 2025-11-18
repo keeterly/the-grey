@@ -1674,7 +1674,8 @@ let bootDealt = false;
 let prevFlowIds = [null,null,null,null,null];
 let prevHandIds = [];
 let prevAiHandIds = [];
-let hexTargetMode = null;   // { fromSide: "player", cardId: string } when choosing Grim Hex target
+let hexTargetMode = null;        // existing Grim Hex target mode
+let hexSpellTargetMode = null;   // new: for Lingering Hex spell target
 let shuffledOnce = false;
 let spellTargetMode = null; // { fromSide: "player", cardId: string } when choosing a Spell for "target Spell"
 const FLOW_BOUGHT_IDS = new Set();   // remember exact card IDs bought from Flow
@@ -2069,23 +2070,23 @@ function removeLegacyTranceText() {
 // ──────────────────────────────────────────────────────────────
 // Hex targeting helpers (Grim Hex)
 // ──────────────────────────────────────────────────────────────
-function exitHexTargetMode(){
-  const els = document.querySelectorAll('.slot.spell.hex-targetable');
+function exitHexSpellTargetMode() {
+  const els = document.querySelectorAll('.slot.spell.hex-spell-targetable');
   els.forEach(el => {
-    el.classList.remove('hex-targetable');
-    const handler = el._hexClickHandler;
-    if (handler) {
-      el.removeEventListener('click', handler);
-      delete el._hexClickHandler;
+    el.classList.remove('hex-spell-targetable');
+    const h = el._hexSpellClickHandler;
+    if (h) {
+      el.removeEventListener('click', h);
+      delete el._hexSpellClickHandler;
     }
   });
-  hexTargetMode = null;
+  hexSpellTargetMode = null;
 }
 
-function enterHexTargetMode(fromSide, cardId){
-  hexTargetMode = { fromSide, cardId };
+function enterHexSpellTargetMode(fromSide, cardId, onChosen) {
+  hexSpellTargetMode = { fromSide, cardId, onChosen };
 
-  // Highlight AI spell slots as valid hex targets
+  // Lingering Hex always targets the opponent's spell slots
   const row = document.querySelector('.row.ai');
   if (!row) return;
   const slots = row.querySelectorAll('.slot.spell');
@@ -2093,30 +2094,36 @@ function enterHexTargetMode(fromSide, cardId){
   slots.forEach((el, idx) => {
     const snap = state?.players?.ai?.slots?.[idx];
     if (!snap) return;
+    // you *can* hex empty slots, so don't require hasCard here
     if (snap.hex) return; // already hexed
 
-    el.classList.add('hex-targetable');
+    el.classList.add('hex-spell-targetable', 'hex-targetable'); // reuse gold pulse style
 
     const handler = async (ev) => {
       ev.stopPropagation();
-      if (!hexTargetMode) return;
+      if (!hexSpellTargetMode) return;
 
-      // Tell GameLogic which slot index to hex
-      state._pendingHexTargetSlotIndex = idx;
+      // Record the chosen target slot for this card id
+      state._cardHexTargets = state._cardHexTargets || {};
+      state._cardHexTargets[cardId] = idx;
 
-      const cardIdNow = hexTargetMode.cardId;
-      exitHexTargetMode();
+      const fn = hexSpellTargetMode.onChosen;
+      exitHexSpellTargetMode();
 
-      // Cast Grim Hex like a normal instant; engine will see the target index
-      state = await window.castInstantFromHand(state, fromSide, cardIdNow);
-      await spotlightFromEvents(state);
-      await render();
+      if (typeof fn === 'function') {
+        await fn(idx);
+      }
     };
 
-    el._hexClickHandler = handler;
+    el._hexSpellClickHandler = handler;
     el.addEventListener('click', handler, { once: true });
   });
 }
+
+
+
+
+
 
 
 
@@ -2255,9 +2262,21 @@ function showCardOptions(cardEl, cardData){
     
 
   try {
-    if (o.k === "play"){
-      const idx = firstOpenSpellSlot(serializePublic(state)||{});
-      if (idx>=0){ await playSpellFromHandWithTemp("player", cardData.id, idx); }
+   if (o.k === "play"){
+  const pub = serializePublic(state) || {};
+  const slotIdx = firstOpenSpellSlot(pub);
+  if (slotIdx < 0) return;
+
+  // Special case: Lingering Hex chooses its future target slot now
+  if (cardData.name === "Lingering Hex") {
+    // Let the player pick which enemy slot will be hexed on resolve
+    enterHexSpellTargetMode("player", cardData.id, async () => {
+      await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+      await render();
+    });
+  } else {
+    await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+  }
 
     } else if (o.k === "set"){
       await setGlyphFromHandWithTemp("player", cardData.id);
