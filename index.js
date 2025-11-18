@@ -1625,7 +1625,6 @@ function refreshPipAdvanceClasses() {
 
 // click handler: pay cost and advance exactly 1 step
 function ensurePipHandlers() {
-  // Delegate on the player slot row
   const host = document.getElementById('player-slots');
   if (!host) return;
 
@@ -1633,14 +1632,13 @@ function ensurePipHandlers() {
     const track = ev.target.closest('.pip-track');
     if (!track) return;
 
-    // find the enclosing card
     const cardEl = track.closest('.card');
     if (!cardEl) return;
 
-       const side      = 'player';
+    const side      = 'player';
     const slotIndex = Number(cardEl.dataset.slotIndex || track.dataset.slotIndex || 0);
-    const pub = serializePublic(state) || {};
-    const slotSnap = pub.players?.player?.slots?.[slotIndex];
+    const pub       = serializePublic(state) || {};
+    const slotSnap  = pub.players?.player?.slots?.[slotIndex];
     if (!slotSnap || !slotSnap.canAdvance) return;
     const card = slotSnap.card || {};
 
@@ -1656,15 +1654,13 @@ function ensurePipHandlers() {
       return;
     }
 
-    // Normal advance
+    // Normal accelerate
     state = payAndAdvanceOne(state, side, slotIndex);
 
     await render();
     refreshPipAdvanceClasses();
-
   });
 
-  // keyboard (Enter/Space) on focused track
   host.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter' && ev.key !== ' ') return;
     const track = ev.target.closest('.pip-track');
@@ -1673,6 +1669,7 @@ function ensurePipHandlers() {
     track.click();
   });
 }
+
 
 // call once after you’ve rendered the player slots
 function initPipTrackUIOnce() {
@@ -2079,6 +2076,58 @@ function removeLegacyTranceText() {
     }
   }
 }
+
+
+
+async function enterWispformSurgeTargetMode(wispSlotIndex, wispCardId) {
+  const pub  = serializePublic(state) || {};
+  const mySlots = pub.players?.player?.slots || [];
+
+  const host = document.getElementById('player-slots');
+  if (!host) return;
+
+  // Mark selectable spell slots
+  host.classList.add('spell-target-mode');
+  document.querySelectorAll('#player-slots .slot.spell').forEach((slotEl, idx) => {
+    const snap = mySlots[idx];
+    const isValid =
+      idx !== wispSlotIndex &&
+      snap?.hasCard &&
+      snap.card?.type === "SPELL" &&
+      (snap.card.progress | 0) < (snap.card.pip | 0);
+
+    slotEl.classList.toggle('wisp-targetable', !!isValid);
+  });
+
+  const onClick = async (ev) => {
+    const slotEl = ev.target.closest('.slot.spell');
+    if (!slotEl) return;
+    if (!slotEl.classList.contains('wisp-targetable')) return;
+
+    const idx = Number(slotEl.dataset.slotIndex ?? slotEl.dataset.index ?? -1);
+    if (idx < 0) return;
+
+    ev.stopPropagation();
+
+    // Clean up UI
+    host.removeEventListener('click', onClick);
+    host.classList.remove('spell-target-mode');
+    document
+      .querySelectorAll('#player-slots .slot.spell')
+      .forEach(el => el.classList.remove('wisp-targetable'));
+
+    // Tell the engine which spell we targeted
+    state._pendingTargetSlotIndex = idx;
+
+    // Now actually pay & accelerate Wispform Surge (which will then resolve)
+    state = payAndAdvanceOne(state, 'player', wispSlotIndex);
+    await render();
+    refreshPipAdvanceClasses();
+  };
+
+  host.addEventListener('click', onClick);
+}
+
 
 
 
