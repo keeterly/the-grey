@@ -381,19 +381,36 @@ function canPlayReactionCard(state, defenderSide, card, trigger) {
   const available = ((P?.aether | 0) + (P?.tempAether | 0));
   const playCost = card.playCost | 0;
   if (available < playCost) return false;
-  const text = String(card.text || '').toLowerCase();
+   const text = String(card.text || '').toLowerCase();
+
   if (trigger === 'onAdvance') {
-    // Cards that negate spell advancement should include "negate" in their text
-    return text.includes('negate');
+    // Reactions that care about opponent advancing/accelerating a spell
+    // e.g. "When opponent Accelerates a Spell → ..."
+    const caresAboutAdvance =
+      text.includes('opponent advances a spell') ||
+      text.includes('opponent accelerates a spell') ||
+      text.includes('accelerates a spell');
+    const explicitlyNegates = text.includes('negate');
+    return caresAboutAdvance || explicitlyNegates;
   }
+
   if (trigger === 'onCast') {
-    // Cards that cancel spells should include keywords like "cancel" or "snuff"
-    return text.includes('cancel') || text.includes('snuff');
+    // Reactions that care about opponent playing a spell
+    // e.g. "When opponent plays a Spell → Hex that Spell Slot ..."
+    const caresAboutPlay =
+      text.includes('opponent plays a spell') ||
+      text.includes('opponent casts a spell') ||
+      text.includes('plays a spell');
+    const cancels =
+      text.includes('cancel') || text.includes('snuff');
+    return caresAboutPlay || cancels;
   }
+
   if (trigger === 'onDamage') {
-    // Cards that prevent or reduce damage should include these keywords
+    // Cards that prevent or reduce damage
     return text.includes('reduce') || text.includes('prevent') || text.includes('shield');
   }
+
   return false;
 }
 
@@ -4378,31 +4395,40 @@ import { getStack } from './GameLogic.js';
 
 
 window.castInstantFromHand = async function(_state, side, cardId){
-  const pub = serializePublic(state)||{};
-  const hand = pub.players?.[side]?.hand||[];
-  const card = hand.find(c=> c.id===cardId);
-  if (!card || card.type!=="INSTANT") return state;
+  state = _state || state;
 
-  const rawCost = card.cost|0;
- const cost = rawCost; // Instants should not be discounted by Aria L2
+  const pub  = serializePublic(state)||{};
+  const hand = pub.players?.[side]?.hand||[];
+  const card = hand.find(c=> c.id === cardId);
+  if (!card) return state;
+
+  // Only handle non-board cards here
+  if (card.type !== 'INSTANT' && card.type !== 'REACTION') return state;
+
+  // Instants use `cost`, Reactions use `playCost`
+  let rawCost;
+  if (card.type === 'REACTION') {
+    rawCost = Number.isFinite(card.playCost) ? (card.playCost|0) : (card.cost|0);
+  } else {
+    rawCost = card.cost|0;
+  }
+  const cost = rawCost;
+
   if (getTotal(side) < cost){ showToast("Not enough Æther."); return state; }
 
+  // Temp first, then regular (matches spell flow)
   const useTemp = Math.min(cost, getTemp(side));
-  adjustAe(side, useTemp);
-  try{
-    if (useTemp) addTemp(side, -useTemp);
-  
-    // cinematic from the hand card → discard HUD
-   const cine = side === 'ai' ? cineFromAiMini : cineFromHandCard;
-const destSel = side === 'ai' ? '#ai-mini-discard' : '#btn-discard-hud';
-cine(cardId, destSel, 'instant');
+  adjustAe(side, useTemp); // virtual top-up; engine applies real spend
 
-  
-    // resolve to discard + event for spotlight
+  const destSel = side === 'ai' ? '#ai-mini-discard' : '#btn-discard-hud';
+  const cine    = side === 'ai' ? cineFromAiMini : cineFromHandCard;
+  cine(cardId, destSel, card.type === 'REACTION' ? 'reaction' : 'instant');
+
+  try {
+    // Let GameLogic route INSTANT vs REACTION correctly
     state = resolveInstantFromHand(state, side, cardId);
-    Emit(Events.CARD_CAST, {side, cardId, cost});
-    karethAfterSpend(side, rawCost);
-
+    Emit(Events.CARD_CAST, { side, cardId, cost });
+    karethAfterSpend(side, cost);
     await render();
   } catch(e) {
     if (useTemp) adjustAe(side, -useTemp);
@@ -4411,6 +4437,7 @@ cine(cardId, destSel, 'instant');
 
   return state;
 };
+
 
 
 
