@@ -672,15 +672,17 @@ function ensureHexStyles(){
       pointer-events: none;
     }
 
-    /* ==== Selectable Hex targets (gold pulse) ==== */
-    .slot.spell.hex-targetable {
+       /* ==== Selectable Hex / Spell targets (gold pulse) ==== */
+    .slot.spell.hex-targetable,
+    .slot.spell.spell-targetable {
       position: relative;
       cursor: crosshair;
       transform: translateY(-3px);
       animation: hexTargetPulse 1.3s ease-in-out infinite;
     }
 
-    .slot.spell.hex-targetable::before {
+    .slot.spell.hex-targetable::before,
+    .slot.spell.spell-targetable::before {
       content: "";
       position: absolute;
       inset: 3px;
@@ -691,6 +693,7 @@ function ensureHexStyles(){
         0 0 24px rgba(120,80,40,0.7);
       pointer-events: none;
     }
+
 
     @keyframes hexTargetPulse {
       0% {
@@ -1656,6 +1659,7 @@ let prevHandIds = [];
 let prevAiHandIds = [];
 let hexTargetMode = null;   // { fromSide: "player", cardId: string } when choosing Grim Hex target
 let shuffledOnce = false;
+let spellTargetMode = null; // { fromSide: "player", cardId: string } when choosing a Spell for "target Spell"
 const FLOW_BOUGHT_IDS = new Set();   // remember exact card IDs bought from Flow
 
 
@@ -2100,6 +2104,61 @@ function enterHexTargetMode(fromSide, cardId){
 
 
 
+function exitSpellTargetMode(){
+  const els = document.querySelectorAll('.slot.spell.spell-targetable');
+  els.forEach(el => {
+    el.classList.remove('spell-targetable');
+    const handler = el._spellClickHandler;
+    if (handler) {
+      el.removeEventListener('click', handler);
+      delete el._spellClickHandler;
+    }
+  });
+  spellTargetMode = null;
+}
+
+function enterSpellTargetMode(fromSide, cardId){
+  spellTargetMode = { fromSide, cardId };
+
+  // For now, "target Spell" always targets your own spells.
+  const row = document.querySelector('.row.player');
+  if (!row) return;
+  const slots = row.querySelectorAll('.slot.spell');
+
+  slots.forEach((el, idx) => {
+    const snap = state?.players?.player?.slots?.[idx];
+    if (!snap) return;
+    if (!snap.hasCard) return;
+    const c = snap.card;
+    if (!c || c.type !== "SPELL") return;
+    // Only allow acceleratable spells (not already fully charged)
+    if ((c.progress|0) >= (c.pip|0)) return;
+
+    el.classList.add('spell-targetable');
+
+    const handler = async (ev) => {
+      ev.stopPropagation();
+      if (!spellTargetMode) return;
+
+      // Tell GameLogic which slot index to affect
+      state._pendingTargetSlotIndex = idx;
+
+      const cardIdNow = spellTargetMode.cardId;
+      exitSpellTargetMode();
+
+      // Cast the instant like normal; GameLogic will read _pendingTargetSlotIndex
+      state = await window.castInstantFromHand(state, fromSide, cardIdNow);
+      await spotlightFromEvents(state);
+      await render();
+    };
+
+    el._spellClickHandler = handler;
+    el.addEventListener('click', handler, { once: true });
+  });
+}
+
+
+
 
  // card popover
 function showCardOptions(cardEl, cardData){
@@ -2162,6 +2221,21 @@ function showCardOptions(cardEl, cardData){
     // or we'll blow away the hex-targetable DOM we just set up.
     return;
   }
+
+
+      // --- Special case: "target Spell" instants use slot selection like Hex ---
+  if (o.k === "cast" && (cardData.text || "").toLowerCase().includes("target spell")) {
+    try {
+      enterSpellTargetMode("player", cardData.id);
+    } finally {
+      clearAllActionMenus();
+    }
+    // Let the spell-target overlay handle the eventual cast + render
+    return;
+  }
+
+
+    
 
   try {
     if (o.k === "play"){
