@@ -1966,22 +1966,37 @@ function applyParsedEffects(state, side, card, opts = {}) {
   // ---- Special cases (non-parsable text) ----
 
   // Lingering Hex (base-deck Hex spell):
-  // On Resolve → Hex an enemy Spell Slot until the start of your next turn.
-  if (card?.name === "Lingering Hex" && card?.type === "SPELL") {
-    const targetSide = otherSide(side);
-    const slots = state.players?.[targetSide]?.slots || [];
-    let idx = -1;
+// On Resolve → Hex an enemy Spell Slot until the start of your next turn.
+if (card?.name === "Lingering Hex" && card?.type === "SPELL") {
+  const targetSide = otherSide(side);
+  const slots = state.players?.[targetSide]?.slots || [];
+  let idx = -1;
 
-    // Prefer leftmost enemy slot that currently has a spell and is not already hexed
+  // 1) If the UI chose a specific target for this card, use that first
+  const map = state._cardHexTargets || {};
+  if (card.id && Object.prototype.hasOwnProperty.call(map, card.id)) {
+    idx = map[card.id] | 0;
+    delete map[card.id];
+  }
+
+  // 2) Validate the chosen index; if invalid, fall back to old behaviour
+  if (idx < 0 || idx >= slots.length || !slots[idx]) {
+    idx = -1;
+  }
+
+  // 3) Fallback: prefer leftmost enemy slot that has a spell and is not already hexed
+  if (idx < 0) {
     for (let i = 0; i < 3; i++) {
       const s = slots[i];
       if (s?.hasCard && !s.hex) { idx = i; break; }
     }
-    // If no active spells, just lock the leftmost slot
-    if (idx < 0) idx = 0;
-
-    state = applyHexToSlot(state, side, targetSide, idx, /*durationTurns=*/2);
   }
+  // 4) If no better choice, just lock slot 0
+  if (idx < 0) idx = 0;
+
+  state = applyHexToSlot(state, side, targetSide, idx, /*durationTurns=*/2);
+}
+
   
   return state;
 }
