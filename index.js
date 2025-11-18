@@ -2079,54 +2079,7 @@ function removeLegacyTranceText() {
 
 
 
-async function enterWispformSurgeTargetMode(wispSlotIndex, wispCardId) {
-  const pub  = serializePublic(state) || {};
-  const mySlots = pub.players?.player?.slots || [];
 
-  const host = document.getElementById('player-slots');
-  if (!host) return;
-
-  // Mark selectable spell slots
-  host.classList.add('spell-target-mode');
-  document.querySelectorAll('#player-slots .slot.spell').forEach((slotEl, idx) => {
-    const snap = mySlots[idx];
-    const isValid =
-      idx !== wispSlotIndex &&
-      snap?.hasCard &&
-      snap.card?.type === "SPELL" &&
-      (snap.card.progress | 0) < (snap.card.pip | 0);
-
-    slotEl.classList.toggle('wisp-targetable', !!isValid);
-  });
-
-  const onClick = async (ev) => {
-    const slotEl = ev.target.closest('.slot.spell');
-    if (!slotEl) return;
-    if (!slotEl.classList.contains('wisp-targetable')) return;
-
-    const idx = Number(slotEl.dataset.slotIndex ?? slotEl.dataset.index ?? -1);
-    if (idx < 0) return;
-
-    ev.stopPropagation();
-
-    // Clean up UI
-    host.removeEventListener('click', onClick);
-    host.classList.remove('spell-target-mode');
-    document
-      .querySelectorAll('#player-slots .slot.spell')
-      .forEach(el => el.classList.remove('wisp-targetable'));
-
-    // Tell the engine which spell we targeted
-    state._pendingTargetSlotIndex = idx;
-
-    // Now actually pay & accelerate Wispform Surge (which will then resolve)
-    state = payAndAdvanceOne(state, 'player', wispSlotIndex);
-    await render();
-    refreshPipAdvanceClasses();
-  };
-
-  host.addEventListener('click', onClick);
-}
 
 
 
