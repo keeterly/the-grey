@@ -1735,10 +1735,11 @@ function parseEffectsFromText(raw) {
     const isFree = /\bfree\b/.test(norm);
     fx.push({ t: isFree ? "advanceOtherFree" : "advanceOther", n: 1 });
   }
-  if (/\btarget\s+spell\s+advances?\s+1\b/.test(norm)) {
-    const isFree = /\bfree\b/.test(norm);
-    fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });
-  }
+  // NEW: also handle "advance 1 target spell"
+if (/\badvance\s+1\s+target\s+spell\b/.test(norm) ||
+    /\btarget\s+spell\s+advances?\s+1\b/.test(norm)) {
+  const isFree = /\bfree\b/.test(norm);
+  fx.push({ t: isFree ? "advanceTargetFree" : "advanceTarget", n: 1 });  }
 
   return fx;
 }
@@ -1751,14 +1752,12 @@ function applyGlyphPassives(state, side, trigger){
 
   if (trigger === "spell_resolved" &&
       (
-        /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s*(?:æ|ae|aether)/.test(text) ||
-        /when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+1\s+channelled\s*(?:æ|ae|aether)/.test(text)
+       /when\s+a\s+spell\s+resolves?\s*→?\s*(?:gain|channel)\s+1\s*(?:æ|ae|aether)/.test(text)
       )) {
-    // For "gain 1 channelled Aether" we simply add 1 Æ; adjust here if you
-    // later differentiate between regular and channelled Aether.
-    state.players[side].aether = (state.players[side].aether|0) + 1;
-    pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
-    fired = true;
+    // treat it as +1 stored Æ for now
+  state.players[side].aether = (state.players[side].aether | 0) + 1;
+  pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
+  fired = true;
   }
 
   // New: opponent spell resolves → deal 1 damage
@@ -1768,6 +1767,15 @@ function applyGlyphPassives(state, side, trigger){
     fired = true;
   }
 
+// When you Channel / Store Aether → Draw 1 card. (Glyph of Returning Echo)
+if (trigger === "channel" &&
+    /when\s+you\s+(?:store|channel)\s+aether\s*→\s*draw\s+1\s+card/.test(text)) {
+  state = drawN(state, side, 1);
+  pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
+  fired = true;
+}
+
+  
   // New: taking damage → channel N Æ (defaults to 2)
   if (trigger === "damage" &&
       /when\s+you\s+take\s+damage\s*→?\s*channel\s+(\d+)/.test(text)) {
