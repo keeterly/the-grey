@@ -652,6 +652,49 @@ function ensureHexStyles(){
       overflow: hidden;
     }
 
+    /* === Hexed Slot Duration Number === */
+.slot.spell.hexed-slot .hex-duration {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3.2rem;
+  font-weight: 700;
+  color: rgba(255, 230, 200, 0.95);
+  text-shadow:
+    0 0 6px rgba(0,0,0,0.9),
+    0 0 12px rgba(0,0,0,0.8),
+    0 2px 4px rgba(0,0,0,0.8);
+  pointer-events: none;
+  z-index: 20;
+}
+
+/* === X-Shaped Chains Overlay === */
+.slot.spell.hexed-slot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(
+      135deg,
+      transparent 40%,
+      rgba(90,80,70,0.55) 45%,
+      rgba(90,80,70,0.65) 55%,
+      transparent 60%
+    ),
+    linear-gradient(
+      45deg,
+      transparent 40%,
+      rgba(90,80,70,0.55) 45%,
+      rgba(90,80,70,0.65) 55%,
+      transparent 60%
+    );
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  z-index: 5;
+}
+
+
     .slot.spell .hex-skull {
       position: absolute;
       inset: 0;
@@ -2650,10 +2693,17 @@ function renderSlots(container, snapshot, isPlayer){
     if (slot.hex) {
       d.classList.add('hexed-slot');
       if (!d.querySelector('.hex-skull')) {
-        const skull = document.createElement('div');
-        skull.className = 'hex-skull';
-        skull.textContent = '☠';
-        d.appendChild(skull);
+        const skull = document.createElement("div");
+  skull.className = "hex-skull";
+  skull.textContent = "💀";
+  slotEl.appendChild(skull);
+          // Duration number
+  const hex = slot.hex;
+  const duration = Math.max(0, hex.expiresOnTurn - (state.turn || 0));
+  const dur = document.createElement("div");
+  dur.className = "hex-duration";
+  dur.textContent = duration;
+  slotEl.appendChild(dur);
       }
     } else {
       d.classList.remove('hexed-slot');
