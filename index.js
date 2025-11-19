@@ -652,22 +652,23 @@ function ensureHexStyles(){
       overflow: hidden;
     }
 
-    /* === Hexed Slot Duration Number === */
-.slot.spell.hexed-slot .hex-duration {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 2.8rem;
-  font-weight: 600;
-  color: rgba(245,235,210,0.96);
-  text-shadow:
-    0 0 4px rgba(0,0,0,0.9),
-    0 0 12px rgba(0,0,0,0.85);
-  pointer-events: none;
-  z-index: 3;
-}
+       /* Big hex duration number on top of everything */
+    .slot.spell.hexed-slot .hex-duration {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: rgba(255, 230, 200, 0.96);
+      text-shadow:
+        0 0 6px rgba(0,0,0,0.9),
+        0 0 12px rgba(0,0,0,0.85),
+        0 2px 4px rgba(0,0,0,0.9);
+      pointer-events: none;
+      z-index: 20; /* above chains & drop shadow */
+    }
+
 
 
 /* === X-Shaped Chains Overlay === */
@@ -705,22 +706,34 @@ function ensureHexStyles(){
       font-size: 4.8rem;
       pointer-events: none;
       text-shadow: 0 0 18px rgba(0,0,0,0.95);
+      z-index: 10;
     }
 
+      /* X-shaped chain bands over the slot */
     .slot.spell.hexed-slot::before {
-      content: "⛓⛓⛓⛓";
+      content: "";
       position: absolute;
       inset: 6px;
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 1.4rem;
-      letter-spacing: 0.35em;
-      color: rgba(190,180,160,0.95);
-      text-shadow: 0 0 8px rgba(0,0,0,0.85);
+      border-radius: 18px;
+      background:
+        linear-gradient(
+          135deg,
+          transparent 40%,
+          rgba(190,180,160,0.75) 45%,
+          rgba(190,180,160,0.9) 55%,
+          transparent 60%
+        ),
+        linear-gradient(
+          45deg,
+          transparent 40%,
+          rgba(190,180,160,0.75) 45%,
+          rgba(190,180,160,0.9) 55%,
+          transparent 60%
+        );
+      opacity: 0.9;
+      mix-blend-mode: screen;
       pointer-events: none;
-      opacity: 0.8;
+      z-index: 2;
     }
 
     .slot.spell.hexed-slot::after {
@@ -2690,20 +2703,20 @@ function renderSlots(container, snapshot, isPlayer){
 
     const slot = safe[i] || {hasCard:false, card:null};
 
-       // hex visual: grey + skull + duration if engine marks this slot as hexed
+          // HEX visuals: dim + skull + duration
     if (slot.hex) {
       d.classList.add('hexed-slot');
 
-      // Clear stale overlays first
+      // Clear any old overlays so we don't stack them
       d.querySelectorAll('.hex-skull, .hex-duration').forEach(n => n.remove());
 
-      // Skull overlay
+      // Large skull in the center
       const skull = document.createElement('div');
       skull.className = 'hex-skull';
-      skull.textContent = '☠';
+      skull.textContent = '💀';
       d.appendChild(skull);
 
-      // Turn counter
+      // Remaining-turns number
       const hex       = slot.hex;
       const remaining = Math.max(0, (hex.expiresOnTurn | 0) - (state.turn | 0));
       const dur = document.createElement('div');
@@ -2714,6 +2727,7 @@ function renderSlots(container, snapshot, isPlayer){
       d.classList.remove('hexed-slot');
       d.querySelectorAll('.hex-skull, .hex-duration').forEach(n => n.remove());
     }
+
 
 
     // reflect occupancy so CSS can undim when a card is present
