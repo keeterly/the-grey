@@ -1747,6 +1747,26 @@ function parseEffectsFromText(raw) {
 
 
 
+
+
+// --- Hex targeting ---
+
+  // Lingering Hex style: "Hex an enemy Spell Slot until the start of your next turn."
+  if (/\bhex\s+an?\s+enemy\s+spell\s+slot\b/.test(norm)) {
+    fx.push({ t: "hexTargetSlot", duration: 2 });
+  }
+
+  // Generic: "Hex target Spell Slot" / "Hex a target slot ..."
+  if (/\bhex\b/.test(norm) && /\btarget\b/.test(norm) && /\bspell\s+slot\b/.test(norm)) {
+    // Optional: support "for N turns" in future designs
+    const m = norm.match(/\bfor\s+(\d+)\s+turns?\b/);
+    const dur = m ? +m[1] : 2;
+    fx.push({ t: "hexTargetSlot", duration: dur });
+  }
+
+
+  
+
   return fx;
 }
 
@@ -1984,6 +2004,38 @@ function applyParsedEffects(state, side, card, opts = {}) {
 
 
 
+
+      case "hexTargetSlot": {
+        const targetSide = otherSide(side);
+        const duration   = e.duration ?? 2;
+        const enemySlots = state.players?.[targetSide]?.slots || [];
+
+        // 1) Prefer an explicit target from opts or UI (_pendingTargetSlotIndex)
+        let idx = (opts.targetSlotIndex != null)
+          ? opts.targetSlotIndex
+          : (pendingTargetIdx != null ? pendingTargetIdx : -1);
+
+        // 2) Validate; if invalid, fall back to first non-hexed spell slot
+        if (idx < 0 || idx >= enemySlots.length || !enemySlots[idx]) {
+          idx = -1;
+        }
+        if (idx < 0) {
+          for (let i = 0; i < 3; i++) {
+            const s = enemySlots[i];
+            if (s && !s.hex) { idx = i; break; }
+          }
+        }
+        // 3) Absolute fallback: slot 0 if everything is bad
+        if (idx < 0) idx = 0;
+
+        state = applyHexToSlot(state, side, targetSide, idx, duration);
+        break;
+      }
+
+        
+
+
+
       default: break;
     }
   }
@@ -1991,39 +2043,6 @@ function applyParsedEffects(state, side, card, opts = {}) {
 
 
   // ---- Special cases (non-parsable text) ----
-
-  // Lingering Hex (base-deck Hex spell):
-// On Resolve → Hex an enemy Spell Slot until the start of your next turn.
-if (card?.name === "Lingering Hex" && card?.type === "SPELL") {
-  const targetSide = otherSide(side);
-  const slots = state.players?.[targetSide]?.slots || [];
-  let idx = -1;
-
-  // 1) If the UI chose a specific target for this card, use that first
-  const map = state._cardHexTargets || {};
-  if (card.id && Object.prototype.hasOwnProperty.call(map, card.id)) {
-    idx = map[card.id] | 0;
-    delete map[card.id];
-  }
-
-  // 2) Validate the chosen index; if invalid, fall back to old behaviour
-  if (idx < 0 || idx >= slots.length || !slots[idx]) {
-    idx = -1;
-  }
-
-  // 3) Fallback: prefer leftmost enemy slot that has a spell and is not already hexed
-  if (idx < 0) {
-    for (let i = 0; i < 3; i++) {
-      const s = slots[i];
-      if (s?.hasCard && !s.hex) { idx = i; break; }
-    }
-  }
-  // 4) If no better choice, just lock slot 0
-  if (idx < 0) idx = 0;
-
-  state = applyHexToSlot(state, side, targetSide, idx, /*durationTurns=*/2);
-}
-
   
   return state;
 }
