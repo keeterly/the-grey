@@ -26,7 +26,8 @@ import {
   payAndAdvanceOne,          // ← use this for paid pip clicks
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
-  dealDamage
+  dealDamage,
+  getStack 
   // clearReactionWindow,        // Reaction windows are cleared directly on state
   // resolveReactionFromHand      // Reaction resolver handled via resolveInstantFromHand
 
@@ -4471,8 +4472,7 @@ function openStackModal(title, cards){
   m.classList.add('open');
 }
 
-/* ---------- HUD: wire buttons ---------- */
-import { getStack } from './GameLogic.js';
+
 
 
 
