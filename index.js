@@ -2407,27 +2407,29 @@ function showCardOptions(cardEl, cardData){
 
   try {
   if (o.k === "play") {
-    const pub = serializePublic(state) || {};
-    const slotIdx = firstOpenSpellSlot(pub);
-    if (slotIdx < 0) return;
+  const pub = serializePublic(state) || {};
+  const slotIdx = firstOpenSpellSlot(pub);
+  if (slotIdx < 0) return;
 
-    // Special case: Lingering Hex chooses its future target slot now
-    if (cardData.name === "Lingering Hex") {
-      // Let the player pick which enemy slot will be hexed on resolve
-      enterHexSpellTargetMode("player", cardData.id, async () => {
-        // Once the player has picked a slot:
-        clearAllActionMenus();
-        await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
-        await render();
-      });
-      // IMPORTANT: don't fall through to the generic clear/render below
-      return;
-    }
+  // Special case: Lingering Hex chooses its future target slot now
+  if (cardData.name === "Lingering Hex") {
+    // Let the player pick which enemy slot will be hexed on resolve
+    enterHexSpellTargetMode("player", cardData.id, async () => {
+      // once the player has picked a slot:
+      clearAllActionMenus();
+      await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+      await render();
+    });
 
-    // Normal spell play
-    await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+    // IMPORTANT: don't fall through to the generic clear/render below,
+    // or you'll blow away the hex-targetable DOM we just set up.
+    return;
+  }
 
-  } else if (o.k === "set") {
+  // Normal spell play
+  await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+}
+ else if (o.k === "set") {
     await setGlyphFromHandWithTemp("player", cardData.id);
 
   } else if (o.k === "channel") {
