@@ -2140,55 +2140,62 @@ function enterHexSpellTargetMode(fromSide, cardId, onChosen) {
 
 
 
-async function enterWispformSurgeTargetMode(surgeSlotIndex, surgeCardId) {
-  // Highlight your own spell slots (except the Surge itself)
-  const row = document.querySelector('.row.player');
-  if (!row) return;
-  const slots = row.querySelectorAll('.slot.spell');
+async function enterWispformSurgeTargetMode(wispSlotIndex, wispCardId) {
+  const pub     = serializePublic(state) || {};
+  const mySlots = pub.players?.player?.slots || [];
 
-  return new Promise((resolve) => {
-    const cleanup = () => {
-      slots.forEach(el => {
-        el.classList.remove('wisp-targetable', 'hex-targetable');
-        const h = el._wispClickHandler;
-        if (h) {
-          el.removeEventListener('click', h);
-          delete el._wispClickHandler;
-        }
-      });
-    };
+  const host = document.getElementById('player-slots');
+  if (!host) return;
 
-    slots.forEach((el, idx) => {
-      const snap = state?.players?.player?.slots?.[idx];
-      if (!snap) return;
-      const c = snap.card;
-      // cannot target empty slots or the Wispform Surge itself
-      if (!snap.hasCard || !c || c.id === surgeCardId || c.type !== 'SPELL') return;
-      // also require that target spell can actually be accelerated
-      if ((c.progress|0) >= (c.pip|0)) return;
+  // Mark selectable spell slots
+  host.classList.add('spell-target-mode');
 
-      el.classList.add('wisp-targetable', 'hex-targetable'); // reuse gold pulse visual
+  const slotEls = Array.from(document.querySelectorAll('#player-slots .slot.spell'));
 
-      const handler = async (ev) => {
-        ev.stopPropagation();
+  slotEls.forEach((slotEl, idx) => {
+    const snap = mySlots[idx];
+    const isValid =
+      idx !== wispSlotIndex &&
+      snap?.hasCard &&
+      snap.card?.type === "SPELL" &&
+      (snap.card.progress | 0) < (snap.card.pip | 0);
 
-        // Tell GameLogic which slot index to accelerate
-        state._pendingTargetSlotIndex = idx;
-
-        cleanup();
-
-        // Now perform the paid advance that will resolve Wispform Surge
-        state = payAndAdvanceOne(state, 'player', surgeSlotIndex);
-        await render();
-        refreshPipAdvanceClasses();
-        resolve();
-      };
-
-      el._wispClickHandler = handler;
-      el.addEventListener('click', handler, { once: true });
-    });
+    // wisp-targetable is just a tag; spell-targetable gives you the gold pulse
+    slotEl.classList.toggle('wisp-targetable', !!isValid);
+    slotEl.classList.toggle('spell-targetable', !!isValid);
   });
+
+  const onClick = async (ev) => {
+    const slotEl = ev.target.closest('.slot.spell');
+    if (!slotEl) return;
+    if (!slotEl.classList.contains('wisp-targetable')) return;
+
+    // Find the index from our NodeList rather than dataset
+    const idx = slotEls.indexOf(slotEl);
+    if (idx < 0) return;
+
+    ev.stopPropagation();
+
+    // Clean up UI
+    host.removeEventListener('click', onClick);
+    host.classList.remove('spell-target-mode');
+    slotEls.forEach(el => {
+      el.classList.remove('wisp-targetable');
+      el.classList.remove('spell-targetable');
+    });
+
+    // Tell GameLogic which spell we targeted
+    state._pendingTargetSlotIndex = idx;
+
+    // Now actually pay & Accelerate Wispform Surge (which will then resolve)
+    state = payAndAdvanceOne(state, 'player', wispSlotIndex);
+    await render();
+    refreshPipAdvanceClasses();
+  };
+
+  host.addEventListener('click', onClick);
 }
+
 
 
 
