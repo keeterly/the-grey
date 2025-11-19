@@ -2660,7 +2660,7 @@ function renderSlots(container, snapshot, isPlayer){
       attachPeekAndZoom(art, slot.card);
       d.appendChild(art);
 
-    }
+    
       // (Pulse handled below via engine snapshot slot.canAdvance)
 
 
@@ -2681,7 +2681,7 @@ if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
     track.onkeydown = null;
   }
 }
-  
+    }
 
 
     if (isPlayer){
