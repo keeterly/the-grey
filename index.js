@@ -2175,38 +2175,47 @@ function enterHexSpellTargetMode(fromSide, cardId, onChosen) {
   hexSpellTargetMode = { fromSide, cardId, onChosen };
 
   // Lingering Hex always targets the opponent's spell slots
-  const row = document.querySelector('.row.ai');
-  if (!row) return;
+  const row = document.getElementById('ai-slots');
+  if (!row) {
+    console.warn("No #ai-slots row found for Hex Spell targeting.");
+    return;
+  }
+
   const slots = row.querySelectorAll('.slot.spell');
 
-  slots.forEach((el, idx) => {
-    const snap = state?.players?.ai?.slots?.[idx];
-    if (!snap) return;
-    // you *can* hex empty slots, so don't require hasCard here
-    if (snap.hex) return; // already hexed
+  slots.forEach((slotEl, idx) => {
+    const clickHandler = async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
 
-    el.classList.add('hex-spell-targetable', 'hex-targetable'); // reuse gold pulse style
+      // only allow if still targetable
+      if (!slotEl.classList.contains('hex-targetable') &&
+          !slotEl.classList.contains('hex-spell-targetable')) {
+        return;
+      }
 
-        const handler = async (ev) => {
-      ev.stopPropagation();
-      if (!hexSpellTargetMode) return;
-
-      // Tell GameLogic which enemy slot was chosen for this Hex spell
+      // Remember which enemy slot we picked so GameLogic can use it on resolve
       state._pendingTargetSlotIndex = idx;
 
-      const fn = hexSpellTargetMode.onChosen;
+      // Clean up all listeners + highlight classes
       exitHexSpellTargetMode();
 
-      if (typeof fn === 'function') {
-        await fn(idx);
+      try {
+        if (typeof onChosen === 'function') {
+          await onChosen(idx);
+        }
+      } catch (err) {
+        console.error("Error in Lingering Hex onChosen:", err);
       }
     };
 
-
-    el._hexSpellClickHandler = handler;
-    el.addEventListener('click', handler, { once: true });
+    // Mark as selectable + attach handler
+    slotEl.classList.add('hex-spell-targetable', 'hex-targetable');
+    slotEl._hexSpellClickHandler = clickHandler;
+    slotEl.addEventListener('click', clickHandler, { once: true });
   });
 }
+
 
 
 
@@ -2407,29 +2416,28 @@ function showCardOptions(cardEl, cardData){
 
   try {
   if (o.k === "play") {
-  const pub = serializePublic(state) || {};
-  const slotIdx = firstOpenSpellSlot(pub);
-  if (slotIdx < 0) return;
+    const pub     = serializePublic(state) || {};
+    const slotIdx = firstOpenSpellSlot(pub);
+    if (slotIdx < 0) return;
 
-  // Special case: Lingering Hex chooses its future target slot now
-  if (cardData.name === "Lingering Hex") {
-    // Let the player pick which enemy slot will be hexed on resolve
-    enterHexSpellTargetMode("player", cardData.id, async () => {
-      // once the player has picked a slot:
-      clearAllActionMenus();
-      await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
-      await render();
-    });
+    // Special case: Lingering Hex chooses its future target slot now
+    if (cardData.name === "Lingering Hex") {
+      // Let the player pick which enemy slot will be hexed on resolve
+      enterHexSpellTargetMode("player", cardData.id, async () => {
+        // Once the player has picked a slot:
+        clearAllActionMenus();
+        await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+        await render();
+      });
 
-    // IMPORTANT: don't fall through to the generic clear/render below,
-    // or you'll blow away the hex-targetable DOM we just set up.
-    return;
-  }
+      // 🔴 IMPORTANT: don't fall through to the generic clear/render below
+      return;
+    }
 
-  // Normal spell play
-  await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
-}
- else if (o.k === "set") {
+    // Normal spell play
+    await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+
+  } else if (o.k === "set") {
     await setGlyphFromHandWithTemp("player", cardData.id);
 
   } else if (o.k === "channel") {
