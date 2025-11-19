@@ -2652,6 +2652,7 @@ function renderSlots(container, snapshot, isPlayer){
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
         art.className = "card";
+        art.dataset.slotIndex = String(i);       // 👈 ADD THIS LINE
         if (FLOW_BOUGHT_IDS.has(slot.card.id)) art.classList.add("flow-bought");
         art.innerHTML = cardHTML(slot.card);
 
@@ -2661,34 +2662,24 @@ function renderSlots(container, snapshot, isPlayer){
       // (Pulse handled below via engine snapshot slot.canAdvance)
 
 
-      // make pip track clickable to advance
-      if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
-        const track = art.querySelector('.pip-track');
-        if (track){
-          // Trust the engine snapshot
-          const pubSnap = serializePublic(state) || {};
-          const canAdv = !!pubSnap.players?.player?.slots?.[i]?.canAdvance;
-          track.classList.toggle('can-advance', canAdv);
-          track.title = canAdv ? 'Spend 1 Æther to advance' : '';
-          track.tabIndex = canAdv ? 0 : -1;  // focusable only if actionable
-          track.setAttribute('role', canAdv ? 'button' : 'presentation');
-      
-          // replace any previous handlers to avoid duplicates across re-renders
-          track.onclick = canAdv ? async (ev) => {
-            ev.stopPropagation();
-            state = payAndAdvanceOne(state, 'player', i);
-            await render();
-          } : null;
-      
-          track.onkeydown = canAdv ? (ev) => {
-            if (ev.key === 'Enter' || ev.key === ' ') {
-              ev.preventDefault();
-              track.click();
-            }
-          } : null;
-        }
-      }
-    }
+      // make pip track *look* clickable; actual behavior is delegated in ensurePipHandlers
+if (isPlayer && slot.card.type === "SPELL" && (slot.card.pip|0) > 0){
+  const track = art.querySelector('.pip-track');
+  if (track){
+    const pubSnap = serializePublic(state) || {};
+    const canAdv = !!pubSnap.players?.player?.slots?.[i]?.canAdvance;
+
+    track.classList.toggle('can-advance', canAdv);
+    track.title = canAdv ? 'Spend 1 Æther to advance' : '';
+    track.tabIndex = canAdv ? 0 : -1;
+    track.setAttribute('role', canAdv ? 'button' : 'presentation');
+
+    // IMPORTANT: clicks/keys are now handled by ensurePipHandlers
+    track.onclick = null;
+    track.onkeydown = null;
+  }
+}
+
 
     if (isPlayer){
       const enter = ev => { const t=ev.dataTransfer?.getData("text/card-type"); if (t==="SPELL"){ ev.preventDefault(); d.classList.add("drag-over"); ev.dataTransfer.dropEffect="move"; }};
