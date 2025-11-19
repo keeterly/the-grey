@@ -1620,15 +1620,16 @@ function refreshPipAdvanceClasses() {
   if (!P) return;
 
   document.querySelectorAll('#player-slots .slot.spell').forEach((slotEl, i) => {
-    const track  = slotEl.querySelector('.pip-track');
+    const track = slotEl.querySelector('.pip-track');
     if (!track) return;
 
-    const slot = P.slots?.[i];
+    const slot   = P.slots?.[i];
     const canNow = !!slot && canAdvanceSpell(side, slot);
 
     track.classList.toggle('can-advance', canNow);
   });
 }
+
 
 
 // click handler: pay cost and advance exactly 1 step
@@ -1664,14 +1665,14 @@ function ensurePipHandlers() {
       return;
     }
 
-    // Normal advance
+    // Normal accelerate
     state = payAndAdvanceOne(state, side, slotIndex);
 
     await render();
     refreshPipAdvanceClasses();
   });
 
-  // keyboard (Enter/Space) handler stays the same
+  // Keyboard accessibility: Enter/Space trigger the same logic
   host.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter' && ev.key !== ' ') return;
     const track = ev.target.closest('.pip-track');
@@ -1680,6 +1681,7 @@ function ensurePipHandlers() {
     track.click();
   });
 }
+
 
 
 
