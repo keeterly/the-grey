@@ -4835,8 +4835,17 @@ function ensureSafetyShape(s){
   return s;
 }
 
+let pipUIWired = false;
+
+
 async function render(){
   const s = ensureSafetyShape(serializePublic(state) || {});
+
+  // Wire pip click handlers once, after #player-slots exists
+  if (!pipUIWired) {
+    initPipTrackUIOnce();
+    pipUIWired = true;
+  }
   turnIndicator && (turnIndicator.textContent = `Turn ${s.turn ?? "?"} — ${s.activePlayer ?? "player"}`);
 
     setPortrait(
