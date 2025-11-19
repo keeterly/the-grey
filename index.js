@@ -1615,14 +1615,21 @@ function buildPipTrackHTML({ pip = 1, progress = 0, stepCost = 1 }) {
 
 // refreshes .can-advance on all visible tracks
 function refreshPipAdvanceClasses() {
-  // Player row only (AI doesn’t click)
-  document.querySelectorAll('#player-slots .slot.spell .card').forEach((el, i) => {
-   const pub = serializePublic(state) || {};
-    const canNow = !!pub.players?.player?.slots?.[i]?.canAdvance;
-    const track     = el.querySelector('.pip-track');
-    if (track) track.classList.toggle('can-advance', !!canNow);
+  const side = 'player';
+  const P = state?.players?.[side];
+  if (!P) return;
+
+  document.querySelectorAll('#player-slots .slot.spell').forEach((slotEl, i) => {
+    const track  = slotEl.querySelector('.pip-track');
+    if (!track) return;
+
+    const slot = P.slots?.[i];
+    const canNow = !!slot && canAdvanceSpell(side, slot);
+
+    track.classList.toggle('can-advance', canNow);
   });
 }
+
 
 // click handler: pay cost and advance exactly 1 step
 function ensurePipHandlers() {
@@ -1638,10 +1645,12 @@ function ensurePipHandlers() {
 
     const side      = 'player';
     const slotIndex = Number(cardEl.dataset.slotIndex || track.dataset.slotIndex || 0);
-    const pub       = serializePublic(state) || {};
-    const slotSnap  = pub.players?.player?.slots?.[slotIndex];
-    if (!slotSnap || !slotSnap.canAdvance) return;
-    const card = slotSnap.card || {};
+
+    const P    = state?.players?.[side];
+    const slot = P?.slots?.[slotIndex];
+    if (!slot || !canAdvanceSpell(side, slot)) return;
+
+    const card = slot.card || {};
 
     // If this click will RESOLVE a Wispform Surge, open a target selector instead
     const willResolve =
@@ -1655,13 +1664,14 @@ function ensurePipHandlers() {
       return;
     }
 
-    // Normal accelerate
+    // Normal advance
     state = payAndAdvanceOne(state, side, slotIndex);
 
     await render();
     refreshPipAdvanceClasses();
   });
 
+  // keyboard (Enter/Space) handler stays the same
   host.addEventListener('keydown', (ev) => {
     if (ev.key !== 'Enter' && ev.key !== ' ') return;
     const track = ev.target.closest('.pip-track');
@@ -1670,6 +1680,7 @@ function ensurePipHandlers() {
     track.click();
   });
 }
+
 
 
 // call once after you’ve rendered the player slots
