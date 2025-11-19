@@ -2406,70 +2406,69 @@ function showCardOptions(cardEl, cardData){
     
 
   try {
-  if (o.k === "play"){
-  const pub = serializePublic(state) || {};
-  const slotIdx = firstOpenSpellSlot(pub);
-  if (slotIdx < 0) return;
+  if (o.k === "play") {
+    const pub = serializePublic(state) || {};
+    const slotIdx = firstOpenSpellSlot(pub);
+    if (slotIdx < 0) return;
 
-  // Special case: Lingering Hex chooses its future target slot now
-  if (cardData.name === "Lingering Hex") {
-    // Let the player pick which enemy slot will be hexed on resolve
-    enterHexSpellTargetMode("player", cardData.id, async () => {
-      // Once the player has picked a slot:
-      clearAllActionMenus();
-      await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
-      await render();
-    });
-    // IMPORTANT: don't fall through to the generic clear/render below
-    return;
+    // Special case: Lingering Hex chooses its future target slot now
+    if (cardData.name === "Lingering Hex") {
+      // Let the player pick which enemy slot will be hexed on resolve
+      enterHexSpellTargetMode("player", cardData.id, async () => {
+        // Once the player has picked a slot:
+        clearAllActionMenus();
+        await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+        await render();
+      });
+      // IMPORTANT: don't fall through to the generic clear/render below
+      return;
+    }
+
+    // Normal spell play
+    await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+
+  } else if (o.k === "set") {
+    await setGlyphFromHandWithTemp("player", cardData.id);
+
+  } else if (o.k === "channel") {
+    // 1) Cine: hand card → discard HUD
+    cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
+
+    // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
+    const fromNode = cardEl;
+    const fallbackStart = rectOf(fromNode) || centerRect();
+    const destRect  = domRectOfTempCrescent('player');
+    emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
+
+    // 3) Payoff
+    const before = getAe("player");
+    state = discardForAether(state, "player", cardData.id);
+    const gained = getAe("player") - before;
+    adjustAe("player", -gained);
+    addTemp("player", gained);
+    Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
+
+  } else if (o.k === "cast") {
+    // normal instant cast (non-Grim-Hex)
+    state = await window.castInstantFromHand(state, "player", cardData.id);
+
+  } else if (o.k === "react") {
+    // Playing a reaction card in a reaction window
+    state = await window.castInstantFromHand(state, "player", cardData.id);
+    closeReactionWindow(false);
+    await spotlightFromEvents(state);
+
+  } else if (o.k === "pass") {
+    closeReactionWindow(true);
+    await spotlightFromEvents(state);
   }
-
-  // Normal spell play
-  await playSpellFromHandWithTemp("player", cardData.id, slotIdx);
+} catch (e) {
+  // optional: console.error(e);
 }
 
-    } else if (o.k === "set"){
-      await setGlyphFromHandWithTemp("player", cardData.id);
+clearAllActionMenus();
+await render();
 
-    } else if (o.k === "channel"){
-      // 1) Cine: hand card → discard HUD
-      cineFromHandCard(cardData.id, '#btn-discard-hud', 'channel');
-
-      // 2) Particles: prefer spotlight anchor; fall back to the hand card rect
-      const fromNode = cardEl;
-      const fallbackStart = rectOf(fromNode) || centerRect();
-      const destRect  = domRectOfTempCrescent('player');
-      emitParticlesFromSpotlightOr(fallbackStart, destRect, 28);
-
-      // 3) Payoff
-      const before = getAe("player");
-      state = discardForAether(state, "player", cardData.id);
-      const gained = getAe("player") - before;
-      adjustAe("player", -gained);
-      addTemp("player", gained);
-      Emit(Events.CHANNEL, {side:"player", cardId:cardData.id, gained});
-
-    } else if (o.k === "cast"){
-      // normal instant cast (non-Grim-Hex)
-      state = await window.castInstantFromHand(state, "player", cardData.id);
-
-    } else if (o.k === "react"){
-      // Playing a reaction card in a reaction window
-      state = await window.castInstantFromHand(state, "player", cardData.id);
-      closeReactionWindow(false);
-      await spotlightFromEvents(state);
-
-    } else if (o.k === "pass"){
-      closeReactionWindow(true);
-      await spotlightFromEvents(state);
-    }
-  } catch (e) {
-    // you can log if you want
-    // console.error(e);
-  }
-
-  clearAllActionMenus();
-  await render();
 });
 
 
