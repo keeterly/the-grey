@@ -655,19 +655,20 @@ function ensureHexStyles(){
     /* === Hexed Slot Duration Number === */
 .slot.spell.hexed-slot .hex-duration {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 3.2rem;
-  font-weight: 700;
-  color: rgba(255, 230, 200, 0.95);
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.8rem;
+  font-weight: 600;
+  color: rgba(245,235,210,0.96);
   text-shadow:
-    0 0 6px rgba(0,0,0,0.9),
-    0 0 12px rgba(0,0,0,0.8),
-    0 2px 4px rgba(0,0,0,0.8);
+    0 0 4px rgba(0,0,0,0.9),
+    0 0 12px rgba(0,0,0,0.85);
   pointer-events: none;
-  z-index: 20;
+  z-index: 3;
 }
+
 
 /* === X-Shaped Chains Overlay === */
 .slot.spell.hexed-slot::after {
@@ -2689,27 +2690,31 @@ function renderSlots(container, snapshot, isPlayer){
 
     const slot = safe[i] || {hasCard:false, card:null};
 
-    // hex visual: grey + skull if engine marks this slot as hexed
+       // hex visual: grey + skull + duration if engine marks this slot as hexed
     if (slot.hex) {
       d.classList.add('hexed-slot');
-      if (!d.querySelector('.hex-skull')) {
-        const skull = document.createElement("div");
-  skull.className = "hex-skull";
-  skull.textContent = "💀";
-  slotEl.appendChild(skull);
-          // Duration number
-  const hex = slot.hex;
-  const duration = Math.max(0, hex.expiresOnTurn - (state.turn || 0));
-  const dur = document.createElement("div");
-  dur.className = "hex-duration";
-  dur.textContent = duration;
-  slotEl.appendChild(dur);
-      }
+
+      // Clear stale overlays first
+      d.querySelectorAll('.hex-skull, .hex-duration').forEach(n => n.remove());
+
+      // Skull overlay
+      const skull = document.createElement('div');
+      skull.className = 'hex-skull';
+      skull.textContent = '☠';
+      d.appendChild(skull);
+
+      // Turn counter
+      const hex       = slot.hex;
+      const remaining = Math.max(0, (hex.expiresOnTurn | 0) - (state.turn | 0));
+      const dur = document.createElement('div');
+      dur.className = 'hex-duration';
+      dur.textContent = String(remaining);
+      d.appendChild(dur);
     } else {
       d.classList.remove('hexed-slot');
-      const skull = d.querySelector('.hex-skull');
-      if (skull) skull.remove();
+      d.querySelectorAll('.hex-skull, .hex-duration').forEach(n => n.remove());
     }
+
 
     // reflect occupancy so CSS can undim when a card is present
     d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
