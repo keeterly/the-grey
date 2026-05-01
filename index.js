@@ -1326,17 +1326,10 @@ async function doStartTurn(){
 async function doEndTurn() {
   Emit(Events.TURN_END, { side: state.activePlayer });
 
- // count what's about to be discarded (most rulesets ditch the whole hand)
   const prevSide = state.activePlayer;
-  const prevHandN = (serializePublic(state)?.players?.[prevSide]?.hand?.length) | 0;
-  
   state = endTurn(state);
+  // Hands are retained between turns — no discard animation here.
 
-if (prevHandN > 0) {
-    // visual only: hand -> discard chips
-    animateDiscardCards(prevSide, prevHandN);
-  }
-  
   await doStartTurn();   // loops cleanly into next side’s Start Turn
 }
 
