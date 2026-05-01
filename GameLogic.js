@@ -794,7 +794,7 @@ export function initState(seed) {
     players: {
       player: {
         vitality: STARTING_VITALITY,
-        aether: 0, channeled: 0,
+        aether: 1, channeled: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -806,7 +806,7 @@ export function initState(seed) {
       },
       ai: {
         vitality: STARTING_VITALITY,
-        aether: 0, channeled: 0,
+        aether: 1, channeled: 0,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -863,10 +863,10 @@ export function serializePublic(state) {
     const slot = me.slots[i];
     const c = slot?.card;
      if (slot?.hasCard && c?.type === "SPELL") {
-      const notSameTurn      = c._enteredTurn !== s.turn;           // paid cannot on placement turn
+      const stepCost         = Number(c.stepCost ?? c.cost ?? 0);
+      const notSameTurn      = c._enteredTurn !== s.turn || stepCost === 0; // free-advance spells skip placement lock
       const notPaidThisTurn  = c._paidAdvancedTurn !== s.turn;      // only one paid advance per turn
       const notComplete      = ((c.progress|0) < (c.pip|0));
-      const stepCost         = Number(c.stepCost ?? c.cost ?? 0);
       const affordable       = (((me.aether|0)+(me.tempAether|0)) >= stepCost);
       slot.canAdvance = notSameTurn && notPaidThisTurn && notComplete && affordable;
     } else if (slot) {
@@ -991,10 +991,8 @@ export function endTurn(state) {
   // Players now retain their hand between turns.  We no longer discard
   // the remaining hand here.
 
-  // 👉 Flow slides right and reveals a new card ONLY when AI ends its turn
-  if (endingPlayer === 'ai') {
-    state = compactSlideRightAndReveal(state);
-  }
+  // Flow slides right and reveals a new card every turn end
+  state = compactSlideRightAndReveal(state);
 
   // pass turn
   state.activePlayer = (state.activePlayer === "player") ? "ai" : "player";
@@ -1193,7 +1191,12 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   const spendReg  = price - spendTemp;
   if (spendTemp) P.tempAether = haveTemp - spendTemp;
   if (spendReg)  { P.aether = haveReg - spendReg; pushEvt(state,{t:"aether",side:playerId,amount:-spendReg}); }
-  P.discard.push({ ...card });
+  // Instants and Reactions go directly to hand so they're playable immediately
+  if (card.type === 'INSTANT' || card.type === 'REACTION') {
+    P.hand.push({ ...card });
+  } else {
+    P.discard.push({ ...card });
+  }
 
   // Process Kareth spend triggers
   state = processAetherSpend(state, playerId, price);
@@ -1417,7 +1420,7 @@ export function advanceSpell(
 // --- New rules ---
   // 1) Placement lock: cannot advance the same turn it was placed
 // paid placement lock (effects may bypass)
-  if (!free && !bypassPlacementLock && c?._enteredTurn === state.turn) return state;
+  if (!free && !bypassPlacementLock && c?._enteredTurn === state.turn && (c?.stepCost ?? 1) !== 0) return state;
   // only one PAID advance per card per turn
   if (!free && c?._paidAdvancedTurn === state.turn) return state;
 

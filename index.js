@@ -1632,8 +1632,10 @@ function canAdvanceSlot(side, slotIndex, stepCost) {
 
   if (!P || !slot || !slot.hasCard || !c || c.type !== "SPELL") return false;
 
-// NEW: placement lock — cannot advance the same turn it was played
-  if ((c._enteredTurn|0) === (state.turn|0)) return false;
+// placement lock — cannot advance the same turn it was played (free-advance spells exempt)
+  const sc = Number.isFinite(c.advanceCost) ? c.advanceCost
+           : Number.isFinite(c.stepCost)    ? c.stepCost : 1;
+  if ((c._enteredTurn|0) === (state.turn|0) && sc !== 0) return false;
 
   
   // enforce "once per spell per turn"
@@ -4114,8 +4116,10 @@ function canAdvanceSpell(side, slot){
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type !== "SPELL") return false;
 
- // NEW: placement lock — no pulse the turn it’s played
-  if ((c._enteredTurn|0) === (state.turn|0)) return false;
+ // placement lock — no pulse the turn it’s played (free-advance spells exempt)
+  const stepCostV = Number.isFinite(c.advanceCost) ? c.advanceCost
+                  : Number.isFinite(c.stepCost)     ? c.stepCost : 1;
+  if ((c._enteredTurn|0) === (state.turn|0) && stepCostV !== 0) return false;
 
   
   // deny if this spell already advanced this turn
