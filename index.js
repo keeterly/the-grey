@@ -5899,16 +5899,19 @@ function openPileModal(title, cards){
 
 
 
-/* ---------- mobile-landscape mode (no external file) ---------- */
-(function mobileLandscapeMode(){
-  const isPhone = /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent);
+/* ---------- mobile mode (portrait + landscape) ---------- */
+(function mobileModeInit(){
   const apply = () => {
-    const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-    const shortSide = Math.min(window.innerWidth, window.innerHeight);
-    const enable = isPhone && (isLandscape || shortSide <= 420);
-    document.body.classList.toggle("mobile-landscape", !!enable);
+    const w = window.innerWidth, h = window.innerHeight;
+    const isLandscape = w > h;
+    // Enable mobile layout: portrait narrow-screen OR landscape short-screen
+    const enableMobile = w <= 500 || (isLandscape && h <= 500);
+    const isPortrait   = !isLandscape;
+    document.body.classList.toggle("mobile-landscape", enableMobile);
+    // mob-portrait layers portrait-specific overrides on top of landscape rules
+    document.body.classList.toggle("mob-portrait", enableMobile && isPortrait);
   };
-  window.addEventListener("resize", apply, {passive:true});
+  window.addEventListener("resize",            apply, {passive:true});
   window.addEventListener("orientationchange", apply, {passive:true});
   document.addEventListener("DOMContentLoaded", apply);
 })();
