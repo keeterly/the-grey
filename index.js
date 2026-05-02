@@ -1150,6 +1150,38 @@ function ensureDamageVFXStyles() {
     }
     .danger-pulse { animation: dangerPulse 700ms ease-out; }
 
+    /* Win condition progress tracks */
+    .win-tracks { display:flex; gap:8px; margin-top:4px; flex-wrap:wrap; }
+    .win-track {
+      display:flex; align-items:center; gap:4px;
+      font-size:.65em; opacity:.75; letter-spacing:.04em;
+    }
+    .win-track .wt-label { text-transform:uppercase; opacity:.6; }
+    .win-track .wt-bar {
+      width:36px; height:4px; border-radius:2px;
+      background:rgba(255,255,255,.12);
+      position:relative; overflow:hidden;
+    }
+    .win-track .wt-fill {
+      height:100%; border-radius:2px;
+      transition: width .3s ease;
+    }
+    .win-track.confluence .wt-fill { background:#7eb8e8; }
+    .win-track.dominion   .wt-fill { background:#b07ef0; }
+    .win-track.near .wt-fill { filter: brightness(1.4); }
+
+    /* Pending-win warning banner */
+    #pending-win-banner {
+      position:fixed; top:0; left:0; right:0; z-index:1800;
+      padding:8px 16px; text-align:center;
+      font-size:.8em; font-weight:600; letter-spacing:.06em;
+      text-transform:uppercase;
+      background:rgba(180,130,20,.92); color:#fff;
+      transform:translateY(-100%); transition:transform .35s ease;
+      pointer-events:none;
+    }
+    #pending-win-banner.show { transform:translateY(0); }
+
     /* floating damage number anchored near hearts */
     .damage-float {
       position: absolute;
@@ -3803,15 +3835,68 @@ function ensureOutcomeOverlay() {
   return o;
 }
 
-function showOutcome(type) { // "win" | "lose"
+function showOutcome(type, condition) { // type: "win"|"lose", condition: "ruin"|"confluence"|"dominion"
   const o = ensureOutcomeOverlay();
   const title = o.querySelector("#outcome-title");
   title.className = "";
   title.classList.add(type);
   title.textContent = type === "win" ? "YOU WIN" : "YOU LOSE";
+
+  const flavour = {
+    ruin:        type === "win" ? "by Annihilation"          : "Annihilated",
+    confluence:  type === "win" ? "by Aetherflow Dominance"  : "Aetherflow Claimed",
+    dominion:    type === "win" ? "by Grey Mastery"           : "Grey Mastered",
+  };
+  const sub = o.querySelector("#outcome-sub");
+  if (sub) sub.textContent = flavour[condition] || "Tap Retry to start a fresh duel.";
   o.classList.add("open");
 }
 
+
+function showPendingWinBanner(side, condition) {
+  let banner = document.getElementById("pending-win-banner");
+  if (!banner) {
+    banner = document.createElement("div");
+    banner.id = "pending-win-banner";
+    document.body.appendChild(banner);
+  }
+  const who    = side === 'player' ? "You" : "Opponent";
+  const cLabel = condition === 'confluence' ? "Aetherflow Dominance" : "Grey Mastery";
+  banner.textContent = `⚠ ${who} will claim ${cLabel} — final turn!`;
+  banner.classList.add("show");
+  setTimeout(() => banner.classList.remove("show"), 5000);
+}
+
+function renderWinTracks(side) {
+  const s    = serializePublic(state) || {};
+  const P    = s.players?.[side];
+  if (!P) return;
+  const cf   = P.flowCardsAcquired | 0;
+  const dom  = P.greyEssence       | 0;
+  const heartsEl = document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+  if (!heartsEl) return;
+  let wrap = heartsEl.parentElement?.querySelector('.win-tracks');
+  if (!wrap) {
+    wrap = document.createElement('div');
+    wrap.className = 'win-tracks';
+    heartsEl.insertAdjacentElement('afterend', wrap);
+  }
+  const cfPct  = Math.min(100, (cf  / 5)  * 100);
+  const domPct = Math.min(100, (dom / 10) * 100);
+  const cfNear  = cf  >= 4 ? ' near' : '';
+  const domNear = dom >= 8 ? ' near' : '';
+  wrap.innerHTML = `
+    <div class="win-track confluence${cfNear}" title="Confluence: ${cf}/5 Aetherflow cards">
+      <span class="wt-label">C</span>
+      <div class="wt-bar"><div class="wt-fill" style="width:${cfPct}%"></div></div>
+      <span>${cf}/5</span>
+    </div>
+    <div class="win-track dominion${domNear}" title="Dominion: ${dom}/10 Grey Essence">
+      <span class="wt-label">D</span>
+      <div class="wt-bar"><div class="wt-fill" style="width:${domPct}%"></div></div>
+      <span>${dom}/10</span>
+    </div>`;
+}
 
 // ---------- cinematic helpers ----------
 function ensureCinematicLayer() {
@@ -4325,6 +4410,15 @@ async function spotlightFromEvents(state){
         if (e.cardData?.id) FLOW_BOUGHT_IDS.add(e.cardData.id);
       } else if (e.t === "resolved" && (e.source === "discard-aether" || e.source === "hand-discard")) {
         logLine(`${e.side} DISCARD → ${e.cardData?.name || e.cardId}`);
+      } else if (e.t === "win_pending") {
+        const who = e.side === 'player' ? 'You are' : 'Opponent is';
+        const cLabel = e.condition === 'confluence' ? 'Aetherflow Dominance' : 'Grey Mastery';
+        logLine(`⚠ ${who} one turn away from claiming ${cLabel}!`);
+        showPendingWinBanner(e.side, e.condition);
+      } else if (e.t === "win") {
+        const isPlayer = e.side === 'player';
+        showOutcome(isPlayer ? "win" : "lose", e.condition);
+        logLine(`🏆 ${e.side} wins by ${e.condition}!`);
       } else if (e.t === "damage") {
         logLine(`DAMAGE → ${e.side} -${e.amount}`);
       } else if (e.t === "draw") {
@@ -4970,6 +5064,8 @@ async function render(){
   // in render()
   renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5, 5);
   renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 5, 5);
+  renderWinTracks('player');
+  renderWinTracks('ai');
 
   removeLegacyTranceText();
   renderTranceTrack('player');
@@ -4985,8 +5081,10 @@ async function render(){
 
 const pv = s.players?.player?.vitality | 0;
 const av = s.players?.ai?.vitality | 0;
-if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
-  showOutcome(av <= 0 ? "win" : "lose");
+if (s.winner) {
+  showOutcome(s.winner === 'player' ? "win" : "lose", s.winCondition || 'ruin');
+} else if ((av <= 0 && pv > 0) || (pv <= 0 && av > 0)) {
+  showOutcome(av <= 0 ? "win" : "lose", "ruin");
 }
 
 

@@ -19,10 +19,20 @@ export async function runAiTurn(state, api) {
     return (c.progress|0) >= (c.pip|0) - 1;
   });
 
+  // Win condition progress (thresholds: confluence=5, dominion=10)
+  const myFlowCards  = (me.flowCardsAcquired  | 0);
+  const myEssence    = (me.greyEssence        | 0);
+  const oppFlowCards = (opp.flowCardsAcquired | 0);
+  const oppEssence   = (opp.greyEssence       | 0);
+  const oppNearConfluence = oppFlowCards >= 4;   // one buy from winning
+  const oppNearDominion   = oppEssence   >= 8;   // one or two channels from winning
+  const myNearConfluence  = myFlowCards  >= 4;
+  const myNearDominion    = myEssence    >= 8;
+
   // ── Urgency Tiers ─────────────────────────────────────────────
   // 3 = desperate  2 = kill mode  1 = elevated  0 = normal
   const urgencyLevel =
-    (opponentHp <= 2 || myHp <= 1 || immediateThreats.length >= 2) ? 3 :
+    (opponentHp <= 2 || myHp <= 1 || immediateThreats.length >= 2 || oppNearConfluence || oppNearDominion) ? 3 :
     (opponentHp <= 3 || (immediateThreats.length >= 1 && myHp <= 3)) ? 2 :
     (opponentHp <= 4 || immediateThreats.length >= 1 || myHp <= 3) ? 1 :
     0;
@@ -35,9 +45,11 @@ export async function runAiTurn(state, api) {
   const handByType = (t) => hand.filter(c => c?.type === t);
   const hasType    = (t) => handByType(t).length > 0;
 
-  const dealsDamage = (c) => /deal.*damage/i.test(c?.text || '');
-  const hasHexText  = (c) => /hex/i.test(c?.text || '');
-  const hasDrawText = (c) => /draw/i.test(c?.text || '');
+  const dealsDamage       = (c) => /deal.*damage/i.test(c?.text || '');
+  const hasHexText        = (c) => /hex/i.test(c?.text || '');
+  const hasDrawText       = (c) => /draw/i.test(c?.text || '');
+  const drainsEssence     = (c) => /reduce.*essence/i.test(c?.text || '');
+  const drainsConfluence  = (c) => /reduce.*confluence/i.test(c?.text || '');
 
   const getCardCost = (c) => {
     if (!c) return 0;
@@ -148,9 +160,19 @@ export async function runAiTurn(state, api) {
                  urgencyLevel === 1 ? 40 : 20;
       }
 
-      // Buy hex cards when opponent has board presence
+      // Board presence / control
       if (oppSpells.length >= 1 && hasHexText(c))        score += 30;
       if (immediateThreats.length >= 1 && hasHexText(c)) score += 20;
+
+      // Win condition disruption — critical when opponent is one step from winning
+      if (drainsEssence(c)    && oppNearDominion)   score += 80;
+      if (drainsConfluence(c) && oppNearConfluence) score += 80;
+      if (drainsEssence(c)    && oppEssence >= 6)   score += 30;
+      if (drainsConfluence(c) && oppFlowCards >= 3) score += 30;
+
+      // Race our own win conditions: bonus for buying when we're close
+      if (myNearConfluence) score += 20; // any buy advances Confluence
+      if (myNearDominion && c.aetherValue > 0) score += 15; // cards we can channel
 
       // Card draw when hand is low
       if (hand.length <= 2 && hasDrawText(c)) score += 30;
@@ -168,9 +190,18 @@ export async function runAiTurn(state, api) {
     }
   }
 
-  // ── 5) CHANNEL for aether ─────────────────────────────────────
-  // Preserve damage cards in elevated/kill mode — they're the win condition
+  // ── 5) CHANNEL for aether / Dominion progress ────────────────
+  // When racing Dominion, channel ANY card with aetherValue (highest first for fastest progress).
+  // Otherwise preserve damage cards in elevated/kill mode.
   {
+    const channelable = hand.filter(c => (c.aetherValue|0) > 0);
+    if (myNearDominion && channelable.length) {
+      // Racing Dominion: channel highest-value card (non-damage preferred, damage if needed)
+      const sorted = channelable.sort((a, b) => (b.aetherValue|0) - (a.aetherValue|0));
+      const pick = sorted.find(c => !dealsDamage(c)) || (urgencyLevel < 2 ? sorted[0] : null);
+      if (pick) { api.channelFromHand(side, pick.id); return state; }
+    }
+
     const nonDamage = hand
       .filter(c => !dealsDamage(c) && (c.aetherValue|0) > 0)
       .sort((a, b) => (a.aetherValue|0) - (b.aetherValue|0));

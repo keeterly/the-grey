@@ -9,6 +9,10 @@ export const FLOW_COSTS = [4, 3, 2, 2, 2];
 export const STARTING_HAND = 5;
 export const STARTING_VITALITY = 5;
 
+// Win condition thresholds
+export const CONFLUENCE_THRESHOLD = 5;  // Aetherflow cards acquired
+export const DOMINION_THRESHOLD   = 10; // Grey Essence channeled
+
 export const AE_GEM_SVG =
   '<svg class="gem-inline" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/></svg>';
 
@@ -60,6 +64,44 @@ const WEAVER_TRANCE_THRESHOLDS = {
   veyra: { stage1: 4, stage2: 2 }, // Veyra, Spiral Sage
   kareth:{ stage1: 3, stage2: 1 }  // Kareth, Ember Architect
 };
+
+// Checks all three win conditions after any meaningful action.
+// Ruin fires immediately; Confluence/Dominion set a pendingWin confirmed on the winner's next turn.
+function checkWinConditions(state) {
+  if (state.winner) return state;
+
+  // Ruin — instant win when vitality hits 0
+  for (const side of ['player', 'ai']) {
+    const rival = side === 'player' ? 'ai' : 'player';
+    if ((state.players[rival]?.vitality | 0) <= 0) {
+      state.winner = side;
+      state.winCondition = 'ruin';
+      pushEvt(state, { t: 'win', side, condition: 'ruin' });
+      return state;
+    }
+  }
+
+  // Confluence / Dominion — pending; opponent gets one final turn
+  if (!state.pendingWin) {
+    // Active player checked first so they win simultaneous triggers
+    const order = [state.activePlayer, state.activePlayer === 'player' ? 'ai' : 'player'];
+    for (const side of order) {
+      const P = state.players[side];
+      if (!P) continue;
+      if ((P.flowCardsAcquired | 0) >= CONFLUENCE_THRESHOLD) {
+        state.pendingWin = { side, condition: 'confluence' };
+        pushEvt(state, { t: 'win_pending', side, condition: 'confluence' });
+        return state;
+      }
+      if ((P.greyEssence | 0) >= DOMINION_THRESHOLD) {
+        state.pendingWin = { side, condition: 'dominion' };
+        pushEvt(state, { t: 'win_pending', side, condition: 'dominion' });
+        return state;
+      }
+    }
+  }
+  return state;
+}
 
 function checkTranceThresholds(state, playerId) {
   const P = state.players?.[playerId];
@@ -677,6 +719,44 @@ const AETHERFLOW_LIST = [
     text: "Remove all negative effects (Hex, Freeze, Burden) from a slot you control.",
     role: "Cleanse",
     qty: 1
+  },
+
+  // Win Condition Disruption
+  {
+    name: "Essence Siphon",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "Deal 1 damage. Reduce target's Essence by 2.",
+    role: "Anti-Dominion",
+    qty: 1
+  },
+  {
+    name: "Current Seizure",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 2,
+    stepCost: 0,
+    cost: 2,
+    aetherValue: 0,
+    text: "Reduce target's Confluence by 1. Draw 1 card.",
+    role: "Anti-Confluence",
+    qty: 1
+  },
+  {
+    name: "Grasp of the Grey",
+    type: "INSTANT",
+    pip: 0,
+    playCost: 3,
+    stepCost: 0,
+    cost: 3,
+    aetherValue: 0,
+    text: "Deal 2 damage. Reduce target's Essence by 3.",
+    role: "Anti-Dominion Finisher",
+    qty: 1
   }
 ];
 
@@ -799,7 +879,7 @@ export function initState(seed) {
     players: {
       player: {
         vitality: STARTING_VITALITY,
-        aether: 1, channeled: 0,
+        aether: 1, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -811,7 +891,7 @@ export function initState(seed) {
       },
       ai: {
         vitality: STARTING_VITALITY,
-        aether: 1, channeled: 0,
+        aether: 1, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -981,6 +1061,22 @@ export function startTurn(state) {
 
   // Veyra Stage II: allow the player to look at the top two cards
   state = veyraScry(state, state.activePlayer);
+
+  // Confirm a pending win if it's now the winner's turn to start
+  if (state.pendingWin && state.pendingWin.side === state.activePlayer && !state.winner) {
+    const { side, condition } = state.pendingWin;
+    const P = state.players[side];
+    const stillHolds =
+      (condition === 'confluence' && (P.flowCardsAcquired | 0) >= CONFLUENCE_THRESHOLD) ||
+      (condition === 'dominion'   && (P.greyEssence | 0)       >= DOMINION_THRESHOLD);
+    state.pendingWin = null;
+    if (stillHolds) {
+      state.winner      = side;
+      state.winCondition = condition;
+      pushEvt(state, { t: 'win', side, condition });
+    }
+  }
+
   // ❌ No auto-draws here — the UI will draw ONE AT A TIME so hand animation can run.
   // (Menu → Draw 1 path is reused repeatedly at turn start.)
   return state;
@@ -1028,9 +1124,12 @@ export function discardForAether(state, playerId, cardId){
   const gain = Number(card.aetherValue || 0);
   if (gain > 0){
     P.aether = (P.aether || 0) + gain;
+    // Track Grey Essence for Dominion win condition (channel-only, not spell effects)
+    P.greyEssence = (P.greyEssence | 0) + gain;
     state = applyGlyphPassives(state, playerId, "discardForAe");
     state = applyGlyphPassives(state, playerId, "channel");
     pushEvt(state, { t: "aether", side: playerId, amount: gain, by: card.id });
+    pushEvt(state, { t: "essence_gain", side: playerId, amount: gain, total: P.greyEssence });
   }
 
   pushEvt(state, {
@@ -1041,6 +1140,7 @@ export function discardForAether(state, playerId, cardId){
     cardType: card.type,
     cardData: { ...card }
   });
+  state = checkWinConditions(state);
   return state;
 }
 
@@ -1071,6 +1171,7 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
 
   // Trigger any glyph that responds to taking damage
   state = applyGlyphPassives(state, targetSide, "damage");
+  state = checkWinConditions(state);
   return state;
 }
 
@@ -1215,6 +1316,10 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
 
 
   
+  // Track Confluence win condition
+  P.flowCardsAcquired = (P.flowCardsAcquired | 0) + 1;
+  pushEvt(state, { t: "confluence_gain", side: playerId, total: P.flowCardsAcquired });
+
   // Normal buy event (kept as-is)
   pushEvt(state, {
     t: "resolved",
@@ -1228,6 +1333,7 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
 
   // Glyph passive: buy
   state = applyGlyphPassives(state, playerId, "buy");
+  state = checkWinConditions(state);
   return state;
 }
 
@@ -1773,8 +1879,11 @@ function parseEffectsFromText(raw) {
     fx.push({ t: "hexTargetSlot", duration: dur });
   }
 
-
-  
+  // Win condition disruption: "Reduce target's Essence by N" / "Reduce target's Confluence by N"
+  { const m = t.match(/reduce\s+(?:target(?:'s)?|opponent(?:'s)?)\s+essence\s+by\s+(\d+)/i);
+    if (m) fx.push({ t: "essenceDrain", n: +m[1] }); }
+  { const m = t.match(/reduce\s+(?:target(?:'s)?|opponent(?:'s)?)\s+confluence\s+by\s+(\d+)/i);
+    if (m) fx.push({ t: "confluenceDrain", n: +m[1] }); }
 
   return fx;
 }
@@ -2044,6 +2153,22 @@ function applyParsedEffects(state, side, card, opts = {}) {
         
 
 
+
+      case "essenceDrain":
+        if (e.n > 0) {
+          const rP = state.players[rival];
+          rP.greyEssence = Math.max(0, (rP.greyEssence | 0) - e.n);
+          pushEvt(state, { t: "essenceDrain", side: rival, amount: e.n, by: card.id });
+        }
+        break;
+
+      case "confluenceDrain":
+        if (e.n > 0) {
+          const rP = state.players[rival];
+          rP.flowCardsAcquired = Math.max(0, (rP.flowCardsAcquired | 0) - e.n);
+          pushEvt(state, { t: "confluenceDrain", side: rival, amount: e.n, by: card.id });
+        }
+        break;
 
       default: break;
     }
