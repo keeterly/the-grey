@@ -32,9 +32,9 @@ export async function runAiTurn(state, api) {
   // ── Urgency Tiers ─────────────────────────────────────────────
   // 3 = desperate  2 = kill mode  1 = elevated  0 = normal
   const urgencyLevel =
-    (opponentHp <= 2 || myHp <= 1 || immediateThreats.length >= 2 || oppNearConfluence || oppNearDominion) ? 3 :
-    (opponentHp <= 3 || (immediateThreats.length >= 1 && myHp <= 3)) ? 2 :
-    (opponentHp <= 4 || immediateThreats.length >= 1 || myHp <= 3) ? 1 :
+    (opponentHp <= 4 || myHp <= 3 || immediateThreats.length >= 2 || oppNearConfluence || oppNearDominion) ? 3 :
+    (opponentHp <= 6 || (immediateThreats.length >= 1 && myHp <= 5)) ? 2 :
+    (opponentHp <= 8 || immediateThreats.length >= 1 || myHp <= 5) ? 1 :
     0;
   const killMode = urgencyLevel >= 2;
 

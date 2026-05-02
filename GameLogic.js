@@ -7,7 +7,9 @@
 
 export const FLOW_COSTS = [4, 3, 2, 2, 2];
 export const STARTING_HAND = 5;
-export const STARTING_VITALITY = 5;
+export const STARTING_VITALITY = 12;
+export const AETHER_PER_TURN  = 3;   // added to active player at each turn start
+export const DRAW_PER_TURN    = 2;   // minimum guaranteed draws per turn (UI enforces)
 
 // Win condition thresholds
 export const CONFLUENCE_THRESHOLD = 5;  // Aetherflow cards acquired
@@ -58,11 +60,11 @@ function uid() {
 // the UI can show a cinematic or apply passives.
 const WEAVER_TRANCE_THRESHOLDS = {
   // Format: weaverId: { stage1: hpThreshold, stage2: hpThreshold }
-  aria:  { stage1: 4, stage2: 2 }, // Aria, Runesurge Adept
-  enoch: { stage1: 3, stage2: 1 }, // Enoch, Stillmind Scribe
-  morr:  { stage1: 4, stage2: 1 }, // Morr, Gravecurrent Binder
-  veyra: { stage1: 4, stage2: 2 }, // Veyra, Spiral Sage
-  kareth:{ stage1: 3, stage2: 1 }  // Kareth, Ember Architect
+  aria:  { stage1: 8, stage2: 4 }, // Aria, Runesurge Adept
+  enoch: { stage1: 6, stage2: 3 }, // Enoch, Stillmind Scribe
+  morr:  { stage1: 8, stage2: 4 }, // Morr, Gravecurrent Binder
+  veyra: { stage1: 8, stage2: 4 }, // Veyra, Spiral Sage
+  kareth:{ stage1: 6, stage2: 3 }  // Kareth, Ember Architect
 };
 
 // Checks all three win conditions after any meaningful action.
@@ -378,17 +380,19 @@ function applyReactionEffect(state, reactionCard, trigger, context, reactingSide
  */
 
 // =============================================
-// Base Deck (v5) — 12 cards
+// Base Deck (v6) — 13 cards
+// Redesigned for HP 12, 3 Æ/turn economy.
+// Every card effect resolves with the parser.
 // =============================================
 const BASE_DECK_LIST = [
-  // Spells (7)
+  // Spells — play free, advance to resolve
   {
     name: "Pulse of the Grey",
     type: "SPELL",
     playCost: 0,
-    stepCost: 1,
+    stepCost: 0,
     pip: 1,
-    text: "Draw 1 card and Store 1 Aether.",
+    text: "On Resolve → Draw 2 cards.",
     aetherValue: 0,
     qty: 1
   },
@@ -398,7 +402,7 @@ const BASE_DECK_LIST = [
     playCost: 0,
     stepCost: 0,
     pip: 1,
-    text: "Channel 1 Aether and Draw 1 card.",
+    text: "On Resolve → Store 3 Aether.",
     aetherValue: 0,
     qty: 1
   },
@@ -408,7 +412,7 @@ const BASE_DECK_LIST = [
     playCost: 0,
     stepCost: 1,
     pip: 2,
-    text: "Draw 1 card and Store 1 Aether.",
+    text: "On Resolve → Draw 2 cards and Gain 2 Æ.",
     aetherValue: 1,
     qty: 1
   },
@@ -418,49 +422,49 @@ const BASE_DECK_LIST = [
     playCost: 0,
     stepCost: 1,
     pip: 1,
-    text: "Accelerate 1 target Spell and Gain 1 Aether.",
+    text: "On Resolve → Advance another Spell and Gain 2 Æ.",
     aetherValue: 0,
     qty: 1
   },
   {
     name: "Dormant Catalyst",
     type: "SPELL",
-    playCost: 2,
+    playCost: 1,
     stepCost: 0,
     pip: 1,
-    text: "Store 2 Aether and Draw 1 card.",
+    text: "On Resolve → Store 3 Aether and Draw 1 card.",
     aetherValue: 2,
     qty: 1
   },
   {
     name: "Greyfire Bloom",
     type: "SPELL",
-    playCost: 2,
+    playCost: 1,
     stepCost: 0,
     pip: 1,
-    text: "Deal 1 damage.",
+    text: "On Resolve → Deal 3 damage.",
     aetherValue: 1,
     qty: 1
   },
   {
     name: "Ember Sigil",
     type: "SPELL",
-    playCost: 1,
+    playCost: 0,
     stepCost: 1,
     pip: 2,
-    text: "Deal 2 damage.",
+    text: "On Resolve → Deal 5 damage.",
     aetherValue: 1,
     qty: 1
   },
 
-  // Instants (2)
+  // Instants — immediate effects
   {
     name: "Surge of Ash",
     type: "INSTANT",
     playCost: 1,
     pip: 0,
     stepCost: 0,
-    text: "Accelerate 1 target Spell",
+    text: "Advance another Spell and Gain 1 Æ.",
     aetherValue: 0,
     qty: 1
   },
@@ -470,20 +474,19 @@ const BASE_DECK_LIST = [
     playCost: 1,
     pip: 0,
     stepCost: 0,
-    text: "Prevent 1 damage or Draw 1 card.",
+    text: "Gain 2 Æ and Draw 1 card.",
     aetherValue: 0,
     qty: 1
   },
 
-  // Glyphs (2)
+  // Glyphs — persistent passives (one slot)
   {
     name: "Glyph of Remnant Light",
     type: "GLYPH",
     playCost: 0,
     pip: 0,
     stepCost: 0,
-    // Hooked by applyGlyphPassives via the "when a spell resolves → gain 1 Aether" regex
-    text: "When a Spell resolves → Channel 1 Aether.",
+    text: "When a Spell resolves → Gain 2 Æ.",
     aetherValue: 1,
     qty: 1
   },
@@ -498,11 +501,11 @@ const BASE_DECK_LIST = [
     qty: 1
   },
 
-  // Reaction (1)
+  // Reaction — play on opponent's turn
   {
     name: "Hexing Wisp",
     type: "REACTION",
-    playCost: 1,
+    playCost: 0,
     pip: 0,
     stepCost: 0,
     text: "When opponent plays a Spell → Hex that Spell Slot until your next turn.",
@@ -510,14 +513,14 @@ const BASE_DECK_LIST = [
     qty: 1
   },
 
-   // Hex Spell (1)
+  // Hex Spell — setup disruption
   {
     name: "Lingering Hex",
     type: "SPELL",
     playCost: 1,
-    stepCost: 1,
+    stepCost: 0,
     pip: 1,
-    text: "On Resolve → Hex an enemy Spell Slot until the start of your next turn.",
+    text: "On Resolve → Hex an enemy Spell Slot and Draw 1 card.",
     aetherValue: 1,
     qty: 1
   }
@@ -527,234 +530,183 @@ const BASE_DECK_LIST = [
 
 
 
-// ===== Aetherflow Deck (v5) — 15 cards =====
+// ===== Aetherflow Deck (v6) — 18 cards =====
+// All effects work with the live parser. Designed for HP-12 / 3-Æ-per-turn economy.
+// Combo packages: Hex engine · Advance engine · Store-Aether engine · Burst damage
 const AETHERFLOW_LIST = [
-  // Scaling Payoffs
+
+  // ── Burst / Scaling Damage ────────────────────────────────────
   {
     name: "Aether Burst",
     type: "INSTANT",
-    pip: 0,
-    playCost: 3,
-    stepCost: 0,
-    cost: 3,
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "Deal damage equal to your Stored Aether.",
-    role: "Scaling Payoff",
-    qty: 1
-  },
-  {
-    name: "Reservoir Titan",
-    type: "SPELL",
-    pip: 2,
-    playCost: 4,
-    stepCost: 1,
-    cost: 4,
-    aetherValue: 2,
-    text: "On Resolve → Channel Aether equal to your Stored Aether, then Store 1.",
-    role: "Scaling Ramp",
-    qty: 1
-  },
-  {
-    name: "Echoflame Crusader",
-    type: "SPELL",
-    pip: 2,
-    playCost: 3,
-    stepCost: 1,
-    cost: 3,
-    aetherValue: 1,
-    text: "On Resolve → Deal X damage, where X = Spells you’ve resolved this game (max 5).",
-    role: "Scaling Damage",
-    qty: 1
-  },
-  {
-    name: "Hex Implosion",
-    type: "SPELL",
-    pip: 1,
-    playCost: 2,
-    stepCost: 1,
-    cost: 2,
-    aetherValue: 1,
-    text: "On Resolve → Opponent discards 1 card for each Hexed slot they control.",
-    role: "Hex / Hand Attack",
-    qty: 1
-  },
-  {
-    name: "Rhythm of the Ashen Cycle",
-    type: "GLYPH",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    aetherValue: 0,
-    text: "When you Accelerate a Spell → Gain 1 Aether.",
-    role: "Accelerate Engine",
-    qty: 1
-  },
-
-  // Pip / Slot Control
-  {
-    name: "Reversal Surge",
-    type: "REACTION",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
-    aetherValue: 0,
-    text: "When opponent Accelerates a Spell → Roll that Spell back 1 pip.",
-    role: "Pip Control",
-    qty: 1
-  },
-  {
-    name: "Frozen Ember Sigil",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
-    aetherValue: 0,
-    text: "Freeze a target Spell Slot this turn.",
-    role: "Slot Control",
-    qty: 1
-  },
-  {
-    name: "Burden of the Grey",
-    type: "REACTION",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    aetherValue: 0,
-    text: "When opponent plays a Spell → It gains +1 Pip until it resolves.",
-    role: "Tax / Tempo Hit",
-    qty: 1
-  },
-
-  // Damage & Combat Engine
-  {
-    name: "Cyclebreaker Lash",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    aetherValue: 0,
-    text: "Deal damage equal to the number of times you have Accelerated a Spell this turn.",
-    role: "Acceleration Payoff",
+    text: "Deal damage equal to your Æ (max 6).",
+    role: "Scaling Burst",
     qty: 1
   },
   {
     name: "Scorch the Many",
     type: "INSTANT",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "Deal 1 damage for each active Spell your opponent controls.",
-    role: "Board Punish",
+    text: "Deal 4 damage.",
+    role: "Direct Damage",
+    qty: 1
+  },
+  {
+    name: "Cyclebreaker Lash",
+    type: "INSTANT",
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
+    aetherValue: 0,
+    text: "Deal 3 damage and Steal 2 Æ from opponent.",
+    role: "Damage + Denial",
     qty: 1
   },
 
-  // Aether Manipulation & Engines
+  // ── Powerful Spells ───────────────────────────────────────────
   {
-    name: "Devouring Will",
-    type: "INSTANT",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
-    aetherValue: 0,
-    text: "Steal 1 Stored Aether from opponent for each Spell you control.",
-    role: "Aether Theft",
+    name: "Reservoir Titan",
+    type: "SPELL",
+    pip: 2, playCost: 3, stepCost: 1, cost: 3,
+    aetherValue: 2,
+    text: "On Resolve → Store 4 Aether and Deal 2 damage.",
+    role: "Ramp Finisher",
+    qty: 1
+  },
+  {
+    name: "Echoflame Crusader",
+    type: "SPELL",
+    pip: 2, playCost: 2, stepCost: 1, cost: 2,
+    aetherValue: 1,
+    text: "On Resolve → Deal 6 damage.",
+    role: "Damage Spell",
     qty: 1
   },
   {
     name: "Flowbinder Wisp",
     type: "SPELL",
-    pip: 1,
-    playCost: 1,
-    stepCost: 1,
-    cost: 1,
+    pip: 1, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
-    text: "On Resolve → Store 1 Aether for each Spell Accelerated this turn.",
-    role: "Flow Engine",
+    text: "On Resolve → Store 3 Aether and Draw 2 cards.",
+    role: "Ramp + Draw",
+    qty: 1
+  },
+  {
+    name: "Hex Implosion",
+    type: "SPELL",
+    pip: 1, playCost: 2, stepCost: 1, cost: 2,
+    aetherValue: 1,
+    text: "On Resolve → Deal 2 damage. Reduce target’s Essence by 2.",
+    role: "Disruption Spell",
     qty: 1
   },
 
-  // Hex Synergy
+  // ── Aether Theft ─────────────────────────────────────────────
+  {
+    name: "Devouring Will",
+    type: "INSTANT",
+    pip: 0, playCost: 3, stepCost: 0, cost: 3,
+    aetherValue: 0,
+    text: "Steal 5 Æ from opponent.",
+    role: "Aether Theft",
+    qty: 1
+  },
+  {
+    name: "Void Siphon",
+    type: "INSTANT",
+    pip: 0, playCost: 1, stepCost: 0, cost: 1,
+    aetherValue: 0,
+    text: "Steal 3 Æ from opponent.",
+    role: "Aether Theft",
+    qty: 1
+  },
+
+  // ── Hex Engine ────────────────────────────────────────────────
+  {
+    name: "Frozen Ember Sigil",
+    type: "INSTANT",
+    pip: 0, playCost: 1, stepCost: 0, cost: 1,
+    aetherValue: 0,
+    text: "Hex an enemy Spell Slot.",
+    role: "Hex Control",
+    qty: 1
+  },
   {
     name: "Spite Wisp",
     type: "REACTION",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
+    pip: 0, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
-    text: "When opponent Accelerates a Spell → Hex that slot. If it’s already Hexed, they discard 1 card.",
+    text: "When opponent plays a Spell → Hex that Spell Slot and Deal 1 damage.",
     role: "Hex Punish",
     qty: 1
   },
   {
     name: "Creeping Malice",
     type: "GLYPH",
-    pip: 0,
-    playCost: 3,
-    stepCost: 0,
-    cost: 3,
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "When you Hex a slot → Deal 1 damage.",
-    role: "Hex Payoff",
+    text: "When a Spell resolves → Deal 2 damage.",
+    role: "Damage Engine",
     qty: 1
   },
 
-  // Utility / Cleanse
+  // ── Advance Engine ────────────────────────────────────────────
+  {
+    name: "Rhythm of the Ashen Cycle",
+    type: "GLYPH",
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
+    aetherValue: 0,
+    text: "When you Accelerate a Spell → Gain 1 Æ.",
+    role: "Advance Engine",
+    qty: 1
+  },
+  {
+    name: "Reversal Surge",
+    type: "INSTANT",
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
+    aetherValue: 0,
+    text: "Advance another Spell. Gain 2 Æ and Draw 1 card.",
+    role: "Advance + Ramp",
+    qty: 1
+  },
+
+  // ── Utility ───────────────────────────────────────────────────
   {
     name: "Wisp of Purity",
     type: "INSTANT",
-    pip: 0,
-    playCost: 1,
-    stepCost: 0,
-    cost: 1,
+    pip: 0, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
-    text: "Remove all negative effects (Hex, Freeze, Burden) from a slot you control.",
+    text: "Remove Hex from all your Spell Slots. Draw 1 card.",
     role: "Cleanse",
     qty: 1
   },
 
-  // Win Condition Disruption
+  // ── Win Condition Disruption ──────────────────────────────────
   {
     name: "Essence Siphon",
     type: "INSTANT",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "Deal 1 damage. Reduce target's Essence by 2.",
+    text: "Deal 2 damage. Reduce target’s Essence by 3.",
     role: "Anti-Dominion",
     qty: 1
   },
   {
     name: "Current Seizure",
     type: "INSTANT",
-    pip: 0,
-    playCost: 2,
-    stepCost: 0,
-    cost: 2,
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "Reduce target's Confluence by 1. Draw 1 card.",
+    text: "Reduce target’s Confluence by 1. Draw 2 cards.",
     role: "Anti-Confluence",
     qty: 1
   },
   {
     name: "Grasp of the Grey",
     type: "INSTANT",
-    pip: 0,
-    playCost: 3,
-    stepCost: 0,
-    cost: 3,
+    pip: 0, playCost: 3, stepCost: 0, cost: 3,
     aetherValue: 0,
-    text: "Deal 2 damage. Reduce target's Essence by 3.",
+    text: "Deal 4 damage. Reduce target’s Essence by 4.",
     role: "Anti-Dominion Finisher",
     qty: 1
   }
@@ -879,7 +831,7 @@ export function initState(seed) {
     players: {
       player: {
         vitality: STARTING_VITALITY,
-        aether: 1, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -891,7 +843,7 @@ export function initState(seed) {
       },
       ai: {
         vitality: STARTING_VITALITY,
-        aether: 1, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -1074,6 +1026,15 @@ export function startTurn(state) {
       state.winner      = side;
       state.winCondition = condition;
       pushEvt(state, { t: 'win', side, condition });
+    }
+  }
+
+  // Give the active player their per-turn aether (additive — banking is rewarded).
+  {
+    const P = state.players[state.activePlayer];
+    if (P) {
+      P.aether = (P.aether | 0) + AETHER_PER_TURN;
+      pushEvt(state, { t: 'aether', side: state.activePlayer, amount: AETHER_PER_TURN, by: 'turn-start' });
     }
   }
 
@@ -1885,6 +1846,18 @@ function parseEffectsFromText(raw) {
   { const m = t.match(/reduce\s+(?:target(?:'s)?|opponent(?:'s)?)\s+confluence\s+by\s+(\d+)/i);
     if (m) fx.push({ t: "confluenceDrain", n: +m[1] }); }
 
+  // Aether theft: "Steal N Æ from opponent"
+  { const m = t.match(/steal\s+(\d+)\s*(?:æ|ae|aether)/i);
+    if (m) fx.push({ t: "aetherSteal", n: +m[1] }); }
+
+  // Damage equal to caster's current Æ: "Deal damage equal to your Æ (max N)"
+  { const m = t.match(/deal damage equal to your\s+(?:stored\s+)?(?:æ|aether)\s*\(max\s+(\d+)\)/i);
+    if (m) fx.push({ t: "damageSelfAether", max: +m[1] }); }
+
+  // Hex cleanse: "Remove Hex from all your Spell Slots"
+  if (/remove hex from (?:all )?your spell slots/i.test(t))
+    fx.push({ t: "cleanseHex" });
+
   return fx;
 }
 
@@ -1894,14 +1867,21 @@ function applyGlyphPassives(state, side, trigger){
   const text = slot?.hasCard ? (slot.card?.text || "").toLowerCase() : "";
   let fired = false;
 
-  if (trigger === "spell_resolved" &&
-      (
-       /when\s+a\s+spell\s+resolves?\s*→?\s*(?:gain|channel)\s+1\s*(?:æ|ae|aether)/.test(text)
-      )) {
-    // treat it as +1 stored Æ for now
-  state.players[side].aether = (state.players[side].aether | 0) + 1;
-  pushEvt(state, { t:"aether", side, amount:1, by: slot.card?.id });
-  fired = true;
+  if (trigger === "spell_resolved") {
+    // "When a Spell resolves → Gain/Channel N Æ" — dynamic amount
+    const mAe = text.match(/when\s+a\s+spell\s+resolves?\s*→?\s*(?:gain|channel)\s+(\d+)\s*(?:æ|ae|aether)/);
+    if (mAe) {
+      const amt = +mAe[1];
+      state.players[side].aether = (state.players[side].aether | 0) + amt;
+      pushEvt(state, { t: "aether", side, amount: amt, by: slot.card?.id });
+      fired = true;
+    }
+    // "When a Spell resolves → Deal N damage" (e.g. Creeping Malice)
+    const mDmg = text.match(/when\s+a\s+spell\s+resolves?\s*→?\s*deal\s+(\d+)\s+damage/);
+    if (mDmg) {
+      state = dealDamage(state, otherSide(side), +mDmg[1], { source: "glyph", cardId: slot.card?.id });
+      fired = true;
+    }
   }
 
   // New: opponent spell resolves → deal 1 damage
@@ -2169,6 +2149,34 @@ function applyParsedEffects(state, side, card, opts = {}) {
           pushEvt(state, { t: "confluenceDrain", side: rival, amount: e.n, by: card.id });
         }
         break;
+
+      case "aetherSteal": {
+        const opp = state.players[rival];
+        const stolen = Math.min(opp.aether | 0, e.n);
+        if (stolen > 0) {
+          opp.aether = (opp.aether | 0) - stolen;
+          state.players[side].aether = (state.players[side].aether | 0) + stolen;
+          pushEvt(state, { t: "aether_steal", side, rival, amount: stolen, by: card.id });
+        }
+        break;
+      }
+
+      case "damageSelfAether": {
+        const dmg = Math.min(state.players[side].aether | 0, e.max ?? 6);
+        if (dmg > 0) state = dealDamage(state, rival, dmg, { source: card.type?.toLowerCase?.() || "card", cardId: card.id });
+        break;
+      }
+
+      case "cleanseHex": {
+        const slots = state.players[side]?.slots || [];
+        for (let i = 0; i < 3; i++) {
+          if (slots[i]?.hex) {
+            slots[i].hex = null;
+            pushEvt(state, { t: "hex_cleared", side, slotIndex: i });
+          }
+        }
+        break;
+      }
 
       default: break;
     }

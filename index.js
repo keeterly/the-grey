@@ -27,10 +27,8 @@ import {
   resolveInstantFromHand,     // ← NEW
   drainEvents,                // ← NEW
   dealDamage,
-  getStack 
-  // clearReactionWindow,        // Reaction windows are cleared directly on state
-  // resolveReactionFromHand      // Reaction resolver handled via resolveInstantFromHand
-
+  getStack,
+  DRAW_PER_TURN,
 } from "./GameLogic.js";
 
 
@@ -1334,23 +1332,25 @@ async function doStartTurn(){
   state.players.player.tempAether = 0;
   state.players.ai.tempAether = 0;
 
-  // Draw up to 5 + Trance L1 bonus
-  const tranceL = (state.players[side].tranceLevel|0);
-  const baseNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
+  // Draw up to 5, guarantee at least DRAW_PER_TURN, plus Trance L1 bonus
+  const tranceL  = (state.players[side].tranceLevel|0);
+  const fillNeed = Math.max(0, 5 - (state.players[side].hand?.length||0));
   const bonus    = tranceL >= 1 ? 1 : 0;
-  const need     = baseNeed + bonus;
+  const need     = Math.max(DRAW_PER_TURN, fillNeed) + bonus;
 
   const active = side;
   reshuffleFromDiscard(active);
 
   // IMPORTANT: run the draw-up sequence *inside* the official Draw Step
   await withDrawStep(async () => {
-    const HAND_CAP = 5;
+    const HAND_CAP = 7;
     if (need) {
       // Same path as the menu "Draw 1", but with a gentle stagger so it reads clearly
-      let guard = 12;
-      while ((state.players?.[active]?.hand?.length || 0) < HAND_CAP && guard-- > 0) {
+      let guard = 14;
+      let drawn = 0;
+      while (drawn < need && (state.players?.[active]?.hand?.length || 0) < HAND_CAP && guard-- > 0) {
         await drawOneLikeMenu(active);
+        drawn++;
         await sleep(165); // make the entry feel like the menu Draw 1
       }
     } else {
@@ -4461,9 +4461,9 @@ async function spotlightFromEvents(state){
             hearts.classList.add('hit');
             hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
           }
-          // Critical HP warning — pulse the board row at 2 HP or below
+          // Critical HP warning — pulse the board row at 4 HP or below
           const curHp = state?.players?.[e.side]?.vitality | 0;
-          if (curHp > 0 && curHp <= 2) {
+          if (curHp > 0 && curHp <= 4) {
             const rowSel = e.side === 'player' ? '.row.player' : '.row.ai';
             const row = document.querySelector(rowSel);
             if (row) {
