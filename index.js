@@ -2145,8 +2145,10 @@ function canChannel(card){
 function canPlaySpell(pub, card){ return card?.type==="SPELL" && firstOpenSpellSlot(pub) >= 0; }
 function canSetGlyph(pub, card){
   if (card?.type!=="GLYPH") return false;
-  const slot = (pub.players?.player?.slots || [])[3];
-  return slot && !slot.hasCard;
+  return true; // always settable — occupied slot triggers replacement
+}
+function glyphSlotOccupied(pub){
+  return !!((pub.players?.player?.slots || [])[3]?.hasCard);
 }
 function canCastInstant(pub, card){
   // Only allow normal instants to be cast via the popover. Reaction cards
@@ -2377,7 +2379,7 @@ function showCardOptions(cardEl, cardData){
   const pub = serializePublic(state) || {};
   const opts = [];
   if (canPlaySpell(pub, cardData))  opts.push({k:"play",    label:"Play"});
-  if (canSetGlyph(pub, cardData))   opts.push({k:"set",     label:"Set"});
+  if (canSetGlyph(pub, cardData))   opts.push({k:"set", label: glyphSlotOccupied(pub) ? "Replace" : "Set"});
   // Only offer cast on true INSTANTs; Reaction cards are handled via "React" when a reaction window is active
   if (canCastInstant(pub, cardData) && cardData.type !== 'REACTION') opts.push({k:"cast",    label:"Cast"});
   if (canChannel(cardData)){

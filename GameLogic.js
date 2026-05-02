@@ -590,7 +590,7 @@ const AETHERFLOW_LIST = [
     aetherValue: 0,
     text: "On Resolve → Store 3 Aether and Draw 2 cards.",
     role: "Ramp + Draw",
-    qty: 1
+    qty: 2
   },
   {
     name: "Hex Implosion",
@@ -613,12 +613,12 @@ const AETHERFLOW_LIST = [
     qty: 1
   },
   {
-    name: "Void Siphon",
+    name: "Echo Strike",
     type: "INSTANT",
-    pip: 0, playCost: 1, stepCost: 0, cost: 1,
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "Steal 3 Æ from opponent.",
-    role: "Aether Theft",
+    text: "Deal 2 damage. Advance another Spell.",
+    role: "Damage + Advance Combo",
     qty: 1
   },
 
@@ -646,7 +646,7 @@ const AETHERFLOW_LIST = [
     type: "GLYPH",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
-    text: "When a Spell resolves → Deal 2 damage.",
+    text: "When a Spell resolves → Deal 1 damage.",
     role: "Damage Engine",
     qty: 1
   },
@@ -659,7 +659,7 @@ const AETHERFLOW_LIST = [
     aetherValue: 0,
     text: "When you Accelerate a Spell → Gain 1 Æ.",
     role: "Advance Engine",
-    qty: 1
+    qty: 2
   },
   {
     name: "Reversal Surge",
@@ -1190,7 +1190,13 @@ export function setGlyphFromHand(state, playerId, cardId){
   if (!P) throw new Error("bad player");
   const slot = P.slots[3];
   if (!slot?.isGlyph) throw new Error("no glyph slot");
-  if (slot.hasCard) throw new Error("glyph slot occupied");
+  // Glyphs are persistent — allow replacement (old glyph goes to discard)
+  if (slot.hasCard) {
+    const old = slot.card;
+    slot.card = null; slot.hasCard = false;
+    P.discard.push(old);
+    pushEvt(state, { t: "glyph_replaced", side: playerId, cardId: old.id, cardData: { ...old } });
+  }
 
   const i = P.hand.findIndex(c => c.id === cardId);
   if (i < 0) throw new Error("card not in hand");
@@ -1949,10 +1955,8 @@ function applyGlyphPassives(state, side, trigger){
     }
   }
 
-  // Auto-discard once a passive fires
-  if (fired) {
-    state = resolveGlyphFromSlot(state, side);
-  }
+  // Glyphs are persistent — they stay in the slot and fire every time the trigger matches.
+  // (Use setGlyphFromHand to replace a glyph, or it stays for the whole game.)
 
   return state;
 }

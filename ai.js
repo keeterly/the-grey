@@ -40,7 +40,8 @@ export async function runAiTurn(state, api) {
 
   // ── Utilities ─────────────────────────────────────────────────
   const firstOpenSpellSlot = () => api.findFirstOpenSpellSlot(side);
-  const glyphSlotOpen = () => !(pub.players?.ai?.slots?.[3]?.hasCard);
+  const glyphSlotOpen      = () => !(pub.players?.ai?.slots?.[3]?.hasCard);
+  const currentGlyphIsDmg  = () => /damage/i.test(pub.players?.ai?.slots?.[3]?.card?.text || '');
 
   const handByType = (t) => hand.filter(c => c?.type === t);
   const hasType    = (t) => handByType(t).length > 0;
@@ -112,11 +113,21 @@ export async function runAiTurn(state, api) {
     }
   }
 
-  // ── 2) SET a Glyph (skip when desperate — no time for setup) ──
-  if (urgencyLevel < 3 && glyphSlotOpen() && hasType('GLYPH')) {
-    const g = handByType('GLYPH')[0];
-    api.setGlyphFromHand(side, g.id);
-    return state;
+  // ── 2) SET or REPLACE a Glyph ────────────────────────────────
+  // Glyphs are persistent now. Set freely when slot is open.
+  // In kill mode, swap to a damage glyph if current one isn't.
+  if (urgencyLevel < 3 && hasType('GLYPH')) {
+    const glyphs = handByType('GLYPH');
+    const dmgGlyph = glyphs.find(g => dealsDamage(g) || /damage/i.test(g.text || ''));
+    const open = glyphSlotOpen();
+    if (open) {
+      api.setGlyphFromHand(side, (dmgGlyph || glyphs[0]).id);
+      return state;
+    }
+    // Replace: only when in kill mode and swapping to a damage glyph upgrades us
+    if (killMode && dmgGlyph && !currentGlyphIsDmg()) {
+      try { api.setGlyphFromHand(side, dmgGlyph.id); return state; } catch { /* ignore */ }
+    }
   }
 
   // ── 3) PLAY a Spell ───────────────────────────────────────────
@@ -143,7 +154,8 @@ export async function runAiTurn(state, api) {
   {
     const prices  = [4, 3, 2, 2, 2];
     const flow    = (pub.flow || []).slice(0, 5);
-    const wantGlyph = glyphSlotOpen() && urgencyLevel < 2;
+    // Glyphs are permanent — always worth buying. Bonus when slot is open, still good for replacement.
+    const wantGlyph = urgencyLevel < 2;
 
     const scored = flow.map((c, i) => {
       if (!c) return null;
@@ -151,7 +163,9 @@ export async function runAiTurn(state, api) {
       if (aether < price) return null;
       let score = 0;
 
-      if (wantGlyph && c.type === 'GLYPH') score += 80;
+      if (wantGlyph && c.type === 'GLYPH') {
+        score += glyphSlotOpen() ? 90 : (currentGlyphIsDmg() && !dealsDamage(c) ? 10 : 50);
+      }
       if (c.type === 'SPELL')    score += 50 - (getCardCost(c)) * 2 - (c.pip|0);
       if (c.type === 'INSTANT')  score += 35 - getCardCost(c);
       if (c.type === 'REACTION') score += 20;
