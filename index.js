@@ -5899,21 +5899,63 @@ function openPileModal(title, cards){
 
 
 
-/* ---------- mobile mode (portrait + landscape) ---------- */
+/* ---------- mobile mode: landscape layout + portrait rotate-prompt ---------- */
 (function mobileModeInit(){
+  const isTouch = () => window.matchMedia("(pointer: coarse)").matches;
+
+  const injectRotatePrompt = () => {
+    if (document.getElementById('rotate-prompt')) return;
+    const el = document.createElement('div');
+    el.id = 'rotate-prompt';
+    el.innerHTML = `
+      <div class="rotate-inner">
+        <div class="rotate-icon">&#9111;</div>
+        <p>Rotate your device<br>to play</p>
+      </div>`;
+    document.body.appendChild(el);
+    const s = document.createElement('style');
+    s.textContent = `
+      #rotate-prompt{
+        position:fixed;inset:0;z-index:99999;
+        background:#110e0b;
+        display:none;place-items:center;
+        text-align:center;
+        color:#e7dcc3;
+        font-family:"Cormorant Garamond",serif;
+      }
+      #rotate-prompt.show{display:grid;}
+      .rotate-inner{display:flex;flex-direction:column;align-items:center;gap:20px;}
+      .rotate-icon{
+        font-size:5rem;line-height:1;
+        animation:spinPhone 2.4s ease-in-out infinite;
+        display:block;
+      }
+      @keyframes spinPhone{
+        0%,30%{transform:rotate(0deg);}
+        55%,100%{transform:rotate(90deg);}
+      }
+      .rotate-inner p{font-size:1.4rem;line-height:1.55;opacity:.8;margin:0;}
+    `;
+    document.head.appendChild(s);
+  };
+
   const apply = () => {
     const w = window.innerWidth, h = window.innerHeight;
     const isLandscape = w > h;
-    // Enable mobile layout: portrait narrow-screen OR landscape short-screen
-    const enableMobile = w <= 500 || (isLandscape && h <= 500);
-    const isPortrait   = !isLandscape;
-    document.body.classList.toggle("mobile-landscape", enableMobile);
-    // mob-portrait layers portrait-specific overrides on top of landscape rules
-    document.body.classList.toggle("mob-portrait", enableMobile && isPortrait);
+    const touch = isTouch();
+    // Landscape phone: touch device, landscape, short height
+    const enableLandscape = touch && isLandscape && h <= 520;
+    // Portrait phone: touch device, portrait, narrow width
+    const showRotate = touch && !isLandscape && w <= 520;
+
+    document.body.classList.toggle("mobile-landscape", enableLandscape);
+    const prompt = document.getElementById('rotate-prompt');
+    if (prompt) prompt.classList.toggle('show', showRotate);
   };
+
+  document.addEventListener("DOMContentLoaded", () => { injectRotatePrompt(); apply(); });
   window.addEventListener("resize",            apply, {passive:true});
   window.addEventListener("orientationchange", apply, {passive:true});
-  document.addEventListener("DOMContentLoaded", apply);
 })();
 
 
