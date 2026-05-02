@@ -431,10 +431,14 @@ body.mobile-landscape .hearts{ justify-content:center; gap:3px; margin:3px 0 }
 body.mobile-landscape .hearts svg{ width:12px; height:12px }
 body.mobile-landscape .aether-display{ gap:4px; font-size:.8rem; margin-top:4px }
 body.mobile-landscape .aether-display .temp-ae{ min-width:14px; height:14px; font-size:.6rem }
-/* hide trance track in compact sidebar — no room */
+/* hide elements that have no room in the 68px sidebar */
 body.mobile-landscape .trance,
 body.mobile-landscape .trance-wrap,
 body.mobile-landscape .trance-row { display: none !important; }
+/* C/D win-progress bars */
+body.mobile-landscape .win-tracks  { display: none !important; }
+/* full-height weaver character art — covers the board on small screens */
+body.mobile-landscape #weaver-backdrop { display: none !important; }
 
 /* ===== Flow & Slots ===== */
 body.mobile-landscape .flow-title-rail{ display:none }
