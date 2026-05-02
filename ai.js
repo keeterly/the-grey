@@ -48,6 +48,8 @@ export async function runAiTurn(state, api) {
   const dealsDamage       = (c) => /deal.*damage/i.test(c?.text || '');
   const hasHexText        = (c) => /hex/i.test(c?.text || '');
   const hasDrawText       = (c) => /draw/i.test(c?.text || '');
+  const stealsAether      = (c) => /steal.*æ/i.test(c?.text || '');
+  const scalesWithAether  = (c) => /damage equal to your/i.test(c?.text || '');
   const drainsEssence     = (c) => /reduce.*essence/i.test(c?.text || '');
   const drainsConfluence  = (c) => /reduce.*confluence/i.test(c?.text || '');
 
@@ -164,6 +166,19 @@ export async function runAiTurn(state, api) {
       if (oppSpells.length >= 1 && hasHexText(c))        score += 30;
       if (immediateThreats.length >= 1 && hasHexText(c)) score += 20;
 
+      // Aether theft — great in any urgency, devastating when opponent has more
+      if (stealsAether(c)) {
+        const oppAether = (opp.aether|0) + (opp.tempAether|0);
+        score += urgencyLevel >= 2 ? 50 : urgencyLevel === 1 ? 35 : 20;
+        if (oppAether >= 6) score += 20; // fat target — extra incentive
+      }
+
+      // Aether Burst (scales with banked Æ) — better when we have a lot
+      if (scalesWithAether(c)) {
+        const myAether = (me.aether|0) + (me.tempAether|0);
+        score += myAether >= 5 ? 60 : myAether >= 3 ? 35 : 15;
+      }
+
       // Win condition disruption — critical when opponent is one step from winning
       if (drainsEssence(c)    && oppNearDominion)   score += 80;
       if (drainsConfluence(c) && oppNearConfluence) score += 80;
@@ -175,7 +190,7 @@ export async function runAiTurn(state, api) {
       if (myNearDominion && c.aetherValue > 0) score += 15; // cards we can channel
 
       // Card draw when hand is low
-      if (hand.length <= 2 && hasDrawText(c)) score += 30;
+      if (hand.length <= 3 && hasDrawText(c)) score += 30;
 
       score += (8 - price);
       score += (Math.random() * 8) - 4; // small noise to prevent identical play each game

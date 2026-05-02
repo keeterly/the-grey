@@ -370,7 +370,7 @@ function applyReactionEffect(state, reactionCard, trigger, context, reactingSide
 /////////////////////////////
 
 /**
- * v2.66 Card Pools — from Game Doc
+ * v3.0 Card Pools — redesigned for HP-12 / 3-Æ-per-turn economy
  * NOTE: Some effects in the doc aren’t yet supported by the parser.
  * I’ve aligned text to current grammar where possible:
  *  - “Gain N Æ”      → aether gain
@@ -1541,7 +1541,8 @@ export function advanceSpell(
   // Only mark for PAID advances (free/effect advances don't consume the "once/turn")
   if (!free) c._paidAdvancedTurn = state.turn;
 
-
+  // Fire glyph passives that respond to advancing (e.g. Rhythm of the Ashen Cycle)
+  state = applyGlyphPassives(state, playerId, "advance");
 
   // Aria Stage I: gain 1 Æ whenever you advance a spell
   {
@@ -1891,15 +1892,6 @@ function applyGlyphPassives(state, side, trigger){
     fired = true;
   }
 
-// When you Channel / Store Aether → Draw 1 card. (Glyph of Returning Echo)
-if (trigger === "channel" &&
-    /when\s+you\s+(?:store|channel)\s+aether\s*→\s*draw\s+1\s+card/.test(text)) {
-  state = drawN(state, side, 1);
-  pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
-  fired = true;
-}
-
-  
   // New: taking damage → channel N Æ (defaults to 2)
   if (trigger === "damage" &&
       /when\s+you\s+take\s+damage\s*→?\s*channel\s+(\d+)/.test(text)) {
@@ -1944,6 +1936,17 @@ if (trigger === "channel" &&
     state = drawN(state, side, 1);
     pushEvt(state, { t:"draw", side, amount:1, by: slot.card?.id });
     fired = true;
+  }
+
+  // "When you Accelerate/Advance a Spell → Gain N Æ" (Rhythm of the Ashen Cycle)
+  if (trigger === "advance") {
+    const m = text.match(/when\s+you\s+(?:accelerate|advance)\s+a\s+spell\s*→?\s*gain\s+(\d+)\s*(?:æ|ae|aether)/);
+    if (m) {
+      const amt = +m[1];
+      state.players[side].aether = (state.players[side].aether | 0) + amt;
+      pushEvt(state, { t: "aether", side, amount: amt, by: slot.card?.id });
+      fired = true;
+    }
   }
 
   // Auto-discard once a passive fires

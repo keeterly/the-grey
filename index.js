@@ -49,7 +49,7 @@ function withAetherIcons(txt){
 
 
 // ===== Version / Menu + Log UI =====
-export const BRANCH_VERSION = "v2.66";
+export const BRANCH_VERSION = "v3.0";
 window.__BRANCH_VERSION__ = BRANCH_VERSION;
 
 let LogStore = [];
@@ -1958,12 +1958,12 @@ function heartSVG({ filled = true, size = 36 } = {}) {
 
 /**
  * Render hearts as "containers": show `maxHearts` outlines,
- * with the first `hp` hearts filled. Defaults to 5 max.
+ * with the first `hp` hearts filled. Defaults to 12 max.
  */
-function renderHearts(el, hp = 5, maxHearts = 5) {
+function renderHearts(el, hp = 12, maxHearts = 12) {
   if (!el) return;
   const cur = Math.max(0, hp | 0);
-  const max = Math.max(cur, maxHearts | 0) || 5;
+  const max = Math.max(cur, maxHearts | 0) || 12;
 
   const nodes = [];
   for (let i = 0; i < max; i++) {
@@ -4994,8 +4994,8 @@ async function primeAetherFlow(n = 5) {
     state.players.ai.tempAether = 0;
 
     // Restore base resources
-    state.players.player.vitality = orig.players.player?.vitality ?? 5;
-    state.players.ai.vitality     = orig.players.ai?.vitality ?? 5;
+    state.players.player.vitality = orig.players.player?.vitality ?? 12;
+    state.players.ai.vitality     = orig.players.ai?.vitality ?? 12;
     state.players.player.aether   = orig.players.player?.aether ?? 0;
     state.players.ai.aether       = orig.players.ai?.aether ?? 0;
   } catch (_) {
@@ -5015,7 +5015,7 @@ function ensureSafetyShape(s){
     if (typeof s.players[who].tranceLevel !== "number") s.players[who].tranceLevel = 0;
   }
   if (!Array.isArray(s.flow)) s.flow = [null,null,null,null,null];
-  if (!s.player) s.player = {aether:0, vitality:5, hand:[], slots:[]};
+  if (!s.player) s.player = {aether:0, vitality:12, hand:[], slots:[]};
   if (!Array.isArray(s.player.hand)) s.player.hand=[];
   if (!Array.isArray(s.player.slots) || s.player.slots.length<4){
     s.player.slots = [
@@ -5023,7 +5023,7 @@ function ensureSafetyShape(s){
       {isGlyph:true,hasCard:false,card:null}
     ];
   }
-  if (!s.ai) s.ai = {aether:0, vitality:5, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
+  if (!s.ai) s.ai = {aether:0, vitality:12, weaver:{name:"Opponent"}, slots:[{},{},{},{isGlyph:true}]};
   return s;
 }
 
@@ -5062,8 +5062,8 @@ async function render(){
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
   // in render()
-  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 5, 5);
-  renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 5, 5);
+  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 12, 12);
+  renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 12, 12);
   renderWinTracks('player');
   renderWinTracks('ai');
 
