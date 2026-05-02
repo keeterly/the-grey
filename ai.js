@@ -1,77 +1,92 @@
-// ai.js
-// One, small, deliberate action per call.
-// Uses the api surface you exposed from UI: makeAiApi()
+// ai.js — Strategic AI Decision Engine
+// One deliberate action per call, board-state aware.
 export async function runAiTurn(state, api) {
   const side = 'ai';
   const pub  = api.getPublic() || {};
-  const me   = pub.players?.ai || {};
-  const opponent = pub.players?.player || {};
-  const hand = me.hand || [];
+  const me   = pub.players?.ai    || {};
+  const opp  = pub.players?.player || {};
+  const hand  = me.hand  || [];
   const aether = (me.aether|0) + (me.tempAether|0);
-  const opponentHp = (opponent.vitality|0);
+  const opponentHp = (opp.vitality|0);
+  const myHp       = (me.vitality|0);
 
-  // Utilities
+  // ── Board Assessment ──────────────────────────────────────────
+  const oppSlots = (opp.slots || []).slice(0, 3);
+  const oppSpells = oppSlots.filter(s => s?.hasCard && s?.card?.type === 'SPELL');
+  // Opponent spells one step from resolving are immediate threats
+  const immediateThreats = oppSpells.filter(s => {
+    const c = s.card;
+    return (c.progress|0) >= (c.pip|0) - 1;
+  });
+
+  // ── Urgency Tiers ─────────────────────────────────────────────
+  // 3 = desperate  2 = kill mode  1 = elevated  0 = normal
+  const urgencyLevel =
+    (opponentHp <= 2 || myHp <= 1 || immediateThreats.length >= 2) ? 3 :
+    (opponentHp <= 3 || (immediateThreats.length >= 1 && myHp <= 3)) ? 2 :
+    (opponentHp <= 4 || immediateThreats.length >= 1 || myHp <= 3) ? 1 :
+    0;
+  const killMode = urgencyLevel >= 2;
+
+  // ── Utilities ─────────────────────────────────────────────────
   const firstOpenSpellSlot = () => api.findFirstOpenSpellSlot(side);
   const glyphSlotOpen = () => !(pub.players?.ai?.slots?.[3]?.hasCard);
 
   const handByType = (t) => hand.filter(c => c?.type === t);
   const hasType    = (t) => handByType(t).length > 0;
 
-  // Does this card's text deal damage?
-  const dealsDamage = (card) => /deal.*damage/i.test(card?.text || '');
+  const dealsDamage = (c) => /deal.*damage/i.test(c?.text || '');
+  const hasHexText  = (c) => /hex/i.test(c?.text || '');
+  const hasDrawText = (c) => /draw/i.test(c?.text || '');
 
-  // How urgent is damage? True when opponent is at 3 or fewer HP.
-  const killMode = opponentHp <= 3;
-
-  const getCardCost = (card) => {
-    if (!card) return 0;
-    if (typeof card.playCost !== 'undefined') return card.playCost;
-    return typeof card.cost !== 'undefined' ? card.cost : 0;
+  const getCardCost = (c) => {
+    if (!c) return 0;
+    if (typeof c.playCost !== 'undefined') return c.playCost;
+    return typeof c.cost !== 'undefined' ? c.cost : 0;
   };
 
-  // 0) Try to ADVANCE a spell already on the board.
-  //    Ordering: free-step damage spells → free-step others → paid damage spells → paid others.
+  // ── 0) ADVANCE a spell already on the board ───────────────────
   {
     const slots = pub.players?.ai?.slots || [];
-
-    // Collect advanceable spells with metadata
     const advanceable = [];
     for (let i = 0; i < 3; i++) {
       const s = slots[i];
       const c = s?.card;
       if (!s?.hasCard || c?.type !== 'SPELL') continue;
       if ((c.progress|0) >= (c.pip|0)) continue;
-      const stepCost = (typeof c.stepCost === 'number') ? c.stepCost : 1;
-      advanceable.push({ i, c, stepCost, dmg: dealsDamage(c) });
+      const rawCost    = (typeof c.stepCost === 'number') ? c.stepCost : 1;
+      const hexPenalty = s.hex ? 2 : 0;
+      const effectiveCost = rawCost + hexPenalty;
+      const stepsLeft  = (c.pip|0) - (c.progress|0);
+      advanceable.push({ i, c, stepCost: effectiveCost, dmg: dealsDamage(c), stepsLeft });
     }
 
-    // Sort: free-step damage first, free-step others second, paid damage third, paid others last
+    // Free+damage > free > paid+damage (kill) > closest to resolving
     advanceable.sort((a, b) => {
       const aFree = a.stepCost === 0 ? 1 : 0;
       const bFree = b.stepCost === 0 ? 1 : 0;
       if (aFree !== bFree) return bFree - aFree;
-      if (a.dmg !== b.dmg) return (b.dmg ? 1 : 0) - (a.dmg ? 1 : 0);
-      return 0;
+      if (killMode && a.dmg !== b.dmg) return (b.dmg ? 1 : 0) - (a.dmg ? 1 : 0);
+      return a.stepsLeft - b.stepsLeft;
     });
 
     for (const { i, stepCost } of advanceable) {
       if (stepCost === 0 || api.canPay(side, stepCost)) {
-        if (api.advanceSpellOne) { api.advanceSpellOne(side, i); return state; }
+        if (api.advanceSpellOne)  { api.advanceSpellOne(side, i);  return state; }
         if (api.payAndAdvanceOne) { api.payAndAdvanceOne(side, i); return state; }
       }
     }
   }
 
-  // 1) CAST an Instant. In kill mode or when instants deal damage, prioritize those.
+  // ── 1) CAST an Instant ────────────────────────────────────────
   {
     const instants = handByType('INSTANT').filter(c => api.canPay(side, getCardCost(c)));
     if (instants.length) {
-      // Sort: damage instants first (especially when opponent is low), then by cost
       instants.sort((a, b) => {
         const aDmg = dealsDamage(a) ? 1 : 0;
         const bDmg = dealsDamage(b) ? 1 : 0;
         if (aDmg !== bDmg) return bDmg - aDmg;
-        return (getCardCost(a)) - (getCardCost(b));
+        return getCardCost(a) - getCardCost(b);
       });
       const inst = killMode
         ? (instants.find(c => dealsDamage(c)) || instants[0])
@@ -83,15 +98,14 @@ export async function runAiTurn(state, api) {
     }
   }
 
-  // 2) SET a Glyph if the slot is empty and we have one
-  if (glyphSlotOpen() && hasType('GLYPH')) {
+  // ── 2) SET a Glyph (skip when desperate — no time for setup) ──
+  if (urgencyLevel < 3 && glyphSlotOpen() && hasType('GLYPH')) {
     const g = handByType('GLYPH')[0];
     api.setGlyphFromHand(side, g.id);
     return state;
   }
 
-  // 3) PLAY a Spell if there's an open slot.
-  //    In kill mode prefer damage spells; otherwise prefer cheaper spells.
+  // ── 3) PLAY a Spell ───────────────────────────────────────────
   {
     const slot = firstOpenSpellSlot();
     if (slot >= 0) {
@@ -99,7 +113,6 @@ export async function runAiTurn(state, api) {
         .filter(c => api.canPay(side, getCardCost(c)))
         .sort((a, b) => {
           if (killMode) {
-            // In kill mode: damage spells first, then cheapest
             const aDmg = dealsDamage(a) ? 1 : 0;
             const bDmg = dealsDamage(b) ? 1 : 0;
             if (aDmg !== bDmg) return bDmg - aDmg;
@@ -107,31 +120,43 @@ export async function runAiTurn(state, api) {
           return getCardCost(a) - getCardCost(b) || (a.pip|0) - (b.pip|0);
         });
       for (const s of spells) {
-        try {
-          api.playSpellFromHand(side, s.id, slot);
-          return state;
-        } catch { /* try next */ }
+        try { api.playSpellFromHand(side, s.id, slot); return state; } catch { /* try next */ }
       }
     }
   }
 
-  // 4) BUY from Flow — prioritise damage cards; in kill mode they get a large bonus.
+  // ── 4) BUY from Flow ──────────────────────────────────────────
   {
-    const prices = [4, 3, 2, 2, 2];
-    const flow = (pub.flow || []).slice(0, 5);
+    const prices  = [4, 3, 2, 2, 2];
+    const flow    = (pub.flow || []).slice(0, 5);
+    const wantGlyph = glyphSlotOpen() && urgencyLevel < 2;
 
-    const wantGlyph = glyphSlotOpen();
     const scored = flow.map((c, i) => {
       if (!c) return null;
       const price = prices[i] || 0;
       if (aether < price) return null;
       let score = 0;
-      if (wantGlyph && c.type === 'GLYPH') score += 100;
-      if (c.type === 'SPELL')   score += 60 - (getCardCost(c))*2 - (c.pip|0);
-      if (c.type === 'INSTANT') score += 40 - (getCardCost(c));
-      // Damage cards get a significant bonus; even larger when in kill mode
-      if (dealsDamage(c)) score += killMode ? 60 : 35;
-      score += (10 - price);
+
+      if (wantGlyph && c.type === 'GLYPH') score += 80;
+      if (c.type === 'SPELL')    score += 50 - (getCardCost(c)) * 2 - (c.pip|0);
+      if (c.type === 'INSTANT')  score += 35 - getCardCost(c);
+      if (c.type === 'REACTION') score += 20;
+
+      if (dealsDamage(c)) {
+        score += urgencyLevel === 3 ? 80 :
+                 urgencyLevel === 2 ? 60 :
+                 urgencyLevel === 1 ? 40 : 20;
+      }
+
+      // Buy hex cards when opponent has board presence
+      if (oppSpells.length >= 1 && hasHexText(c))        score += 30;
+      if (immediateThreats.length >= 1 && hasHexText(c)) score += 20;
+
+      // Card draw when hand is low
+      if (hand.length <= 2 && hasDrawText(c)) score += 30;
+
+      score += (8 - price);
+      score += (Math.random() * 8) - 4; // small noise to prevent identical play each game
       return { idx: i, price, score };
     }).filter(Boolean);
 
@@ -143,44 +168,35 @@ export async function runAiTurn(state, api) {
     }
   }
 
-  // 5) CHANNEL a card for aether — prefer cards that are NOT damage dealers
-  //    (don't sacrifice our win condition for a little ramp).
+  // ── 5) CHANNEL for aether ─────────────────────────────────────
+  // Preserve damage cards in elevated/kill mode — they're the win condition
   {
-    // Separate hand into damage-dealing cards and others
-    const nonDamage = hand.filter(c => !dealsDamage(c) && (c.aetherValue|0) > 0)
+    const nonDamage = hand
+      .filter(c => !dealsDamage(c) && (c.aetherValue|0) > 0)
       .sort((a, b) => (a.aetherValue|0) - (b.aetherValue|0));
-    const damageCards = hand.filter(c => dealsDamage(c) && (c.aetherValue|0) > 0)
+    const damageCards = hand
+      .filter(c => dealsDamage(c) && (c.aetherValue|0) > 0)
       .sort((a, b) => (a.aetherValue|0) - (b.aetherValue|0));
 
-    // Channel non-damage cards first; only channel damage cards if nothing else available
-    const toChannel = nonDamage.length ? nonDamage[0] : damageCards[0];
-    if (toChannel) {
-      api.channelFromHand(side, toChannel.id);
-      return state;
-    }
+    const toChannel = nonDamage.length ? nonDamage[0] : (urgencyLevel === 0 ? damageCards[0] : null);
+    if (toChannel) { api.channelFromHand(side, toChannel.id); return state; }
   }
 
-  // 6) Last resort: discard a low-impact card to thin the deck
+  // ── 6) Last resort: discard to thin hand ─────────────────────
   {
-    const glyphSlotIsOpen = () => !(pub.players?.ai?.slots?.[3]?.hasCard);
+    const glyphIsOpen = () => !(pub.players?.ai?.slots?.[3]?.hasCard);
     const undesirable = hand
-      .filter(c => !(c.type === 'GLYPH' && glyphSlotIsOpen()))
-      .filter(c => !dealsDamage(c) || killMode) // keep damage cards unless desperate
+      .filter(c => !(c.type === 'GLYPH' && glyphIsOpen()))
+      .filter(c => !dealsDamage(c) || urgencyLevel >= 3)
       .sort((a, b) => {
-        const av = (a.aetherValue | 0) - (b.aetherValue | 0);
+        const av = (a.aetherValue|0) - (b.aetherValue|0);
         if (av !== 0) return av;
-        const pc = (b.playCost | 0) - (a.playCost | 0);
-        if (pc !== 0) return pc;
-        const rank = (x) => x.type === 'INSTANT' ? 1 : (x.type === 'SPELL' ? 2 : 3);
-        return rank(a) - rank(b);
+        return (b.playCost|0) - (a.playCost|0);
       });
     const pick = undesirable[0];
-    if (pick) {
-      api.channelFromHand(side, pick.id);
-      return state;
-    }
+    if (pick) { api.channelFromHand(side, pick.id); return state; }
   }
 
-  // 7) Nothing to do → no-op (ends the AI's action loop)
+  // ── 7) No-op → ends the AI action loop ───────────────────────
   return state;
 }

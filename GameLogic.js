@@ -105,16 +105,21 @@ function processAetherSpend(state, side, amount) {
   if (!amount || amount <= 0) return state;
   const w = state.players?.[side]?.weaver;
   if (!w) return state;
-  // Kareth: Aggression passive
+  // Kareth: Aggression passive — triggers up to 2x per turn (3x at Stage II)
   if (w.id === "kareth" && (w.stage | 0) >= 1) {
-    // Stage I: once per turn after any spend, deal 1 damage
     if (w._damageTurn !== state.turn) {
-      state = dealDamage(state, otherSide(side), 1, { source: "trance-kareth" });
-      w._damageTurn = state.turn;
+      w._damageTurn  = state.turn;
+      w._damageCount = 0;
     }
-    // Stage II: if a single payment is 3 or more, deal 1 extra damage
-    if ((w.stage | 0) >= 2 && amount >= 3) {
+    const maxTriggers = (w.stage|0) >= 2 ? 3 : 2;
+    if ((w._damageCount|0) < maxTriggers) {
       state = dealDamage(state, otherSide(side), 1, { source: "trance-kareth" });
+      w._damageCount = (w._damageCount|0) + 1;
+    }
+    // Stage II: single payment >= 3 Ae fires one extra ping
+    if ((w.stage|0) >= 2 && amount >= 3 && (w._damageCount|0) < maxTriggers) {
+      state = dealDamage(state, otherSide(side), 1, { source: "trance-kareth" });
+      w._damageCount = (w._damageCount|0) + 1;
     }
   }
   return state;
@@ -864,10 +869,11 @@ export function serializePublic(state) {
     const c = slot?.card;
      if (slot?.hasCard && c?.type === "SPELL") {
       const stepCost         = Number(c.stepCost ?? c.cost ?? 0);
+      const hexPenalty       = slot.hex ? 2 : 0;
       const notSameTurn      = c._enteredTurn !== s.turn || stepCost === 0; // free-advance spells skip placement lock
-      const notPaidThisTurn  = c._paidAdvancedTurn !== s.turn;      // only one paid advance per turn
+      const notPaidThisTurn  = c._paidAdvancedTurn !== s.turn;
       const notComplete      = ((c.progress|0) < (c.pip|0));
-      const affordable       = (((me.aether|0)+(me.tempAether|0)) >= stepCost);
+      const affordable       = (((me.aether|0)+(me.tempAether|0)) >= (stepCost + hexPenalty));
       slot.canAdvance = notSameTurn && notPaidThisTurn && notComplete && affordable;
     } else if (slot) {
       slot.canAdvance = false;
@@ -1408,9 +1414,9 @@ export function advanceSpell(
   const c = slot?.card;
   if (!slot?.hasCard || !c || c.type!=="SPELL") return state;
 
- // HEX: a hexed slot cannot advance or resolve its spell
-  if (slot.hex) return state;
-  
+ // HEX: hexed slots cost 2 extra Æ per advance (tax, not a hard lock)
+  const hexPenalty = slot.hex ? 2 : 0;
+
 // Trigger reaction window for the opponent before advancing a spell.
   state = triggerReactionWindow(state, "spell_advance", { playerId, slotIndex, cardId: c.id });
 
@@ -1430,8 +1436,8 @@ export function advanceSpell(
 
 
   
- // Determine the cost per step. Aria Stage II discount applies to the first paid advance each turn.
-  let stepCost = Number(c.stepCost || c.cost || 0);
+ // Determine the cost per step. Aria Stage II discount applies to the first paid advance each turn.
+  let stepCost = Number(c.stepCost || c.cost || 0) + hexPenalty;
   const w = state.players[playerId]?.weaver;
   if (w?.id === "aria" && (w.stage | 0) >= 2 && !free) {
     if (w._discountTurn !== state.turn) {

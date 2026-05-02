@@ -1143,6 +1143,12 @@ function ensureDamageVFXStyles() {
     }
     .hit       { animation: heartHitFlash 320ms ease; }
     .hit-shake { animation: heartHitShake 360ms ease; }
+    @keyframes dangerPulse {
+      0%   { box-shadow: inset 0 0 0 0 rgba(220,40,40,0); }
+      30%  { box-shadow: inset 0 0 0 4px rgba(220,40,40,0.55); }
+      100% { box-shadow: inset 0 0 0 0 rgba(220,40,40,0); }
+    }
+    .danger-pulse { animation: dangerPulse 700ms ease-out; }
 
     /* floating damage number anchored near hearts */
     .damage-float {
@@ -1641,7 +1647,8 @@ function canAdvanceSlot(side, slotIndex, stepCost) {
   // enforce "once per spell per turn"
   if (slot.advancedThisTurn) return false;
 
-  const need = Number(stepCost || 1);
+  const hexPenalty = slot?.hex ? 2 : 0;
+  const need = Number(stepCost || 1) + hexPenalty;
 
   // spend temp Æ first, then regular Æ
   const haveTemp = Number(P.tempAether || 0);
@@ -4132,8 +4139,8 @@ function canAdvanceSpell(side, slot){
   const stepCost = Number.isFinite(c.advanceCost) ? c.advanceCost
                  : Number.isFinite(c.stepCost)     ? c.stepCost
                  : 1;
-
-  return getTotal(side) >= stepCost;
+  const hexPenalty = slot.hex ? 2 : 0;
+  return getTotal(side) >= (stepCost + hexPenalty);
 }
 
 
@@ -4359,6 +4366,16 @@ async function spotlightFromEvents(state){
           if (hearts) {
             hearts.classList.add('hit');
             hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
+          }
+          // Critical HP warning — pulse the board row at 2 HP or below
+          const curHp = state?.players?.[e.side]?.vitality | 0;
+          if (curHp > 0 && curHp <= 2) {
+            const rowSel = e.side === 'player' ? '.row.player' : '.row.ai';
+            const row = document.querySelector(rowSel);
+            if (row) {
+              row.classList.add('danger-pulse');
+              row.addEventListener('animationend', () => row.classList.remove('danger-pulse'), { once: true });
+            }
           }
         }
         animateDamage(e.side, e.amount || 1);
