@@ -5901,7 +5901,11 @@ function openPileModal(title, cards){
 
 /* ---------- mobile mode: landscape layout + portrait rotate-prompt ---------- */
 (function mobileModeInit(){
-  const isTouch = () => window.matchMedia("(pointer: coarse)").matches;
+  // Phone detection: UA string OR physical screen short-side ≤ 500 CSS px
+  // (screen.* is unaffected by browser chrome — reliable across iOS/Android)
+  const isPhone = () =>
+    /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent) ||
+    Math.min(screen.width, screen.height) <= 500;
 
   const injectRotatePrompt = () => {
     if (document.getElementById('rotate-prompt')) return;
@@ -5942,15 +5946,10 @@ function openPileModal(title, cards){
   const apply = () => {
     const w = window.innerWidth, h = window.innerHeight;
     const isLandscape = w > h;
-    const touch = isTouch();
-    // Landscape phone: touch device, landscape, short height
-    const enableLandscape = touch && isLandscape && h <= 520;
-    // Portrait phone: touch device, portrait, narrow width
-    const showRotate = touch && !isLandscape && w <= 520;
-
-    document.body.classList.toggle("mobile-landscape", enableLandscape);
+    const phone = isPhone();
+    document.body.classList.toggle("mobile-landscape", phone && isLandscape);
     const prompt = document.getElementById('rotate-prompt');
-    if (prompt) prompt.classList.toggle('show', showRotate);
+    if (prompt) prompt.classList.toggle('show', phone && !isLandscape);
   };
 
   document.addEventListener("DOMContentLoaded", () => { injectRotatePrompt(); apply(); });

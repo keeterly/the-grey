@@ -425,11 +425,16 @@ body.mobile-landscape .row.player .portrait{ left: 4px }
 body.mobile-landscape .row.ai .portrait{ right: 4px }
 
 body.mobile-landscape .portrait img{ width:46px; height:46px; border-radius:8px; margin:0 auto 4px }
-body.mobile-landscape .portrait .name{ display:block; font-size:.7rem; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis }
+/* figcaption = player/AI name — shrink and clip to sidebar width */
+body.mobile-landscape .portrait figcaption{ display:block; font-size:.65rem; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:64px; margin:0 auto 2px }
 body.mobile-landscape .hearts{ justify-content:center; gap:3px; margin:3px 0 }
 body.mobile-landscape .hearts svg{ width:12px; height:12px }
 body.mobile-landscape .aether-display{ gap:4px; font-size:.8rem; margin-top:4px }
 body.mobile-landscape .aether-display .temp-ae{ min-width:14px; height:14px; font-size:.6rem }
+/* hide trance track in compact sidebar — no room */
+body.mobile-landscape .trance,
+body.mobile-landscape .trance-wrap,
+body.mobile-landscape .trance-row { display: none !important; }
 
 /* ===== Flow & Slots ===== */
 body.mobile-landscape .flow-title-rail{ display:none }
