@@ -5970,11 +5970,20 @@ function openPileModal(title, cards){
 
 /* ---------- mobile mode: landscape layout + portrait rotate-prompt ---------- */
 (function mobileModeInit(){
-  // Phone detection: UA string OR physical screen short-side ≤ 500 CSS px
-  // (screen.* is unaffected by browser chrome — reliable across iOS/Android)
-  const isPhone = () =>
-    /iPhone|Android.+Mobile|iPod/i.test(navigator.userAgent) ||
-    Math.min(screen.width, screen.height) <= 500;
+  // Phone-sized viewport detection — purely viewport-based.
+  // We dropped UA sniffing and screen.* because:
+  //  • screen.* reports physical pixels, which can be larger than the
+  //    visible viewport on iOS Safari and on desktop browsers with the
+  //    window resized to a phone-shaped rectangle.
+  //  • UA strings vary (DevTools simulation, request-desktop-site, etc.)
+  // visualViewport.height (when available) is the most accurate signal
+  // because it accounts for the URL bar / virtual keyboard.
+  const viewportShort = () => {
+    const w = window.visualViewport?.width  || window.innerWidth;
+    const h = window.visualViewport?.height || window.innerHeight;
+    return { w, h, short: Math.min(w, h), long: Math.max(w, h) };
+  };
+  const isPhoneSize = () => viewportShort().short <= 500;
 
   const injectRotatePrompt = () => {
     if (document.getElementById('rotate-prompt')) return;
@@ -6013,10 +6022,15 @@ function openPileModal(title, cards){
   };
 
   const apply = () => {
-    const w = window.innerWidth, h = window.innerHeight;
+    const { w, h } = viewportShort();
     const isLandscape = w > h;
-    const phone = isPhone();
-    document.body.classList.toggle("mobile-landscape", phone && isLandscape);
+    const phone = isPhoneSize();
+    const mobileLandscape = phone && isLandscape;
+    document.body.classList.toggle("mobile-landscape", mobileLandscape);
+    // breadcrumb for diagnosis — visible in DevTools as <body data-mode="...">
+    document.body.dataset.mode = mobileLandscape
+      ? "mobile-landscape"
+      : (phone ? "mobile-portrait" : "desktop");
     const prompt = document.getElementById('rotate-prompt');
     if (prompt) prompt.classList.toggle('show', phone && !isLandscape);
   };
