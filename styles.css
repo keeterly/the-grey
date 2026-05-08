@@ -400,11 +400,13 @@ body.mobile-landscape{
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Slot cards stay tile-sized; flow cards taller for full rules text. */
-  --card-w: clamp(44px, 7.6vw, 56px);
-  --card-h: 54px;
-  --flow-card-w: clamp(64px, 10.4vw, 82px);
-  --flow-card-h: 134px;
+  /* Slot tiles fit a 40px row; flow cards sized to fit the 1fr zone
+     after fixed budgets are subtracted on a 430px iPhone-Plus
+     landscape (60 HUD + 40 + 40 + 144 hand + gaps = 288 -> 142 flow). */
+  --card-w: clamp(40px, 7.0vw, 50px);
+  --card-h: 38px;
+  --flow-card-w: clamp(68px, 10.8vw, 88px);
+  --flow-card-h: 130px;
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -413,30 +415,42 @@ body.mobile-landscape{
   --card-gem: calc(20px * var(--card-scale));
 
   --top-strip-h: 60px;                    /* avatar pill (38) + sub-strip (~18) */
-  --hand-band-h: calc(var(--hand-card-h) + 14px);
+  --hand-band-h: calc(var(--hand-card-h) + 12px);
 }
 
-/* Board grid: 50px slot rows + 1fr flow row.
-   For 430px iPhone-Plus landscape this resolves to roughly:
-     44 (top) + 50 (AI) + ~158 (flow) + 50 (player) + 8 row-gaps + 128 (hand) ≈ 438
-   For 393px iPhone-Pro landscape:
-     44 + 50 + ~119 + 50 + 8 + 128 ≈ 399 */
+/* Board grid: thinner slot rows + bigger flow row (the stage).
+   On 430px landscape: 60 (top HUD) + 44 (AI slots) + ~158 (flow)
+   + 44 (player slots) + ~8 gaps + 132 (hand) ≈ 446 — flow row
+   gets minmax(0, 1fr) so it expands to fill any remainder. */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 50px minmax(0, 1fr) 50px !important;
-  row-gap: 4px !important;
+  grid-template-rows: 40px minmax(0, 1fr) 40px !important;
+  row-gap: 2px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
   height: 100dvh;
   box-sizing: border-box;
   align-content: stretch !important;
 }
-/* Clip each row so cards that exceed the row height don't bleed visually. */
+/* Clip slot rows so anything taller doesn't visually overflow.
+   The flow row keeps overflow:visible so the buyable-pulse halo
+   on cards isn't clipped at the row edges. */
 body.mobile-landscape .row.ai,
-body.mobile-landscape .row.flow,
 body.mobile-landscape .row.player{
   overflow: hidden !important;
   position: relative;
   min-height: 0 !important;
+}
+body.mobile-landscape .row.flow{
+  overflow: visible !important;
+  position: relative;
+  min-height: 0 !important;
+  /* Subtle warm radial backdrop so the market reads as the focal
+     stage, distinct from the slot rows above and below. */
+  background:
+    radial-gradient(ellipse at center,
+      rgba(198,165,106,.08) 0%,
+      rgba(198,165,106,.03) 40%,
+      transparent 75%);
 }
 
 /* ===== Portrait chips: top-left (player), top-right (AI) =====
@@ -568,12 +582,27 @@ body.mobile-landscape #player-slots.slot-row{
   width: 100%; max-width: 100%;
   justify-content: center; align-items: center;
 }
+/* Empty slot: nearly-invisible dashed outline, no fill, no shadow.
+   The slot doesn't compete with the flow row when there's no card
+   in it. When a card lands, .has-card kicks in and restores the
+   solid presence. */
 body.mobile-landscape .slot{
   position: relative;
   width: var(--card-w); height: var(--card-h);
   flex: 0 0 auto;
-  box-shadow: inset 0 0 8px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.22);
+  background: transparent !important;
+  border: 1px dashed rgba(198,165,106,.25) !important;
+  box-shadow: none !important;
 }
+body.mobile-landscape .slot.has-card{
+  background: linear-gradient(180deg,#2b231b,#1a1511) !important;
+  border: 1px solid rgba(198,165,106,.6) !important;
+  box-shadow: inset 0 0 8px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.22) !important;
+}
+/* Hide the inner inset rectangle on empty slots — that double border
+   reads as a chunky frame and is the main reason empty slots felt
+   like cards. */
+body.mobile-landscape .slot:not(.has-card)::after{ display: none !important; }
 /* Card placed inside a slot — fill the slot exactly so it doesn't push out */
 body.mobile-landscape .slot .card{
   position: absolute !important;
@@ -584,8 +613,12 @@ body.mobile-landscape .slot .card{
 }
 body.mobile-landscape .slot::after{ inset: 4px; border-radius: calc(var(--card-radius) - 3px); }
 /* Empty slots stay clean — no "Spell Slot" / "Glyph Slot" placeholder
-   labels on mobile. The slot outline alone communicates emptiness. */
+   labels on mobile. The slot outline alone communicates emptiness.
+   We have two placeholder mechanisms: .slot-title for normal spell
+   slots, and .glyph-ph .ph-title for the glyph slot's centered text. */
 body.mobile-landscape .slot .slot-title{ display: none !important; }
+body.mobile-landscape .slot.glyph .glyph-ph .ph-title{ display: none !important; }
+body.mobile-landscape .slot.glyph .glyph-ph .ph-rune{ opacity: .12 !important; }
 body.mobile-landscape .slot.glyph .slot-title{ top: 6px; }
 body.mobile-landscape .slot.glyph .slot-rune{ opacity: .4; }
 body.mobile-landscape .slot.glyph .slot-rune svg{ width: 60%; height: 60%; }
