@@ -393,9 +393,10 @@ html,body{height:100%}
    ========================================================== */
 
 body.mobile-landscape{
-  /* Hand cards: trimmed back so the hand band is ~120px and the flow
-     row gets more vertical space for readable rules text. */
-  --hand-card-w: clamp(74px, 10.6vw, 88px);
+  /* Hand cards: shrunk further so the band stays ~110px and never
+     overlaps the player slot row above. The previous 74-88 clamp
+     produced 116px-tall cards that bled into the slot row. */
+  --hand-card-w: clamp(60px, 8.4vw, 74px);
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
@@ -412,8 +413,8 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 64px;                    /* room for 2-line chip + AI mini hand peek */
-  --hand-band-h: calc(var(--hand-card-h) + 12px);
+  --top-strip-h: 48px;                    /* one-line chip + a hair of slack */
+  --hand-band-h: calc(var(--hand-card-h) + 10px);
 }
 
 /* Board grid: 50px slot rows + 1fr flow row.
@@ -448,14 +449,15 @@ body.mobile-landscape .row.ai .portrait{
   position: fixed !important;
   top: 4px !important;
   bottom: auto !important;
-  height: auto !important;
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+  height: 40px !important;          /* hard-cap to one-line chip */
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 5px;
   z-index: 30;
-  margin: 0; padding: 4px 8px;
-  background: rgba(20,16,12,.78);
-  border: 1px solid #4a3d2f; border-radius: 14px;
+  margin: 0; padding: 2px 6px;
+  background: rgba(20,16,12,.82);
+  border: 1px solid #4a3d2f; border-radius: 10px;
   backdrop-filter: blur(4px);
-  max-width: 46vw;
+  max-width: 42vw;
+  overflow: hidden;
 }
 body.mobile-landscape .row.player .portrait{
   left: 6px !important; right: auto !important;
@@ -471,20 +473,20 @@ body.mobile-landscape .row.ai .portrait{
 }
 
 body.mobile-landscape .portrait img{
-  width: 28px; height: 28px; border-radius: 50%;
-  margin: 0; flex: 0 0 28px;
+  width: 24px; height: 24px; border-radius: 50%;
+  margin: 0; flex: 0 0 24px;
 }
 body.mobile-landscape .portrait figcaption{
   display: block; font-size: .68rem; line-height: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 11vw; margin: 0;
+  max-width: 8vw; margin: 0;
 }
 body.mobile-landscape #player-hearts,
 body.mobile-landscape #ai-hearts{
   display: flex !important;
   gap: 1px !important;
   margin: 0 !important;
-  max-width: 110px;
+  max-width: 70px;
   overflow: hidden;
   flex-wrap: nowrap;
 }
@@ -495,8 +497,8 @@ body.mobile-landscape .hearts .heart-svg.empty{ display: none !important; }
    !important to override the inline attribute on Safari. */
 body.mobile-landscape #player-hearts svg,
 body.mobile-landscape #ai-hearts svg{
-  width: 12px !important;
-  height: 12px !important;
+  width: 10px !important;
+  height: 10px !important;
 }
 body.mobile-landscape #player-hearts .heart,
 body.mobile-landscape #ai-hearts .heart{ flex: 0 0 auto; line-height: 0; }
@@ -779,22 +781,27 @@ body.mobile-landscape .hand{
 }
 body.mobile-landscape .hand::-webkit-scrollbar{ display: none; }
 
-/* override the absolute fan positioning of cards in the hand */
+/* override the absolute fan positioning of cards in the hand. Use
+   !important on width/height because the desktop .card rule sets
+   them to var(--card-w/h) and we need to be sure hand cards don't
+   pick those up. */
 body.mobile-landscape .hand .card{
   position: relative !important;
   top: auto !important; left: auto !important;
-  width: var(--hand-card-w);
-  height: var(--hand-card-h);
-  flex: 0 0 var(--hand-card-w);
+  width: var(--hand-card-w) !important;
+  height: var(--hand-card-h) !important;
+  max-height: var(--hand-card-h) !important;
+  flex: 0 0 var(--hand-card-w) !important;
   font-size: calc(1rem * var(--hand-card-scale));
   --card-scale: var(--hand-card-scale);
   --card-gem: calc(22px * var(--hand-card-scale));
   transform: none !important;
   transform-origin: 50% 100%;
   scroll-snap-align: center;
-  border-radius: 12px;
-  box-shadow: 0 8px 16px rgba(0,0,0,.45);
+  border-radius: 10px;
+  box-shadow: 0 6px 12px rgba(0,0,0,.45);
   transition: transform .14s ease-out, box-shadow .14s ease-out;
+  overflow: hidden;
 }
 body.mobile-landscape .hand .card:hover,
 body.mobile-landscape .hand .card.is-focus{
