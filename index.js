@@ -2616,34 +2616,31 @@ function wireDesktopDrag(el, data){
   el.addEventListener("click", (e)=>{ e.stopPropagation(); showCardOptions(el, data); });
 }
 
-/* Touch drag wiring (+tap to focus) */
+/* Touch drag wiring (+tap to focus)
+   - touchstart records the starting point/time but does NOT begin a drag.
+     The ghost element only appears once the finger crosses DRAG_THRESHOLD_PX,
+     so a clean tap never spawns a ghost.
+   - On touchend we either commit the drag OR treat the gesture as a tap
+     (focus + showCardOptions). preventDefault on a tap suppresses the
+     synthesized click that would otherwise re-trigger showCardOptions
+     through wireDesktopDrag's click listener. */
 function wireTouchDrag(el, data){
-  let dragging=false, ghost=null, currentHover=null, focusTimer=null;
-  const focusTapMs = 240;
+  let dragging=false, ghost=null, currentHover=null;
+  let touchStartTime=0, touchStartX=0, touchStartY=0, primed=false;
+  const DRAG_THRESHOLD_PX = 8;
+  const TAP_MAX_MS = 300;
 
-  el.addEventListener("pointerdown", ()=>{ focusTimer = performance.now(); }, {passive:true});
-  el.addEventListener("pointerup", ()=>{
-    const dt = performance.now() - (focusTimer||0);
-    if (dt < focusTapMs){
-      Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
-      el.classList.add("is-focus");
-      const off = ()=>{ el.classList.remove("is-focus"); document.removeEventListener("pointerdown", off, true); };
-      document.addEventListener("pointerdown", off, true);
-    }
-  }, {passive:true});
-
-  const start = (ev)=>{
+  const beginDrag = (x, y)=>{
     clearAllActionMenus();
-    const t = ev.touches ? ev.touches[0] : ev;
     dragging = true; markDropTargets(data.type, true);
     ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="0"; ghost.style.top="0";
     ghost.style.pointerEvents="none"; ghost.style.transform="translate(-9999px,-9999px)";
     ghost.style.zIndex="99999"; ghost.classList.add("dragging");
     document.body.appendChild(ghost);
-    move(t.clientX, t.clientY); ev.preventDefault();
+    moveDrag(x, y);
   };
-  const move = (x,y)=>{
+  const moveDrag = (x,y)=>{
     if (!dragging || !ghost) return;
     ghost.style.transform = `translate(${x-ghost.clientWidth/2}px, ${y-ghost.clientHeight*0.9}px) rotate(6deg)`;
     const elUnder = document.elementFromPoint(x,y);
@@ -2653,20 +2650,74 @@ function wireTouchDrag(el, data){
       currentHover = hoverTarget; currentHover?.classList.add("drag-over");
     }
   };
-  const end = (ev)=>{
+  const finishDrag = (x, y)=>{
     if (!dragging) return; dragging=false;
-    const t = ev.changedTouches ? ev.changedTouches[0] : ev;
-    const elUnder = document.elementFromPoint(t.clientX, t.clientY);
+    const elUnder = document.elementFromPoint(x, y);
     const target = findValidDropTarget(elUnder, data.type);
-    currentHover?.classList.remove("drag-over");
+    currentHover?.classList.remove("drag-over"); currentHover=null;
     markDropTargets(data.type, false);
     ghost?.remove(); ghost=null;
     if (target) applyDrop(target, el.dataset.cardId, data.type);
   };
-  el.addEventListener("touchstart", start, {passive:false});
-  el.addEventListener("touchmove", (ev)=>{ const t=ev.touches[0]; move(t.clientX,t.clientY); ev.preventDefault(); }, {passive:false});
-  el.addEventListener("touchend", (e)=>{ e.stopPropagation(); showCardOptions(el, data); end(e); }, {passive:false});
-  el.addEventListener("touchcancel", end, {passive:false});
+  const cancelDrag = ()=>{
+    if (!dragging) return; dragging=false;
+    currentHover?.classList.remove("drag-over"); currentHover=null;
+    markDropTargets(data.type, false);
+    ghost?.remove(); ghost=null;
+  };
+  const onTap = ()=>{
+    Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
+    el.classList.add("is-focus");
+    const off = (ev)=>{
+      // ignore the synthetic pointerdown that fires from this very tap
+      if (ev && ev.target === el) return;
+      el.classList.remove("is-focus");
+      document.removeEventListener("pointerdown", off, true);
+    };
+    setTimeout(()=> document.addEventListener("pointerdown", off, true), 0);
+    showCardOptions(el, data);
+  };
+
+  el.addEventListener("touchstart", (ev)=>{
+    const t = ev.touches[0];
+    primed = true;
+    touchStartTime = performance.now();
+    touchStartX = t.clientX; touchStartY = t.clientY;
+  }, {passive:true});
+
+  el.addEventListener("touchmove", (ev)=>{
+    if (!primed) return;
+    const t = ev.touches[0];
+    if (!dragging){
+      const dx = t.clientX - touchStartX, dy = t.clientY - touchStartY;
+      if (Math.hypot(dx, dy) >= DRAG_THRESHOLD_PX){
+        beginDrag(t.clientX, t.clientY);
+        ev.preventDefault();
+      }
+      return;
+    }
+    moveDrag(t.clientX, t.clientY);
+    ev.preventDefault();
+  }, {passive:false});
+
+  el.addEventListener("touchend", (ev)=>{
+    if (!primed) return; primed=false;
+    const t = ev.changedTouches?.[0];
+    if (dragging){
+      ev.preventDefault(); ev.stopPropagation();
+      finishDrag(t?.clientX ?? 0, t?.clientY ?? 0);
+      return;
+    }
+    const dt = performance.now() - touchStartTime;
+    if (dt < TAP_MAX_MS){
+      // suppress the synthesized click so wireDesktopDrag's click listener
+      // doesn't re-fire showCardOptions
+      ev.preventDefault(); ev.stopPropagation();
+      onTap();
+    }
+  }, {passive:false});
+
+  el.addEventListener("touchcancel", ()=>{ primed=false; cancelDrag(); }, {passive:true});
 }
 
 document.addEventListener('dragover', (e) => {
@@ -5952,9 +6003,18 @@ function openPileModal(title, cards){
     if (prompt) prompt.classList.toggle('show', phone && !isLandscape);
   };
 
-  document.addEventListener("DOMContentLoaded", () => { injectRotatePrompt(); apply(); });
+  const init = () => { injectRotatePrompt(); apply(); };
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
+  } else {
+    // module scripts may execute after DOMContentLoaded has fired
+    init();
+  }
   window.addEventListener("resize",            apply, {passive:true});
   window.addEventListener("orientationchange", apply, {passive:true});
+  // iOS Safari fires neither resize nor orientationchange when the URL/toolbar
+  // shows or hides; visualViewport.resize is the only reliable signal there.
+  window.visualViewport?.addEventListener("resize", apply, {passive:true});
 })();
 
 

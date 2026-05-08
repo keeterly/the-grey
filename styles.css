@@ -439,6 +439,9 @@ body.mobile-landscape .trance-row { display: none !important; }
 body.mobile-landscape .win-tracks  { display: none !important; }
 /* full-height weaver character art — covers the board on small screens */
 body.mobile-landscape #weaver-backdrop { display: none !important; }
+/* AI mini HUD (hand fan + deck/discard piles) — 200px wide overlay, no
+   room beside the 4-slot AI row in mobile-landscape */
+body.mobile-landscape #ai-mini { display: none !important; }
 
 /* ===== Flow & Slots ===== */
 body.mobile-landscape .flow-title-rail{ display:none }
@@ -496,14 +499,16 @@ body.mobile-landscape .hand{
   }
 }
 
-/* Tap-to-focus lift (added by JS): big, centered, readable */
+/* Tap-to-focus lift (added by JS): rise up, sit upright, scale 2x so the
+   rules text is actually readable. Rotation neutralized via rotate(0deg). */
 body.mobile-landscape .hand .card.is-focus{
   z-index: 9999 !important;
   transform:
     translate(var(--tx,0), var(--ty,0))
-    rotate(var(--rot,0deg))
-    translateY(-24px) scale(1.16);
-  box-shadow:0 18px 26px rgba(0,0,0,.55);
+    rotate(0deg)
+    translateY(-72px) scale(2);
+  box-shadow: 0 22px 34px rgba(0,0,0,.65);
+  transition: transform .14s ease-out, box-shadow .14s ease-out;
 }
 
 /* Anim tuning */
