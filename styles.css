@@ -412,7 +412,7 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 44px;                    /* matches chip height + a bit */
+  --top-strip-h: 64px;                    /* room for 2-line chip + AI mini hand peek */
   --hand-band-h: calc(var(--hand-card-h) + 12px);
 }
 
@@ -449,20 +449,25 @@ body.mobile-landscape .row.ai .portrait{
   top: 4px !important;
   bottom: auto !important;
   height: auto !important;
-  display: flex; flex-direction: row; align-items: center; gap: 6px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
   z-index: 30;
   margin: 0; padding: 4px 8px;
-  background: rgba(20,16,12,.72);
-  border: 1px solid #4a3d2f; border-radius: 18px;
+  background: rgba(20,16,12,.78);
+  border: 1px solid #4a3d2f; border-radius: 14px;
   backdrop-filter: blur(4px);
-  max-width: 38vw;
+  max-width: 46vw;
 }
 body.mobile-landscape .row.player .portrait{
   left: 6px !important; right: auto !important;
+  flex-direction: row;
+  text-align: left;
+  justify-content: flex-start;
 }
 body.mobile-landscape .row.ai .portrait{
   right: 6px !important; left: auto !important;
   flex-direction: row-reverse;
+  text-align: right;
+  justify-content: flex-start;
 }
 
 body.mobile-landscape .portrait img{
@@ -502,13 +507,10 @@ body.mobile-landscape .aether-display .ae-line{ display: flex; gap: 2px; align-i
 body.mobile-landscape .aether-display svg{ width: 16px; height: 16px; }
 body.mobile-landscape .aether-display .temp-ae{ min-width: 14px; height: 14px; font-size: .6rem; }
 
-/* hide things that have no room in this layout */
-body.mobile-landscape .trance,
-body.mobile-landscape .trance-wrap,
-body.mobile-landscape .trance-row { display: none !important; }
-body.mobile-landscape .win-tracks { display: none !important; }
-body.mobile-landscape #weaver-backdrop { display: none !important; }
-body.mobile-landscape #ai-mini { display: none !important; }
+/* Hide elements that don't pull weight in mobile-landscape.
+   v5 keeps trance, win-tracks, weaver backdrop, and the AI mini
+   hand visible — see the dedicated rules near the end of this
+   block that style each one compactly. */
 body.mobile-landscape .flow-title-rail { display: none !important; }
 
 /* Menu button: collapse to just the hamburger icon — no label, no version
@@ -595,18 +597,119 @@ body.mobile-landscape .flow-card > .card.market{
   font-size: calc(1rem * (var(--flow-card-w) / 150px));
   --card-scale: calc(var(--flow-card-w) / 150px);
 }
-/* Price label as a small badge inside the card (top-left) so it
-   doesn't add to the wrapper's vertical extent */
+/* Price label as a small bottom-right badge — overrides the desktop's
+   42x42 .flow-price-num circle that was eating the whole flow card. */
 body.mobile-landscape .price-label{
   position: absolute !important;
-  left: 4px !important; top: 4px !important;
-  bottom: auto !important; transform: none !important;
-  font-size: .55rem !important;
-  background: rgba(20,16,12,.85);
-  border: 1px solid #4a3d2f;
-  border-radius: 999px;
-  padding: 1px 6px;
+  right: 4px !important; bottom: 4px !important;
+  left: auto !important; top: auto !important;
+  transform: none !important;
   z-index: 4;
+}
+body.mobile-landscape .flow-board .flow-price-num{
+  width: 22px !important; height: 22px !important;
+  background: rgba(20,16,12,.92) !important;
+  border: 1px solid #c6a56a !important;
+}
+body.mobile-landscape .flow-board .flow-price-num .n{
+  font-size: 12px !important;
+  font-weight: 800;
+  color: #c6a56a;
+}
+
+/* ===== v5 — keep all game state visible on mobile-landscape ===== */
+
+/* Compact trance pill — small inline badge inside the chip */
+body.mobile-landscape .portrait .trance{
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center;
+  gap: 2px;
+  margin: 0 !important;
+  font-size: .58rem !important;
+  line-height: 1 !important;
+  padding: 1px 4px;
+  border-radius: 6px;
+  background: rgba(40,28,12,.6);
+  border: 1px solid #6a5532;
+  white-space: nowrap;
+}
+body.mobile-landscape .portrait .trance .level{
+  width: 6px; height: 6px; border-radius: 50%;
+  background: #6a5532; opacity: .35;
+  display: inline-block;
+}
+body.mobile-landscape .portrait .trance .level.active{
+  background: #c6a56a; opacity: 1;
+  box-shadow: 0 0 4px rgba(198,165,106,.7);
+}
+
+/* Win tracks (Confluence / Dominion) — thin bar pair beside the chip */
+body.mobile-landscape .portrait .win-tracks{
+  display: flex !important;
+  flex-direction: row;
+  gap: 4px !important;
+  margin: 0 !important;
+  flex-wrap: nowrap;
+}
+body.mobile-landscape .portrait .win-track{
+  font-size: .52rem;
+  gap: 2px;
+}
+body.mobile-landscape .portrait .win-track .wt-label{
+  font-size: .52rem;
+}
+body.mobile-landscape .portrait .win-track .wt-bar{
+  width: 22px !important; height: 3px !important;
+}
+/* Drop the "x/5" / "x/10" text — keep only the bar to save space */
+body.mobile-landscape .portrait .win-track > span:last-child{ display: none; }
+
+/* Weaver backdrop — faded watermark behind the board */
+body.mobile-landscape #weaver-backdrop{
+  display: block !important;
+  opacity: .18 !important;
+  z-index: 0 !important;
+}
+body.mobile-landscape #weaver-backdrop.active{ opacity: .18 !important; }
+body.mobile-landscape #weaver-backdrop img{
+  height: 80vh !important;
+  height: 80dvh !important;
+  bottom: 0 !important;
+  filter: saturate(.5) brightness(.6);
+}
+
+/* AI mini hand — small strip in the right margin of the AI slot row.
+   The slot row uses justify-content:center, so the right-hand area
+   is empty space we can occupy. */
+body.mobile-landscape #ai-mini{
+  display: flex !important;
+  position: absolute !important;
+  top: 50%; right: 6px;
+  left: auto !important;
+  transform: translateY(-50%) !important;
+  width: auto !important;
+  flex-direction: row;
+  gap: 4px;
+  z-index: 8;
+  pointer-events: none;
+}
+body.mobile-landscape .ai-mini-hand{
+  width: 80px !important; height: 26px !important;
+}
+body.mobile-landscape .ai-mini-hand .mini-card{
+  width: 18px !important; height: 24px !important;
+  border-radius: 3px;
+}
+body.mobile-landscape .ai-mini-piles{ display: flex; gap: 4px; }
+body.mobile-landscape .ai-mini-piles .mini-pile{
+  width: 22px !important; height: 26px !important;
+  border-radius: 4px;
+}
+body.mobile-landscape .ai-mini-piles .mini-pile::after{
+  min-width: 14px; height: 14px;
+  font-size: 9px;
+  right: -4px; bottom: -4px;
 }
 
 /* ===== Hand: NO FAN, NO ROTATION — upright scrollable strip ===== */
