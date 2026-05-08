@@ -393,19 +393,18 @@ html,body{height:100%}
    ========================================================== */
 
 body.mobile-landscape{
-  /* Hand cards: legible-but-compact. Capping at 96px keeps the hand band
-     short enough that the board has 3 distinct rows of breathing room. */
-  --hand-card-w: clamp(78px, 11.5vw, 96px);
+  /* Hand cards: trimmed back so the hand band is ~120px and the flow
+     row gets more vertical space for readable rules text. */
+  --hand-card-w: clamp(74px, 10.6vw, 88px);
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Board cards (slot + flow) — heights set explicitly to match the
-     fixed grid rows below. We deliberately drop the 1.34 aspect ratio
-     so cards never overflow their row. */
-  --card-w: clamp(44px, 8vw, 56px);    /* slot card width */
-  --card-h: 56px;                       /* slot card height = slot row */
-  --flow-card-w: clamp(56px, 9.5vw, 72px);
-  --flow-card-h: 92px;                  /* fits flow row with price label */
+  /* Slot cards stay tile-sized; flow cards taller so they show 3-4
+     lines of rules text instead of 1. */
+  --card-w: clamp(40px, 7.4vw, 52px);    /* slot card width */
+  --card-h: 50px;                         /* slot card height = slot row */
+  --flow-card-w: clamp(60px, 10vw, 78px);
+  --flow-card-h: 130px;                   /* room for full rules text */
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -413,15 +412,17 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 32px;
-  --hand-band-h: calc(var(--hand-card-h) + 14px);
+  --top-strip-h: 44px;                    /* matches chip height + a bit */
+  --hand-band-h: calc(var(--hand-card-h) + 12px);
 }
 
-/* Board grid: 56px slot rows + 1fr flow row.
-   For a 393px iPhone-landscape viewport this resolves to roughly:
-     32 (top) + 56 (AI) + ~96 (flow) + 56 (player) + 14 row-gaps + 142 (hand) ≈ 396 */
+/* Board grid: 50px slot rows + 1fr flow row.
+   For 430px iPhone-Plus landscape this resolves to roughly:
+     44 (top) + 50 (AI) + ~158 (flow) + 50 (player) + 8 row-gaps + 128 (hand) ≈ 438
+   For 393px iPhone-Pro landscape:
+     44 + 50 + ~119 + 50 + 8 + 128 ≈ 399 */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 56px minmax(0, 1fr) 56px !important;
+  grid-template-rows: 50px minmax(0, 1fr) 50px !important;
   row-gap: 4px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
