@@ -413,7 +413,7 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 48px;                    /* one-line chip + a hair of slack */
+  --top-strip-h: 56px;                    /* chip (30) + 4 gap + sub-strip (~18) + 4 buffer */
   --hand-band-h: calc(var(--hand-card-h) + 10px);
 }
 
@@ -449,15 +449,17 @@ body.mobile-landscape .row.ai .portrait{
   position: fixed !important;
   top: 4px !important;
   bottom: auto !important;
-  height: 40px !important;          /* hard-cap to one-line chip */
+  height: 30px !important;
   display: flex; flex-wrap: nowrap; align-items: center; gap: 5px;
   z-index: 30;
-  margin: 0; padding: 2px 6px;
+  margin: 0; padding: 2px 8px;
   background: rgba(20,16,12,.82);
-  border: 1px solid #4a3d2f; border-radius: 10px;
+  border: 1px solid #4a3d2f; border-radius: 999px;
   backdrop-filter: blur(4px);
   max-width: 42vw;
-  overflow: hidden;
+  /* IMPORTANT: visible so the trance/win-tracks sub-strip can be
+     absolutely positioned just below the chip without being clipped. */
+  overflow: visible;
 }
 body.mobile-landscape .row.player .portrait{
   left: 6px !important; right: auto !important;
@@ -657,15 +659,51 @@ body.mobile-landscape #ai-name{
    diamond indicators with roman numerals. Tap the chip on the desktop
    build to see full text; on mobile the lit diamond conveys the
    important state. */
+/* ===== Trance + win-tracks: floating sub-strip just below the chip
+   instead of crammed inside it. The chip stays a clean single-line
+   pill; secondary state sits on its own row in the corner. ===== */
+body.mobile-landscape .portrait .trance-wrap,
+body.mobile-landscape .portrait .win-tracks{
+  position: absolute !important;
+  top: calc(100% + 4px) !important;
+  margin: 0 !important;
+  z-index: 31;
+  pointer-events: none;       /* purely informational on mobile */
+}
 body.mobile-landscape .portrait .trance-wrap{
   display: inline-flex !important;
-  margin: 0 !important;
+  flex-direction: row;
+  gap: 3px;
   flex: 0 0 auto;
 }
+body.mobile-landscape .portrait .win-tracks{
+  display: flex !important;
+  flex-direction: row;
+  gap: 5px !important;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+/* Player chip is left-aligned: trance on the left, win-tracks to its
+   right under the chip. AI chip is right-aligned: mirror the order. */
+body.mobile-landscape .row.player .portrait .trance-wrap{
+  left: 8px !important; right: auto !important;
+}
+body.mobile-landscape .row.player .portrait .win-tracks{
+  left: 50px !important; right: auto !important;
+}
+body.mobile-landscape .row.ai .portrait .trance-wrap{
+  right: 8px !important; left: auto !important;
+}
+body.mobile-landscape .row.ai .portrait .win-tracks{
+  right: 50px !important; left: auto !important;
+}
+
+/* Trance internals: tiny inline diamonds with I/II, no description */
 body.mobile-landscape .portrait .trance-row{
   display: flex !important;
   flex-direction: row;
-  gap: 4px !important;
+  gap: 3px !important;
   max-width: none !important;
   grid-template-columns: none !important;
 }
@@ -677,39 +715,32 @@ body.mobile-landscape .portrait .trance-step{
   padding: 0;
 }
 body.mobile-landscape .portrait .trance-step .diamond{
-  width: 16px !important; height: 16px !important;
+  width: 14px !important; height: 14px !important;
   border-width: 1px !important;
   border-radius: 3px !important;
 }
 body.mobile-landscape .portrait .trance-step .diamond .roman{
-  font-size: 8px !important;
+  font-size: 7px !important;
   font-weight: 800;
 }
 body.mobile-landscape .portrait .trance-copy{ display: none !important; }
 body.mobile-landscape .portrait .trance-step.active::before{ display: none !important; }
-/* The empty-by-default <div class="trance"> in the HTML — keep
-   collapsed so the trance-wrap below is the only visible bit. */
+/* The empty <div class="trance"> placeholder in the HTML — keep
+   collapsed so it doesn't leave a flex gap inside the chip. */
 body.mobile-landscape .portrait > .trance{ display: none !important; }
 
-/* Win tracks (Confluence / Dominion) — thin bar pair beside the chip */
-body.mobile-landscape .portrait .win-tracks{
-  display: flex !important;
-  flex-direction: row;
-  gap: 4px !important;
-  margin: 0 !important;
-  flex-wrap: nowrap;
-}
+/* Win tracks: thin bar pair, single-letter label, no x/y text */
 body.mobile-landscape .portrait .win-track{
-  font-size: .52rem;
+  font-size: .5rem;
   gap: 2px;
+  line-height: 1;
 }
 body.mobile-landscape .portrait .win-track .wt-label{
-  font-size: .52rem;
+  font-size: .5rem;
 }
 body.mobile-landscape .portrait .win-track .wt-bar{
-  width: 22px !important; height: 3px !important;
+  width: 20px !important; height: 3px !important;
 }
-/* Drop the "x/5" / "x/10" text — keep only the bar to save space */
 body.mobile-landscape .portrait .win-track > span:last-child{ display: none; }
 
 /* Weaver backdrop — faded watermark behind the board */
