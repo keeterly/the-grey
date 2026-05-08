@@ -393,19 +393,18 @@ html,body{height:100%}
    ========================================================== */
 
 body.mobile-landscape{
-  /* Hand cards: shrunk further so the band stays ~110px and never
-     overlaps the player slot row above. The previous 74-88 clamp
-     produced 116px-tall cards that bled into the slot row. */
-  --hand-card-w: clamp(60px, 8.4vw, 74px);
+  /* Hand cards: significantly bigger so they read like real cards
+     and the hand feels prominent (Slay the Spire / MTG Arena vibe).
+     Cap matches a 132px-tall card that fills the band cleanly. */
+  --hand-card-w: clamp(80px, 11vw, 100px);
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Slot cards stay tile-sized; flow cards taller so they show 3-4
-     lines of rules text instead of 1. */
-  --card-w: clamp(40px, 7.4vw, 52px);    /* slot card width */
-  --card-h: 50px;                         /* slot card height = slot row */
-  --flow-card-w: clamp(60px, 10vw, 78px);
-  --flow-card-h: 130px;                   /* room for full rules text */
+  /* Slot cards stay tile-sized; flow cards taller for full rules text. */
+  --card-w: clamp(44px, 7.6vw, 56px);
+  --card-h: 54px;
+  --flow-card-w: clamp(64px, 10.4vw, 82px);
+  --flow-card-h: 134px;
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -413,8 +412,8 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 56px;                    /* chip (30) + 4 gap + sub-strip (~18) + 4 buffer */
-  --hand-band-h: calc(var(--hand-card-h) + 10px);
+  --top-strip-h: 60px;                    /* avatar pill (38) + sub-strip (~18) */
+  --hand-band-h: calc(var(--hand-card-h) + 14px);
 }
 
 /* Board grid: 50px slot rows + 1fr flow row.
@@ -444,22 +443,27 @@ body.mobile-landscape .row.player{
    Desktop sets `.row.player .portrait { bottom: 16px }` — without
    resetting it, position:fixed + top:4px + bottom:16px stretches the
    chip across the whole viewport height. We explicitly null it. */
+/* No chip "frame" — MTG Arena / Slay the Spire style. The avatar is
+   a standalone circle that floats over the table; name + hearts + Æ
+   float beside it. No background, no border, no padding box. */
 body.mobile-landscape .row.player .portrait,
 body.mobile-landscape .row.ai .portrait{
   position: fixed !important;
   top: 4px !important;
   bottom: auto !important;
-  height: 30px !important;
-  display: flex; flex-wrap: nowrap; align-items: center; gap: 5px;
+  height: 38px !important;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
   z-index: 30;
-  margin: 0; padding: 2px 8px;
-  background: rgba(20,16,12,.82);
-  border: 1px solid #4a3d2f; border-radius: 999px;
-  backdrop-filter: blur(4px);
-  max-width: 42vw;
-  /* IMPORTANT: visible so the trance/win-tracks sub-strip can be
-     absolutely positioned just below the chip without being clipped. */
+  margin: 0; padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  max-width: 44vw;
   overflow: visible;
+  /* Subtle text-shadow so labels are readable over the weaver
+     backdrop without needing a chip frame. */
+  text-shadow: 0 1px 2px rgba(0,0,0,.85);
 }
 body.mobile-landscape .row.player .portrait{
   left: 6px !important; right: auto !important;
@@ -475,13 +479,19 @@ body.mobile-landscape .row.ai .portrait{
 }
 
 body.mobile-landscape .portrait img{
-  width: 24px; height: 24px; border-radius: 50%;
-  margin: 0; flex: 0 0 24px;
+  width: 36px; height: 36px; border-radius: 50%;
+  margin: 0; flex: 0 0 36px;
+  border: 1.5px solid #c6a56a;          /* gold ring around avatar */
+  box-shadow: 0 2px 6px rgba(0,0,0,.6);
+  object-fit: cover;
 }
 body.mobile-landscape .portrait figcaption{
-  display: block; font-size: .68rem; line-height: 1;
+  display: block;
+  font-size: .72rem; line-height: 1;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 8vw; margin: 0;
+  max-width: 9vw; margin: 0;
+  font-weight: 600;
+  color: #e7dcc3;
 }
 body.mobile-landscape #player-hearts,
 body.mobile-landscape #ai-hearts{
@@ -573,7 +583,9 @@ body.mobile-landscape .slot .card{
   font-size: calc(1rem * var(--card-scale));
 }
 body.mobile-landscape .slot::after{ inset: 4px; border-radius: calc(var(--card-radius) - 3px); }
-body.mobile-landscape .slot .slot-title{ font-size: .55rem; line-height: 1; }
+/* Empty slots stay clean — no "Spell Slot" / "Glyph Slot" placeholder
+   labels on mobile. The slot outline alone communicates emptiness. */
+body.mobile-landscape .slot .slot-title{ display: none !important; }
 body.mobile-landscape .slot.glyph .slot-title{ top: 6px; }
 body.mobile-landscape .slot.glyph .slot-rune{ opacity: .4; }
 body.mobile-landscape .slot.glyph .slot-rune svg{ width: 60%; height: 60%; }
@@ -699,7 +711,9 @@ body.mobile-landscape .row.ai .portrait .win-tracks{
   right: 50px !important; left: auto !important;
 }
 
-/* Trance internals: tiny inline diamonds with I/II, no description */
+/* Trance internals: tiny inline diamonds with I/II, no description.
+   Make them look like StS-style status pips — small, filled when
+   active, no chunky borders. */
 body.mobile-landscape .portrait .trance-row{
   display: flex !important;
   flex-direction: row;
@@ -715,13 +729,21 @@ body.mobile-landscape .portrait .trance-step{
   padding: 0;
 }
 body.mobile-landscape .portrait .trance-step .diamond{
-  width: 14px !important; height: 14px !important;
+  width: 12px !important; height: 12px !important;
   border-width: 1px !important;
-  border-radius: 3px !important;
+  border-radius: 2px !important;
+  background: rgba(20,16,12,.5) !important;
+  border-color: rgba(180,200,230,.5) !important;
+}
+body.mobile-landscape .portrait .trance-step.active .diamond{
+  background: rgba(130,190,255,.35) !important;
+  border-color: rgba(160,210,255,1) !important;
 }
 body.mobile-landscape .portrait .trance-step .diamond .roman{
   font-size: 7px !important;
   font-weight: 800;
+  color: rgba(231,220,195,.85);
+  text-shadow: 0 1px 1px rgba(0,0,0,.7);
 }
 body.mobile-landscape .portrait .trance-copy{ display: none !important; }
 body.mobile-landscape .portrait .trance-step.active::before{ display: none !important; }
@@ -743,18 +765,20 @@ body.mobile-landscape .portrait .win-track .wt-bar{
 }
 body.mobile-landscape .portrait .win-track > span:last-child{ display: none; }
 
-/* Weaver backdrop — faded watermark behind the board */
+/* Weaver backdrop — atmospheric character art behind the board, like
+   StS's enemy art or MTG Arena's battlefield. Visible but not so bright
+   it competes with the cards. */
 body.mobile-landscape #weaver-backdrop{
   display: block !important;
-  opacity: .18 !important;
+  opacity: .35 !important;
   z-index: 0 !important;
 }
-body.mobile-landscape #weaver-backdrop.active{ opacity: .18 !important; }
+body.mobile-landscape #weaver-backdrop.active{ opacity: .35 !important; }
 body.mobile-landscape #weaver-backdrop img{
-  height: 80vh !important;
-  height: 80dvh !important;
+  height: 90vh !important;
+  height: 90dvh !important;
   bottom: 0 !important;
-  filter: saturate(.5) brightness(.6);
+  filter: saturate(.7) brightness(.7);
 }
 
 /* AI mini hand — small strip in the right margin of the AI slot row.
