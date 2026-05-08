@@ -500,12 +500,28 @@ body.mobile-landscape #ai-hearts svg{
 }
 body.mobile-landscape #player-hearts .heart,
 body.mobile-landscape #ai-hearts .heart{ flex: 0 0 auto; line-height: 0; }
-body.mobile-landscape .aether-display{
-  display: flex; gap: 4px; margin: 0; font-size: .7rem; align-items: center;
+/* Aether display — use ID selector so we beat any later class rules.
+   The display has two .ae-line rows (perm + temp); fold them into a
+   single horizontal strip on mobile. */
+body.mobile-landscape #player-aether,
+body.mobile-landscape #ai-aether{
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 4px !important;
+  margin: 0 !important;
+  font-size: .7rem !important;
+  align-items: center;
 }
-body.mobile-landscape .aether-display .ae-line{ display: flex; gap: 2px; align-items: center; }
-body.mobile-landscape .aether-display svg{ width: 16px; height: 16px; }
-body.mobile-landscape .aether-display .temp-ae{ min-width: 14px; height: 14px; font-size: .6rem; }
+body.mobile-landscape #player-aether .ae-line,
+body.mobile-landscape #ai-aether .ae-line{
+  display: flex !important; gap: 2px; align-items: center;
+}
+body.mobile-landscape #player-aether svg,
+body.mobile-landscape #ai-aether svg{ width: 14px !important; height: 14px !important; }
+body.mobile-landscape #player-aether .temp-ae,
+body.mobile-landscape #ai-aether .temp-ae{
+  min-width: 14px; height: 14px; font-size: .6rem;
+}
 
 /* Hide elements that don't pull weight in mobile-landscape.
    v5 keeps trance, win-tracks, weaver backdrop, and the AI mini
@@ -619,30 +635,59 @@ body.mobile-landscape .flow-board .flow-price-num .n{
 
 /* ===== v5 — keep all game state visible on mobile-landscape ===== */
 
-/* Compact trance pill — small inline badge inside the chip */
-body.mobile-landscape .portrait .trance{
-  display: inline-flex !important;
-  flex-direction: row !important;
-  align-items: center;
-  gap: 2px;
-  margin: 0 !important;
-  font-size: .58rem !important;
+/* Force the player/AI name down to chip-friendly size — the desktop
+   #player-name/#ai-name { font-size:1.8em } rule has ID specificity
+   that beats class selectors, so we match its specificity and add
+   !important. */
+body.mobile-landscape #player-name,
+body.mobile-landscape #ai-name{
+  font-size: .72rem !important;
   line-height: 1 !important;
-  padding: 1px 4px;
-  border-radius: 6px;
-  background: rgba(40,28,12,.6);
-  border: 1px solid #6a5532;
+  font-weight: 600;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14vw !important;
+  margin: 0 !important;
 }
-body.mobile-landscape .portrait .trance .level{
-  width: 6px; height: 6px; border-radius: 50%;
-  background: #6a5532; opacity: .35;
-  display: inline-block;
+
+/* Trance: collapse the verbose 2-tier descriptions to two small
+   diamond indicators with roman numerals. Tap the chip on the desktop
+   build to see full text; on mobile the lit diamond conveys the
+   important state. */
+body.mobile-landscape .portrait .trance-wrap{
+  display: inline-flex !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
 }
-body.mobile-landscape .portrait .trance .level.active{
-  background: #c6a56a; opacity: 1;
-  box-shadow: 0 0 4px rgba(198,165,106,.7);
+body.mobile-landscape .portrait .trance-row{
+  display: flex !important;
+  flex-direction: row;
+  gap: 4px !important;
+  max-width: none !important;
+  grid-template-columns: none !important;
 }
+body.mobile-landscape .portrait .trance-step{
+  display: flex !important;
+  grid-template-columns: none !important;
+  gap: 0 !important;
+  align-items: center;
+  padding: 0;
+}
+body.mobile-landscape .portrait .trance-step .diamond{
+  width: 16px !important; height: 16px !important;
+  border-width: 1px !important;
+  border-radius: 3px !important;
+}
+body.mobile-landscape .portrait .trance-step .diamond .roman{
+  font-size: 8px !important;
+  font-weight: 800;
+}
+body.mobile-landscape .portrait .trance-copy{ display: none !important; }
+body.mobile-landscape .portrait .trance-step.active::before{ display: none !important; }
+/* The empty-by-default <div class="trance"> in the HTML — keep
+   collapsed so the trance-wrap below is the only visible bit. */
+body.mobile-landscape .portrait > .trance{ display: none !important; }
 
 /* Win tracks (Confluence / Dominion) — thin bar pair beside the chip */
 body.mobile-landscape .portrait .win-tracks{
