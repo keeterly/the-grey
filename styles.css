@@ -393,30 +393,35 @@ html,body{height:100%}
    ========================================================== */
 
 body.mobile-landscape{
-  /* Hand cards have their own size so they can be readable.
-     At 844px viewport: max 118px wide, scale ~0.79, ~13px body text. */
-  --hand-card-w: clamp(96px, 14vw, 118px);
-  --hand-card-h: calc(var(--hand-card-w) * 1.34);
+  /* Hand cards: legible-but-compact. Capping at 96px keeps the hand band
+     short enough that the board has 3 distinct rows of breathing room. */
+  --hand-card-w: clamp(78px, 11.5vw, 96px);
+  --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Board cards (slots, flow) stay compact */
-  --card-w: clamp(54px, 11.2vw, 78px);
-  --card-h: calc(var(--card-w) * 1.34);
-  --card-radius: 10px;
+  /* Board cards (slot + flow) — heights set explicitly to match the
+     fixed grid rows below. We deliberately drop the 1.34 aspect ratio
+     so cards never overflow their row. */
+  --card-w: clamp(44px, 8vw, 56px);    /* slot card width */
+  --card-h: 56px;                       /* slot card height = slot row */
+  --flow-card-w: clamp(56px, 9.5vw, 72px);
+  --flow-card-h: 92px;                  /* fits flow row with price label */
+  --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
 
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 40px;
-  --hand-band-h: calc(var(--hand-card-h) + 22px);
+  --top-strip-h: 32px;
+  --hand-band-h: calc(var(--hand-card-h) + 14px);
 }
 
-/* Board grid: three equal rows between top-strip and hand band.
-   Desktop uses grid-template-rows:auto auto auto !important — must override. */
+/* Board grid: 56px slot rows + 1fr flow row.
+   For a 393px iPhone-landscape viewport this resolves to roughly:
+     32 (top) + 56 (AI) + ~96 (flow) + 56 (player) + 14 row-gaps + 142 (hand) ≈ 396 */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: repeat(3, 1fr) !important;
+  grid-template-rows: 56px minmax(0, 1fr) 56px !important;
   row-gap: 4px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
@@ -424,11 +429,25 @@ body.mobile-landscape #board-grid.grid{
   box-sizing: border-box;
   align-content: stretch !important;
 }
+/* Clip each row so cards that exceed the row height don't bleed visually. */
+body.mobile-landscape .row.ai,
+body.mobile-landscape .row.flow,
+body.mobile-landscape .row.player{
+  overflow: hidden !important;
+  position: relative;
+  min-height: 0 !important;
+}
 
-/* ===== Portrait chips: top-left (player), top-right (AI) ===== */
+/* ===== Portrait chips: top-left (player), top-right (AI) =====
+   Desktop sets `.row.player .portrait { bottom: 16px }` — without
+   resetting it, position:fixed + top:4px + bottom:16px stretches the
+   chip across the whole viewport height. We explicitly null it. */
 body.mobile-landscape .row.player .portrait,
 body.mobile-landscape .row.ai .portrait{
-  position: fixed; top: 4px;
+  position: fixed !important;
+  top: 4px !important;
+  bottom: auto !important;
+  height: auto !important;
   display: flex; flex-direction: row; align-items: center; gap: 6px;
   z-index: 30;
   margin: 0; padding: 4px 8px;
@@ -437,8 +456,13 @@ body.mobile-landscape .row.ai .portrait{
   backdrop-filter: blur(4px);
   max-width: 38vw;
 }
-body.mobile-landscape .row.player .portrait{ left: 6px; }
-body.mobile-landscape .row.ai .portrait{ right: 6px; flex-direction: row-reverse; }
+body.mobile-landscape .row.player .portrait{
+  left: 6px !important; right: auto !important;
+}
+body.mobile-landscape .row.ai .portrait{
+  right: 6px !important; left: auto !important;
+  flex-direction: row-reverse;
+}
 
 body.mobile-landscape .portrait img{
   width: 28px; height: 28px; border-radius: 50%;
@@ -449,8 +473,27 @@ body.mobile-landscape .portrait figcaption{
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   max-width: 11vw; margin: 0;
 }
-body.mobile-landscape .hearts{ display: flex; gap: 2px; margin: 0; }
-body.mobile-landscape .hearts svg{ width: 12px; height: 12px; }
+body.mobile-landscape #player-hearts,
+body.mobile-landscape #ai-hearts{
+  display: flex !important;
+  gap: 1px !important;
+  margin: 0 !important;
+  max-width: 110px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+/* Hide empty heart slots in mobile-landscape — only show current HP. */
+body.mobile-landscape .hearts .heart-svg.empty{ display: none !important; }
+/* Force-shrink filled hearts. The SVG has width="36" attribute and a base
+   .hearts svg{36px} rule; we win on specificity (id+class+elem) and use
+   !important to override the inline attribute on Safari. */
+body.mobile-landscape #player-hearts svg,
+body.mobile-landscape #ai-hearts svg{
+  width: 12px !important;
+  height: 12px !important;
+}
+body.mobile-landscape #player-hearts .heart,
+body.mobile-landscape #ai-hearts .heart{ flex: 0 0 auto; line-height: 0; }
 body.mobile-landscape .aether-display{
   display: flex; gap: 4px; margin: 0; font-size: .7rem; align-items: center;
 }
@@ -498,6 +541,14 @@ body.mobile-landscape .slot{
   flex: 0 0 auto;
   box-shadow: inset 0 0 8px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.22);
 }
+/* Card placed inside a slot — fill the slot exactly so it doesn't push out */
+body.mobile-landscape .slot .card{
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  transform: none !important;
+  font-size: calc(1rem * var(--card-scale));
+}
 body.mobile-landscape .slot::after{ inset: 4px; border-radius: calc(var(--card-radius) - 3px); }
 body.mobile-landscape .slot .slot-title{ font-size: .55rem; line-height: 1; }
 body.mobile-landscape .slot.glyph .slot-title{ top: 6px; }
@@ -523,9 +574,18 @@ body.mobile-landscape #flow-row{
 }
 body.mobile-landscape #flow-row::-webkit-scrollbar{ display: none; }
 body.mobile-landscape .flow-card{
-  flex: 0 0 var(--card-w);
+  flex: 0 0 var(--flow-card-w);
+  width: var(--flow-card-w) !important;
+  height: var(--flow-card-h) !important;
   scroll-snap-align: center;
   position: relative;
+}
+/* Flow card content sized to fill the .flow-card box */
+body.mobile-landscape .flow-card > .card.market{
+  width: 100% !important;
+  height: 100% !important;
+  font-size: calc(1rem * (var(--flow-card-w) / 150px));
+  --card-scale: calc(var(--flow-card-w) / 150px);
 }
 body.mobile-landscape .price-label{
   bottom: -10px; font-size: .58rem;
