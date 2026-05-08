@@ -561,10 +561,16 @@ body.mobile-landscape .flow-title-rail { display: none !important; }
    pill — so it doesn't crowd the top-left where the player chip lives.
    The JS sets inline left:10px/top:10px on .tl-wrap; we override with
    !important to move it to the top-center between the two corner chips. */
+/* The .tl-wrap inherits width: min(34vw, 380px) from desktop, which on
+   landscape phone produces a ~317px-wide invisible container that
+   reads as a huge bar across the top. Force it to fit its content. */
 body.mobile-landscape .tl-wrap{
   left: 50% !important; right: auto !important;
   top: 4px !important;
   transform: translateX(-50%);
+  width: auto !important;
+  display: inline-flex !important;
+  gap: 0 !important;
 }
 body.mobile-landscape .menu-btn{
   padding: 6px 8px !important;
