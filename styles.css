@@ -555,14 +555,21 @@ body.mobile-landscape .slot.glyph .slot-title{ top: 6px; }
 body.mobile-landscape .slot.glyph .slot-rune{ opacity: .4; }
 body.mobile-landscape .slot.glyph .slot-rune svg{ width: 60%; height: 60%; }
 
-/* ===== Aether Flow: scrollable strip ===== */
+/* ===== Aether Flow: scrollable strip =====
+   Strip the desktop frame (border, background, big padding) and
+   the negative-offset price-label — both eat vertical space we
+   don't have between the slot bands. */
 body.mobile-landscape .flow-wrap{
   display: block; grid-template-columns: 1fr; width: 100%;
 }
 body.mobile-landscape .flow-board{
-  padding: 4px 6px 14px;
-  width: 100%; margin: 0;
-  border-radius: 8px;
+  padding: 0 4px !important;
+  width: 100% !important; margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
 }
 body.mobile-landscape #flow-row{
   display: flex !important;
@@ -570,7 +577,7 @@ body.mobile-landscape #flow-row{
   justify-content: center; align-items: center;
   overflow-x: auto; -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory; scrollbar-width: none;
-  padding-bottom: 4px;
+  padding: 0;
 }
 body.mobile-landscape #flow-row::-webkit-scrollbar{ display: none; }
 body.mobile-landscape .flow-card{
@@ -587,8 +594,18 @@ body.mobile-landscape .flow-card > .card.market{
   font-size: calc(1rem * (var(--flow-card-w) / 150px));
   --card-scale: calc(var(--flow-card-w) / 150px);
 }
+/* Price label as a small badge inside the card (top-left) so it
+   doesn't add to the wrapper's vertical extent */
 body.mobile-landscape .price-label{
-  bottom: -10px; font-size: .58rem;
+  position: absolute !important;
+  left: 4px !important; top: 4px !important;
+  bottom: auto !important; transform: none !important;
+  font-size: .55rem !important;
+  background: rgba(20,16,12,.85);
+  border: 1px solid #4a3d2f;
+  border-radius: 999px;
+  padding: 1px 6px;
+  z-index: 4;
 }
 
 /* ===== Hand: NO FAN, NO ROTATION — upright scrollable strip ===== */
