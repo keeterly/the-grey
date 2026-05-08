@@ -1997,15 +1997,29 @@ function isMobileLandscape(){
 }
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
-  const MAX_ANGLE = isMobileLandscape() ? 14 : 22;
-  const MIN_ANGLE = isMobileLandscape() ? 4  : 8;
+
+  // Mobile-landscape uses a CSS-driven flex strip — no fan, no rotation,
+  // no absolute positioning. Clear any leftover desktop-fan custom props
+  // so cards render where CSS puts them.
+  if (isMobileLandscape()){
+    cards.forEach((el, i) => {
+      el.style.removeProperty("--tx");
+      el.style.removeProperty("--ty");
+      el.style.removeProperty("--rot");
+      el.style.zIndex = String(400 + i);
+    });
+    return;
+  }
+
+  const MAX_ANGLE = 22;
+  const MIN_ANGLE = 8;
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = isMobileLandscape() ? cw * 0.86 : cw * 0.98;
+  const stepX = cw * 0.98;
   const startX = -stepX * (N-1) / 2;
-  const LIFT = isMobileLandscape() ? 38 : 44;
+  const LIFT = 44;
 
   cards.forEach((el,i)=>{
     const a = startA + stepA*i;
@@ -2524,10 +2538,14 @@ await render();
   document.body.appendChild(pop);
   // Ensure reaction popovers appear above the dimming overlay and other UI
   pop.style.zIndex = 3600;
-  const r = cardEl.getBoundingClientRect();
-  pop.style.left = `${r.left + r.width/2}px`;
-  pop.style.top  = `${r.top  - 12}px`;
-  pop.style.transform = "translate(-50%, -100%)";
+  // On mobile-landscape the action-pop is styled as a fixed bottom sheet
+  // (see styles.css). Skip the per-card positioning so CSS controls layout.
+  if (!isMobileLandscape()){
+    const r = cardEl.getBoundingClientRect();
+    pop.style.left = `${r.left + r.width/2}px`;
+    pop.style.top  = `${r.top  - 12}px`;
+    pop.style.transform = "translate(-50%, -100%)";
+  }
 }
 
 

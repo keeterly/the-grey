@@ -385,152 +385,250 @@ html,body{height:100%}
 .hand .card.pulse-instant{ animation: runePulse 1.6s ease-in-out infinite; }
 
 /* ==========================================================
-   Mobile Landscape v3.2 — roomy board + accessible hand
+   Mobile Landscape v4 — iPhone-landscape playable
+   Targets ~844x390 viewport. Layout: top-corner portrait chips,
+   three centered board rows (AI slots / Aether Flow / Player slots),
+   bottom hand band of upright scrollable cards, bottom-anchored
+   action sheet replacing the desktop popover, end-turn FAB.
    ========================================================== */
 
 body.mobile-landscape{
-  /* columns: portraits on left/right, HUD stack on far-right */
-  --side-col: 68px;
-  --hud-col: 52px;
+  /* Hand cards have their own size so they can be readable.
+     At 844px viewport: max 118px wide, scale ~0.79, ~13px body text. */
+  --hand-card-w: clamp(96px, 14vw, 118px);
+  --hand-card-h: calc(var(--hand-card-w) * 1.34);
+  --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* cards/slots slightly smaller than v3.1 */
-  --card-w: clamp(46px, 10.9vw, 74px);
+  /* Board cards (slots, flow) stay compact */
+  --card-w: clamp(54px, 11.2vw, 78px);
   --card-h: calc(var(--card-w) * 1.34);
-  --card-radius: 9px;
+  --card-radius: 10px;
   --card-scale: calc(var(--card-w) / 150px);
-  --slot-scale: calc(var(--card-scale) * .68);
+  --slot-scale: calc(var(--card-scale) * .85);
 
-  /* gems/portraits smaller */
-  --gem-size: 40px;
-  --card-gem: calc(21px * var(--card-scale));
+  --gem-size: 22px;
+  --card-gem: calc(20px * var(--card-scale));
+
+  --top-strip-h: 40px;
+  --hand-band-h: calc(var(--hand-card-h) + 22px);
 }
 
-/* global spacing */
+/* Board grid: three equal rows between top-strip and hand band.
+   Desktop uses grid-template-rows:auto auto auto !important — must override. */
 body.mobile-landscape #board-grid.grid{
-  row-gap: 6px;
-  padding: 4px 8px calc(15vh + 4px);
+  grid-template-rows: repeat(3, 1fr) !important;
+  row-gap: 4px !important;
+  padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  align-content: stretch !important;
 }
 
-/* ===== Sidebars (names, hearts, gem) ===== */
+/* ===== Portrait chips: top-left (player), top-right (AI) ===== */
 body.mobile-landscape .row.player .portrait,
 body.mobile-landscape .row.ai .portrait{
-  position: fixed;
-  top: 50%;
-  transform: translateY(-50%);
-  width: var(--side-col);
-  text-align: center;
-  z-index: 7;
+  position: fixed; top: 4px;
+  display: flex; flex-direction: row; align-items: center; gap: 6px;
+  z-index: 30;
+  margin: 0; padding: 4px 8px;
+  background: rgba(20,16,12,.72);
+  border: 1px solid #4a3d2f; border-radius: 18px;
+  backdrop-filter: blur(4px);
+  max-width: 38vw;
 }
-body.mobile-landscape .row.player .portrait{ left: 4px }
-body.mobile-landscape .row.ai .portrait{ right: 4px }
+body.mobile-landscape .row.player .portrait{ left: 6px; }
+body.mobile-landscape .row.ai .portrait{ right: 6px; flex-direction: row-reverse; }
 
-body.mobile-landscape .portrait img{ width:46px; height:46px; border-radius:8px; margin:0 auto 4px }
-/* figcaption = player/AI name — shrink and clip to sidebar width */
-body.mobile-landscape .portrait figcaption{ display:block; font-size:.65rem; line-height:1.05; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:64px; margin:0 auto 2px }
-body.mobile-landscape .hearts{ justify-content:center; gap:3px; margin:3px 0 }
-body.mobile-landscape .hearts svg{ width:12px; height:12px }
-body.mobile-landscape .aether-display{ gap:4px; font-size:.8rem; margin-top:4px }
-body.mobile-landscape .aether-display .temp-ae{ min-width:14px; height:14px; font-size:.6rem }
-/* hide elements that have no room in the 68px sidebar */
+body.mobile-landscape .portrait img{
+  width: 28px; height: 28px; border-radius: 50%;
+  margin: 0; flex: 0 0 28px;
+}
+body.mobile-landscape .portrait figcaption{
+  display: block; font-size: .68rem; line-height: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  max-width: 11vw; margin: 0;
+}
+body.mobile-landscape .hearts{ display: flex; gap: 2px; margin: 0; }
+body.mobile-landscape .hearts svg{ width: 12px; height: 12px; }
+body.mobile-landscape .aether-display{
+  display: flex; gap: 4px; margin: 0; font-size: .7rem; align-items: center;
+}
+body.mobile-landscape .aether-display .ae-line{ display: flex; gap: 2px; align-items: center; }
+body.mobile-landscape .aether-display svg{ width: 16px; height: 16px; }
+body.mobile-landscape .aether-display .temp-ae{ min-width: 14px; height: 14px; font-size: .6rem; }
+
+/* hide things that have no room in this layout */
 body.mobile-landscape .trance,
 body.mobile-landscape .trance-wrap,
 body.mobile-landscape .trance-row { display: none !important; }
-/* C/D win-progress bars */
-body.mobile-landscape .win-tracks  { display: none !important; }
-/* full-height weaver character art — covers the board on small screens */
+body.mobile-landscape .win-tracks { display: none !important; }
 body.mobile-landscape #weaver-backdrop { display: none !important; }
-/* AI mini HUD (hand fan + deck/discard piles) — 200px wide overlay, no
-   room beside the 4-slot AI row in mobile-landscape */
 body.mobile-landscape #ai-mini { display: none !important; }
+body.mobile-landscape .flow-title-rail { display: none !important; }
 
-/* ===== Flow & Slots ===== */
-body.mobile-landscape .flow-title-rail{ display:none }
-body.mobile-landscape .flow-wrap{ grid-template-columns:1fr; gap:6px; align-items:center }
-
-body.mobile-landscape .flow-board{
-  padding:6px 6px 12px;
-  border-radius:8px;
-  width:min(
-    calc(100vw - (var(--side-col)*2) - var(--hud-col) - 12px),
-    calc(var(--card-w)*5 + 5px*4)
-  );
-  margin:0 auto;
-  z-index:3;
-}
-body.mobile-landscape #flow-row{ gap:5px }
-body.mobile-landscape .price-label{ bottom:-8px; font-size:.58rem }
-
-/* Spell rows sized to same max width as flow */
+/* ===== Slot rows ===== */
 body.mobile-landscape #ai-slots.slot-row,
 body.mobile-landscape #player-slots.slot-row{
-  gap:5px !important;
-  width:min(
-    calc(100vw - (var(--side-col)*2) - var(--hud-col) - 12px),
-    calc(var(--card-w)*4 + 5px*3)
-  ) !important;
-  z-index:5;
+  display: flex !important; flex-direction: row;
+  gap: 6px !important;
+  width: 100%; max-width: 100%;
+  justify-content: center; align-items: center;
 }
-
 body.mobile-landscape .slot{
-  box-shadow:inset 0 0 8px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.22);
+  position: relative;
+  width: var(--card-w); height: var(--card-h);
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 8px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.22);
 }
-body.mobile-landscape .slot::after{ inset:5px; border-radius:calc(var(--card-radius)-3px) }
-body.mobile-landscape .slot .slot-title{
-  font-size:clamp(.5rem,.74rem*var(--slot-scale),.76rem);
-  line-height:1;
-}
-body.mobile-landscape .slot.glyph .slot-title{ top:8px }
-body.mobile-landscape .slot.glyph .slot-rune{ opacity:.4 }
-body.mobile-landscape .slot.glyph .slot-rune svg{ width:70%; height:70% }
+body.mobile-landscape .slot::after{ inset: 4px; border-radius: calc(var(--card-radius) - 3px); }
+body.mobile-landscape .slot .slot-title{ font-size: .55rem; line-height: 1; }
+body.mobile-landscape .slot.glyph .slot-title{ top: 6px; }
+body.mobile-landscape .slot.glyph .slot-rune{ opacity: .4; }
+body.mobile-landscape .slot.glyph .slot-rune svg{ width: 60%; height: 60%; }
 
-/* ===== Hand: taller, easier to tap ===== */
-body.mobile-landscape .hand-wrap{ height:16vh }
+/* ===== Aether Flow: scrollable strip ===== */
+body.mobile-landscape .flow-wrap{
+  display: block; grid-template-columns: 1fr; width: 100%;
+}
+body.mobile-landscape .flow-board{
+  padding: 4px 6px 14px;
+  width: 100%; margin: 0;
+  border-radius: 8px;
+}
+body.mobile-landscape #flow-row{
+  display: flex !important;
+  gap: 6px !important;
+  justify-content: center; align-items: center;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  padding-bottom: 4px;
+}
+body.mobile-landscape #flow-row::-webkit-scrollbar{ display: none; }
+body.mobile-landscape .flow-card{
+  flex: 0 0 var(--card-w);
+  scroll-snap-align: center;
+  position: relative;
+}
+body.mobile-landscape .price-label{
+  bottom: -10px; font-size: .58rem;
+}
+
+/* ===== Hand: NO FAN, NO ROTATION — upright scrollable strip ===== */
+body.mobile-landscape .hand-wrap{
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: var(--hand-band-h);
+  z-index: 40;
+  background: linear-gradient(to top, rgba(15,12,9,.92) 60%, rgba(15,12,9,0));
+  padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+}
 body.mobile-landscape .hand{
-  height:14vh;
-  bottom:1.2vh;
-  width:min(calc(100vw - (var(--side-col)*2) - var(--hud-col) - 12px), 92vw);
-  z-index:6;
+  position: static;
+  display: flex; flex-direction: row; align-items: center;
+  gap: 8px;
+  width: 100%; height: 100%;
+  transform: none; perspective: none;
+  overflow-x: auto; -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory; scrollbar-width: none;
+  padding: 0 8px 4px;
+  /* leave room for the right-side End-turn FAB */
+  padding-right: 76px;
 }
+body.mobile-landscape .hand::-webkit-scrollbar{ display: none; }
 
-/* normal hover kept subtle on touch devices */
-@media (pointer:coarse){
-  body.mobile-landscape .card:hover{
-    transform:translate(var(--tx,0),var(--ty,0)) rotate(var(--rot,0deg)) translateY(-4px) scale(1.01);
-  }
-}
-
-/* Tap-to-focus lift (added by JS): rise up, sit upright, scale 2x so the
-   rules text is actually readable. Rotation neutralized via rotate(0deg). */
-body.mobile-landscape .hand .card.is-focus{
-  z-index: 9999 !important;
-  transform:
-    translate(var(--tx,0), var(--ty,0))
-    rotate(0deg)
-    translateY(-72px) scale(2);
-  box-shadow: 0 22px 34px rgba(0,0,0,.65);
+/* override the absolute fan positioning of cards in the hand */
+body.mobile-landscape .hand .card{
+  position: relative !important;
+  top: auto !important; left: auto !important;
+  width: var(--hand-card-w);
+  height: var(--hand-card-h);
+  flex: 0 0 var(--hand-card-w);
+  font-size: calc(1rem * var(--hand-card-scale));
+  --card-scale: var(--hand-card-scale);
+  --card-gem: calc(22px * var(--hand-card-scale));
+  transform: none !important;
+  transform-origin: 50% 100%;
+  scroll-snap-align: center;
+  border-radius: 12px;
+  box-shadow: 0 8px 16px rgba(0,0,0,.45);
   transition: transform .14s ease-out, box-shadow .14s ease-out;
 }
+body.mobile-landscape .hand .card:hover,
+body.mobile-landscape .hand .card.is-focus{
+  transform: translateY(-6px) scale(1.04) !important;
+  box-shadow: 0 14px 24px rgba(0,0,0,.6);
+  z-index: 50 !important;
+}
 
-/* Anim tuning */
-body.mobile-landscape .card.deal-in{ animation-duration:.11s }
-body.mobile-landscape .card.discarding{ animation-duration:.16s }
+/* Snappy animations on mobile */
+body.mobile-landscape .card.deal-in{ animation-duration: .14s; }
+body.mobile-landscape .card.discarding{ animation-duration: .18s; }
 
-/* HUD smaller and tucked in */
-body.mobile-landscape .hud{ right:4px; bottom:9vh; gap:6px }
-body.mobile-landscape .hud-btn{ width:46px; height:46px; border-radius:9px }
+/* ===== HUD: deck + discard as small chips top-center, end-turn as FAB ===== */
+body.mobile-landscape .hud{
+  position: fixed;
+  top: 4px; left: 50%;
+  transform: translateX(-50%);
+  right: auto; bottom: auto;
+  display: flex; flex-direction: row; gap: 6px;
+  z-index: 35;
+}
+body.mobile-landscape .hud-btn{
+  width: 34px; height: 34px; border-radius: 8px;
+  font-size: 14px;
+}
+/* End-turn FAB lives inside the hand band on the right edge — the
+   .hand reserves padding-right:76px so cards never overlap it. */
+body.mobile-landscape #btn-endturn-hud{
+  position: fixed;
+  right: 12px;
+  bottom: calc((var(--hand-band-h) - 48px) / 2 + env(safe-area-inset-bottom, 0px));
+  top: auto; left: auto;
+  width: 60px; height: 48px; border-radius: 14px;
+  font-weight: 800; font-size: 20px;
+  background: #c6a56a; color: #0d0a07;
+  border: 1px solid #4a3d2f;
+  box-shadow: 0 6px 16px rgba(0,0,0,.55);
+  z-index: 50;
+  transform: none;
+  display: grid; place-items: center;
+}
 
-/* Peek/Zoom a bit smaller to avoid covering */
+/* ===== Bottom action sheet (replaces tiny popover) ===== */
+body.mobile-landscape .action-pop{
+  position: fixed !important;
+  left: 50% !important;
+  bottom: calc(var(--hand-band-h) + 8px) !important;
+  top: auto !important;
+  transform: translateX(-50%) !important;
+  width: min(420px, 92vw); padding: 10px 12px;
+  display: flex; gap: 10px; justify-content: center; align-items: center;
+  background: linear-gradient(180deg,#2a211a,#1a140f);
+  border: 1px solid #5a4b37; border-radius: 14px;
+  z-index: 9999;
+  box-shadow: 0 12px 30px rgba(0,0,0,.6);
+}
+body.mobile-landscape .action-pop .rune-btn{
+  padding: 12px 18px; font-size: 1rem; border-radius: 10px;
+  min-width: 78px; min-height: 44px;
+}
+
+/* Peek/Zoom: cap so it doesn't overflow short viewports */
 body.mobile-landscape #peek-card.card.peek,
 body.mobile-landscape #zoom-card.card.zoom{
-  width:calc(var(--card-w)*1.42);
-  height:calc(var(--card-h)*1.42);
+  width: min(calc(var(--hand-card-w)*1.7), 70vw);
+  height: auto;
+  aspect-ratio: 1 / 1.34;
 }
 
 /* Very short displays */
 @media (max-height:380px){
-  body.mobile-landscape{ --card-w:clamp(44px,10.5vw,70px); }
-  body.mobile-landscape .hand-wrap{ height:15vh }
-  body.mobile-landscape .hand{ height:13vh }
+  body.mobile-landscape{
+    --hand-card-w: clamp(78px, 12vw, 96px);
+    --card-w: clamp(48px, 10.4vw, 68px);
+    --top-strip-h: 36px;
+  }
 }
 
 
