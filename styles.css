@@ -396,7 +396,7 @@ body.mobile-landscape{
   /* Hand cards: smaller — the hand is inventory, not the focal point.
      Was clamp(80,11vw,100); shrunk so the hand band is ~110 instead
      of ~148, freeing 38 vertical pixels for the field. */
-  --hand-card-w: clamp(60px, 8.4vw, 75px);
+  --hand-card-w: clamp(50px, 7.0vw, 64px);          /* v13: hand smaller still — inventory, not focal */
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
@@ -419,9 +419,39 @@ body.mobile-landscape{
 
 /* Board grid: 44px slot rows (taller so the dashed outlines render
    visibly, no longer compressed) + 1fr flow. */
+/* ===== v13: turn-aware slot rows =====
+   Only the active player's slot row is shown on mobile. The
+   inactive row collapses (grid track becomes 0) so the reclaimed
+   space goes to the flow row. The slot tiles also slide out via
+   transform so the transition reads as a coordinated "this player
+   isn't playing right now". */
+body.mobile-landscape[data-active-side="player"] #board-grid.grid{
+  grid-template-rows: 0 minmax(0, 1fr) 56px !important;
+}
+body.mobile-landscape[data-active-side="ai"] #board-grid.grid{
+  grid-template-rows: 56px minmax(0, 1fr) 0 !important;
+}
+body.mobile-landscape #ai-slots.slot-row,
+body.mobile-landscape #player-slots.slot-row{
+  transition: transform .26s ease, opacity .22s ease;
+}
+body.mobile-landscape[data-active-side="player"] #ai-slots.slot-row{
+  transform: translateY(-120%);
+  opacity: 0;
+  pointer-events: none;
+}
+body.mobile-landscape[data-active-side="ai"] #player-slots.slot-row{
+  transform: translateY(120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Default grid (used when data-active-side hasn't been set yet, e.g.
+   first paint). Both rows visible at full height; v13 turn rules
+   above will override. */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 48px minmax(0, 1fr) 48px !important;
-  row-gap: 6px !important;                          /* more breathing between zones */
+  grid-template-rows: 56px minmax(0, 1fr) 56px !important;
+  row-gap: 6px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
   height: 100dvh;
@@ -711,6 +741,29 @@ body.mobile-landscape #ai-name{
    diamond indicators with roman numerals. Tap the chip on the desktop
    build to see full text; on mobile the lit diamond conveys the
    important state. */
+/* ===== v13: card-play impact ===== */
+@keyframes castImpactPulse {
+  0%   { box-shadow: 0 0 0 0 var(--impact-glow, rgba(198,165,106,.85)),
+                     inset 0 0 0 0 rgba(255,255,255,.5);
+         transform: scale(1.00); }
+  30%  { box-shadow: 0 0 0 22px rgba(0,0,0,0),
+                     inset 0 0 0 4px rgba(255,255,255,.35);
+         transform: scale(1.10); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0),
+                     inset 0 0 0 0 rgba(255,255,255,0);
+         transform: scale(1.00); }
+}
+.slot.cast-impact {
+  animation: castImpactPulse 700ms cubic-bezier(.18,.9,.32,1.18);
+  z-index: 12;
+  --impact-glow: rgba(198,165,106,.85);
+}
+/* Type-keyed impact colors */
+.slot.cast-impact[data-impact-type="spell"]{   --impact-glow: rgba(126,182,255,.85); }
+.slot.cast-impact[data-impact-type="instant"]{ --impact-glow: rgba(255,160,120,.85); }
+.slot.cast-impact[data-impact-type="glyph"]{   --impact-glow: rgba(196,150,255,.85); }
+.slot.cast-impact[data-impact-type="reaction"]{--impact-glow: rgba(170,255,180,.85); }
+
 /* ===== v12 declutter: hide secondary state on mobile-landscape =====
    The sub-strip (trance pips + win-tracks) and the AI mini hand are
    still rendered in the DOM and visible on desktop, but on phone
