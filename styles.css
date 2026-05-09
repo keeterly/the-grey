@@ -2900,11 +2900,13 @@ body.mobile-landscape .hp-bar-host {
 .wincon-rail.wc-ai     { color: #d97a7a; }
 .wincon-rail.wc-player { color: #c6a56a; }
 
+/* v34: all three WCs get equal flex weight so the rail divides into
+   thirds. v20 had given HP 1.4× width because the bar showed "12/12"
+   numerics; that's no longer needed and made the layout asymmetric. */
 .wincon-rail .wcr-host {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
 }
-.wincon-rail .wcr-host.hp { flex: 1.4; }   /* HP gets a touch more room */
 
 /* Per-rail tinting — overrides the side-tints baked into .hp-bar-host
    so all three bars on a single rail share that rail's colour. */
@@ -3607,4 +3609,38 @@ body.mobile-portrait .row.player {
 }
 body.mobile-portrait .wincon-rail {
   padding: 2px 8px !important;
+}
+
+
+/* ==========================================================
+   v34: even WC spacing + dead-space tighten
+   ========================================================== */
+
+/* v34 — pull the wincon rails flush against the Aetherflow market
+   frame on portrait. Two sources of dead space were stacking:
+   (a) #board-grid row-gap (6px from v30)
+   (b) flow-wrap centring tall content in a taller row, leaving
+       vertical whitespace above + below the dark market frame.
+   v34: zero row-gap between the rails and the flow row, and pin
+   the flow-wrap to fill its row so the dark market frame meets
+   the rails edge-to-edge. */
+body.mobile-portrait #board-grid.grid {
+  row-gap: 2px !important;
+}
+body.mobile-portrait .wincon-rail {
+  /* Rail itself is already thin; remove its border-bottom on the
+     AI rail and border-top on the player rail since they now sit
+     directly against the market frame which has its own border. */
+  border-top:    1px solid rgba(106,90,64,.35);
+  border-bottom: 1px solid rgba(106,90,64,.35);
+}
+body.mobile-portrait .wincon-rail.wc-ai    { border-bottom-color: transparent; }
+body.mobile-portrait .wincon-rail.wc-player { border-top-color: transparent; }
+body.mobile-portrait .row.flow {
+  padding: 0 !important;
+}
+body.mobile-portrait .flow-wrap {
+  padding: 4px 0 !important;
+  gap: 4px !important;
+  justify-content: stretch !important;
 }
