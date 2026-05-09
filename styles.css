@@ -975,7 +975,8 @@ body.mobile-landscape #btn-endturn-hud{
 }
 
 /* ===== Bottom action sheet (replaces tiny popover) ===== */
-body.mobile-landscape .action-pop{
+body.mobile-landscape .action-pop,
+body.mobile-portrait  .action-pop{
   position: fixed !important;
   left: 50% !important;
   bottom: calc(var(--hand-band-h) + 8px) !important;
@@ -988,17 +989,20 @@ body.mobile-landscape .action-pop{
   z-index: 9999;
   box-shadow: 0 12px 30px rgba(0,0,0,.6);
 }
-body.mobile-landscape .action-pop .rune-btn{
+body.mobile-landscape .action-pop .rune-btn,
+body.mobile-portrait  .action-pop .rune-btn{
   padding: 12px 18px; font-size: 1rem; border-radius: 10px;
   min-width: 78px; min-height: 44px;
 }
 
 /* Peek/Zoom: cap so it doesn't overflow short viewports */
 body.mobile-landscape #peek-card.card.peek,
-body.mobile-landscape #zoom-card.card.zoom{
-  width: min(calc(var(--hand-card-w)*1.7), 70vw);
+body.mobile-landscape #zoom-card.card.zoom,
+body.mobile-portrait  #peek-card.card.peek,
+body.mobile-portrait  #zoom-card.card.zoom{
+  width: min(calc(var(--hand-card-w)*1.9), 80vw);
   height: auto;
-  aspect-ratio: 1 / 1.34;
+  aspect-ratio: 1 / 1.4;
 }
 
 /* Very short displays */
@@ -2191,7 +2195,11 @@ body.mobile-portrait .flow-board .flow-price-num .n{
 body.mobile-portrait .hand-wrap{
   position: fixed; left: 0; right: 0; bottom: 0;
   height: var(--hand-band-h);
-  z-index: 40;
+  /* Higher than the FAB (z-index 51) and HUD piles (50) so that hand
+     cards, which extend visually over those buttons at the right
+     edge of the fan, actually receive touch events instead of having
+     them swallowed by the FAB. */
+  z-index: 60;
   background: linear-gradient(to top, rgba(15,12,9,.94) 60%, rgba(15,12,9,0));
   padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
   box-sizing: border-box;
@@ -2204,7 +2212,11 @@ body.mobile-portrait .hand{
   width: 100%;
   height: var(--hand-band-h);
   perspective: 1200px;
-  pointer-events: auto;
+  /* Container itself is touch-transparent so taps over the empty
+     areas of the band (e.g. over the FAB at the right edge) reach
+     the buttons underneath. Only the cards themselves are
+     interactive. */
+  pointer-events: none;
   display: block;
   overflow: visible;
 }
@@ -2223,6 +2235,8 @@ body.mobile-portrait .hand .card{
   border-radius: 12px;
   box-shadow: 0 8px 18px rgba(0,0,0,.5);
   transition: transform .18s ease, box-shadow .14s ease-out;
+  /* Cards opt back in to receiving touches. */
+  pointer-events: auto;
   overflow: hidden;
 }
 body.mobile-portrait .hand .card.is-focus{
