@@ -413,7 +413,7 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 60px;
+  --top-strip-h: 44px;                    /* just the chip pill (38) + 6px padding; sub-strip hidden in v12 */
   --hand-band-h: calc(var(--hand-card-h) + 12px);
 }
 
@@ -421,7 +421,7 @@ body.mobile-landscape{
    visibly, no longer compressed) + 1fr flow. */
 body.mobile-landscape #board-grid.grid{
   grid-template-rows: 48px minmax(0, 1fr) 48px !important;
-  row-gap: 2px !important;
+  row-gap: 6px !important;                          /* more breathing between zones */
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
   height: 100dvh;
@@ -598,7 +598,7 @@ body.mobile-landscape .slot{
   width: var(--card-w); height: var(--card-h);
   flex: 0 0 auto;
   background: transparent !important;
-  border: 1px dashed rgba(198,165,106,.25) !important;
+  border: 1px dashed rgba(198,165,106,.18) !important;   /* lower-key empty outline */
   box-shadow: none !important;
 }
 body.mobile-landscape .slot.has-card{
@@ -703,7 +703,7 @@ body.mobile-landscape #ai-name{
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 14vw !important;
+  max-width: 8vw !important;             /* tighter — was 14vw which on Plus = ~130px */
   margin: 0 !important;
 }
 
@@ -711,44 +711,18 @@ body.mobile-landscape #ai-name{
    diamond indicators with roman numerals. Tap the chip on the desktop
    build to see full text; on mobile the lit diamond conveys the
    important state. */
-/* ===== Trance + win-tracks: floating sub-strip just below the chip
-   instead of crammed inside it. The chip stays a clean single-line
-   pill; secondary state sits on its own row in the corner. ===== */
+/* ===== v12 declutter: hide secondary state on mobile-landscape =====
+   The sub-strip (trance pips + win-tracks) and the AI mini hand are
+   still rendered in the DOM and visible on desktop, but on phone
+   landscape they were adding visual noise without enough payoff.
+   Players can see opponent hand size in the top-right counts
+   already; trance/tracks are accessible via the menu. */
 body.mobile-landscape .portrait .trance-wrap,
 body.mobile-landscape .portrait .win-tracks{
-  position: absolute !important;
-  top: calc(100% + 4px) !important;
-  margin: 0 !important;
-  z-index: 31;
-  pointer-events: none;       /* purely informational on mobile */
+  display: none !important;
 }
-body.mobile-landscape .portrait .trance-wrap{
-  display: inline-flex !important;
-  flex-direction: row;
-  gap: 3px;
-  flex: 0 0 auto;
-}
-body.mobile-landscape .portrait .win-tracks{
-  display: flex !important;
-  flex-direction: row;
-  gap: 5px !important;
-  flex-wrap: nowrap;
-  align-items: center;
-}
-
-/* Player chip is left-aligned: trance on the left, win-tracks to its
-   right under the chip. AI chip is right-aligned: mirror the order. */
-body.mobile-landscape .row.player .portrait .trance-wrap{
-  left: 8px !important; right: auto !important;
-}
-body.mobile-landscape .row.player .portrait .win-tracks{
-  left: 50px !important; right: auto !important;
-}
-body.mobile-landscape .row.ai .portrait .trance-wrap{
-  right: 8px !important; left: auto !important;
-}
-body.mobile-landscape .row.ai .portrait .win-tracks{
-  right: 50px !important; left: auto !important;
+body.mobile-landscape #ai-mini{
+  display: none !important;
 }
 
 /* Trance internals: tiny inline diamonds with I/II, no description.
