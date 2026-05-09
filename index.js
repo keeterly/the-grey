@@ -4563,7 +4563,10 @@ function ensureRightHudStrip() {
     if (!n) return;
 
     // Hard-reset legacy positioning so the strip's flex layout controls it.
-    // End Turn stays slightly larger as the most-tapped action.
+    // v32: End Turn substantially bigger on portrait (52×44 vs 32×32 for
+    // deck/discard) so the most-tapped action is easy to find. The size
+    // gap also makes it impossible to confuse with the secondary
+    // pile-viewer buttons.
     const isEndTurn = btnId === 'btn-endturn-hud';
     Object.assign(n.style, {
       position: 'static',
@@ -4572,9 +4575,11 @@ function ensureRightHudStrip() {
       transform: 'none',
       display: 'grid',
       placeItems: 'center',
-      borderRadius: isPortrait ? '10px' : '12px',
-      width:  isPortrait ? (isEndTurn ? '48px' : '36px') : '52px',
-      height: isPortrait ? '36px' : '52px',
+      borderRadius: isPortrait ? (isEndTurn ? '12px' : '8px') : '12px',
+      width:  isPortrait ? (isEndTurn ? '52px' : '32px') : '52px',
+      height: isPortrait ? (isEndTurn ? '44px' : '32px') : '52px',
+      fontSize: isPortrait ? (isEndTurn ? '20px' : '12px') : '',
+      fontWeight: isEndTurn ? '900' : '',
       pointerEvents: 'auto'
     });
 
