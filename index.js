@@ -2053,17 +2053,31 @@ function heartSVG({ filled = true, size = 36 } = {}) {
  * Render hearts as "containers": show `maxHearts` outlines,
  * with the first `hp` hearts filled. Defaults to 12 max.
  */
+// v19: replaced 12-icon SVG row with a slim continuous HP bar.
+// 12 tiny 12×12px hearts on mobile portrait (~156px row) became a
+// "gray blur" — the wincon strip's numeric ♥ was carrying all the
+// at-a-glance load while the heart row was just visual noise. The
+// new bar is one icon + a thin 7px-tall track + a numeric value,
+// color-tiered green→amber→red as HP drops.
 function renderHearts(el, hp = 12, maxHearts = 12) {
   if (!el) return;
-  const cur = Math.max(0, hp | 0);
-  const max = Math.max(cur, maxHearts | 0) || 12;
-
-  const nodes = [];
-  for (let i = 0; i < max; i++) {
-    const filled = i < cur;
-    nodes.push(`<span class="heart">${heartSVG({ filled, size: 36 })}</span>`);
-  }
-  el.innerHTML = nodes.join("");
+  const max = Math.max(1, maxHearts | 0);
+  const cur = Math.max(0, Math.min(hp | 0, max));
+  const pct = (cur / max) * 100;
+  let tier = 'high';
+  if (pct <= 33) tier = 'low';
+  else if (pct <= 66) tier = 'mid';
+  el.classList.remove('hp-tier-high','hp-tier-mid','hp-tier-low');
+  el.classList.add(`hp-tier-${tier}`);
+  el.classList.add('hp-bar-host');
+  el.innerHTML =
+    `<span class="hp-icon" aria-hidden="true">♥</span>` +
+    `<div class="hp-bar-track" role="progressbar" ` +
+      `aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${cur}" ` +
+      `aria-label="vitality ${cur} of ${max}">` +
+      `<div class="hp-bar-fill" style="width:${pct.toFixed(1)}%"></div>` +
+    `</div>` +
+    `<span class="hp-num">${cur}</span>`;
 }
 
 
@@ -2201,7 +2215,16 @@ function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data);
 
 /* centered hover + press-and-hhold preview */
 let longPressTimer=null, pressStart={x:0,y:0};
-const LONG_PRESS_MS=350, MOVE_CANCEL_PX=8;
+const LONG_PRESS_MS=500, MOVE_CANCEL_PX=8;
+
+// v19: expose so the drag handler can suppress peek the moment a
+// drag-eligible touch lands. Without this, a 350-500ms hold would
+// pop the peek overlay over the very card being dragged.
+function cancelPeek(){
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  peekEl?.classList.remove("show");
+}
+
 function attachPeekAndZoom(el, data){
   if (peekEl){
     el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
@@ -2742,46 +2765,97 @@ function wireDesktopDrag(el, data){
      (focus + showCardOptions). preventDefault on a tap suppresses the
      synthesized click that would otherwise re-trigger showCardOptions
      through wireDesktopDrag's click listener. */
+// v19: navigator.vibrate wrapper. Android Chrome supports it; iOS
+// Safari ignores it silently. The try/catch handles the rare case
+// where vibrate is blocked by user-activation rules.
+function buzz(p){ try { navigator.vibrate?.(p); } catch {} }
+
+// v19: forgiving drop-target lookup. Pixel-perfect elementFromPoint
+// felt brittle on phones — release ~25px off a slot and the drop
+// would silently fail. Now we fall back to scanning valid empty
+// slots within snapPx of the touch point and pick the closest one.
+function findDropTargetWithSnap(x, y, type, snapPx = 36){
+  const elUnder = document.elementFromPoint(x, y);
+  const direct = findValidDropTarget(elUnder, type);
+  if (direct) return direct;
+  const sel = (type === 'GLYPH')
+    ? '.row.player .slot.glyph:not(.has-card)'
+    : '.row.player .slot.spell:not(.has-card):not(.glyph)';
+  const slots = document.querySelectorAll(sel);
+  let best = null, bestDist = snapPx + 1;
+  slots.forEach(s => {
+    const r = s.getBoundingClientRect();
+    const cx = (r.left + r.right) / 2;
+    const cy = (r.top + r.bottom) / 2;
+    const d = Math.hypot(x - cx, y - cy);
+    if (d < bestDist) { bestDist = d; best = s; }
+  });
+  return best;
+}
+
 function wireTouchDrag(el, data){
   let dragging=false, ghost=null, currentHover=null;
   let touchStartTime=0, touchStartX=0, touchStartY=0, primed=false;
+  let _moveRaf=0, _moveLastXY=null;
   const DRAG_THRESHOLD_PX = 8;
   const TAP_MAX_MS = 300;
 
   const beginDrag = (x, y)=>{
+    cancelPeek();                       // v19: kill any pending peek
     clearAllActionMenus();
     dragging = true; markDropTargets(data.type, true);
+    el.classList.add("dragging-source"); // v19: dim the card in hand
     ghost = el.cloneNode(true);
     ghost.style.position="fixed"; ghost.style.left="0"; ghost.style.top="0";
     ghost.style.pointerEvents="none"; ghost.style.transform="translate(-9999px,-9999px)";
     ghost.style.zIndex="99999"; ghost.classList.add("dragging");
     document.body.appendChild(ghost);
-    moveDrag(x, y);
+    buzz(15);                            // v19: tick on lift
+    moveDragRAF(x, y);
   };
   const moveDrag = (x,y)=>{
     if (!dragging || !ghost) return;
     ghost.style.transform = `translate(${x-ghost.clientWidth/2}px, ${y-ghost.clientHeight*0.9}px) rotate(6deg)`;
-    const elUnder = document.elementFromPoint(x,y);
-    const hoverTarget = findValidDropTarget(elUnder, data.type);
+    const hoverTarget = findDropTargetWithSnap(x, y, data.type, 36);
     if (hoverTarget !== currentHover){
       currentHover?.classList.remove("drag-over");
       currentHover = hoverTarget; currentHover?.classList.add("drag-over");
     }
   };
+  // v19: rAF-coalesced wrapper so we do at most one full moveDrag
+  // (transform + elementFromPoint + class toggle) per animation frame
+  // even if touchmove fires every pixel.
+  const moveDragRAF = (x, y) => {
+    _moveLastXY = { x, y };
+    if (_moveRaf) return;
+    _moveRaf = requestAnimationFrame(() => {
+      _moveRaf = 0;
+      if (_moveLastXY) moveDrag(_moveLastXY.x, _moveLastXY.y);
+    });
+  };
   const finishDrag = (x, y)=>{
     if (!dragging) return; dragging=false;
-    const elUnder = document.elementFromPoint(x, y);
-    const target = findValidDropTarget(elUnder, data.type);
+    const target = findDropTargetWithSnap(x, y, data.type, 36);
     currentHover?.classList.remove("drag-over"); currentHover=null;
     markDropTargets(data.type, false);
+    el.classList.remove("dragging-source");
     ghost?.remove(); ghost=null;
-    if (target) applyDrop(target, el.dataset.cardId, data.type);
+    if (_moveRaf) { cancelAnimationFrame(_moveRaf); _moveRaf = 0; }
+    if (target) {
+      buzz([8, 40, 8]);                  // v19: landed pattern
+      applyDrop(target, el.dataset.cardId, data.type);
+    } else {
+      buzz(60);                          // v19: thud on miss
+    }
   };
   const cancelDrag = ()=>{
     if (!dragging) return; dragging=false;
     currentHover?.classList.remove("drag-over"); currentHover=null;
     markDropTargets(data.type, false);
+    el.classList.remove("dragging-source");
     ghost?.remove(); ghost=null;
+    if (_moveRaf) { cancelAnimationFrame(_moveRaf); _moveRaf = 0; }
+    buzz(60);
   };
   const onTap = ()=>{
     Array.from(handEl.children).forEach(n=> n.classList.remove("is-focus"));
@@ -2801,6 +2875,11 @@ function wireTouchDrag(el, data){
     primed = true;
     touchStartTime = performance.now();
     touchStartX = t.clientX; touchStartY = t.clientY;
+    // v19: as soon as a drag-eligible touch lands on a hand card,
+    // suppress the long-press peek timer. Peek still fires if the
+    // user holds COMPLETELY STILL through the 8px threshold and the
+    // 500ms long-press window — but any drag-intent kills it early.
+    cancelPeek();
   }, {passive:true});
 
   el.addEventListener("touchmove", (ev)=>{
@@ -2814,7 +2893,7 @@ function wireTouchDrag(el, data){
       }
       return;
     }
-    moveDrag(t.clientX, t.clientY);
+    moveDragRAF(t.clientX, t.clientY);
     ev.preventDefault();
   }, {passive:false});
 

@@ -2759,3 +2759,100 @@ body.player-already-bought #wincon-strip::after {
   text-transform: uppercase;
   opacity: .85;
 }
+
+
+/* ==========================================================
+   v19: MOBILE DRAG FEEL + HP BAR
+   - .card.dragging-source dims source while ghost flies
+   - Stronger .slot.drag-over so snap targets are obvious
+   - .hp-bar-host replaces the 12-heart row (one icon + slim
+     bar + numeric, color-tiered)
+   ========================================================== */
+
+/* Dim the original card while the ghost is being dragged so the
+   user clearly sees which copy is "in flight." Pointer-events off
+   so clicks don't go to the husk. */
+.card.dragging-source {
+  opacity: .22 !important;
+  filter: grayscale(.4);
+  transition: opacity .1s ease, filter .1s ease;
+  pointer-events: none;
+}
+
+/* Stronger drop-target highlight. With the new 36px snap zone,
+   slots can light up even when the finger is OFF them; the
+   stronger glow makes "this is where it'll land" unmistakable. */
+.slot.drag-over {
+  outline: 2px solid var(--aether) !important;
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(126,182,255,.25),
+              inset 0 0 18px rgba(126,182,255,.18) !important;
+  transition: box-shadow .12s ease, outline-color .12s ease;
+}
+
+/* Slim HP bar — replaces the 12-icon row inside #player-hearts /
+   #ai-hearts. Same DOM containers, new contents. */
+.hp-bar-host {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.hp-bar-host .hp-icon {
+  font-size: .95em;
+  line-height: 1;
+}
+.hp-bar-host .hp-bar-track {
+  position: relative;
+  flex: 1;
+  max-width: 86px;
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(40,28,12,.6);
+  border: 1px solid rgba(106,90,64,.6);
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.4);
+}
+.hp-bar-host .hp-bar-fill {
+  height: 100%;
+  transition: width .25s ease, background .25s ease;
+  background: linear-gradient(90deg, #c44 0%, #d76 100%);
+}
+.hp-tier-high .hp-bar-fill { background: linear-gradient(90deg,#7eb265,#a4cc8a); }
+.hp-tier-mid  .hp-bar-fill { background: linear-gradient(90deg,#c69a4a,#e7c876); }
+.hp-tier-low  .hp-bar-fill { background: linear-gradient(90deg,#c44a4a,#e07a7a); }
+.hp-bar-host .hp-num {
+  font-size: .82em;
+  font-weight: 700;
+  color: #d6c8a4;
+  min-width: 1.6ch;
+  text-align: right;
+}
+
+/* Side tinting: gold for player, red for AI */
+.row.ai     .hp-bar-host .hp-icon,
+.row.ai     .hp-bar-host .hp-num { color: #d97a7a; }
+.row.player .hp-bar-host .hp-icon,
+.row.player .hp-bar-host .hp-num { color: #c6a56a; }
+
+/* Mobile compact: smaller bar so the chip footprint stays tight */
+body.mobile-portrait  .hp-bar-host .hp-bar-track,
+body.mobile-landscape .hp-bar-host .hp-bar-track {
+  max-width: 70px;
+  height: 6px;
+}
+body.mobile-portrait  .hp-bar-host,
+body.mobile-landscape .hp-bar-host {
+  font-size: .9em;
+  gap: 3px;
+}
+
+/* The container (#player-hearts / #ai-hearts) was previously
+   styled as a flex row of 12 hearts. Reset its layout so the new
+   .hp-bar-host renders cleanly inside. */
+#player-hearts, #ai-hearts {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
