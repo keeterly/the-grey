@@ -400,13 +400,13 @@ body.mobile-landscape{
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Slot tiles fit a 40px row; flow cards sized to fit the 1fr zone
-     after fixed budgets are subtracted on a 430px iPhone-Plus
-     landscape (60 HUD + 40 + 40 + 144 hand + gaps = 288 -> 142 flow). */
-  --card-w: clamp(40px, 7.0vw, 50px);
-  --card-h: 38px;
-  --flow-card-w: clamp(68px, 10.8vw, 88px);
-  --flow-card-h: 130px;
+  /* Slot tiles pinned in corners below each chip (small but readable).
+     Flow cards bumped taller now that the grid isn't carrying slot
+     rows — there's room for full rules text without clipping. */
+  --card-w: 40px;
+  --card-h: 50px;
+  --flow-card-w: clamp(72px, 11.2vw, 92px);
+  --flow-card-h: 156px;
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -414,38 +414,40 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 60px;                    /* avatar pill (38) + sub-strip (~18) */
+  --top-strip-h: 110px;                   /* chip 38 + sub-strip 18 + slot row 50 + gaps */
   --hand-band-h: calc(var(--hand-card-h) + 12px);
 }
 
-/* Board grid: thinner slot rows + bigger flow row (the stage).
-   On 430px landscape: 60 (top HUD) + 44 (AI slots) + ~158 (flow)
-   + 44 (player slots) + ~8 gaps + 132 (hand) ≈ 446 — flow row
-   gets minmax(0, 1fr) so it expands to fill any remainder. */
+/* Board grid: slot rows collapsed to 0; flow takes the whole 1fr.
+   Slots themselves are pulled out of the grid and pinned in the
+   top corners below each chip — see the #ai-slots / #player-slots
+   rules further down. The grid only houses the flow row now. */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 40px minmax(0, 1fr) 40px !important;
-  row-gap: 2px !important;
+  grid-template-rows: 0 minmax(0, 1fr) 0 !important;
+  row-gap: 0 !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
   height: 100dvh;
   box-sizing: border-box;
   align-content: stretch !important;
 }
-/* Clip slot rows so anything taller doesn't visually overflow.
-   The flow row keeps overflow:visible so the buyable-pulse halo
-   on cards isn't clipped at the row edges. */
+/* Slot rows collapsed: zero height with overflow visible so the
+   #ai-mini child (absolutely positioned within .row.ai) still
+   renders. We re-pin the slots themselves with position:fixed
+   so they're not affected by the row collapse. */
 body.mobile-landscape .row.ai,
 body.mobile-landscape .row.player{
-  overflow: hidden !important;
-  position: relative;
+  height: 0 !important;
   min-height: 0 !important;
+  overflow: visible !important;
+  position: relative;
 }
 body.mobile-landscape .row.flow{
   overflow: visible !important;
   position: relative;
   min-height: 0 !important;
   /* Subtle warm radial backdrop so the market reads as the focal
-     stage, distinct from the slot rows above and below. */
+     stage. */
   background:
     radial-gradient(ellipse at center,
       rgba(198,165,106,.08) 0%,
@@ -580,13 +582,28 @@ body.mobile-landscape .menu-btn{
 body.mobile-landscape .menu-btn .lbl,
 body.mobile-landscape .menu-btn .ver{ display: none !important; }
 
-/* ===== Slot rows ===== */
+/* ===== Slot rows: pinned in the corners below each chip =====
+   Out of the grid flow entirely. Each slot row is 4 small tiles
+   horizontal, 40 wide × 50 tall = ~172 wide total. Player on the
+   left below the player chip; AI on the right below the AI chip. */
 body.mobile-landscape #ai-slots.slot-row,
 body.mobile-landscape #player-slots.slot-row{
+  position: fixed !important;
+  top: 60px !important;          /* below chip (38) + sub-strip (~18) + 4 gap */
   display: flex !important; flex-direction: row;
-  gap: 6px !important;
-  width: 100%; max-width: 100%;
-  justify-content: center; align-items: center;
+  gap: 4px !important;
+  width: auto !important; max-width: none !important;
+  justify-content: flex-start; align-items: center;
+  z-index: 25;
+  margin: 0;
+  padding: 0;
+}
+body.mobile-landscape #player-slots.slot-row{
+  left: 6px !important; right: auto !important;
+}
+body.mobile-landscape #ai-slots.slot-row{
+  right: 6px !important; left: auto !important;
+  flex-direction: row-reverse;    /* glyph slot ends up on the outer (right) edge */
 }
 /* Empty slot: nearly-invisible dashed outline, no fill, no shadow.
    The slot doesn't compete with the flow row when there's no card
@@ -820,19 +837,22 @@ body.mobile-landscape #weaver-backdrop img{
   filter: saturate(.7) brightness(.7);
 }
 
-/* AI mini hand — small strip in the right margin of the AI slot row.
-   The slot row uses justify-content:center, so the right-hand area
-   is empty space we can occupy. */
+/* AI mini hand — pinned to viewport (the .row.ai parent is height:0
+   so absolute positioning is off the table). Sits to the left of
+   the AI slot row in the top-right corner. */
 body.mobile-landscape #ai-mini{
   display: flex !important;
-  position: absolute !important;
-  top: 50%; right: 6px;
+  position: fixed !important;
+  top: 60px;
+  right: calc(6px + 172px + 8px);  /* AI slot row width + gap */
   left: auto !important;
-  transform: translateY(-50%) !important;
+  bottom: auto !important;
+  transform: none !important;
   width: auto !important;
   flex-direction: row;
+  align-items: center;
   gap: 4px;
-  z-index: 8;
+  z-index: 25;
   pointer-events: none;
 }
 body.mobile-landscape .ai-mini-hand{
