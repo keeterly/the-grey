@@ -949,7 +949,7 @@ export function initState(seed) {
     players: {
       player: {
         vitality: STARTING_VITALITY,
-        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0, wards: 0, bonusBuys: 0, pendingBuyAetherBonus: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0, wards: 0, bonusBuys: 0, pendingBuyAetherBonus: 0, tranceI_used: false,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -957,11 +957,11 @@ export function initState(seed) {
           { hasCard:false, card:null, hex:null },
           { isGlyph:true, hasCard:false, card:null, hex:null  },
         ],
-        weaver: { id:"aria", name:"Aria, Runesurge Adept", stage:0, portrait:"./weaver_aria_Portrait.jpg" },
+        weaver: { id:"aria", name:"Aria, Runesurge Adept", school:"grey", stage:0, portrait:"./weaver_aria_Portrait.jpg" },
       },
       ai: {
         vitality: STARTING_VITALITY,
-        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0, wards: 0, bonusBuys: 0, pendingBuyAetherBonus: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0, wards: 0, bonusBuys: 0, pendingBuyAetherBonus: 0, tranceI_used: false,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -969,7 +969,7 @@ export function initState(seed) {
           { hasCard:false, card:null, hex:null },
           { isGlyph:true, hasCard:false, card:null, hex:null  },
         ],
-        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", stage:0, portrait:"./weaver_morr_Portrait.jpg" },
+        weaver: { id:"morr", name:"Morr, Gravecurrent Binder", school:"black", stage:0, portrait:"./weaver_morr_Portrait.jpg" },
       }
     }
   };
@@ -1134,9 +1134,12 @@ export function startTurn(state) {
 
   // v18: reset the per-turn flow purchase counter for the active side
   // so the buy cap (MAX_BUYS_PER_TURN) refreshes each turn.
+  // v22: also reset the once/turn trance trigger flag so abilities like
+  // Morr's Gravecurrent Tithe can fire again this turn.
   const _activeForBuys = state.activePlayer;
   if (state.players?.[_activeForBuys]) {
     state.players[_activeForBuys].purchasesThisTurn = 0;
+    state.players[_activeForBuys].tranceI_used = false;
   }
 
   // Confirm a pending win if it's now the winner's turn to start
@@ -1253,6 +1256,24 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
 
   const before = P.vitality | 0;
   P.vitality = Math.max(0, before - n);
+
+  // v22 — Morr Stage I (Gravecurrent Tithe): when Morr takes damage,
+  // bleed 1 HP back to the attacker AND gain 1 Æ. Once per turn. This
+  // is Morr's Black-school identity: aggression punishes aggression,
+  // and his tithe converts pain into power.
+  const wMorr = P.weaver;
+  const isMorr = wMorr?.id === "morr" && (wMorr.stage | 0) >= 1;
+  const notSelfDamage = meta.source !== "trance-morr-tithe" && meta.source !== "self";
+  if (isMorr && notSelfDamage && !P.tranceI_used) {
+    P.tranceI_used = true;
+    P.aether = (P.aether | 0) + 1;
+    pushEvt(state, { t: "aether", side: targetSide, amount: 1, by: "trance-morr-tithe" });
+    const attacker = otherSide(targetSide);
+    // Recursive call is safe: the attacker isn't Morr (or if they are,
+    // their own tithe already fired or is gated by tranceI_used). Source
+    // tag prevents infinite ping-pong.
+    state = dealDamage(state, attacker, 1, { source: "trance-morr-tithe" });
+  }
   // After dealing damage, check for trance threshold updates
   state = checkTranceThresholds(state, targetSide);
 
@@ -1395,9 +1416,7 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
  let price = FLOW_COSTS[flowIndex] || 0;
   // Morr Stage II: flow costs 1 less (minimum 0)
   const wF = state.players[playerId]?.weaver;
-  if (wF?.id === "morr" && (wF.stage | 0) >= 2) {
-    price = Math.max(0, price - 1);
-  }
+  // v22: removed Morr Stage II buy-discount (was: -1 to flow cost).
   const haveTemp = (P.tempAether | 0);
   const haveReg  = (P.aether | 0);
   if (haveTemp + haveReg < price) throw new Error("Not enough Æ");
@@ -1421,11 +1440,8 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   // Process Kareth spend triggers
   state = processAetherSpend(state, playerId, price);
 
-  // Morr Stage II: after buying, gain 1 Æ
-  if (wF?.id === "morr" && (wF.stage | 0) >= 2) {
-    P.aether = (P.aether | 0) + 1;
-    pushEvt(state, { t:"aether", side: playerId, amount: 1, by: "trance-morr" });
-  }
+  // v22: removed Morr Stage II Flow-buy bonus (was: +1 Æ after buy).
+  // Stage II is now the Last Rites resolve trigger.
 
 
   
@@ -1744,10 +1760,15 @@ export function advanceSpell(
 
 
     // Morr Stage I: gain 1 Æ when a card leaves a slot
-    const w3 = P.weaver;
-    if (w3?.id === "morr" && (w3.stage | 0) >= 1) {
-      P.aether = (P.aether | 0) + 1;
-      pushEvt(state, { t: "aether", side: playerId, amount: 1, by: "trance-morr" });
+    // v22 — Morr Stage II (Last Rites): when one of Morr's Spells
+    // resolves, deal +1 damage and lose 1 HP. Black-school sacrifice:
+    // every casting costs blood and lands harder.
+    const wM = P.weaver;
+    if (wM?.id === "morr" && (wM.stage | 0) >= 2) {
+      const opp = otherSide(playerId);
+      state = dealDamage(state, opp, 1, { source: "trance-morr-rites", cardId: c?.id });
+      state = dealDamage(state, playerId, 1, { source: "self" });
+      pushEvt(state, { t: "trance_fired", side: playerId, by: "trance-morr-rites" });
     }
 
     
@@ -1836,11 +1857,8 @@ export function resolveGlyphFromSlot(state, playerId){
 
   
   // Morr Stage I: gain 1 Æ when a glyph leaves a slot
-  const w = P.weaver;
-  if (w?.id === "morr" && (w.stage | 0) >= 1) {
-    P.aether = (P.aether | 0) + 1;
-    pushEvt(state, { t:"aether", side: playerId, amount: 1, by: "trance-morr" });
-  }
+  // v22: old Morr Stage I "glyph leaves slot → +1 Æ" removed.
+  // Stage I is now the damage-back tithe inside dealDamage.
   
   return state;
 }
