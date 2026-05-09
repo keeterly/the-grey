@@ -565,6 +565,16 @@ function animateDamage(side, amount = 1) {
   setTimeout(() => host.classList.remove('hit'), 320);
   setTimeout(() => host.classList.remove('hit-shake'), 360);
 
+  // v27 — rail-wide red flash. v20 moved HP to the small rail host
+  // so the inner-element flash got tiny and easy to miss. Pulse the
+  // entire rail (full board width) so damage registers viscerally.
+  const rail = document.querySelector(side === 'player' ? '.wincon-rail.wc-player' : '.wincon-rail.wc-ai');
+  if (rail) {
+    rail.classList.add('rail-hit');
+    setTimeout(() => rail.classList.remove('rail-hit'), 360);
+  }
+  try { navigator.vibrate?.(80); } catch {}
+
   // floating “-N” centered above the hearts
   const floater = document.createElement('div');
   floater.className = 'damage-float red';
@@ -613,6 +623,30 @@ function animateDamage(side, amount = 1) {
   }
 }
 
+
+// v27 — heal floater + rail flash. Mirrors animateDamage's lifecycle
+// in green. Triggered by the engine's `heal` events from Mercy of the
+// Flow, Sanctifying Light, Aether Shield. Without this, White school
+// heals were happening silently.
+function animateHeal(side, amount = 1) {
+  const host = heartsHost(side) || document.body;
+  if (!host) return;
+  host.classList.add('healed');
+  setTimeout(() => host.classList.remove('healed'), 360);
+  const rail = document.querySelector(side === 'player' ? '.wincon-rail.wc-player' : '.wincon-rail.wc-ai');
+  if (rail) {
+    rail.classList.add('rail-heal');
+    setTimeout(() => rail.classList.remove('rail-heal'), 480);
+  }
+  // Floating "+N" centered above the rail HP host.
+  const anchor = heartsElFor(side) || host;
+  const floater = document.createElement('div');
+  floater.className = 'heal-float green';
+  floater.textContent = `+${amount|0 || 1}`;
+  anchor.appendChild(floater);
+  floater.addEventListener('animationend', () => floater.remove(), { once:true });
+  try { navigator.vibrate?.([8, 30]); } catch {}
+}
 
 // v16: +X Æ floater — mirrors animateDamage's lifecycle but rises
 // from the chip's aether display in blue. Triggered on
@@ -2151,6 +2185,14 @@ function renderWinconRail(side) {
 // v21: append/update a rail token badge (Ward count, Free Buy count).
 // Idempotent: first call creates the badge, subsequent calls just update
 // the number and visibility. Hidden when count is 0.
+// v27: tooltip strings so the unicode glyphs ⛨ / ◇+ aren't opaque on
+// first sight. Desktop hover shows the title; iOS long-press exposes
+// it via the native context menu; aria-label is consumed by screen
+// readers for accessibility.
+const RAIL_BADGE_TITLES = {
+  ward: 'Ward — absorbs the next damage instance you would take',
+  'free-buy': 'Free Buy — lets you bypass the once-per-turn buy cap',
+};
 function paintRailBadge(hostId, kind, count, glyph) {
   const host = document.getElementById(hostId);
   if (!host) return;
@@ -2159,6 +2201,11 @@ function paintRailBadge(hostId, kind, count, glyph) {
     badge = document.createElement('span');
     badge.className = `wcr-badge b-${kind}`;
     badge.innerHTML = `<span class="b-ico" aria-hidden="true">${glyph}</span><span class="b-n">0</span>`;
+    const title = RAIL_BADGE_TITLES[kind] || '';
+    if (title) {
+      badge.title = title;
+      badge.setAttribute('aria-label', title);
+    }
     host.appendChild(badge);
   }
   badge.classList.toggle('hidden', !count);
@@ -4241,23 +4288,38 @@ function ensureOutcomeOverlay() {
 }
 
 function showOutcome(type, condition) { // type: "win"|"lose", condition: "ruin"|"confluence"|"dominion"
-  const o = ensureOutcomeOverlay();
-  const title = o.querySelector("#outcome-title");
-  title.className = "";
-  title.classList.add(type);
-  title.textContent = type === "win" ? "YOU WIN" : "YOU LOSE";
+  // v27 — fanfare: a 600ms full-screen flash (gold for victory, red
+  // for defeat) precedes the modal so the win/loss has weight rather
+  // than just popping a modal in the player's face.
+  const flashClass = type === 'win' ? 'outcome-flash-victory' : 'outcome-flash-defeat';
+  document.body.classList.add(flashClass);
+  setTimeout(() => document.body.classList.remove(flashClass), 600);
 
-  const flavour = {
-    ruin:        type === "win" ? "by Annihilation"          : "Annihilated",
-    confluence:  type === "win" ? "by Aetherflow Dominance"  : "Aetherflow Claimed",
-    dominion:    type === "win" ? "by Grey Mastery"           : "Grey Mastered",
+  const renderModal = () => {
+    const o = ensureOutcomeOverlay();
+    const title = o.querySelector("#outcome-title");
+    title.className = "";
+    title.classList.add(type);
+    title.textContent = type === "win" ? "YOU WIN" : "YOU LOSE";
+
+    const flavour = {
+      ruin:        type === "win" ? "by Annihilation"          : "Annihilated",
+      confluence:  type === "win" ? "by Aetherflow Dominance"  : "Aetherflow Claimed",
+      dominion:    type === "win" ? "by Grey Mastery"           : "Grey Mastered",
+    };
+    const sub = o.querySelector("#outcome-sub");
+    if (sub) sub.textContent = flavour[condition] || "Tap Retry to start a fresh duel.";
+    o.classList.add("open");
   };
-  const sub = o.querySelector("#outcome-sub");
-  if (sub) sub.textContent = flavour[condition] || "Tap Retry to start a fresh duel.";
-  o.classList.add("open");
+  // Delay the modal so the flash registers before the dialog steals focus.
+  setTimeout(renderModal, 400);
 }
 
 
+// v27 — pending-win banner is now sticky (not auto-hidden after 5s)
+// and triggers a single screen-flash on the transition into the
+// pending state. Auto-clears when a fresh, non-pending render lands.
+let _pendingWinShown = false;
 function showPendingWinBanner(side, condition) {
   let banner = document.getElementById("pending-win-banner");
   if (!banner) {
@@ -4269,7 +4331,21 @@ function showPendingWinBanner(side, condition) {
   const cLabel = condition === 'confluence' ? "Aetherflow Dominance" : "Grey Mastery";
   banner.textContent = `⚠ ${who} will claim ${cLabel} — final turn!`;
   banner.classList.add("show");
-  setTimeout(() => banner.classList.remove("show"), 5000);
+  banner.classList.toggle('threat-from-ai', side !== 'player');
+  // Trigger screen flash only on transitions INTO pending-win, not on
+  // every render call while the banner is up.
+  if (!_pendingWinShown) {
+    _pendingWinShown = true;
+    document.body.classList.add('pending-win-flash');
+    setTimeout(() => document.body.classList.remove('pending-win-flash'), 700);
+  }
+  // Sticky: keep visible until clearPendingWinBanner runs (called from
+  // render when state.pendingWin clears — see below).
+}
+function clearPendingWinBanner() {
+  const banner = document.getElementById("pending-win-banner");
+  if (banner) banner.classList.remove("show");
+  _pendingWinShown = false;
 }
 
 // v20: renderWinTracks deleted. The chip-mounted Confluence/Dominion
@@ -4663,14 +4739,39 @@ async function spotlightFromEvents(state){
           state.reactionWindow = { side, trigger: trig, defender: (side === 'player' ? 0 : 1) };
         }
         if (side === 'ai') {
-          // AI reaction: pick first affordable reaction card and cast it automatically
+          // v27 — AI reaction picker. Was: cast the FIRST affordable reaction
+          // regardless of trigger. Mercy of the Flow's effect handler checks
+          // `trigger === 'damage'`, so a Mercy played on a `spell_cast`
+          // trigger silently no-ops. Now we filter by trigger compatibility
+          // and prioritize within the matching set.
           const hand = state.players?.ai?.hand || [];
-          const reactionCards = hand.filter(c => c.type === 'REACTION' && ((c.playCost ?? c.cost ?? 0) <= getTotal('ai')));
-          if (reactionCards.length > 0) {
-            const card = reactionCards[0];
-            state = await window.castInstantFromHand(state, 'ai', card.id);
+          const aff  = (c) => ((c.playCost ?? c.cost ?? 0) <= getTotal('ai'));
+          const txt  = (c) => String(c?.text || '').toLowerCase();
+          // Trigger-text compatibility:
+          //   damage trigger     → cards mentioning "deals damage" / "take damage"
+          //   spell_cast trigger → cards mentioning "plays a spell"
+          //   spell_advance trig → cards mentioning "advance"
+          const compatibleFor = (c) => {
+            const t = txt(c);
+            if (trig === 'damage')        return /deals\s+damage|take\s+damage|opponent\s+deals/.test(t);
+            if (trig === 'spell_cast')    return /plays?\s+a\s+spell/.test(t);
+            if (trig === 'spell_advance') return /advance/.test(t);
+            return false;
+          };
+          const reactions = hand
+            .filter(c => c.type === 'REACTION' && aff(c) && compatibleFor(c));
+          // Priority: cheaper first (saves Æ for own turn), then by name to
+          // be deterministic across turns. Future: rank by expected value.
+          reactions.sort((a, b) => {
+            const ca = a.playCost ?? a.cost ?? 0;
+            const cb = b.playCost ?? b.cost ?? 0;
+            return ca - cb || String(a.name||'').localeCompare(String(b.name||''));
+          });
+          if (reactions.length > 0) {
+            const card = reactions[0];
+            try { state = await window.castInstantFromHand(state, 'ai', card.id); } catch {}
           }
-          // After AI reacts (or if it cannot), close the reaction window and continue
+          // After AI reacts (or if no compatible card), close the window.
           state.reactionWindow = null;
           closeReactionWindow(true);
         } else if (side === 'player') {
@@ -4887,6 +4988,40 @@ async function spotlightFromEvents(state){
         }
         animateDamage(e.side, e.amount || 1);
         markNewestLostHeartShattered(e.side);
+      }
+
+      // v27 — Heal feedback. Mercy of the Flow + Sanctifying Light +
+      // Aether Shield were healing silently; the engine pushes a
+      // `heal` event but no consumer existed.
+      if (e.t === 'heal' && (e.amount | 0) > 0) {
+        animateHeal(e.side, e.amount | 0);
+      }
+
+      // v27 — Aether-gain pulse. Brief blue glow on the chip's aether
+      // gem when the side gains aether (positive amounts only — paying
+      // a cost emits negative `amount` and we don't want a fake gain).
+      // Skipped during reaction windows to avoid stacking with the
+      // existing animateAetherGain for explicit gains.
+      if (e.t === 'aether' && (e.amount | 0) > 0) {
+        const aeEl = document.getElementById(e.side === 'player' ? 'player-aether' : 'ai-aether');
+        if (aeEl) {
+          aeEl.classList.add('aether-pulse');
+          setTimeout(() => aeEl.classList.remove('aether-pulse'), 520);
+        }
+      }
+
+      // v27 — AI play narration. The Grey event bus already wires
+      // CARD_PLAYED/CARD_SET/CARD_CAST/BUY toasts, but spell-RESOLVE
+      // (when an AI spell finishes its pip count and discharges) and
+      // REACTION resolutions weren't toasted. Add them here so the
+      // player sees every meaningful AI moment, not just plays.
+      if (e.t === 'resolved' && e.side === 'ai') {
+        const cardName = e.cardData?.name || 'a card';
+        if (e.source === 'spell') {
+          aiActionToast(`Opponent resolves ${cardName}`);
+        } else if (e.source === 'reaction') {
+          aiActionToast(`Opponent reacts with ${cardName}`);
+        }
       }
 
       // Reshuffle VFX (discard → deck)
@@ -5530,11 +5665,14 @@ function triggerTranceUnlockMoment(side, lvl){
     `<div class="tt-tier">${sideLabel} · TRANCE ${lvl === 2 ? 'II' : 'I'}</div>` +
     `<div class="tt-name">${tierName}</div>` +
     `<div class="tt-desc">${tierDesc}</div>`;
-  _tranceToastEl.classList.add('show');
+  // v27: top-banner placement (was centered/modal-feeling) + shorter
+  // duration so a clutch trance unlock during the opponent's lethal
+  // turn doesn't cover the play area while damage is incoming.
+  _tranceToastEl.classList.add('show', 'top-banner');
   clearTimeout(_tranceToastTimer);
   _tranceToastTimer = setTimeout(() => {
     _tranceToastEl?.classList.remove('show');
-  }, 2200);
+  }, 1400);
 
   logLine(`✦ ${side} entered TRANCE ${lvl} — ${tierName}`);
 }
@@ -5579,11 +5717,49 @@ function triggerHexAppliedMoment(side, slotIndex){
 }
 
 
+// v27 — turn-transition toast. Diffed against the previous render's
+// activePlayer; on a flip we briefly show a centered banner so the
+// player sees who's acting now. Mobile portrait especially needed
+// this — without a transition signal you can't tell whose turn it
+// is unless you're watching the hand-disabled state.
+let _lastActivePlayer = null;
+function showTurnToast(side) {
+  let el = document.getElementById('turn-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'turn-toast';
+    document.body.appendChild(el);
+  }
+  el.textContent = side === 'player' ? 'Your Turn' : "Opponent's Turn";
+  el.classList.toggle('player', side === 'player');
+  el.classList.toggle('ai', side === 'ai');
+  el.classList.remove('show');
+  // force reflow so the next class add re-runs the transition
+  void el.offsetWidth;
+  el.classList.add('show');
+  clearTimeout(showTurnToast._t);
+  showTurnToast._t = setTimeout(() => el.classList.remove('show'), 700);
+}
+
 async function render(){
   const s = ensureSafetyShape(serializePublic(state) || {});
 
   // Mirror active side onto body so CSS can show/hide slot rows etc.
   document.body.dataset.activeSide = (s.activePlayer === 'ai') ? 'ai' : 'player';
+
+  // v27: announce turn transitions. Skip the very first paint so we
+  // don't toast "Your Turn" before the welcome overlay closes.
+  if (_lastActivePlayer !== null && s.activePlayer !== _lastActivePlayer) {
+    showTurnToast(s.activePlayer);
+  }
+  _lastActivePlayer = s.activePlayer;
+
+  // v27: keep the pending-win banner sticky while a threat is live;
+  // clear it when state.pendingWin transitions away (threat denied,
+  // game ended, etc.).
+  if (!state?.pendingWin && _pendingWinShown) {
+    clearPendingWinBanner();
+  }
 
   // Wire pip click handlers once, after #player-slots exists
   if (!pipUIWired) {
