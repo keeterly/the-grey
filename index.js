@@ -1998,28 +1998,20 @@ function isMobileLandscape(){
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  // Mobile-landscape uses a CSS-driven flex strip — no fan, no rotation,
-  // no absolute positioning. Clear any leftover desktop-fan custom props
-  // so cards render where CSS puts them.
-  if (isMobileLandscape()){
-    cards.forEach((el, i) => {
-      el.style.removeProperty("--tx");
-      el.style.removeProperty("--ty");
-      el.style.removeProperty("--rot");
-      el.style.zIndex = String(400 + i);
-    });
-    return;
-  }
-
-  const MAX_ANGLE = 22;
-  const MIN_ANGLE = 8;
+  // Mobile-landscape uses a tighter fan than desktop (smaller angles
+  // and lift) so cards stay readable in the limited landscape band.
+  const isML = isMobileLandscape();
+  const MAX_ANGLE = isML ? 14 : 22;
+  const MIN_ANGLE = isML ? 4  : 8;
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  const stepX = cw * 0.98;
+  // Tighter overlap on mobile (.78) so wider hands fit without
+  // running off the edges; desktop kept at .98.
+  const stepX = cw * (isML ? 0.78 : 0.98);
   const startX = -stepX * (N-1) / 2;
-  const LIFT = 44;
+  const LIFT = isML ? 14 : 44;
 
   cards.forEach((el,i)=>{
     const a = startA + stepA*i;
