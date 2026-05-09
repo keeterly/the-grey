@@ -4186,6 +4186,12 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
   const layer = ensureCinematicLayer();
   const ghost = makeFloatingCard(cardData);
 
+  // v15: on phones, slow the whole flight so the player can register
+  // what just happened. Desktop stays at 1.0x because the card is
+  // bigger and chains are easier to track.
+  const isMob = isMobileLandscape() || document.body?.classList?.contains('mobile-portrait');
+  const slow = isMob ? 1.6 : 1.0;
+
   const stackKey   = opts.stackKey || null;
   const stackIndex = Number.isFinite(opts.stackIndex) ? (opts.stackIndex|0) : 0;
   const stackDx    = Number.isFinite(opts.stackDx) ? opts.stackDx : 26;
@@ -4227,9 +4233,9 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
     `translate(${(anchorPose.x - (startRect?.x ?? anchorPose.x)) + offsetX}px, ${(anchorPose.y - (startRect?.y ?? anchorPose.y)) + offsetY}px) scale(${baseScale})`;
   ghost.style.opacity = '1';
 
-  await sleep(opts.poseInMs ?? 240);
+  await sleep((opts.poseInMs ?? 240) * slow);
   ghost.classList.add('pose');
-  await sleep(opts.holdMs ?? 360);
+  await sleep((opts.holdMs ?? 360) * slow);
 
   const endX = (destRect?.x ?? anchorPose.x);
   const endY = (destRect?.y ?? anchorPose.y);
@@ -4241,7 +4247,7 @@ async function playCinematic(cardData, startRect, destRect, opts = {}) {
     `translate(${endX - (startRect?.x ?? anchorPose.x)}px, ${endY - (startRect?.y ?? anchorPose.y)}px) scale(${scaleOut})`;
   ghost.style.opacity = '0.001';
 
-  await sleep(opts.outMs ?? 260);
+  await sleep((opts.outMs ?? 260) * slow);
   ghost.remove();
 
   if (opts.stackKey) setTimeout(() => SPOTLIGHT_STACKS.delete(opts.stackKey), 1200);

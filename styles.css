@@ -1138,12 +1138,44 @@ body.mobile-portrait #peek-card.card.peek.show{
 /* On phones cap the cinematic spotlight at a reasonable fraction of
    the viewport (~38% wide) so the played-card hold doesn't fill
    half the screen. JS still applies centerScale (~1.16), so peak
-   render is ~44% wide. */
+   render is ~44% wide.
+
+   v15: also override --card-scale so the card's inner text/icons
+   scale to the cinematic card's actual width instead of inheriting
+   the page-level --card-scale (which is set for slot tiles ~0.5 on
+   phone, making spotlight text half-size). At ~165px wide that's
+   165/150 = 1.1. */
 body.mobile-landscape .cinematic-layer .card,
 body.mobile-portrait  .cinematic-layer .card{
   width: clamp(120px, 38vw, 170px) !important;
   height: auto !important;
   aspect-ratio: 1 / 1.4 !important;
+  --card-scale: 1.1 !important;
+  --card-gem: 24px !important;
+  font-size: calc(1rem * 1.1) !important;
+  /* Stronger spotlight glow so the card reads as the focal moment */
+  box-shadow:
+    0 18px 36px rgba(0,0,0,.7),
+    0 0 28px rgba(198,165,106,.45),
+    0 0 0 1px rgba(198,165,106,.35) inset !important;
+}
+/* Make the rules text itself a bit punchier on mobile spotlight,
+   since these cards hold for ~half a second and the player needs
+   to actually read them. */
+body.mobile-landscape .cinematic-layer .card .title,
+body.mobile-portrait  .cinematic-layer .card .title{
+  font-size: 1.05em !important;
+  font-weight: 700;
+}
+body.mobile-landscape .cinematic-layer .card .textbox,
+body.mobile-portrait  .cinematic-layer .card .textbox{
+  line-height: 1.25 !important;
+  font-size: 0.92em !important;
+}
+body.mobile-landscape .cinematic-layer .card .type,
+body.mobile-portrait  .cinematic-layer .card .type{
+  font-size: 0.85em !important;
+  letter-spacing: .04em;
 }
 
 
