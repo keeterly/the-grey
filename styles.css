@@ -400,12 +400,13 @@ body.mobile-landscape{
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Slot tiles fit a 36px row; flow cards modest height so the flow
-     row stops dominating (user feedback). */
-  --card-w: clamp(38px, 6.6vw, 48px);
-  --card-h: 34px;
-  --flow-card-w: clamp(68px, 10.6vw, 86px);
-  --flow-card-h: 132px;
+  /* Slot tiles fit a 44px row; flow cards capped by the 1fr zone
+     available height so they don't bleed into the slot rows on
+     shorter landscape phones. */
+  --card-w: clamp(40px, 7.0vw, 50px);
+  --card-h: 40px;
+  --flow-card-w: clamp(64px, 10vw, 82px);
+  --flow-card-h: min(122px, calc(100dvh - 308px));
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -417,11 +418,10 @@ body.mobile-landscape{
   --hand-band-h: calc(var(--hand-card-h) + 16px);  /* extra room for the fan's vertical lift */
 }
 
-/* Board grid: thin slot rows (36) + 1fr flow. v9's "slot rows out of
-   the grid into corners" experiment broke the AI mini hand and made
-   the flow row take too much space; reverted. */
+/* Board grid: 44px slot rows (taller so the dashed outlines render
+   visibly, no longer compressed) + 1fr flow. */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 36px minmax(0, 1fr) 36px !important;
+  grid-template-rows: 44px minmax(0, 1fr) 44px !important;
   row-gap: 2px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
@@ -437,9 +437,15 @@ body.mobile-landscape .row.player{
   position: relative;
 }
 body.mobile-landscape .row.flow{
-  overflow: visible !important;
+  /* Clip flow cards to their row so they can't bleed into the slot
+     rows above/below. Pulse halos may get clipped slightly but the
+     readability win is worth it. */
+  overflow: hidden !important;
   position: relative;
   min-height: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
   background:
     radial-gradient(ellipse at center,
       rgba(198,165,106,.08) 0%,
