@@ -393,20 +393,19 @@ html,body{height:100%}
    ========================================================== */
 
 body.mobile-landscape{
-  /* Hand cards: significantly bigger so they read like real cards
-     and the hand feels prominent (Slay the Spire / MTG Arena vibe).
-     Cap matches a 132px-tall card that fills the band cleanly. */
-  --hand-card-w: clamp(80px, 11vw, 100px);
+  /* Hand cards: smaller — the hand is inventory, not the focal point.
+     Was clamp(80,11vw,100); shrunk so the hand band is ~110 instead
+     of ~148, freeing 38 vertical pixels for the field. */
+  --hand-card-w: clamp(60px, 8.4vw, 75px);
   --hand-card-h: calc(var(--hand-card-w) * 1.32);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Slot tiles fit a 44px row; flow cards capped by the 1fr zone
-     available height so they don't bleed into the slot rows on
-     shorter landscape phones. */
-  --card-w: clamp(40px, 7.0vw, 50px);
-  --card-h: 40px;
-  --flow-card-w: clamp(64px, 10vw, 82px);
-  --flow-card-h: min(122px, calc(100dvh - 308px));
+  /* Slot tiles bigger so placed cards are actually readable;
+     slot rows 44 -> 48. Flow cards bigger and more breathing. */
+  --card-w: clamp(44px, 7.6vw, 56px);
+  --card-h: 44px;
+  --flow-card-w: clamp(70px, 11vw, 90px);
+  --flow-card-h: min(144px, calc(100dvh - 270px));
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -414,14 +413,14 @@ body.mobile-landscape{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 60px;                    /* chip 38 + sub-strip ~18 (slot row is in the grid below) */
-  --hand-band-h: calc(var(--hand-card-h) + 16px);  /* extra room for the fan's vertical lift */
+  --top-strip-h: 60px;
+  --hand-band-h: calc(var(--hand-card-h) + 12px);
 }
 
 /* Board grid: 44px slot rows (taller so the dashed outlines render
    visibly, no longer compressed) + 1fr flow. */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 44px minmax(0, 1fr) 44px !important;
+  grid-template-rows: 48px minmax(0, 1fr) 48px !important;
   row-gap: 2px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
