@@ -390,11 +390,19 @@ function applyReactionEffect(state, reactionCard, trigger, context, reactingSide
 // Redesigned for HP 12, 3 Æ/turn economy.
 // Every card effect resolves with the parser.
 // =============================================
+// v21: every card now carries a `school` tag — black (aggression /
+// damage / hex), white (defense / heal / protection / Confluence
+// support), or grey (Aether economy / draw / advance / conversion).
+// The school field is metadata only (the parser ignores it); it
+// drives card-frame tinting and gives players a deckbuilding axis
+// that maps onto the three win conditions: Black→Ruin, White→
+// Confluence, Grey→Dominion. School-pair archetypes (Black+Grey,
+// White+Grey, Black+White) emerge naturally from card combinations.
 const BASE_DECK_LIST = [
   // Spells — play free, advance to resolve
   {
     name: "Pulse of the Grey",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     playCost: 0,
     stepCost: 0,
     pip: 1,
@@ -404,7 +412,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Wisp of Insight",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     playCost: 0,
     stepCost: 0,
     pip: 1,
@@ -414,7 +422,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Ashen Focus",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     playCost: 0,
     stepCost: 1,
     pip: 2,
@@ -424,7 +432,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Wispform Surge",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     playCost: 0,
     stepCost: 1,
     pip: 1,
@@ -434,7 +442,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Dormant Catalyst",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     playCost: 1,
     stepCost: 0,
     pip: 1,
@@ -444,7 +452,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Greyfire Bloom",
-    type: "SPELL",
+    type: "SPELL", school: "black",
     playCost: 1,
     stepCost: 0,
     pip: 1,
@@ -454,7 +462,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Ember Sigil",
-    type: "SPELL",
+    type: "SPELL", school: "black",
     playCost: 0,
     stepCost: 1,
     pip: 2,
@@ -466,7 +474,7 @@ const BASE_DECK_LIST = [
   // Instants — immediate effects
   {
     name: "Surge of Ash",
-    type: "INSTANT",
+    type: "INSTANT", school: "grey",
     playCost: 1,
     pip: 0,
     stepCost: 0,
@@ -476,7 +484,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Veil of Dust",
-    type: "INSTANT",
+    type: "INSTANT", school: "grey",
     playCost: 1,
     pip: 0,
     stepCost: 0,
@@ -488,7 +496,7 @@ const BASE_DECK_LIST = [
   // Glyphs — persistent passives (one slot)
   {
     name: "Glyph of Remnant Light",
-    type: "GLYPH",
+    type: "GLYPH", school: "grey",
     playCost: 0,
     pip: 0,
     stepCost: 0,
@@ -498,7 +506,7 @@ const BASE_DECK_LIST = [
   },
   {
     name: "Glyph of Returning Echo",
-    type: "GLYPH",
+    type: "GLYPH", school: "grey",
     playCost: 0,
     pip: 0,
     stepCost: 0,
@@ -510,7 +518,7 @@ const BASE_DECK_LIST = [
   // Reaction — play on opponent's turn
   {
     name: "Hexing Wisp",
-    type: "REACTION",
+    type: "REACTION", school: "black",
     playCost: 0,
     pip: 0,
     stepCost: 0,
@@ -522,7 +530,7 @@ const BASE_DECK_LIST = [
   // Hex Spell — setup disruption
   {
     name: "Lingering Hex",
-    type: "SPELL",
+    type: "SPELL", school: "black",
     playCost: 1,
     stepCost: 0,
     pip: 1,
@@ -536,15 +544,17 @@ const BASE_DECK_LIST = [
 
 
 
-// ===== Aetherflow Deck (v6) — 18 cards =====
+// ===== Aetherflow Deck (v21) — 26 cards =====
 // All effects work with the live parser. Designed for HP-12 / 3-Æ-per-turn economy.
 // Combo packages: Hex engine · Advance engine · Store-Aether engine · Burst damage
+// v21: + White school (heal / ward / Confluence support) and Grey
+// Confluence enablers (free buys, buy synergies). 8 new cards.
 const AETHERFLOW_LIST = [
 
   // ── Burst / Scaling Damage ────────────────────────────────────
   {
     name: "Aether Burst",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Deal damage equal to your Æ (max 6).",
@@ -553,7 +563,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Scorch the Many",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Deal 4 damage.",
@@ -562,7 +572,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Cyclebreaker Lash",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Deal 3 damage and Steal 2 Æ from opponent.",
@@ -573,7 +583,7 @@ const AETHERFLOW_LIST = [
   // ── Powerful Spells ───────────────────────────────────────────
   {
     name: "Reservoir Titan",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     pip: 2, playCost: 3, stepCost: 1, cost: 3,
     aetherValue: 2,
     text: "On Resolve → Store 4 Aether and Deal 2 damage.",
@@ -582,7 +592,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Echoflame Crusader",
-    type: "SPELL",
+    type: "SPELL", school: "black",
     pip: 2, playCost: 2, stepCost: 1, cost: 2,
     aetherValue: 1,
     text: "On Resolve → Deal 6 damage.",
@@ -591,7 +601,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Flowbinder Wisp",
-    type: "SPELL",
+    type: "SPELL", school: "grey",
     pip: 1, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
     text: "On Resolve → Store 3 Aether and Draw 2 cards.",
@@ -600,7 +610,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Hex Implosion",
-    type: "SPELL",
+    type: "SPELL", school: "black",
     pip: 1, playCost: 2, stepCost: 1, cost: 2,
     aetherValue: 1,
     text: "On Resolve → Deal 2 damage. Reduce target’s Essence by 2.",
@@ -611,7 +621,7 @@ const AETHERFLOW_LIST = [
   // ── Aether Theft ─────────────────────────────────────────────
   {
     name: "Devouring Will",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 3, stepCost: 0, cost: 3,
     aetherValue: 0,
     text: "Steal 5 Æ from opponent.",
@@ -620,7 +630,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Echo Strike",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Deal 2 damage. Advance another Spell.",
@@ -631,7 +641,7 @@ const AETHERFLOW_LIST = [
   // ── Hex Engine ────────────────────────────────────────────────
   {
     name: "Frozen Ember Sigil",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
     text: "Hex an enemy Spell Slot.",
@@ -640,7 +650,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Spite Wisp",
-    type: "REACTION",
+    type: "REACTION", school: "black",
     pip: 0, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
     text: "When opponent plays a Spell → Hex that Spell Slot and Deal 1 damage.",
@@ -649,7 +659,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Creeping Malice",
-    type: "GLYPH",
+    type: "GLYPH", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "When a Spell resolves → Deal 1 damage.",
@@ -660,7 +670,7 @@ const AETHERFLOW_LIST = [
   // ── Advance Engine ────────────────────────────────────────────
   {
     name: "Rhythm of the Ashen Cycle",
-    type: "GLYPH",
+    type: "GLYPH", school: "grey",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "When you Accelerate a Spell → Gain 1 Æ.",
@@ -669,7 +679,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Reversal Surge",
-    type: "INSTANT",
+    type: "INSTANT", school: "grey",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Advance another Spell. Gain 2 Æ and Draw 1 card.",
@@ -680,7 +690,7 @@ const AETHERFLOW_LIST = [
   // ── Utility ───────────────────────────────────────────────────
   {
     name: "Wisp of Purity",
-    type: "INSTANT",
+    type: "INSTANT", school: "white",
     pip: 0, playCost: 1, stepCost: 0, cost: 1,
     aetherValue: 0,
     text: "Remove Hex from all your Spell Slots. Draw 1 card.",
@@ -691,7 +701,7 @@ const AETHERFLOW_LIST = [
   // ── Win Condition Disruption ──────────────────────────────────
   {
     name: "Essence Siphon",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Deal 2 damage. Reduce target’s Essence by 3.",
@@ -700,7 +710,7 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Current Seizure",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 2, stepCost: 0, cost: 2,
     aetherValue: 0,
     text: "Reduce target’s Confluence by 1. Draw 2 cards.",
@@ -709,11 +719,113 @@ const AETHERFLOW_LIST = [
   },
   {
     name: "Grasp of the Grey",
-    type: "INSTANT",
+    type: "INSTANT", school: "black",
     pip: 0, playCost: 3, stepCost: 0, cost: 3,
     aetherValue: 0,
     text: "Deal 4 damage. Reduce target’s Essence by 4.",
     role: "Anti-Dominion Finisher",
+    qty: 1
+  },
+
+  // ── v21: WHITE SCHOOL — defense / heal / Confluence ────────────
+  // Pure heal. Establishes the school's signature: trade tempo for
+  // staying-power. Reusable engine primitive (heal already exists
+  // in parseEffectsFromText / applyParsedEffects).
+  {
+    name: "Sanctifying Light",
+    type: "SPELL", school: "white",
+    pip: 2, playCost: 1, stepCost: 1, cost: 1,
+    aetherValue: 1,
+    text: "On Resolve → Heal 4.",
+    role: "Heal Spell",
+    qty: 1
+  },
+  // One-shot damage prevention. Ward = a token that absorbs the
+  // next instance of damage you would take, then expires.
+  {
+    name: "Wardweaver",
+    type: "SPELL", school: "white",
+    pip: 1, playCost: 0, stepCost: 0, cost: 0,
+    aetherValue: 1,
+    text: "On Resolve → Gain a Ward.",
+    role: "Ward Generator",
+    qty: 1
+  },
+  // Persistent shield glyph. Sets up a Ward each time a spell
+  // resolves; combo with damage-trigger glyphs creates an
+  // attrition wall.
+  {
+    name: "Aegis Glyph",
+    type: "GLYPH", school: "white",
+    pip: 0, playCost: 1, stepCost: 0, cost: 1,
+    aetherValue: 1,
+    text: "When a Spell resolves → Gain a Ward.",
+    role: "Ward Engine",
+    qty: 1
+  },
+  // Reactive heal. Trades the opportunity cost of holding a
+  // Reaction in hand for immediate stabilization. Anti-burst.
+  {
+    name: "Mercy of the Flow",
+    type: "REACTION", school: "white",
+    pip: 0, playCost: 1, stepCost: 0, cost: 1,
+    aetherValue: 0,
+    text: "When opponent deals damage → Heal 2 and Draw 1.",
+    role: "Reactive Heal",
+    qty: 1
+  },
+  // CONFLUENCE ENGINE (white). Bonus Buy bypasses the v18
+  // 1-per-turn cap once. The card itself counts as a buy when
+  // bought (from the Aetherflow market), and when cast lets you
+  // buy a SECOND time the same turn — so leaning into Confluence
+  // becomes a real strategic axis instead of a passive accumulator.
+  {
+    name: "Trade Winds",
+    type: "INSTANT", school: "white",
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
+    aetherValue: 0,
+    text: "Gain a Free Buy.",
+    role: "Confluence Engine",
+    qty: 1
+  },
+  // Persistent buy reward. Triggers via the existing buy glyph
+  // passive ("When you buy a card from Aether Flow → Draw 1").
+  // Means buying isn't just progress toward Confluence — it
+  // actively fuels your hand. White-Confluence anchor.
+  {
+    name: "Library Echo",
+    type: "GLYPH", school: "white",
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
+    aetherValue: 0,
+    text: "When you buy a card from Aether Flow → Draw 1.",
+    role: "Buy Synergy",
+    qty: 1
+  },
+
+  // ── v21: GREY × CONFLUENCE crossover cards ─────────────────────
+  // Grey-flavored Confluence engine. Frees the buy cap on Spell
+  // resolve — combos with the Grey advance engine (resolve faster
+  // → buy more often). Crossover archetype for Grey players who
+  // want a Confluence finisher path.
+  {
+    name: "Convergence Mark",
+    type: "GLYPH", school: "grey",
+    pip: 0, playCost: 2, stepCost: 0, cost: 2,
+    aetherValue: 1,
+    text: "When a Spell resolves → Gain a Free Buy.",
+    role: "Confluence Engine (Grey)",
+    qty: 1
+  },
+  // Grey aether-on-buy. Resolves → next buy gains 3 Æ. Lets
+  // expensive flow purchases self-fund. Pairs with Library Echo
+  // and Trade Winds to build a buy-engine deck.
+  {
+    name: "Aetherwoven Pact",
+    type: "SPELL", school: "grey",
+    pip: 2, playCost: 1, stepCost: 1, cost: 1,
+    aetherValue: 1,
+    text: "On Resolve → Next time you buy a card, Gain 3 Æ.",
+    role: "Buy Ramp",
     qty: 1
   }
 ];
@@ -837,7 +949,7 @@ export function initState(seed) {
     players: {
       player: {
         vitality: STARTING_VITALITY,
-        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0, wards: 0, bonusBuys: 0, pendingBuyAetherBonus: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -849,7 +961,7 @@ export function initState(seed) {
       },
       ai: {
         vitality: STARTING_VITALITY,
-        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0, wards: 0, bonusBuys: 0, pendingBuyAetherBonus: 0,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -1121,16 +1233,24 @@ export function discardForAether(state, playerId, cardId){
 export function dealDamage(state, targetSide, amount = 1, meta = {}) {
   const P = state.players?.[targetSide];
   if (!P) return state;
-  const n = Math.max(0, amount | 0);
+  let n = Math.max(0, amount | 0);
   if (n <= 0) return state;
 
 
  // Trigger reaction window before damage is applied (Aether Shield).
   state = triggerReactionWindow(state, "damage", { targetSide, amount: n, source: meta.source, cardId: meta.cardId });
 
+  // v21 — Ward consumption. One ward absorbs the entire incoming
+  // damage instance (matches Slay-the-Spire-style block where small
+  // hits and big hits are both eaten). If the consumer wants per-
+  // point absorption later we can switch to `n -= used; wards -= used`.
+  if ((P.wards | 0) > 0) {
+    P.wards = Math.max(0, (P.wards | 0) - 1);
+    pushEvt(state, { t: "ward_consumed", side: targetSide, absorbed: n, source: meta.source, cardId: meta.cardId });
+    return state;
+  }
 
 
-  
   const before = P.vitality | 0;
   P.vitality = Math.max(0, before - n);
   // After dealing damage, check for trance threshold updates
@@ -1262,8 +1382,14 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   // v18: enforce per-turn purchase cap. Confluence (buy 5/now 7 cards
   // from the Aether Flow) was the dominant strategy because there was
   // no structural cost to buying multiple times on a single rich turn.
+  // v21: a Bonus Buy token consumes one cap-bypass instead of blocking.
+  let useBonusBuy = false;
   if (((P.purchasesThisTurn | 0) >= MAX_BUYS_PER_TURN)) {
-    throw new Error("Already bought from Aether Flow this turn");
+    if ((P.bonusBuys | 0) > 0) {
+      useBonusBuy = true;
+    } else {
+      throw new Error("Already bought from Aether Flow this turn");
+    }
   }
 
  let price = FLOW_COSTS[flowIndex] || 0;
@@ -1307,8 +1433,23 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   P.flowCardsAcquired = (P.flowCardsAcquired | 0) + 1;
   pushEvt(state, { t: "confluence_gain", side: playerId, total: P.flowCardsAcquired });
 
-  // v18: tick the buy counter so the cap blocks further buys this turn
-  P.purchasesThisTurn = (P.purchasesThisTurn | 0) + 1;
+  // v18: tick the buy counter so the cap blocks further buys this turn.
+  // v21: a Bonus Buy bypass consumes the token instead of incrementing
+  // the counter, so the next buy still works against the cap normally.
+  if (useBonusBuy) {
+    P.bonusBuys = Math.max(0, (P.bonusBuys | 0) - 1);
+    pushEvt(state, { t: "bonus_buy_consumed", side: playerId });
+  } else {
+    P.purchasesThisTurn = (P.purchasesThisTurn | 0) + 1;
+  }
+
+  // v21: pending buy aether bonus (Aetherwoven Pact) — pay out once.
+  if ((P.pendingBuyAetherBonus | 0) > 0) {
+    const bonus = P.pendingBuyAetherBonus | 0;
+    P.aether = (P.aether | 0) + bonus;
+    P.pendingBuyAetherBonus = 0;
+    pushEvt(state, { t: "aether", side: playerId, amount: bonus, by: "pact" });
+  }
 
   // Normal buy event (kept as-is)
   pushEvt(state, {
@@ -1888,6 +2029,22 @@ function parseEffectsFromText(raw) {
   if (/remove hex from (?:all )?your spell slots/i.test(t))
     fx.push({ t: "cleanseHex" });
 
+  // v21 — White school primitives.
+  // Ward: damage-prevention token. Each ward absorbs one instance of
+  // damage. "Gain a Ward" / "Gain N Wards".
+  { const m = t.match(/\bgain\s+(?:a|an|(\d+))\s*wards?\b/i);
+    if (m) fx.push({ t: "ward", n: m[1] ? +m[1] : 1 }); }
+
+  // Bonus Buy: one-shot 1-per-turn-buy-cap bypass. Lets a White or
+  // Grey/Confluence deck make multiple purchases per turn.
+  { const m = t.match(/\bgain\s+(?:a|an|(\d+))\s*free\s*buys?\b/i);
+    if (m) fx.push({ t: "bonusBuy", n: m[1] ? +m[1] : 1 }); }
+
+  // Pending buy aether: "Next time you buy a card, Gain N Æ".
+  // Resolves once on the next purchase from Aetherflow (see buyFromFlow).
+  { const m = t.match(/next\s+time\s+you\s+buy\s+a?\s*card[, ]+gain\s+(\d+)\s*(?:æ|ae|aether)/i);
+    if (m) fx.push({ t: "pendingBuyAether", n: +m[1] }); }
+
   return fx;
 }
 
@@ -2207,6 +2364,36 @@ function applyParsedEffects(state, side, card, opts = {}) {
         }
         break;
       }
+
+      // v21 — White school: ward token. Increments the side's ward
+      // counter; dealDamage will consume one ward before applying
+      // damage. Stacks (N wards absorbs N hits).
+      case "ward":
+        if (e.n > 0) {
+          state.players[side].wards = (state.players[side].wards | 0) + e.n;
+          pushEvt(state, { t: "ward_gained", side, amount: e.n, by: card.id });
+        }
+        break;
+
+      // v21 — White/Grey: bonus-buy token. Lets the player buy from
+      // Aetherflow once even if they're already at the per-turn cap.
+      // Consumed by buyFromFlow.
+      case "bonusBuy":
+        if (e.n > 0) {
+          state.players[side].bonusBuys = (state.players[side].bonusBuys | 0) + e.n;
+          pushEvt(state, { t: "bonus_buy_gained", side, amount: e.n, by: card.id });
+        }
+        break;
+
+      // v21 — Grey: pending Aether bonus on next buy. Resolves on the
+      // next call to buyFromFlow.
+      case "pendingBuyAether":
+        if (e.n > 0) {
+          state.players[side].pendingBuyAetherBonus =
+            (state.players[side].pendingBuyAetherBonus | 0) + e.n;
+          pushEvt(state, { t: "pending_buy_aether", side, amount: e.n, by: card.id });
+        }
+        break;
 
       default: break;
     }
