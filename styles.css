@@ -2905,3 +2905,94 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
   0%   { filter: brightness(1.8) drop-shadow(0 0 10px rgba(255,120,120,.7)); }
   100% { filter: none; }
 }
+
+
+/* ==========================================================
+   v21: SCHOOLS — visual identity for Black / White / Grey
+   - .school-stripe inside every card via cardShellHTML
+   - :has() lets us tint the whole .card frame from the stripe
+   - Rail badges for Ward + Free Buy tokens
+   ========================================================== */
+
+/* Stripe: a thin bar on the LEFT EDGE of every card, full height.
+   Lives inside .card content; CSS pins it absolutely. */
+.card .school-stripe {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 8px 0 0 8px;
+  pointer-events: none;
+  z-index: 2;
+}
+.card .school-stripe.school-black {
+  background: linear-gradient(180deg, #1a0c0c 0%, #5a1a1a 50%, #1a0c0c 100%);
+  box-shadow: inset 1px 0 0 rgba(217,122,122,.35);
+}
+.card .school-stripe.school-white {
+  background: linear-gradient(180deg, #d8c89a 0%, #f3e4b3 50%, #b8a572 100%);
+  box-shadow: inset 1px 0 0 rgba(255,240,200,.55);
+}
+.card .school-stripe.school-grey {
+  background: linear-gradient(180deg, #404048 0%, #707080 50%, #303038 100%);
+  box-shadow: inset 1px 0 0 rgba(180,185,200,.25);
+}
+
+/* Whole-frame subtle tint via :has() — modern browsers support it.
+   We keep the tint small so card text stays readable. */
+.card:has(.school-stripe.school-black) {
+  border-color: rgba(140,40,40,.45);
+  background-image: linear-gradient(180deg, rgba(40,8,8,.18) 0%, transparent 40%);
+}
+.card:has(.school-stripe.school-white) {
+  border-color: rgba(200,180,120,.55);
+  background-image: linear-gradient(180deg, rgba(220,200,140,.10) 0%, transparent 40%);
+}
+.card:has(.school-stripe.school-grey) {
+  border-color: rgba(120,125,140,.45);
+  /* Grey is the neutral default — no tint, lets existing palette dominate. */
+}
+
+/* Rail token badges (Ward, Free Buy). Inline, compact. */
+.wcr-host { position: relative; }
+.wcr-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 8px;
+  background: rgba(20,16,10,.7);
+  border: 1px solid rgba(180,160,100,.5);
+  font-size: .72em;
+  font-weight: 700;
+  color: #e7dcc3;
+  vertical-align: middle;
+  line-height: 1.1;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.wcr-badge.hidden {
+  opacity: 0;
+  transform: scale(.8);
+  pointer-events: none;
+  position: absolute;
+}
+.wcr-badge.b-ward {
+  border-color: rgba(160,200,255,.7);
+  background: rgba(20,30,50,.8);
+  color: #b6d4ff;
+}
+.wcr-badge.b-free-buy {
+  border-color: rgba(160,255,200,.7);
+  background: rgba(20,40,30,.8);
+  color: #aef0c8;
+}
+.wcr-badge .b-ico { font-size: .9em; line-height: 1; }
+.wcr-badge .b-n   { font-variant-numeric: tabular-nums; }
+
+/* Mobile compact — keep the badges from crowding small chips */
+body.mobile-portrait  .wcr-badge,
+body.mobile-landscape .wcr-badge {
+  margin-left: 3px;
+  padding: 0 3px;
+  font-size: .65em;
+}

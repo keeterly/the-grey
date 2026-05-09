@@ -2124,6 +2124,8 @@ function renderWinconRail(side) {
   const hp  = P.vitality | 0;
   const cf  = P.flowCardsAcquired | 0;
   const dom = P.greyEssence | 0;
+  const wards = P.wards | 0;
+  const free  = P.bonusBuys | 0;
   renderHpBar(document.getElementById(`${side}-wcr-hp`), hp, 12);
   renderProgressBar(document.getElementById(`${side}-wcr-cf`), {
     icon: '◇', cur: cf, max: 7, label: 'Confluence',
@@ -2133,11 +2135,35 @@ function renderWinconRail(side) {
     icon: '▲', cur: dom, max: 10, label: 'Dominion',
     kind: 'dom', near: dom >= 8 && dom < 10,
   });
+  // v21: surface Ward + Free Buy tokens as small inline badges on the
+  // rail. Wards sit next to HP (they absorb damage); Free Buys next to
+  // Confluence (they let you bypass the 1-buy-per-turn cap once each).
+  paintRailBadge(`${side}-wcr-hp`, 'ward', wards, '⛨');
+  paintRailBadge(`${side}-wcr-cf`, 'free-buy', free, '◇+');
+
   // Mirror near-state on the rail itself so CSS can pulse the whole bar.
   const rail = document.querySelector(`.wincon-rail.wc-${side}`);
   if (rail) {
     rail.classList.toggle('near', (cf >= 6 && cf < 7) || (dom >= 8 && dom < 10) || (hp <= 1 && hp > 0));
   }
+}
+
+// v21: append/update a rail token badge (Ward count, Free Buy count).
+// Idempotent: first call creates the badge, subsequent calls just update
+// the number and visibility. Hidden when count is 0.
+function paintRailBadge(hostId, kind, count, glyph) {
+  const host = document.getElementById(hostId);
+  if (!host) return;
+  let badge = host.querySelector(`.wcr-badge.b-${kind}`);
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = `wcr-badge b-${kind}`;
+    badge.innerHTML = `<span class="b-ico" aria-hidden="true">${glyph}</span><span class="b-n">0</span>`;
+    host.appendChild(badge);
+  }
+  badge.classList.toggle('hidden', !count);
+  const n = badge.querySelector('.b-n');
+  if (n) n.textContent = String(count);
 }
 
 
@@ -2260,7 +2286,13 @@ const pipDots = `<div class="pip-track">${
   const rulesRaw = withAetherText(cleanRulesText(c.text || ""));
   const rulesForDisplay = resolveTerminologyForDisplay(c, rulesRaw);
 
+  // v21: school marker. Black / White / Grey colour the left edge of
+  // the card so a player can read deck composition at a glance. Default
+  // is grey (the neutral, untaggged look) so legacy cards still render.
+  const school = (c.school || 'grey').toLowerCase();
+
   return `
+    <div class="school-stripe school-${school}" aria-hidden="true"></div>
     <div class="title">${c.name}</div>
     <div class="type" data-k="${c.type||""}">${c.type||""}</div>
     ${playCost !== null ? `<div class="play-cost-badge"><span class="v">${playCost}</span></div>` : ``}
