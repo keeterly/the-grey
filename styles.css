@@ -14,6 +14,7 @@
   --type-spell:#7eb6ff;
   --type-instant:#93d39c;
   --type-glyph:#c7a0ff;
+  --type-reaction:#ff9e8a;  /* v28: REACTION cards had no type-color */
 
   /* Portrait UI */
   --gem-blue:#7eb6ff;
@@ -190,12 +191,21 @@ html,body{height:100%}
   align-items:center;
 }
 .flow-card > .card.market{
- position: relative;   /* you already have this */
-  width: 100%;          /* you already have this */
-  left: 0;              /* override base .card left:50% */
-  top: 0;               /* override any offset */
+ position: relative;
+  width: 100%;
+  left: 0;
+  top: 0;
   transform: none;      /* turn off the hand fanning transform */
-  margin: 0 auto;       /* keep it centered within the li, if desired */
+  margin: 0 auto;
+  /* v28: market cards looked dimmer than hand cards — same .card
+     base, but they sit on a darker market backdrop and lack the
+     hover/focus cues that brighten hand cards. Lift them with a
+     warmer top highlight and a deeper drop shadow so they read
+     as "available to buy", not "in the discard pile". */
+  background: linear-gradient(180deg, #3a2f24, #211b15);
+  box-shadow:
+    0 16px 28px rgba(0,0,0,.7),
+    inset 0 1px 0 rgba(255,235,200,.08);
 }
 .price-label{
   position:absolute;
@@ -260,13 +270,33 @@ html,body{height:100%}
   transform:translate(var(--tx,0), var(--ty,0)) rotate(var(--rot,0deg)) translateY(-20px) scale(1.07);
 }
 
-/* Header */
-.card .title{padding:calc(10px * var(--card-scale)) calc(12px * var(--card-scale)) calc(2px * var(--card-scale)) calc(12px * var(--card-scale)); font-weight:600; font-size:.95em}
-/* SCALE the type line with card size (replace your .card .type rule) */
+/* Header — v28: title now uses clamp() so long names like
+   "Glyph of Remnant Light" or "Convergence Mark" auto-shrink instead
+   of wrapping to 2 lines and squeezing the textbox below. text-wrap:
+   balance gives nicer line breaks when wrapping does happen. */
+.card .title{
+  padding: calc(8px * var(--card-scale)) calc(12px * var(--card-scale))
+           calc(2px * var(--card-scale)) calc(12px * var(--card-scale));
+  font-weight:700;
+  font-size: clamp(.78em, .95em, 1em);
+  line-height: 1.08;
+  text-wrap: balance;
+  hyphens: auto;
+  /* Cap to 2 lines max; longer names get clipped with ellipsis. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* v28: type label bolder + slightly larger so SPELL/INSTANT/GLYPH/
+   REACTION reads at a glance. Letter-spacing bumps the uppercase
+   letters apart for better legibility on small cards. */
 .card .type{
-  opacity:.9;
+  opacity:.95;
   padding:0 calc(12px * var(--card-scale));
-  font-size: calc(.81rem * var(--card-scale));
+  font-size: calc(.78rem * var(--card-scale));
+  font-weight: 700;
+  letter-spacing: .08em;
 }
 
 /* Filled pip style (new) */
@@ -281,6 +311,7 @@ html,body{height:100%}
 .card .type[data-k="SPELL"]{color:var(--type-spell)}
 .card .type[data-k="INSTANT"]{color:var(--type-instant)}
 .card .type[data-k="GLYPH"]{color:var(--type-glyph)}
+.card .type[data-k="REACTION"]{color:var(--type-reaction)} /* v28 */
 
 /* Divider */
 .card .divider{height:1px; margin:calc(6px * var(--card-scale)) calc(10px * var(--card-scale)) 0 calc(10px * var(--card-scale)); opacity:.35; background:linear-gradient(90deg, transparent, #b6a98e55, transparent);}
@@ -294,14 +325,19 @@ html,body{height:100%}
 /* Rules text */
 .card .textbox{flex:1; padding:calc(8px * var(--card-scale)) calc(12px * var(--card-scale)) calc(48px * var(--card-scale)) calc(12px * var(--card-scale)); opacity:.92; line-height:1.2}
 
-/* Play cost */
+/* Play cost — v28: brighter gold gradient + subtle outer ring so the
+   cost number reads instantly on small cards. Was a flat #c6a56a. */
 .card .play-cost-badge{
   position:absolute; top:calc(8px * var(--card-scale)); right:calc(8px * var(--card-scale));
   width:calc(23px * var(--card-scale)); height:calc(23px * var(--card-scale)); border-radius:999px;
-  background:#c6a56a; color:#0d0a07; display:flex; align-items:center; justify-content:center;
+  background: radial-gradient(circle at 30% 30%, #e8c780 0%, #c6a56a 55%, #9a7d4a 100%);
+  color:#0d0a07; display:flex; align-items:center; justify-content:center;
   font-weight:900; z-index:4;
-  box-shadow:0 2px 6px rgba(0,0,0,.45), inset 0 -1px 0 rgba(0,0,0,.25);
-  text-shadow:0 1px 0 rgba(255,255,255,.35);
+  box-shadow:
+    0 2px 8px rgba(0,0,0,.5),
+    inset 0 -1px 0 rgba(0,0,0,.3),
+    0 0 0 1px rgba(255,224,160,.55);
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
 }
 .card .play-cost-badge .v{ font-size:calc(1.25rem * var(--card-scale)); line-height:1; font-weight:900 }
 
@@ -2945,6 +2981,16 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
   border-color: rgba(124, 136, 152, .80) !important;
 }
 
+/* v28: when a card is INSIDE a .slot, mute its own school ring —
+   the slot already paints the school colour (v26) and double-painting
+   creates a thick chunky band that competes with the card title.
+   The slot ring becomes the school identity; the card frame goes
+   neutral so the textbox can breathe. */
+.slot[data-school] .card {
+  box-shadow: 0 14px 24px #000 !important;
+  border-color: #5a4b37 !important;
+}
+
 /* Rail token badges (Ward, Free Buy). Inline, compact. */
 .wcr-host { position: relative; }
 .wcr-badge {
@@ -3255,16 +3301,16 @@ body.pending-win-flash {
   100% { background: inherit; }
 }
 /* Sticky banner styling — stronger than the v17 default so it doesn't
-   blend into the board chrome. Breathes while visible. */
+   blend into the board chrome. v28: breathing animation toned WAY
+   down — was 1.6s glow pulse that demanded attention even after the
+   warning was acknowledged. Now a calm static red border with a
+   soft outer glow; the one-shot screen flash on entry (v27) carries
+   the alarm, the banner just sits there as a reminder. */
 #pending-win-banner.show {
   border: 2px solid #d04040;
   font-weight: 800;
   letter-spacing: .04em;
-  animation: pending-banner-breathe 1.6s ease-in-out infinite;
-}
-@keyframes pending-banner-breathe {
-  0%, 100% { box-shadow: 0 0 0 2px rgba(208,64,64,.25), 0 8px 22px rgba(0,0,0,.55); }
-  50%      { box-shadow: 0 0 0 6px rgba(208,64,64,.12), 0 10px 26px rgba(0,0,0,.55); }
+  box-shadow: 0 0 0 2px rgba(208,64,64,.18), 0 8px 22px rgba(0,0,0,.55);
 }
 
 /* Trance toast top-banner placement (was centered modal-feel). The
@@ -3295,4 +3341,59 @@ body.outcome-flash-defeat {
   0%   { background: rgba(180, 30, 30, .85); }
   60%  { background: rgba(180, 30, 30, .25); }
   100% { background: inherit; }
+}
+
+
+/* ==========================================================
+   v28: animation polish + transitions
+   - Hand cards smoothly re-fan when count changes (was hard-cut)
+   - Slot-place anim when a card lands in a spell/glyph slot
+   - Smoother peek scale-in
+   ========================================================== */
+
+/* Hand re-fan — animate the per-card transform vars (--tx, --ty,
+   --rot) so when a card is played/discarded and the hand re-lays out,
+   neighbouring cards drift to their new positions instead of jumping.
+   Skipped during the .deal-in animation so it doesn't fight initial
+   draw motion. */
+.hand .card {
+  transition:
+    transform .22s cubic-bezier(.2,.8,.2,1),
+    opacity .14s ease,
+    z-index 0s;
+}
+.hand.dealing .card {
+  /* during initial deal-in, let the @keyframes own the motion */
+  transition: opacity .14s ease, z-index 0s;
+}
+
+/* Slot-place anim — when a card first appears inside a .slot, briefly
+   scale it up + settle. Triggers via CSS animation on the article.card
+   nodes inside .slot.has-card. */
+@keyframes slotPlaceIn {
+  0%   { opacity: 0; transform: scale(.85); }
+  60%  { opacity: 1; transform: scale(1.04); }
+  100% { opacity: 1; transform: scale(1.00); }
+}
+.slot.has-card > .card {
+  animation: slotPlaceIn .28s cubic-bezier(.2,.8,.2,1) both;
+}
+/* Glyph slot uses its own flip scaffold; suppress the place-in there
+   so the flip animation owns the motion. */
+.slot.glyph .glyph-holder .card {
+  animation: none;
+}
+
+/* Smoother peek scale-in (was .16s linear; now eased). */
+body.mobile-landscape #peek-card.card.peek,
+body.mobile-portrait #peek-card.card.peek {
+  transition: opacity .18s cubic-bezier(.2,.8,.2,1),
+              transform .22s cubic-bezier(.2,.8,.2,1) !important;
+}
+
+/* Aetherflow: smoother slide-right when a card is bought + flow
+   advances. Was an instant DOM rewrite; now the surviving cards
+   transition. */
+.flow-row .flow-card {
+  transition: transform .26s cubic-bezier(.2,.8,.2,1);
 }
