@@ -364,6 +364,37 @@ function applyReactionEffect(state, reactionCard, trigger, context, reactingSide
       });
     }
   }
+  // v26: Spite Wisp — when opponent plays a Spell, Hex that Spell Slot
+  // AND deal 1 damage to the caster. Reuses the Hexing Wisp pathway
+  // for the hex half so behaviour stays consistent with the base card.
+  else if (reactionCard?.name === 'Spite Wisp' &&
+           trigger === 'spell_cast' &&
+           context?.cardId) {
+    const casterSide    = context.playerId;
+    const opponentSlots = state.players?.[casterSide]?.slots || [];
+    for (let i = 0; i < opponentSlots.length; i++) {
+      const slot = opponentSlots[i];
+      const c    = slot?.card;
+      if (slot?.hasCard && c?.id === context.cardId && c?.type === "SPELL") {
+        state = applyHexToSlot(state, reactingSide, casterSide, i, /*durationTurns=*/2);
+        break;
+      }
+    }
+    state = dealDamage(state, casterSide, 1, { source: "reaction", cardId: reactionCard?.id });
+  }
+  // v26: Mercy of the Flow — when opponent deals damage, heal 2 + draw 1.
+  // White school's defining reactive defense card; broken since v21
+  // because applyReactionEffect dispatches on hardcoded card name.
+  else if (reactionCard?.name === 'Mercy of the Flow' && trigger === 'damage') {
+    const P = state.players?.[reactingSide];
+    if (P) {
+      const maxVitality = typeof STARTING_VITALITY !== 'undefined' ? STARTING_VITALITY : 12;
+      P.vitality = Math.min(maxVitality, (P.vitality | 0) + 2);
+      pushEvt(state, { t: 'heal', side: reactingSide, amount: 2, by: reactionCard?.id });
+      state = drawN(state, reactingSide, 1);
+      pushEvt(state, { t: 'draw', side: reactingSide, amount: 1, by: reactionCard?.id });
+    }
+  }
   return state;
 }
 
@@ -1245,9 +1276,12 @@ export function dealDamage(state, targetSide, amount = 1, meta = {}) {
 
   // v21 — Ward consumption. One ward absorbs the entire incoming
   // damage instance (matches Slay-the-Spire-style block where small
-  // hits and big hits are both eaten). If the consumer wants per-
-  // point absorption later we can switch to `n -= used; wards -= used`.
-  if ((P.wards | 0) > 0) {
+  // hits and big hits are both eaten).
+  // v26: self-sourced damage (Morr's Last Rites sacrifice, future
+  // "lose N vitality" effects) bypasses wards. A ward is defence
+  // against the opponent, not a free pass on your own ritual cost.
+  const isSelfSource = meta.source === "self";
+  if (!isSelfSource && (P.wards | 0) > 0) {
     P.wards = Math.max(0, (P.wards | 0) - 1);
     pushEvt(state, { t: "ward_consumed", side: targetSide, absorbed: n, source: meta.source, cardId: meta.cardId });
     return state;
@@ -2085,6 +2119,22 @@ function applyGlyphPassives(state, side, trigger){
     const mDmg = text.match(/when\s+a\s+spell\s+resolves?\s*→?\s*deal\s+(\d+)\s+damage/);
     if (mDmg) {
       state = dealDamage(state, otherSide(side), +mDmg[1], { source: "glyph", cardId: slot.card?.id });
+      fired = true;
+    }
+    // v26: "When a Spell resolves → Gain a Ward" (Aegis Glyph). The v21
+    // parser handles "Gain a Ward" on plain card text (instants/spells
+    // resolving via applyParsedEffects), but the glyph-passive trigger
+    // path doesn't go through applyParsedEffects — it pattern-matches
+    // here, so each new outcome needs its own arm.
+    if (/when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+(?:a|an|\d+)\s*wards?/.test(text)) {
+      state.players[side].wards = (state.players[side].wards | 0) + 1;
+      pushEvt(state, { t: "ward_gained", side, amount: 1, by: slot.card?.id });
+      fired = true;
+    }
+    // v26: "When a Spell resolves → Gain a Free Buy" (Convergence Mark).
+    if (/when\s+a\s+spell\s+resolves?\s*→?\s*gain\s+(?:a|an|\d+)\s*free\s*buys?/.test(text)) {
+      state.players[side].bonusBuys = (state.players[side].bonusBuys | 0) + 1;
+      pushEvt(state, { t: "bonus_buy_gained", side, amount: 1, by: slot.card?.id });
       fired = true;
     }
   }
