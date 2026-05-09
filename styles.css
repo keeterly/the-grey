@@ -2916,40 +2916,43 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
 
 /* Stripe: a thin bar on the LEFT EDGE of every card, full height.
    Lives inside .card content; CSS pins it absolutely. */
+/* v23: stripe bumped 4px → 7px and given a soft outward glow so the
+   school identity reads even on shrunken hand cards. */
 .card .school-stripe {
   position: absolute;
   left: 0; top: 0; bottom: 0;
-  width: 4px;
+  width: 7px;
   border-radius: 8px 0 0 8px;
   pointer-events: none;
   z-index: 2;
 }
 .card .school-stripe.school-black {
-  background: linear-gradient(180deg, #1a0c0c 0%, #5a1a1a 50%, #1a0c0c 100%);
-  box-shadow: inset 1px 0 0 rgba(217,122,122,.35);
+  background: linear-gradient(180deg, #2a0a0a 0%, #8a2a2a 50%, #2a0a0a 100%);
+  box-shadow: inset 1px 0 0 rgba(255,140,140,.55), 1px 0 6px rgba(180,40,40,.4);
 }
 .card .school-stripe.school-white {
-  background: linear-gradient(180deg, #d8c89a 0%, #f3e4b3 50%, #b8a572 100%);
-  box-shadow: inset 1px 0 0 rgba(255,240,200,.55);
+  background: linear-gradient(180deg, #c8b478 0%, #f5e6b8 50%, #a89460 100%);
+  box-shadow: inset 1px 0 0 rgba(255,240,200,.75), 1px 0 6px rgba(220,200,140,.45);
 }
 .card .school-stripe.school-grey {
-  background: linear-gradient(180deg, #404048 0%, #707080 50%, #303038 100%);
-  box-shadow: inset 1px 0 0 rgba(180,185,200,.25);
+  background: linear-gradient(180deg, #4a4a52 0%, #8a8a96 50%, #383840 100%);
+  box-shadow: inset 1px 0 0 rgba(200,205,220,.45), 1px 0 4px rgba(140,145,160,.3);
 }
 
-/* Whole-frame subtle tint via :has() — modern browsers support it.
-   We keep the tint small so card text stays readable. */
+/* Whole-frame tint via :has() — pulls the school colour into the card
+   border + a faint top-edge gradient so the colour reads even when
+   the stripe itself is partially covered by adjacent cards in hand. */
 .card:has(.school-stripe.school-black) {
-  border-color: rgba(140,40,40,.45);
-  background-image: linear-gradient(180deg, rgba(40,8,8,.18) 0%, transparent 40%);
+  border-color: rgba(180,60,60,.7) !important;
+  background-image: linear-gradient(180deg, rgba(60,12,12,.28) 0%, transparent 50%);
 }
 .card:has(.school-stripe.school-white) {
-  border-color: rgba(200,180,120,.55);
-  background-image: linear-gradient(180deg, rgba(220,200,140,.10) 0%, transparent 40%);
+  border-color: rgba(220,200,130,.75) !important;
+  background-image: linear-gradient(180deg, rgba(230,210,150,.18) 0%, transparent 50%);
 }
 .card:has(.school-stripe.school-grey) {
-  border-color: rgba(120,125,140,.45);
-  /* Grey is the neutral default — no tint, lets existing palette dominate. */
+  border-color: rgba(150,155,170,.55);
+  /* Grey is the neutral default — no surface tint, lets existing palette dominate. */
 }
 
 /* Rail token badges (Ward, Free Buy). Inline, compact. */

@@ -4377,26 +4377,47 @@ function ensureRightHudStrip() {
   if (!strip) {
     strip = document.createElement('div');
     strip.id = id;
-    Object.assign(strip.style, {
-      position: 'fixed',
-      right: '16px',
-      bottom: '16px',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px',
-      zIndex: '1200',
-    });
     document.body.appendChild(strip);
   }
 
-  // desired order top→bottom
+  // v23: layout responds to body.mobile-portrait. v22 added CSS rules
+  // for a top-right horizontal cluster, but this function had been
+  // pinning the strip at bottom-right with inline styles, overriding
+  // them. Now we apply per-orientation inline styles so the strip
+  // moves to the top-right on portrait phones (where it had been
+  // overlapping the rightmost flow card and the player glyph slot).
+  const isPortrait = document.body.classList.contains('mobile-portrait');
+  Object.assign(strip.style, isPortrait ? {
+    position: 'fixed',
+    top: '6px',
+    right: '6px',
+    bottom: 'auto',
+    left: 'auto',
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '6px',
+    zIndex: '1200',
+  } : {
+    position: 'fixed',
+    top: 'auto',
+    right: '16px',
+    bottom: '16px',
+    left: 'auto',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '10px',
+    zIndex: '1200',
+  });
+
   const order = ['btn-endturn-hud', 'btn-discard-hud', 'btn-deck-hud'];
 
   order.forEach(btnId => {
     const n = document.getElementById(btnId);
     if (!n) return;
 
-    // hard reset any legacy positioning so the flex strip controls layout
+    // Hard-reset legacy positioning so the strip's flex layout controls it.
+    // End Turn stays slightly larger as the most-tapped action.
+    const isEndTurn = btnId === 'btn-endturn-hud';
     Object.assign(n.style, {
       position: 'static',
       top: '', right: '', bottom: '', left: '',
@@ -4404,9 +4425,9 @@ function ensureRightHudStrip() {
       transform: 'none',
       display: 'grid',
       placeItems: 'center',
-      width: '52px',
-      height: '52px',
-      borderRadius: '12px',
+      borderRadius: isPortrait ? '10px' : '12px',
+      width:  isPortrait ? (isEndTurn ? '48px' : '36px') : '52px',
+      height: isPortrait ? '36px' : '52px',
       pointerEvents: 'auto'
     });
 
