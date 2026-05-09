@@ -1450,6 +1450,24 @@ Grey?.on?.('spotlight:cine', async ({ node, to, pose, slotIndex, cardId }) => {
 
     await playCinematic(data, startRect, destRect, { centerScale: 1.16, holdMs: 300, outMs: 260 });
 
+    // v13: card-play impact at destination — pulse + scale + colored
+    // glow keyed to card type so spells / instants / glyphs feel
+    // distinct on landing (MTGA-ish).
+    if (pose === 'play-spell' && Number.isFinite(slotIndex)){
+      const aiMini = document.getElementById('ai-mini');
+      const fromIsAI = !!(node.closest?.('.row.ai') || (aiMini && aiMini.contains(node)));
+      const rowSel = fromIsAI ? '.row.ai' : '.row.player';
+      const dest = document.querySelector(`${rowSel} .slot.spell[data-slot-index="${slotIndex}"]`);
+      if (dest){
+        dest.dataset.impactType = (data?.type || 'SPELL').toLowerCase();
+        dest.classList.remove('cast-impact');
+        // force reflow so the animation restarts even on rapid re-plays
+        void dest.offsetWidth;
+        dest.classList.add('cast-impact');
+        setTimeout(() => dest.classList.remove('cast-impact'), 700);
+      }
+    }
+
     // if the node still exists (wasn't removed by render), unhide it
     if (document.body.contains(node)) node.classList.remove('grey-hide-during-flight');
   } catch {}
@@ -5095,6 +5113,9 @@ let pipUIWired = false;
 
 async function render(){
   const s = ensureSafetyShape(serializePublic(state) || {});
+
+  // Mirror active side onto body so CSS can show/hide slot rows etc.
+  document.body.dataset.activeSide = (s.activePlayer === 'ai') ? 'ai' : 'player';
 
   // Wire pip click handlers once, after #player-slots exists
   if (!pipUIWired) {
