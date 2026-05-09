@@ -2365,7 +2365,10 @@ function fillCardShell(div, data){ if (div) div.innerHTML = cardShellHTML(data);
 
 /* centered hover + press-and-hhold preview */
 let longPressTimer=null, pressStart={x:0,y:0};
-const LONG_PRESS_MS=500, MOVE_CANCEL_PX=8;
+// v30: tightened from 500→320ms so peek actually feels responsive. The
+// MOVE_CANCEL_PX bumped 8→14 so a slight finger drift while reading
+// doesn't kill the peek prematurely.
+const LONG_PRESS_MS=320, MOVE_CANCEL_PX=14;
 
 // v19: expose so the drag handler can suppress peek the moment a
 // drag-eligible touch lands. Without this, a 350-500ms hold would
@@ -3540,9 +3543,18 @@ async function renderFlow(flowArray){
 
         const boughtId = c?.id || null;
 
+        // v30: ensure peek is dismissed before a buy fires. If the user
+        // pressed-and-held (peek opened, body.peek-open dimmed) and
+        // then released to buy, the dim could linger because the click
+        // path didn't cancel it. The whole screen looked grey-ghosted
+        // — that was the "buy glitch."
+        try { cancelPeek(); } catch {}
+
         // visually disable the cell immediately
         li.style.pointerEvents = "none";
-        li.style.opacity = "0.25";
+        // v30: 0.25 → 0.5 so the bought card is faded but still
+        // visible during the brief flight animation, not invisible.
+        li.style.opacity = "0.5";
 
         const basePrice = FLOW_PRICE_BY_POS[idx] || 0;
         const price = effectiveFlowPrice('player', basePrice);

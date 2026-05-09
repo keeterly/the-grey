@@ -2984,20 +2984,30 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
    colour all the way around the card. Stacks BEFORE the existing
    drop-shadow (0 14px 24px #000) so elevation is preserved.
    Border-color also bumps to match for the outermost 1px line. */
+/* v25/v30: school identity = inset coloured border. v30 boosted alpha
+   to 1.0 + added a 1px inner cream-coloured stroke between the card
+   body and the school colour so the three schools read distinctly
+   even on a dark card background where they were blending. */
 .card:has(.school-stripe.school-black) {
-  box-shadow: inset 0 0 0 3px rgba(168, 50, 50, .92),
-              0 14px 24px #000 !important;
-  border-color: rgba(168, 50, 50, .92) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,210,210,.35),
+    inset 0 0 0 4px #c8302a,
+    0 14px 24px #000 !important;
+  border-color: #c8302a !important;
 }
 .card:has(.school-stripe.school-white) {
-  box-shadow: inset 0 0 0 3px rgba(214, 185, 102, .92),
-              0 14px 24px #000 !important;
-  border-color: rgba(214, 185, 102, .92) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(255,250,235,.55),
+    inset 0 0 0 4px #f0d97a,
+    0 14px 24px #000 !important;
+  border-color: #f0d97a !important;
 }
 .card:has(.school-stripe.school-grey) {
-  box-shadow: inset 0 0 0 3px rgba(124, 136, 152, .80),
-              0 14px 24px #000 !important;
-  border-color: rgba(124, 136, 152, .80) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(220,228,240,.30),
+    inset 0 0 0 4px #8da4c0,
+    0 14px 24px #000 !important;
+  border-color: #8da4c0 !important;
 }
 
 /* v28: when a card is INSIDE a .slot, mute its own school ring —
@@ -3188,17 +3198,25 @@ body.mobile-landscape #peek-card.card.peek {
    ring on the slot itself once a card lands).
    ========================================================== */
 
+/* v30: slot ring matches v30 card colours so school identity is
+   consistent inside slots and in hand. */
 .slot[data-school="black"] {
-  box-shadow: inset 0 0 0 3px rgba(168, 50, 50, .92);
-  border-color: rgba(168, 50, 50, .92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,210,210,.35),
+    inset 0 0 0 4px #c8302a;
+  border-color: #c8302a;
 }
 .slot[data-school="white"] {
-  box-shadow: inset 0 0 0 3px rgba(214, 185, 102, .92);
-  border-color: rgba(214, 185, 102, .92);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,250,235,.55),
+    inset 0 0 0 4px #f0d97a;
+  border-color: #f0d97a;
 }
 .slot[data-school="grey"] {
-  box-shadow: inset 0 0 0 3px rgba(124, 136, 152, .80);
-  border-color: rgba(124, 136, 152, .80);
+  box-shadow:
+    inset 0 0 0 1px rgba(220,228,240,.30),
+    inset 0 0 0 4px #8da4c0;
+  border-color: #8da4c0;
 }
 
 
@@ -3483,4 +3501,99 @@ body.pending-win-active .row.flow::after {
   text-shadow: 0 1px 4px #000;
   pointer-events: none;
   white-space: nowrap;
+}
+
+
+/* ==========================================================
+   v30: focus visibility + HUD shrink + dim tone-down +
+        portrait dead space
+   ========================================================== */
+
+/* v30 — portrait tap-focus lift. The v17 .is-focus rule lived only
+   inside body.mobile-landscape; tapping a hand card on portrait
+   set the class but no visual change happened, so the focused card
+   sat behind its own action popover. Now: lift + scale + golden
+   glow outline + raised z-index so the player can clearly see
+   which card they're acting on. */
+body.mobile-portrait .hand .card.is-focus,
+.hand .card.is-focus {
+  transform:
+    translate(var(--tx,0), calc(var(--ty,0px) - 36px))
+    rotate(var(--rot,0deg))
+    scale(1.10) !important;
+  box-shadow:
+    0 0 0 2px rgba(255,224,160,.85),
+    0 22px 32px rgba(0,0,0,.7) !important;
+  z-index: 5000 !important;
+}
+
+/* v30 — action popover slimmer. Was min(360px, 80vw) → felt huge
+   on portrait. Now 280px max so it rides above the focused card
+   without spanning over neighbours. Padding tightened. */
+body.mobile-portrait .action-pop,
+body.mobile-landscape .action-pop {
+  width: min(280px, 78vw) !important;
+  padding: 8px 10px !important;
+  gap: 8px !important;
+}
+body.mobile-portrait .action-pop .rune-btn,
+body.mobile-landscape .action-pop .rune-btn {
+  padding: 8px 12px !important;
+  font-size: .9rem !important;
+  min-height: 38px !important;
+}
+
+/* v30 — HUD shrink + reposition. The 36px-square top-right buttons
+   were cutting into the rightmost flow card on portrait. Drop to
+   28px and make them low-opacity until tapped so they recede when
+   the player isn't looking for them. */
+body.mobile-portrait #hud-right-strip {
+  gap: 4px !important;
+}
+body.mobile-portrait .hud-btn {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 8px !important;
+  font-size: 11px !important;
+  opacity: .55;
+  transition: opacity .14s ease;
+}
+body.mobile-portrait .hud-btn:hover,
+body.mobile-portrait .hud-btn:focus,
+body.mobile-portrait .hud-btn:active {
+  opacity: 1;
+}
+/* End-Turn stays a touch larger + always-bright since it's the
+   most-tapped action. */
+body.mobile-portrait #btn-endturn-hud {
+  width: 40px !important;
+  height: 28px !important;
+  opacity: 1 !important;
+  font-size: 14px !important;
+}
+
+/* v30 — buy-cap dim toned down. v18's .42 opacity + grayscale .3
+   read as "the screen is broken." Now .68 + a softer grayscale so
+   the player still sees the market clearly while the buy-this-turn
+   indicator sits on the rail's `✓` badge. */
+body.player-already-bought .row.flow .flow-card,
+body.player-already-bought .row.flow .card.market {
+  opacity: .68 !important;
+  filter: grayscale(.18) !important;
+}
+
+/* v30 — portrait dead-space tighten. The 5-row grid had ~14px row-
+   gaps that left visible empty bands between rails and slot rows.
+   Pull them in tighter; the player's eye now flows AI → AI rail →
+   market → player rail → player without a void in between. */
+body.mobile-portrait #board-grid.grid {
+  row-gap: 6px !important;
+}
+body.mobile-portrait .row.ai,
+body.mobile-portrait .row.player {
+  --slot-row-h: 92px;
+  gap: 6px !important;
+}
+body.mobile-portrait .wincon-rail {
+  padding: 2px 8px !important;
 }
