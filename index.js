@@ -608,6 +608,26 @@ function animateDamage(side, amount = 1) {
 }
 
 
+// v16: +X Æ floater — mirrors animateDamage's lifecycle but rises
+// from the chip's aether display in blue. Triggered on
+// Events.AETHER_GAIN (channel rewards, Morr L1, Enoch L1, Veyra I,
+// flow buy resolution).
+function animateAetherGain(side, amount /*, source */) {
+  const n = amount | 0;
+  if (!n) return;
+  const aetherEl = document.getElementById(side === 'player' ? 'player-aether' : 'ai-aether');
+  const host = aetherEl?.closest('.portrait') || document.body;
+  if (!host) return;
+  // Ensure we have a positioning context relative to the chip
+  const cs = window.getComputedStyle(host);
+  if (cs.position === 'static') host.style.position = 'relative';
+
+  const floater = document.createElement('div');
+  floater.className = 'aether-float blue';
+  floater.textContent = `+${n} Æ`;
+  host.appendChild(floater);
+  floater.addEventListener('animationend', () => floater.remove(), { once: true });
+}
 
 
 
@@ -1904,13 +1924,68 @@ Grey.on?.(Events.TURN_START, async ({ side }) => {
 });
 
 
+// v16: AI action toast — small fading pill near the AI chip showing
+// what the opponent just did. Triggered from the event handlers
+// below when side === 'ai'.
+let aiToastEl = null, aiToastTimer = null;
+function aiActionToast(text) {
+  if (!aiToastEl) {
+    aiToastEl = document.createElement('div');
+    aiToastEl.id = 'ai-toast';
+    document.body.appendChild(aiToastEl);
+  }
+  aiToastEl.textContent = text;
+  aiToastEl.classList.add('show');
+  clearTimeout(aiToastTimer);
+  aiToastTimer = setTimeout(() => {
+    aiToastEl?.classList.remove('show');
+  }, 1500);
+}
+
+// Lookup card name across hand/flow so toasts and similar UI can
+// label opponent actions ("Opponent played Hexing Wisp") without
+// just printing the cardId.
+function cardNameFromId(cardId){
+  if (!cardId) return 'a card';
+  try {
+    const pub = serializePublic(state) || {};
+    const all = [
+      ...((pub.players?.player?.hand)||[]),
+      ...((pub.players?.ai?.hand)||[]),
+      ...((pub.flow)||[]),
+    ].filter(Boolean);
+    const found = all.find(c => c?.id === cardId);
+    return found?.name || 'a card';
+  } catch { return 'a card'; }
+}
+
 Grey.on?.(Events.TURN_END,   ({side}) => logLine(`Turn end   → ${side}`));
-Grey.on?.(Events.CARD_PLAYED, ({side, cardId, cost}) => logLine(`${side} PLAY spell ${cardId} (cost ${cost ?? 0})`));
-Grey.on?.(Events.CARD_SET,    ({side, cardId}) => logLine(`${side} SET glyph ${cardId}`));
-Grey.on?.(Events.CARD_CAST,   ({side, cardId, cost}) => logLine(`${side} CAST instant ${cardId} (cost ${cost ?? 0})`));
-Grey.on?.(Events.CHANNEL,     ({side, cardId, gained}) => logLine(`${side} CHANNEL ${cardId} → +${gained} Æ (temp)`));
-Grey.on?.(Events.BUY,         ({side, idx, price}) => logLine(`${side} BOUGHT flow[${idx}] for ${price} Æ`));
-Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => logLine(`${side} +${amount} Æ (${source||"effect"})`));
+Grey.on?.(Events.CARD_PLAYED, ({side, cardId, cost}) => {
+  logLine(`${side} PLAY spell ${cardId} (cost ${cost ?? 0})`);
+  if (side === 'ai') aiActionToast(`Opponent played ${cardNameFromId(cardId)}`);
+});
+Grey.on?.(Events.CARD_SET,    ({side, cardId}) => {
+  logLine(`${side} SET glyph ${cardId}`);
+  if (side === 'ai') aiActionToast(`Opponent set ${cardNameFromId(cardId)}`);
+});
+Grey.on?.(Events.CARD_CAST,   ({side, cardId, cost}) => {
+  logLine(`${side} CAST instant ${cardId} (cost ${cost ?? 0})`);
+  if (side === 'ai') aiActionToast(`Opponent cast ${cardNameFromId(cardId)}`);
+});
+Grey.on?.(Events.CHANNEL,     ({side, cardId, gained}) => {
+  logLine(`${side} CHANNEL ${cardId} → +${gained} Æ (temp)`);
+  // Channel temp gains are also surfaced as aether floaters so the
+  // player feels every +Æ resource event consistently.
+  animateAetherGain(side, gained);
+});
+Grey.on?.(Events.BUY,         ({side, idx, price}) => {
+  logLine(`${side} BOUGHT flow[${idx}] for ${price} Æ`);
+  if (side === 'ai') aiActionToast(`Opponent bought a card`);
+});
+Grey.on?.(Events.AETHER_GAIN, ({side, amount, source}) => {
+  logLine(`${side} +${amount} Æ (${source||"effect"})`);
+  animateAetherGain(side, amount, source);
+});
 
 
 // === AI → cinematic bridge ===
@@ -4585,6 +4660,14 @@ async function spotlightFromEvents(state){
 
     } catch (_err) {
       // swallow to avoid breaking the loop on animation errors
+    }
+
+    // v16: small inter-event beat on mobile so chains of resolves
+    // feel choreographed instead of mashed together. Desktop stays
+    // tight at 0ms.
+    if (i < evts.length - 1) {
+      const isMob = isMobileLandscape() || document.body?.classList?.contains('mobile-portrait');
+      if (isMob) await sleep(180);
     }
   }
 

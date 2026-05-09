@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Grey — board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=mlv15-20260509" />
+  <link rel="stylesheet" href="./styles.css?v=mlv16-20260509" />
 </head>
 <body id="board" class="theme-dark parchment">
 
@@ -20,6 +20,9 @@
       <span id="aether-readout" class="aether">Æ 0  ◇ 0</span>
     </div>
   </header>
+
+  <!-- v16: persistent turn badge for mobile (hidden on desktop via CSS) -->
+  <div id="turn-badge" aria-live="polite"></div>
 
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
@@ -111,7 +114,7 @@
     </div>
   </div>
 
-  <script type="module" src="./index.js?v=mlv15-20260509"></script>
+  <script type="module" src="./index.js?v=mlv16-20260509"></script>
 </body>
 
 </html>

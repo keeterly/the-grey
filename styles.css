@@ -1145,37 +1145,28 @@ body.mobile-portrait #peek-card.card.peek.show{
    the page-level --card-scale (which is set for slot tiles ~0.5 on
    phone, making spotlight text half-size). At ~165px wide that's
    165/150 = 1.1. */
+/* v16: strict cap on cinematic spotlight.
+   Previous v15 used height:auto + aspect-ratio + explicit font bumps
+   on .title/.textbox/.type — but `.card { display:flex; flex-direction:
+   column }` + `.textbox { flex:1 }` means aspect-ratio acts as a
+   minimum; long rules text + bumped fonts pushed intrinsic content
+   height past the 1.4 ratio and the card grew tall to fit (50%+ of
+   screen). Now the height is hard-clamped and overflow clips. The
+   v15 explicit per-element font bumps are dropped so content scales
+   uniformly via --card-scale. */
 body.mobile-landscape .cinematic-layer .card,
 body.mobile-portrait  .cinematic-layer .card{
-  width: clamp(120px, 38vw, 170px) !important;
-  height: auto !important;
-  aspect-ratio: 1 / 1.4 !important;
+  width:  clamp(120px, 38vw, 170px) !important;
+  height: clamp(168px, calc(38vw * 1.4), 238px) !important;
+  aspect-ratio: auto !important;
+  overflow: hidden !important;
   --card-scale: 1.1 !important;
   --card-gem: 24px !important;
   font-size: calc(1rem * 1.1) !important;
-  /* Stronger spotlight glow so the card reads as the focal moment */
   box-shadow:
     0 18px 36px rgba(0,0,0,.7),
     0 0 28px rgba(198,165,106,.45),
     0 0 0 1px rgba(198,165,106,.35) inset !important;
-}
-/* Make the rules text itself a bit punchier on mobile spotlight,
-   since these cards hold for ~half a second and the player needs
-   to actually read them. */
-body.mobile-landscape .cinematic-layer .card .title,
-body.mobile-portrait  .cinematic-layer .card .title{
-  font-size: 1.05em !important;
-  font-weight: 700;
-}
-body.mobile-landscape .cinematic-layer .card .textbox,
-body.mobile-portrait  .cinematic-layer .card .textbox{
-  line-height: 1.25 !important;
-  font-size: 0.92em !important;
-}
-body.mobile-landscape .cinematic-layer .card .type,
-body.mobile-portrait  .cinematic-layer .card .type{
-  font-size: 0.85em !important;
-  letter-spacing: .04em;
 }
 
 
@@ -2471,3 +2462,70 @@ body.mobile-portrait #weaver-backdrop img{
   bottom: 0 !important;
   filter: saturate(.7) brightness(.65);
 }
+
+
+/* ==========================================================
+   v16: GAME-FEEL improvements
+   - Persistent turn badge on mobile (#turn-badge)
+   - +X Æ gain floater (.aether-float)
+   - AI action toast (#ai-toast)
+   ========================================================== */
+
+/* Turn badge: hidden on desktop, small pill at top-center on phones.
+   Driven entirely by body[data-active-side] which render() already
+   sets. ::before content swap means no JS for this element. */
+#turn-badge { display: none; }
+body.mobile-portrait #turn-badge,
+body.mobile-landscape #turn-badge {
+  display: inline-block;
+  position: fixed; top: 4px; left: 50%; transform: translateX(-50%);
+  padding: 4px 10px; border-radius: 999px;
+  background: rgba(20,16,12,.78); border: 1px solid #4a3d2f;
+  font-size: .65rem; font-weight: 700; letter-spacing: .06em;
+  color: #c6a56a; text-transform: uppercase;
+  z-index: 35; pointer-events: none;
+  white-space: nowrap;
+}
+body[data-active-side="player"] #turn-badge::before { content: "Your Turn"; }
+body[data-active-side="ai"]     #turn-badge::before {
+  content: "Opponent's Turn";
+  color: #d97a7a;
+}
+
+/* Æ gain floater — mirrors the damage -N floater (animateDamage in
+   index.js:552), but blue and rises from the aether display. */
+.aether-float {
+  position: absolute; pointer-events: none; z-index: 9000;
+  font-weight: 800; font-size: 18px;
+  color: #7eb6ff;
+  text-shadow:
+    0 1px 2px rgba(0,0,0,.85),
+    0 0 8px rgba(126,182,255,.55);
+  left: 50%; top: 0;
+  transform: translate(-50%, 0);
+  animation: aetherFloatRise 900ms ease-out forwards;
+  white-space: nowrap;
+}
+@keyframes aetherFloatRise {
+  0%   { opacity: 0; transform: translate(-50%, 8px)  scale(.92); }
+  20%  { opacity: 1; transform: translate(-50%, -4px) scale(1.05); }
+  100% { opacity: 0; transform: translate(-50%, -42px) scale(1.00); }
+}
+
+/* AI action toast — brief 1.5s pill near the AI chip when the
+   opponent plays, sets, or buys a card. Small reddish border so
+   it reads as "their action" not yours. */
+#ai-toast {
+  position: fixed; top: 46px; right: 8px;
+  max-width: min(60vw, 260px);
+  padding: 6px 10px; border-radius: 8px;
+  background: rgba(20,16,12,.92);
+  border: 1px solid #6a3a3a;
+  color: #e7dcc3; font-size: .72rem; line-height: 1.2;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity .18s ease, transform .18s ease;
+  z-index: 5000; pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0,0,0,.5);
+}
+#ai-toast.show { opacity: 1; transform: translateY(0); }
