@@ -2984,35 +2984,28 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
    colour all the way around the card. Stacks BEFORE the existing
    drop-shadow (0 14px 24px #000) so elevation is preserved.
    Border-color also bumps to match for the outermost 1px line. */
-/* v32: school borders bolder again — v31's 5px solid colours still
-   read as pale on dark cards in screenshots. Bumped to a cleaner
-   2-stop palette (vibrant interior, near-black outer hairline so
-   it pops against the table) plus an outer glow that makes the
-   school identity unmistakable from across the board.
-   - Black: vivid red interior + crimson glow
-   - White: warm yellow interior + gold glow
-   - Grey:  steel blue interior + cool glow */
+/* v33: borders thinned. v32 had a 5px interior + 1px hairline = 6px
+   total inset, eating into the textbox on small market cards. v33
+   drops to a single 3px ring, keeps the outer glow for school
+   identity. Same colour palette so distinction stays clear. */
 .card:has(.school-stripe.school-black) {
   box-shadow:
-    inset 0 0 0 5px #ff5c5c,
-    inset 0 0 0 6px #5a0a0a,
-    0 0 14px rgba(255,80,80,.5),
+    inset 0 0 0 3px #ff5c5c,
+    0 0 12px rgba(255,80,80,.45),
     0 14px 24px #000 !important;
   border-color: #ff5c5c !important;
 }
 .card:has(.school-stripe.school-white) {
   box-shadow:
-    inset 0 0 0 5px #ffe06a,
-    inset 0 0 0 6px #5a4a10,
-    0 0 14px rgba(255,220,100,.45),
+    inset 0 0 0 3px #ffe06a,
+    0 0 12px rgba(255,220,100,.40),
     0 14px 24px #000 !important;
   border-color: #ffe06a !important;
 }
 .card:has(.school-stripe.school-grey) {
   box-shadow:
-    inset 0 0 0 5px #b0c8e8,
-    inset 0 0 0 6px #2a3850,
-    0 0 14px rgba(160,200,240,.35),
+    inset 0 0 0 3px #b0c8e8,
+    0 0 12px rgba(160,200,240,.30),
     0 14px 24px #000 !important;
   border-color: #b0c8e8 !important;
 }
@@ -3205,17 +3198,17 @@ body.mobile-landscape #peek-card.card.peek {
    ring on the slot itself once a card lands).
    ========================================================== */
 
-/* v32: slot ring matches the bolder v32 palette. */
+/* v33: slot ring matches v33 card thickness (3px solid). */
 .slot[data-school="black"] {
-  box-shadow: inset 0 0 0 5px #ff5c5c, inset 0 0 0 6px #5a0a0a;
+  box-shadow: inset 0 0 0 3px #ff5c5c;
   border-color: #ff5c5c;
 }
 .slot[data-school="white"] {
-  box-shadow: inset 0 0 0 5px #ffe06a, inset 0 0 0 6px #5a4a10;
+  box-shadow: inset 0 0 0 3px #ffe06a;
   border-color: #ffe06a;
 }
 .slot[data-school="grey"] {
-  box-shadow: inset 0 0 0 5px #b0c8e8, inset 0 0 0 6px #2a3850;
+  box-shadow: inset 0 0 0 3px #b0c8e8;
   border-color: #b0c8e8;
 }
 
@@ -3509,41 +3502,46 @@ body.pending-win-active .row.flow::after {
         portrait dead space
    ========================================================== */
 
-/* v30 — portrait tap-focus lift. The v17 .is-focus rule lived only
-   inside body.mobile-landscape; tapping a hand card on portrait
-   set the class but no visual change happened, so the focused card
-   sat behind its own action popover. Now: lift + scale + golden
-   glow outline + raised z-index so the player can clearly see
-   which card they're acting on. */
+/* v30/v33 — portrait tap-focus lift. v30 lifted -36px which crashed
+   into the action popover (positioned BEFORE the lift transition
+   completed). v33 reduces to -22px and removes the scale bump so
+   the card stays in its lane. The gold ring is enough to mark
+   "this is the focused one" without a giant elevation. */
 body.mobile-portrait .hand .card.is-focus,
 .hand .card.is-focus {
   transform:
-    translate(var(--tx,0), calc(var(--ty,0px) - 36px))
+    translate(var(--tx,0), calc(var(--ty,0px) - 22px))
     rotate(var(--rot,0deg))
-    scale(1.10) !important;
+    scale(1.04) !important;
   box-shadow:
     0 0 0 2px rgba(255,224,160,.85),
-    0 22px 32px rgba(0,0,0,.7) !important;
+    0 18px 28px rgba(0,0,0,.65) !important;
   z-index: 5000 !important;
 }
 
-/* v32 — vertical action popover on portrait. v30 made it 280px wide
-   with side-by-side buttons, but that still spanned across Aria's
-   portrait + name when the focused card was near screen-edge. Now
-   the buttons stack vertically so the popover is narrow (max 180px)
-   and easily fits above the focused card without spreading into
-   neighbouring UI. Landscape stays horizontal where there's room. */
+/* v32/v33 — vertical action popover on portrait. v32 made it
+   vertical but the .has-desc buttons were forcing min-width:96px +
+   description text, blowing the popover up to ~360px wide and
+   covering the focused card.
+   v33: hide the description sub-line on portrait (label alone is
+   enough — "Play" and "Discard" are self-explanatory), kill the
+   has-desc min-width, and lock the popover to a tight 140px so
+   it floats above the focused card without spanning. */
 body.mobile-portrait .action-pop {
-  width: min(180px, 60vw) !important;
+  width: 140px !important;
   flex-direction: column !important;
-  padding: 8px !important;
-  gap: 6px !important;
+  padding: 6px !important;
+  gap: 4px !important;
 }
 body.mobile-portrait .action-pop .rune-btn {
   width: 100% !important;
+  min-width: 0 !important;
   padding: 8px 10px !important;
   font-size: .88rem !important;
-  min-height: 38px !important;
+  min-height: 36px !important;
+}
+body.mobile-portrait .action-pop .rune-btn .rb-desc {
+  display: none !important;
 }
 body.mobile-landscape .action-pop {
   width: min(280px, 78vw) !important;

@@ -2841,7 +2841,12 @@ await render();
   left = Math.max(margin, Math.min(left, vw - popW - margin));
 
   // Prefer above the card; if the card is too close to the top, fall below.
-  const aboveTop = r.top - popH - 12;
+  // v33: extra offset (FOCUS_LIFT_PX + GAP) so the popup clears the
+  // focused card's lifted position. getBoundingClientRect runs BEFORE
+  // the .is-focus transition completes, so we have to manually account
+  // for the -22px lift the focused card is about to do.
+  const FOCUS_LIFT_PX = 22;
+  const aboveTop = r.top - popH - 12 - FOCUS_LIFT_PX;
   const belowTop = r.bottom + 12;
   const top = (aboveTop >= margin)
     ? aboveTop
