@@ -2984,30 +2984,30 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
    colour all the way around the card. Stacks BEFORE the existing
    drop-shadow (0 14px 24px #000) so elevation is preserved.
    Border-color also bumps to match for the outermost 1px line. */
-/* v25/v30: school identity = inset coloured border. v30 boosted alpha
-   to 1.0 + added a 1px inner cream-coloured stroke between the card
-   body and the school colour so the three schools read distinctly
-   even on a dark card background where they were blending. */
+/* v31: school identity = bold inset coloured border, no inner stroke.
+   v30 had a 1px cream/silver inner-highlight stroke between the
+   school colour and the card body — at small portrait card size that
+   1px highlight was the only visible border, making all three schools
+   look identical (pale cream). v31 drops the highlight, bumps the
+   ring to 5px, and uses brighter saturated colours so Black reads
+   as RED, White as GOLD, Grey as STEEL BLUE at any size. */
 .card:has(.school-stripe.school-black) {
   box-shadow:
-    inset 0 0 0 1px rgba(255,210,210,.35),
-    inset 0 0 0 4px #c8302a,
+    inset 0 0 0 5px #e04545,
     0 14px 24px #000 !important;
-  border-color: #c8302a !important;
+  border-color: #e04545 !important;
 }
 .card:has(.school-stripe.school-white) {
   box-shadow:
-    inset 0 0 0 1px rgba(255,250,235,.55),
-    inset 0 0 0 4px #f0d97a,
+    inset 0 0 0 5px #f5e08c,
     0 14px 24px #000 !important;
-  border-color: #f0d97a !important;
+  border-color: #f5e08c !important;
 }
 .card:has(.school-stripe.school-grey) {
   box-shadow:
-    inset 0 0 0 1px rgba(220,228,240,.30),
-    inset 0 0 0 4px #8da4c0,
+    inset 0 0 0 5px #a8b8d0,
     0 14px 24px #000 !important;
-  border-color: #8da4c0 !important;
+  border-color: #a8b8d0 !important;
 }
 
 /* v28: when a card is INSIDE a .slot, mute its own school ring —
@@ -3198,25 +3198,18 @@ body.mobile-landscape #peek-card.card.peek {
    ring on the slot itself once a card lands).
    ========================================================== */
 
-/* v30: slot ring matches v30 card colours so school identity is
-   consistent inside slots and in hand. */
+/* v31: slot ring matches the v31 card colours (bright + 5px solid). */
 .slot[data-school="black"] {
-  box-shadow:
-    inset 0 0 0 1px rgba(255,210,210,.35),
-    inset 0 0 0 4px #c8302a;
-  border-color: #c8302a;
+  box-shadow: inset 0 0 0 5px #e04545;
+  border-color: #e04545;
 }
 .slot[data-school="white"] {
-  box-shadow:
-    inset 0 0 0 1px rgba(255,250,235,.55),
-    inset 0 0 0 4px #f0d97a;
-  border-color: #f0d97a;
+  box-shadow: inset 0 0 0 5px #f5e08c;
+  border-color: #f5e08c;
 }
 .slot[data-school="grey"] {
-  box-shadow:
-    inset 0 0 0 1px rgba(220,228,240,.30),
-    inset 0 0 0 4px #8da4c0;
-  border-color: #8da4c0;
+  box-shadow: inset 0 0 0 5px #a8b8d0;
+  border-color: #a8b8d0;
 }
 
 

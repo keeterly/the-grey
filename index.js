@@ -4523,29 +4523,26 @@ function ensureRightHudStrip() {
     document.body.appendChild(strip);
   }
 
-  // v23: layout responds to mobile-portrait. v22 added CSS rules for a
-  // top-right horizontal cluster, but this function had been pinning
-  // the strip at bottom-right with inline styles, overriding them.
-  // v26: read the viewport DIRECTLY rather than trusting body.mobile-
-  // portrait. The orientation handler that sets that class runs as an
-  // IIFE alongside DOMContentLoaded; on first paint there was a race
-  // where this could run before the class was set, so the strip would
-  // briefly appear bottom-right before render() relocated it. Reading
-  // window dimensions matches the orientation IIFE's own logic
-  // (w<=720 && h>w) so the first paint already lands top-right.
+  // v23: layout responds to mobile-portrait. v31: top-right placement
+  // overlapped the AI portrait + name on portrait. The corner is too
+  // contested (chip name + portrait + cost badges all live there).
+  // Now the strip sits ABOVE the hand band on portrait (right edge,
+  // floating between the player slot row and the hand) — ergonomic
+  // for thumb reach and clear of any board element.
   const isPortrait = (() => {
     const w = window.innerWidth, h = window.innerHeight;
     return w <= 720 && h > w;
   })();
   Object.assign(strip.style, isPortrait ? {
     position: 'fixed',
-    top: '6px',
-    right: '6px',
-    bottom: 'auto',
+    top: 'auto',
+    right: '8px',
+    // sits just above the hand band; the band itself is var(--hand-band-h)
+    bottom: 'calc(var(--hand-band-h, 120px) + 6px)',
     left: 'auto',
     display: 'flex',
-    flexDirection: 'row',
-    gap: '6px',
+    flexDirection: 'column',
+    gap: '4px',
     zIndex: '1200',
   } : {
     position: 'fixed',
