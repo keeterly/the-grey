@@ -36,11 +36,11 @@ html,body{height:100%}
   overflow:hidden;
 }
 
-/* Grid */
+/* Grid — v20: now 5 rows (AI / AI-rail / Flow / Player-rail / Player) */
 #board-grid.grid{
   display:grid !important;
-  grid-template-rows:auto auto auto !important;
-  row-gap:24px;
+  grid-template-rows: auto min-content auto min-content auto !important;
+  row-gap:14px;
   height:100%;
   padding:12px 16px calc(26vh + 12px);
   align-content:space-evenly;
@@ -425,11 +425,12 @@ body.mobile-landscape{
    space goes to the flow row. The slot tiles also slide out via
    transform so the transition reads as a coordinated "this player
    isn't playing right now". */
+/* v20: 5 grid rows = [ai, ai-rail, flow, player-rail, player] */
 body.mobile-landscape[data-active-side="player"] #board-grid.grid{
-  grid-template-rows: 0 minmax(0, 1fr) 56px !important;
+  grid-template-rows: 0 0 minmax(0, 1fr) min-content 56px !important;
 }
 body.mobile-landscape[data-active-side="ai"] #board-grid.grid{
-  grid-template-rows: 56px minmax(0, 1fr) 0 !important;
+  grid-template-rows: 56px min-content minmax(0, 1fr) 0 0 !important;
 }
 body.mobile-landscape #ai-slots.slot-row,
 body.mobile-landscape #player-slots.slot-row{
@@ -450,7 +451,7 @@ body.mobile-landscape[data-active-side="ai"] #player-slots.slot-row{
    first paint). Both rows visible at full height; v13 turn rules
    above will override. */
 body.mobile-landscape #board-grid.grid{
-  grid-template-rows: 56px minmax(0, 1fr) 56px !important;
+  grid-template-rows: 56px min-content minmax(0, 1fr) min-content 56px !important;
   row-gap: 6px !important;
   padding: var(--top-strip-h) 6px var(--hand-band-h) !important;
   height: 100vh;
@@ -771,10 +772,11 @@ body.mobile-landscape #ai-name{
    landscape they were adding visual noise without enough payoff.
    Players can see opponent hand size in the top-right counts
    already; trance/tracks are accessible via the menu. */
-body.mobile-landscape .portrait .trance-wrap,
-body.mobile-landscape .portrait .win-tracks{
+body.mobile-landscape .portrait .trance-wrap{
   display: none !important;
 }
+/* v20: .win-tracks element no longer rendered (removed in renderWinTracks
+   deletion). Selector retained for safety against any stale DOM. */
 body.mobile-landscape #ai-mini{
   display: none !important;
 }
@@ -819,19 +821,8 @@ body.mobile-landscape .portrait .trance-step.active::before{ display: none !impo
    collapsed so it doesn't leave a flex gap inside the chip. */
 body.mobile-landscape .portrait > .trance{ display: none !important; }
 
-/* Win tracks: thin bar pair, single-letter label, no x/y text */
-body.mobile-landscape .portrait .win-track{
-  font-size: .5rem;
-  gap: 2px;
-  line-height: 1;
-}
-body.mobile-landscape .portrait .win-track .wt-label{
-  font-size: .5rem;
-}
-body.mobile-landscape .portrait .win-track .wt-bar{
-  width: 20px !important; height: 3px !important;
-}
-body.mobile-landscape .portrait .win-track > span:last-child{ display: none; }
+/* v20: portrait .win-track rules removed — Confluence/Dominion now
+   render on the per-side .wincon-rail (see v20 block at file end). */
 
 /* Weaver backdrop — atmospheric character art behind the board, like
    StS's enemy art or MTG Arena's battlefield. Visible but not so bright
@@ -2127,8 +2118,9 @@ body.mobile-portrait #board-grid.grid{
   display: grid !important;
   /* Slot rows now use --slot-row-h so they grow with the card-shaped
      tile height (no more cramped 60px square). */
-  grid-template-rows: var(--slot-row-h) minmax(0, 1fr) var(--slot-row-h) !important;
-  row-gap: 8px !important;
+  /* v20: 5 rows — [ai, ai-rail, flow, player-rail, player] */
+  grid-template-rows: var(--slot-row-h) min-content minmax(0, 1fr) min-content var(--slot-row-h) !important;
+  row-gap: 6px !important;
   /* Top padding leaves room for AI chip; bottom padding leaves room
      for player chip + hand band. */
   padding: var(--top-strip-h) 8px calc(var(--hand-band-h) + 44px) !important;
@@ -2579,39 +2571,8 @@ body.mobile-portrait  .action-pop .rune-btn.has-desc .rb-desc{
   animation: slotAffordancePulse 1.6s ease-in-out infinite;
 }
 
-/* 3. Win-condition tracker strip — always visible, both sides.
-   v18: compacted (~110px wide × ~30px tall, was 140-160 × 38-44) so
-   it stops crowding the AI portrait/hearts. Tabular-nums keeps the
-   X/Y values aligned on both rows. */
-#wincon-strip {
-  position: fixed; top: 4px; right: 6px;
-  display: flex; flex-direction: column; gap: 1px;
-  background: rgba(20,16,12,.78);
-  border: 1px solid #4a3d2f; border-radius: 8px;
-  padding: 2px 6px;
-  z-index: 30; pointer-events: auto;
-  font-size: .58rem; font-weight: 600; letter-spacing: .02em;
-  color: #d6c8a4;
-  box-shadow: 0 3px 8px rgba(0,0,0,.45);
-  font-variant-numeric: tabular-nums;
-  cursor: pointer;
-}
-#wincon-strip .wc-row {
-  display: flex; gap: 6px; align-items: center; white-space: nowrap;
-}
-#wincon-strip .wc-row.wc-ai     { color: #d97a7a; }
-#wincon-strip .wc-row.wc-player { color: #c6a56a; }
-#wincon-strip .wc-row > span {
-  display: inline-flex; align-items: center; gap: 2px;
-}
-#wincon-strip .wc-val.near {
-  color: #ffd87a; text-shadow: 0 0 6px rgba(255,216,122,.55);
-}
-#wincon-strip .wc-icon { font-size: .9em; opacity: .85; line-height: 1; }
-body.mobile-portrait #wincon-strip,
-body.mobile-landscape #wincon-strip {
-  top: 24px; right: 4px; font-size: .54rem; padding: 2px 5px;
-}
+/* v20: #wincon-strip removed; per-side .wincon-rail elements now live
+   between the rows of #board-grid. See the v20 CSS block at file end. */
 /* Tap target: open a small explainer popover */
 #wincon-explain {
   position: fixed; top: 78px; right: 8px; max-width: 240px;
@@ -2748,15 +2709,15 @@ body.player-already-bought .row.flow .flow-card .card.market.buyable {
   /* Make sure the buyable pulse is suppressed when capped */
   animation: none !important;
 }
-body.player-already-bought #wincon-strip::after {
-  content: "✓ bought";
-  display: block;
-  margin-top: 2px;
-  font-size: .9em;
+/* v20: "✓ bought" affordance migrated from #wincon-strip onto the
+   player rail's Confluence host so it sits next to the bar that
+   actually advances when you buy. */
+body.player-already-bought .wincon-rail.wc-player .wcr-cf::after {
+  content: " ✓";
   color: #9ec38a;
-  text-align: right;
+  font-size: .9em;
+  margin-left: 4px;
   letter-spacing: .04em;
-  text-transform: uppercase;
   opacity: .85;
 }
 
@@ -2855,4 +2816,92 @@ body.mobile-landscape .hp-bar-host {
   align-items: center;
   flex-wrap: nowrap;
   min-width: 0;
+}
+
+
+/* ==========================================================
+   v20: WINCON RAILS BETWEEN ROWS
+   Two thin horizontal strips inside #board-grid, one per side,
+   each carrying that side's HP / Confluence / Dominion bars.
+   Replaces the fixed top-right #wincon-strip and the per-portrait
+   .win-tracks injection. Reuses the v19 .hp-bar-host markup so all
+   three indicators look like one unified family.
+   ========================================================== */
+
+.wincon-rail {
+  display: flex;
+  align-items: center;
+  gap: clamp(8px, 2vw, 18px);
+  padding: 4px clamp(8px, 2vw, 16px);
+  background: linear-gradient(180deg,
+              rgba(20,16,10,.55), rgba(20,16,10,.30));
+  border-top:    1px solid rgba(106,90,64,.35);
+  border-bottom: 1px solid rgba(106,90,64,.35);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  user-select: none;
+}
+.wincon-rail.wc-ai     { color: #d97a7a; }
+.wincon-rail.wc-player { color: #c6a56a; }
+
+.wincon-rail .wcr-host {
+  flex: 1;
+  min-width: 0;
+}
+.wincon-rail .wcr-host.hp { flex: 1.4; }   /* HP gets a touch more room */
+
+/* Per-rail tinting — overrides the side-tints baked into .hp-bar-host
+   so all three bars on a single rail share that rail's colour. */
+.wincon-rail.wc-ai     .hp-bar-host .hp-icon,
+.wincon-rail.wc-ai     .hp-bar-host .hp-num    { color: #d97a7a !important; }
+.wincon-rail.wc-player .hp-bar-host .hp-icon,
+.wincon-rail.wc-player .hp-bar-host .hp-num    { color: #c6a56a !important; }
+
+/* CF / DM bar fills get distinct colour ramps so a glance can tell
+   which WC is which without reading the icon. */
+.wincon-rail .wcr-cf  .hp-bar-fill {
+  background: linear-gradient(90deg, #6b8fc4, #9ec3e7) !important;
+}
+.wincon-rail .wcr-dom .hp-bar-fill {
+  background: linear-gradient(90deg, #8b6fb0, #c2a3da) !important;
+}
+
+/* Near-win pulse — single CSS keyframe used by all three bars. */
+@keyframes wcrNearPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,216,122,0); }
+  50%      { box-shadow: 0 0 0 3px rgba(255,216,122,.45); }
+}
+.wincon-rail .wcr-progress.near .hp-bar-track {
+  animation: wcrNearPulse 1.4s ease-in-out infinite;
+  border-color: rgba(255,216,122,.55);
+}
+.wincon-rail.near {
+  /* rail-level tint when ANY of its three bars are at near-win */
+  background: linear-gradient(180deg,
+              rgba(60,40,16,.65), rgba(40,28,12,.40));
+}
+
+/* Mobile compact — make sure the rails don't bloat the playable area */
+body.mobile-portrait .wincon-rail,
+body.mobile-landscape .wincon-rail {
+  padding: 2px 6px;
+  gap: 6px;
+  font-size: .85em;
+}
+body.mobile-portrait .wincon-rail .hp-bar-host .hp-bar-track,
+body.mobile-landscape .wincon-rail .hp-bar-host .hp-bar-track {
+  height: 5px;
+}
+body.mobile-portrait .wincon-rail .hp-bar-host .hp-num,
+body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
+  font-size: .78em;
+}
+
+/* Damage VFX hit-flash on the rail's HP host (heartsElFor anchor) */
+.wincon-rail .wcr-host.hit {
+  animation: wcrHitFlash .32s ease-out;
+}
+@keyframes wcrHitFlash {
+  0%   { filter: brightness(1.8) drop-shadow(0 0 10px rgba(255,120,120,.7)); }
+  100% { filter: none; }
 }
