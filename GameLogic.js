@@ -12,8 +12,14 @@ export const AETHER_PER_TURN  = 3;   // added to active player at each turn star
 export const DRAW_PER_TURN    = 2;   // minimum guaranteed draws per turn (UI enforces)
 
 // Win condition thresholds
-export const CONFLUENCE_THRESHOLD = 5;  // Aetherflow cards acquired
+export const CONFLUENCE_THRESHOLD = 7;  // Aetherflow cards acquired (v18: was 5)
 export const DOMINION_THRESHOLD   = 10; // Grey Essence channeled
+
+// v18: structural cap on buys per turn so Confluence can't be raced
+// by stacking 2-Æ flow cards on a single Aether-rich turn. Combined
+// with CONFLUENCE_THRESHOLD bumped 5→7, this makes Confluence a 7+
+// turn path comparable to Ruin and Dominion.
+export const MAX_BUYS_PER_TURN = 1;
 
 export const AE_GEM_SVG =
   '<svg class="gem-inline" viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true"><path d="M12 2l6 6-6 14-6-14 6-6z" fill="currentColor"/></svg>';
@@ -831,7 +837,7 @@ export function initState(seed) {
     players: {
       player: {
         vitality: STARTING_VITALITY,
-        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0,
         deck: playerDeck, hand: handP, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -843,7 +849,7 @@ export function initState(seed) {
       },
       ai: {
         vitality: STARTING_VITALITY,
-        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0,
+        aether: AETHER_PER_TURN, channeled: 0, flowCardsAcquired: 0, greyEssence: 0, purchasesThisTurn: 0,
         deck: aiDeck, hand: handAI, discard: [],
         slots: [
           { hasCard:false, card:null, hex:null },
@@ -1013,6 +1019,13 @@ export function startTurn(state) {
 
   // Veyra Stage II: allow the player to look at the top two cards
   state = veyraScry(state, state.activePlayer);
+
+  // v18: reset the per-turn flow purchase counter for the active side
+  // so the buy cap (MAX_BUYS_PER_TURN) refreshes each turn.
+  const _activeForBuys = state.activePlayer;
+  if (state.players?.[_activeForBuys]) {
+    state.players[_activeForBuys].purchasesThisTurn = 0;
+  }
 
   // Confirm a pending win if it's now the winner's turn to start
   if (state.pendingWin && state.pendingWin.side === state.activePlayer && !state.winner) {
@@ -1246,6 +1259,13 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   const card = state.flow[flowIndex];
   if (!card) throw new Error("no card at flow index");
 
+  // v18: enforce per-turn purchase cap. Confluence (buy 5/now 7 cards
+  // from the Aether Flow) was the dominant strategy because there was
+  // no structural cost to buying multiple times on a single rich turn.
+  if (((P.purchasesThisTurn | 0) >= MAX_BUYS_PER_TURN)) {
+    throw new Error("Already bought from Aether Flow this turn");
+  }
+
  let price = FLOW_COSTS[flowIndex] || 0;
   // Morr Stage II: flow costs 1 less (minimum 0)
   const wF = state.players[playerId]?.weaver;
@@ -1286,6 +1306,9 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   // Track Confluence win condition
   P.flowCardsAcquired = (P.flowCardsAcquired | 0) + 1;
   pushEvt(state, { t: "confluence_gain", side: playerId, total: P.flowCardsAcquired });
+
+  // v18: tick the buy counter so the cap blocks further buys this turn
+  P.purchasesThisTurn = (P.purchasesThisTurn | 0) + 1;
 
   // Normal buy event (kept as-is)
   pushEvt(state, {

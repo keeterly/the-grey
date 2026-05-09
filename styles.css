@@ -2540,23 +2540,25 @@ body[data-active-side="ai"]     #turn-badge::before {
    5. First-run welcome overlay
    ========================================================== */
 
-/* 1. Two-line action buttons (Play / Send to a Spell Slot, etc.) */
+/* 1. Two-line action buttons. v18: tightened to ~44-48px tall (was
+   ~62-70px) — subtitle still readable but the popover no longer eats
+   ~33% of viewport. */
 .rune-btn.has-desc {
   display: inline-flex; flex-direction: column; align-items: center;
-  justify-content: center; line-height: 1.1; gap: 2px;
-  padding-top: 8px; padding-bottom: 8px;
+  justify-content: center; line-height: 1.05; gap: 1px;
+  padding-top: 5px; padding-bottom: 5px;
 }
-.rune-btn .rb-label { font-weight: 700; font-size: 1em; }
-.rune-btn .rb-desc  { font-weight: 500; font-size: .62em; opacity: .82;
-                      letter-spacing: .02em; max-width: 22ch;
+.rune-btn .rb-label { font-weight: 700; font-size: .92em; }
+.rune-btn .rb-desc  { font-weight: 500; font-size: .54em; opacity: .78;
+                      letter-spacing: .01em; max-width: 22ch;
                       text-align: center; white-space: nowrap; }
 body.mobile-landscape .action-pop .rune-btn.has-desc,
 body.mobile-portrait  .action-pop .rune-btn.has-desc{
-  padding: 10px 14px; min-width: 110px;
+  padding: 6px 12px; min-width: 96px; min-height: 40px;
 }
 body.mobile-landscape .action-pop .rune-btn.has-desc .rb-desc,
 body.mobile-portrait  .action-pop .rune-btn.has-desc .rb-desc{
-  font-size: .58em;
+  font-size: .5em;
 }
 
 /* 2. Empty slot affordance: gentle gold pulse on slots that can receive
@@ -2578,41 +2580,37 @@ body.mobile-portrait  .action-pop .rune-btn.has-desc .rb-desc{
 }
 
 /* 3. Win-condition tracker strip — always visible, both sides.
-   Top-fixed pill with two rows (ai over player). */
+   v18: compacted (~110px wide × ~30px tall, was 140-160 × 38-44) so
+   it stops crowding the AI portrait/hearts. Tabular-nums keeps the
+   X/Y values aligned on both rows. */
 #wincon-strip {
-  position: fixed; top: 4px; right: 8px;
-  display: flex; flex-direction: column; gap: 3px;
+  position: fixed; top: 4px; right: 6px;
+  display: flex; flex-direction: column; gap: 1px;
   background: rgba(20,16,12,.78);
-  border: 1px solid #4a3d2f; border-radius: 10px;
-  padding: 4px 8px;
+  border: 1px solid #4a3d2f; border-radius: 8px;
+  padding: 2px 6px;
   z-index: 30; pointer-events: auto;
-  font-size: .66rem; font-weight: 600; letter-spacing: .03em;
+  font-size: .58rem; font-weight: 600; letter-spacing: .02em;
   color: #d6c8a4;
-  box-shadow: 0 4px 10px rgba(0,0,0,.45);
+  box-shadow: 0 3px 8px rgba(0,0,0,.45);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
 }
 #wincon-strip .wc-row {
-  display: flex; gap: 9px; align-items: center; white-space: nowrap;
+  display: flex; gap: 6px; align-items: center; white-space: nowrap;
 }
 #wincon-strip .wc-row.wc-ai     { color: #d97a7a; }
 #wincon-strip .wc-row.wc-player { color: #c6a56a; }
 #wincon-strip .wc-row > span {
-  display: inline-flex; align-items: center; gap: 3px;
+  display: inline-flex; align-items: center; gap: 2px;
 }
 #wincon-strip .wc-val.near {
   color: #ffd87a; text-shadow: 0 0 6px rgba(255,216,122,.55);
 }
-#wincon-strip .wc-row .wc-label {
-  font-size: .58rem; opacity: .7; text-transform: uppercase;
-  letter-spacing: .08em;
-}
-#wincon-strip .wc-icon {
-  width: 9px; height: 9px; display: inline-block;
-}
-/* On portrait, move to top-left so it doesn't fight the menu hamburger.
-   The turn-badge sits center-top; this sits below it. */
+#wincon-strip .wc-icon { font-size: .9em; opacity: .85; line-height: 1; }
 body.mobile-portrait #wincon-strip,
 body.mobile-landscape #wincon-strip {
-  top: 26px; right: 6px; font-size: .6rem; padding: 3px 6px;
+  top: 24px; right: 4px; font-size: .54rem; padding: 2px 5px;
 }
 /* Tap target: open a small explainer popover */
 #wincon-explain {
@@ -2732,3 +2730,32 @@ body.mobile-landscape #wincon-strip {
   text-transform: uppercase;
 }
 #welcome-overlay #welcome-dismiss:active { transform: translateY(1px); }
+
+
+/* ==========================================================
+   v18: BUY CAP feedback
+   When the player has already bought a flow card this turn,
+   dim the entire flow row + show a small "✓ bought" pill near
+   the wincon strip. Resets at start of next turn.
+   ========================================================== */
+body.player-already-bought .row.flow .flow-card,
+body.player-already-bought .row.flow .card.market {
+  opacity: .42;
+  filter: grayscale(.3);
+  transition: opacity .2s ease, filter .2s ease;
+}
+body.player-already-bought .row.flow .flow-card .card.market.buyable {
+  /* Make sure the buyable pulse is suppressed when capped */
+  animation: none !important;
+}
+body.player-already-bought #wincon-strip::after {
+  content: "✓ bought";
+  display: block;
+  margin-top: 2px;
+  font-size: .9em;
+  color: #9ec38a;
+  text-align: right;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  opacity: .85;
+}

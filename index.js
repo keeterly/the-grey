@@ -3245,15 +3245,20 @@ async function renderFlow(flowArray){
    const basePrice = FLOW_PRICE_BY_POS[idx] || 0;
     const effPrice  = effectiveFlowPrice('player', basePrice);
     const canAfford = !!c && playerAe >= effPrice;
+    // v18: Confluence buy cap — block additional buys after the player
+    // has already bought once this turn.
+    const alreadyBought = ((state?.players?.player?.purchasesThisTurn | 0) >= 1);
+    const canBuyNow = canAfford && !alreadyBought;
 
-    if (!canAfford) card.setAttribute("aria-disabled", "true");
+    if (!canBuyNow) card.setAttribute("aria-disabled", "true");
+    if (alreadyBought) card.classList.add("buy-capped");
     if (c) attachPeekAndZoom(card, c);
 
     // buyable pulse
-    if (c && canAfford) card.classList.add("buyable");
+    if (c && canBuyNow) card.classList.add("buyable");
 
     // click to buy
-    if (c && canAfford) {
+    if (c && canBuyNow) {
       card.addEventListener("click", async () => {
         // prevent double buy
         if (card.dataset.buying === "1") return;
@@ -5266,8 +5271,8 @@ function renderWinconStrip(){
     const dmEl = row.querySelector('.wc-dm .wc-val');
     if (hpEl) hpEl.textContent = `${hp}`;
     if (cfEl) {
-      cfEl.textContent = `${cf}/5`;
-      cfEl.classList.toggle('near', cf >= 4 && cf < 5);
+      cfEl.textContent = `${cf}/7`;
+      cfEl.classList.toggle('near', cf >= 6 && cf < 7);
     }
     if (dmEl) {
       dmEl.textContent = `${dm}/10`;
@@ -5424,6 +5429,12 @@ async function render(){
   renderWinconStrip();
   detectTranceUnlocks();
   detectHexApplied();
+
+  // v18: dim the flow row when the player has already bought this turn
+  document.body.classList.toggle(
+    'player-already-bought',
+    ((state?.players?.player?.purchasesThisTurn | 0) >= 1)
+  );
 
 
 
