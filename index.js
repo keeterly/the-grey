@@ -2312,25 +2312,32 @@ const LONG_PRESS_MS=500, MOVE_CANCEL_PX=8;
 // v19: expose so the drag handler can suppress peek the moment a
 // drag-eligible touch lands. Without this, a 350-500ms hold would
 // pop the peek overlay over the very card being dragged.
+// v24: also toggles `body.peek-open` so CSS can dim the backdrop
+// (MTG-Arena-style enlargement: only the peeked card stays bright).
 function cancelPeek(){
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   peekEl?.classList.remove("show");
+  document.body.classList.remove("peek-open");
+}
+function showPeek(data){
+  if (!peekEl) return;
+  fillCardShell(peekEl, data);
+  peekEl.classList.add("show");
+  document.body.classList.add("peek-open");
 }
 
 function attachPeekAndZoom(el, data){
   if (peekEl){
-    el.addEventListener("mouseenter", ()=>{ fillCardShell(peekEl, data); peekEl.classList.add("show"); });
-    el.addEventListener("mouseleave", ()=>{ peekEl.classList.remove("show"); });
+    el.addEventListener("mouseenter", ()=>{ showPeek(data); });
+    el.addEventListener("mouseleave", ()=>{ cancelPeek(); });
   }
   const onDown = (ev)=>{
     if (longPressTimer) clearTimeout(longPressTimer);
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     pressStart = {x:t.clientX,y:t.clientY};
-    longPressTimer = setTimeout(()=>{
-      if (peekEl){ fillCardShell(peekEl, data); peekEl.classList.add("show"); }
-    }, LONG_PRESS_MS);
+    longPressTimer = setTimeout(()=>{ showPeek(data); }, LONG_PRESS_MS);
   };
-  const clearLP = ()=>{ if (longPressTimer){ clearTimeout(longPressTimer); longPressTimer=null; } peekEl?.classList.remove("show"); };
+  const clearLP = ()=>{ cancelPeek(); };
   const onMove = (ev)=>{
     const t = ev.clientX!==undefined?ev:(ev.touches?.[0]??{clientX:0,clientY:0});
     if (Math.hypot(t.clientX-pressStart.x, t.clientY-pressStart.y) > MOVE_CANCEL_PX) clearLP();
@@ -2967,11 +2974,12 @@ function wireTouchDrag(el, data){
     primed = true;
     touchStartTime = performance.now();
     touchStartX = t.clientX; touchStartY = t.clientY;
-    // v19: as soon as a drag-eligible touch lands on a hand card,
-    // suppress the long-press peek timer. Peek still fires if the
-    // user holds COMPLETELY STILL through the 8px threshold and the
-    // 500ms long-press window — but any drag-intent kills it early.
-    cancelPeek();
+    // v24: do NOT cancel the peek timer here. v19 had killed it on
+    // every touch, which made press-and-hold (MTG Arena style) never
+    // fire on hand cards because attachPeekAndZoom's pointerdown
+    // timer got clobbered. Peek now fires after 500ms of HOLDING
+    // STILL; only the actual start of a drag (>8px movement →
+    // beginDrag) kills it.
   }, {passive:true});
 
   el.addEventListener("touchmove", (ev)=>{
