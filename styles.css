@@ -2916,47 +2916,32 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
 
 /* Stripe: a thin bar on the LEFT EDGE of every card, full height.
    Lives inside .card content; CSS pins it absolutely. */
-/* v23: stripe bumped 4px → 7px and given a soft outward glow so the
-   school identity reads even on shrunken hand cards.
-   v24: outward glow removed — it cast a 6px haze INTO the card content
-   area making titles/text hazy. Stripe still 7px but contained; the
-   :has() frame tint carries the school identity without bleeding into
-   the textbox. */
-.card .school-stripe {
-  position: absolute;
-  left: 0; top: 0; bottom: 0;
-  width: 7px;
-  border-radius: 8px 0 0 8px;
-  pointer-events: none;
-  z-index: 2;
-}
-.card .school-stripe.school-black {
-  background: linear-gradient(180deg, #2a0a0a 0%, #8a2a2a 50%, #2a0a0a 100%);
-  box-shadow: inset 1px 0 0 rgba(255,140,140,.55);
-}
-.card .school-stripe.school-white {
-  background: linear-gradient(180deg, #c8b478 0%, #f5e6b8 50%, #a89460 100%);
-  box-shadow: inset 1px 0 0 rgba(255,240,200,.75);
-}
-.card .school-stripe.school-grey {
-  background: linear-gradient(180deg, #4a4a52 0%, #8a8a96 50%, #383840 100%);
-  box-shadow: inset 1px 0 0 rgba(200,205,220,.45);
-}
+/* v25: edge-stripe approach abandoned — too thin to read on small
+   hand cards even at 7px. Replaced with a strong INSET COLOURED
+   BORDER drawn around the entire card edge via box-shadow:inset.
+   The .school-stripe element is kept in the DOM (with display:none)
+   only so :has() can still detect which school the card belongs to
+   without touching every .card creation site. */
+.card .school-stripe { display: none; }
 
-/* v24: tints further dialled back so the school identity is a quiet
-   secondary cue, not a competing layer with the card text. Border is
-   still tinted (alpha .45 instead of .7) but the background gradient
-   is removed for Black + White too — the stripe alone carries the
-   colour, and the textbox stays neutral and readable. */
+/* Each school's identity is now an inset 3px ring of saturated
+   colour all the way around the card. Stacks BEFORE the existing
+   drop-shadow (0 14px 24px #000) so elevation is preserved.
+   Border-color also bumps to match for the outermost 1px line. */
 .card:has(.school-stripe.school-black) {
-  border-color: rgba(180,60,60,.45) !important;
+  box-shadow: inset 0 0 0 3px rgba(168, 50, 50, .92),
+              0 14px 24px #000 !important;
+  border-color: rgba(168, 50, 50, .92) !important;
 }
 .card:has(.school-stripe.school-white) {
-  border-color: rgba(220,200,130,.50) !important;
+  box-shadow: inset 0 0 0 3px rgba(214, 185, 102, .92),
+              0 14px 24px #000 !important;
+  border-color: rgba(214, 185, 102, .92) !important;
 }
 .card:has(.school-stripe.school-grey) {
-  border-color: rgba(150,155,170,.40);
-  /* Grey is the neutral default — no surface tint. */
+  box-shadow: inset 0 0 0 3px rgba(124, 136, 152, .80),
+              0 14px 24px #000 !important;
+  border-color: rgba(124, 136, 152, .80) !important;
 }
 
 /* Rail token badges (Ward, Free Buy). Inline, compact. */
