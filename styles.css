@@ -2529,3 +2529,206 @@ body[data-active-side="ai"]     #turn-badge::before {
   box-shadow: 0 6px 14px rgba(0,0,0,.5);
 }
 #ai-toast.show { opacity: 1; transform: translateY(0); }
+
+
+/* ==========================================================
+   v17: GAME-FLOW CLARITY pass
+   1. Action menu button subtitles
+   2. Empty slot affordance pulse
+   3. Win-condition tracker strip
+   4. Trance + Hex pivot moments (toast + flash)
+   5. First-run welcome overlay
+   ========================================================== */
+
+/* 1. Two-line action buttons (Play / Send to a Spell Slot, etc.) */
+.rune-btn.has-desc {
+  display: inline-flex; flex-direction: column; align-items: center;
+  justify-content: center; line-height: 1.1; gap: 2px;
+  padding-top: 8px; padding-bottom: 8px;
+}
+.rune-btn .rb-label { font-weight: 700; font-size: 1em; }
+.rune-btn .rb-desc  { font-weight: 500; font-size: .62em; opacity: .82;
+                      letter-spacing: .02em; max-width: 22ch;
+                      text-align: center; white-space: nowrap; }
+body.mobile-landscape .action-pop .rune-btn.has-desc,
+body.mobile-portrait  .action-pop .rune-btn.has-desc{
+  padding: 10px 14px; min-width: 110px;
+}
+body.mobile-landscape .action-pop .rune-btn.has-desc .rb-desc,
+body.mobile-portrait  .action-pop .rune-btn.has-desc .rb-desc{
+  font-size: .58em;
+}
+
+/* 2. Empty slot affordance: gentle gold pulse on slots that can receive
+   a hand card on the player's turn. The .has-card guard ensures filled
+   slots never pulse; turn-end clears the class via JS. */
+@keyframes slotAffordancePulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(198,165,106,0),
+                inset 0 0 0 0 rgba(198,165,106,0);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(198,165,106,.18),
+                inset 0 0 16px rgba(198,165,106,.14);
+  }
+}
+.slot.slot-affordance-pulse:not(.has-card){
+  border-color: rgba(198,165,106,.55) !important;
+  animation: slotAffordancePulse 1.6s ease-in-out infinite;
+}
+
+/* 3. Win-condition tracker strip — always visible, both sides.
+   Top-fixed pill with two rows (ai over player). */
+#wincon-strip {
+  position: fixed; top: 4px; right: 8px;
+  display: flex; flex-direction: column; gap: 3px;
+  background: rgba(20,16,12,.78);
+  border: 1px solid #4a3d2f; border-radius: 10px;
+  padding: 4px 8px;
+  z-index: 30; pointer-events: auto;
+  font-size: .66rem; font-weight: 600; letter-spacing: .03em;
+  color: #d6c8a4;
+  box-shadow: 0 4px 10px rgba(0,0,0,.45);
+}
+#wincon-strip .wc-row {
+  display: flex; gap: 9px; align-items: center; white-space: nowrap;
+}
+#wincon-strip .wc-row.wc-ai     { color: #d97a7a; }
+#wincon-strip .wc-row.wc-player { color: #c6a56a; }
+#wincon-strip .wc-row > span {
+  display: inline-flex; align-items: center; gap: 3px;
+}
+#wincon-strip .wc-val.near {
+  color: #ffd87a; text-shadow: 0 0 6px rgba(255,216,122,.55);
+}
+#wincon-strip .wc-row .wc-label {
+  font-size: .58rem; opacity: .7; text-transform: uppercase;
+  letter-spacing: .08em;
+}
+#wincon-strip .wc-icon {
+  width: 9px; height: 9px; display: inline-block;
+}
+/* On portrait, move to top-left so it doesn't fight the menu hamburger.
+   The turn-badge sits center-top; this sits below it. */
+body.mobile-portrait #wincon-strip,
+body.mobile-landscape #wincon-strip {
+  top: 26px; right: 6px; font-size: .6rem; padding: 3px 6px;
+}
+/* Tap target: open a small explainer popover */
+#wincon-explain {
+  position: fixed; top: 78px; right: 8px; max-width: 240px;
+  background: rgba(20,16,12,.96); border: 1px solid #6a5840;
+  border-radius: 8px; padding: 10px 12px; z-index: 5500;
+  font-size: .72rem; color: #e7dcc3; line-height: 1.35;
+  box-shadow: 0 8px 18px rgba(0,0,0,.55); display: none;
+  pointer-events: auto;
+}
+#wincon-explain.open { display: block; }
+#wincon-explain h4 { margin: 0 0 4px; font-size: .82rem; color: #c6a56a; }
+#wincon-explain p  { margin: 0 0 6px; }
+#wincon-explain .close {
+  position: absolute; top: 4px; right: 6px;
+  background: transparent; border: 0; color: #8a7a5a;
+  font-size: .9rem; cursor: pointer;
+}
+
+/* 4a. Trance unlock — centered toast with portrait flash */
+#trance-toast {
+  position: fixed; left: 50%; top: 36%; transform: translate(-50%,-50%) scale(.92);
+  background: linear-gradient(180deg, rgba(40,28,12,.96), rgba(28,20,10,.96));
+  border: 1px solid #c6a56a; border-radius: 14px;
+  padding: 14px 22px; min-width: 220px; max-width: 78vw;
+  text-align: center; color: #f1e3bf;
+  box-shadow: 0 0 40px rgba(198,165,106,.55), 0 12px 26px rgba(0,0,0,.7);
+  z-index: 6000; pointer-events: none; opacity: 0;
+  transition: opacity .25s ease, transform .25s ease;
+}
+#trance-toast.show { opacity: 1; transform: translate(-50%,-50%) scale(1); }
+#trance-toast .tt-tier {
+  font-size: .7rem; font-weight: 700; letter-spacing: .15em;
+  color: #c6a56a; text-transform: uppercase;
+}
+#trance-toast .tt-name { font-size: 1.05rem; font-weight: 700; margin-top: 2px; }
+#trance-toast .tt-desc {
+  font-size: .78rem; opacity: .9; margin-top: 4px; line-height: 1.3;
+}
+@keyframes trancePortraitFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(198,165,106,0); }
+  35%  { box-shadow: 0 0 0 14px rgba(198,165,106,.7),
+                      0 0 38px 8px rgba(198,165,106,.55); }
+  100% { box-shadow: 0 0 0 22px rgba(198,165,106,0); }
+}
+.trance-flash {
+  animation: trancePortraitFlash 900ms ease-out;
+  border-radius: 50%;
+}
+
+/* 4b. Hex applied — red expanding ring on slot + sided toast */
+@keyframes hexAppliedFlash {
+  0%   { box-shadow: 0 0 0 0 rgba(217,122,122,0); }
+  30%  { box-shadow: 0 0 0 6px rgba(217,122,122,.7),
+                     inset 0 0 18px rgba(217,122,122,.4); }
+  100% { box-shadow: 0 0 0 14px rgba(217,122,122,0); }
+}
+.slot.hex-applied-flash { animation: hexAppliedFlash 700ms ease-out; }
+#hex-toast {
+  position: fixed; left: 50%; top: 30%; transform: translateX(-50%);
+  background: rgba(20,8,8,.94); border: 1px solid #8a3a3a;
+  color: #f1c1c1; padding: 8px 14px; border-radius: 10px;
+  font-size: .78rem; font-weight: 600;
+  z-index: 5500; pointer-events: none;
+  opacity: 0; transition: opacity .18s ease;
+  box-shadow: 0 8px 18px rgba(0,0,0,.55);
+}
+#hex-toast.show { opacity: 1; }
+
+/* 5. First-run welcome overlay */
+#welcome-overlay {
+  position: fixed; inset: 0; z-index: 7000;
+  background: radial-gradient(ellipse at center,
+    rgba(0,0,0,.88) 0%, rgba(0,0,0,.96) 100%);
+  display: none; align-items: center; justify-content: center;
+  padding: 16px;
+}
+#welcome-overlay[data-shown="true"] { display: flex; }
+#welcome-overlay .welcome-panel {
+  background: linear-gradient(180deg, #221a10, #14100a);
+  border: 1px solid #6a5840; border-radius: 16px;
+  padding: 22px 22px 18px;
+  max-width: 380px; max-height: 86dvh; overflow-y: auto;
+  color: #e7dcc3;
+  box-shadow: 0 0 50px rgba(198,165,106,.4),
+              0 16px 32px rgba(0,0,0,.7);
+}
+#welcome-overlay h2 {
+  margin: 0 0 4px; font-size: 1.5rem; color: #c6a56a;
+  letter-spacing: .04em; text-align: center;
+}
+#welcome-overlay .welcome-tagline {
+  margin: 0 0 14px; text-align: center;
+  font-size: .82rem; opacity: .85; font-style: italic;
+}
+#welcome-overlay h3 {
+  margin: 12px 0 6px; font-size: .8rem; color: #c6a56a;
+  letter-spacing: .12em; text-transform: uppercase;
+}
+#welcome-overlay .welcome-paths {
+  list-style: none; padding: 0; margin: 0 0 12px;
+  font-size: .82rem; line-height: 1.5;
+}
+#welcome-overlay .welcome-paths li {
+  padding: 6px 10px; border-left: 2px solid #6a5840;
+  margin-bottom: 4px; background: rgba(40,28,12,.45);
+}
+#welcome-overlay .welcome-paths b { color: #ffd87a; margin-right: 4px; }
+#welcome-overlay .welcome-tip {
+  font-size: .76rem; opacity: .8; margin: 8px 0 14px; line-height: 1.45;
+}
+#welcome-overlay #welcome-dismiss {
+  display: block; width: 100%; padding: 12px;
+  font-size: .95rem; font-weight: 700; letter-spacing: .08em;
+  background: linear-gradient(180deg, #c6a56a, #8c6b3d);
+  color: #1a1208; border: 0; border-radius: 10px; cursor: pointer;
+  text-transform: uppercase;
+}
+#welcome-overlay #welcome-dismiss:active { transform: translateY(1px); }

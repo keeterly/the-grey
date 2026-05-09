@@ -2480,14 +2480,20 @@ function showCardOptions(cardEl, cardData){
   clearAllActionMenus();
   const pub = serializePublic(state) || {};
   const opts = [];
-  if (canPlaySpell(pub, cardData))  opts.push({k:"play",    label:"Play"});
-  if (canSetGlyph(pub, cardData))   opts.push({k:"set", label: glyphSlotOccupied(pub) ? "Replace" : "Set"});
+  if (canPlaySpell(pub, cardData))  opts.push({k:"play", label:"Play",
+    desc:"Send to a Spell Slot"});
+  if (canSetGlyph(pub, cardData))   opts.push({k:"set",
+    label: glyphSlotOccupied(pub) ? "Replace" : "Set",
+    desc: glyphSlotOccupied(pub) ? "Swap your Glyph (passive)" : "Place as Glyph (passive)"});
   // Only offer cast on true INSTANTs; Reaction cards are handled via "React" when a reaction window is active
-  if (canCastInstant(pub, cardData) && cardData.type !== 'REACTION') opts.push({k:"cast",    label:"Cast"});
+  if (canCastInstant(pub, cardData) && cardData.type !== 'REACTION') opts.push({k:"cast",
+    label:"Cast", desc:"Resolve immediately"});
   if (canChannel(cardData)){
     // Label as "Discard" if the card doesn't grant any Æ when channeled
-    const label = ((cardData?.aetherValue|0) > 0) ? "Channel" : "Discard";
-    opts.push({k:"channel", label});
+    const ae = (cardData?.aetherValue|0);
+    const label = ae > 0 ? "Channel" : "Discard";
+    const desc  = ae > 0 ? `Discard for +${ae} Æ this turn` : "Send to discard pile";
+    opts.push({k:"channel", label, desc});
   }
   // If this is a Reaction card and a reaction window is open for the player,
   // show a "React" option instead of "Cast". Reaction windows specify which side
@@ -2506,8 +2512,8 @@ function showCardOptions(cardEl, cardData){
     reactionUI.defender === 'player'
   ) {
     opts.length = 0;
-    opts.push({ k: "react", label: "React" });
-    opts.push({ k: "pass", label: "Pass" });
+    opts.push({ k: "react", label: "React", desc:"Spend Aether to respond" });
+    opts.push({ k: "pass",  label: "Pass",  desc:"Decline this reaction" });
   }
   if (!opts.length) return;
 
@@ -2517,8 +2523,12 @@ function showCardOptions(cardEl, cardData){
   opts.forEach(o=>{
     const b = document.createElement("button");
     b.type="button";
-    b.className = `rune-btn act-${o.k}`;
-    b.textContent = o.label;
+    b.className = `rune-btn act-${o.k}` + (o.desc ? ' has-desc' : '');
+    if (o.desc) {
+      b.innerHTML = `<span class="rb-label">${o.label}</span><span class="rb-desc">${o.desc}</span>`;
+    } else {
+      b.textContent = o.label;
+    }
 
   b.addEventListener("click", async (ev)=>{
   ev.stopPropagation();
@@ -5205,6 +5215,165 @@ function ensureSafetyShape(s){
 let pipUIWired = false;
 
 
+/* ==========================================================
+   v17: GAME-FLOW CLARITY helpers (called from render())
+   ========================================================== */
+
+// 2. Empty slot affordance — pulse slots whose type matches a
+//    playable card in the player's hand (only on player's turn).
+function refreshSlotAffordance(){
+  const playerSlots = document.querySelectorAll('.row.player .slot');
+  playerSlots.forEach(s => s.classList.remove('slot-affordance-pulse'));
+
+  const onPlayerTurn = state?.activePlayer === 'player' && !state?.winner;
+  if (!onPlayerTurn) return;
+
+  const pub = serializePublic(state) || {};
+  const hand = pub.players?.player?.hand || [];
+
+  const canPlayAnySpell = hand.some(c => c.type === 'SPELL' && canPlaySpell(pub, c));
+  const canSetAnyGlyph  = hand.some(c => c.type === 'GLYPH' && canSetGlyph(pub, c));
+
+  if (canPlayAnySpell) {
+    document.querySelectorAll('.row.player .slot.spell:not(.has-card):not(.glyph)')
+      .forEach(s => s.classList.add('slot-affordance-pulse'));
+  }
+  if (canSetAnyGlyph) {
+    document.querySelectorAll('.row.player .slot.glyph:not(.has-card)')
+      .forEach(s => s.classList.add('slot-affordance-pulse'));
+  }
+}
+
+// 3. Win-condition tracker strip. Reads HP / Confluence / Dominion
+//    progress for both sides and updates the always-visible pill.
+//    Adds a `.near` class when a side is one step away from winning.
+function renderWinconStrip(){
+  const strip = document.getElementById('wincon-strip');
+  if (!strip) return;
+  const s = state;
+  if (!s?.players) return;
+
+  const sides = ['ai', 'player'];
+  sides.forEach(side => {
+    const p = s.players[side] || {};
+    const hp = p.vitality | 0;
+    const cf = (p.flowCardsAcquired | 0);
+    const dm = (p.greyEssence | 0);
+    const row = strip.querySelector(`.wc-row.wc-${side}`);
+    if (!row) return;
+    const hpEl = row.querySelector('.wc-hp .wc-val');
+    const cfEl = row.querySelector('.wc-cf .wc-val');
+    const dmEl = row.querySelector('.wc-dm .wc-val');
+    if (hpEl) hpEl.textContent = `${hp}`;
+    if (cfEl) {
+      cfEl.textContent = `${cf}/5`;
+      cfEl.classList.toggle('near', cf >= 4 && cf < 5);
+    }
+    if (dmEl) {
+      dmEl.textContent = `${dm}/10`;
+      dmEl.classList.toggle('near', dm >= 8 && dm < 10);
+    }
+    // HP "near" if at 1 — opponent is one shot from Ruin
+    if (hpEl) hpEl.classList.toggle('near', hp <= 1 && hp > 0);
+  });
+}
+
+// 4a. Trance unlock — diff against last-known level per side and
+//     fire a centered toast + portrait flash on transitions.
+const _lastTranceLevel = { player: 0, ai: 0 };
+function detectTranceUnlocks(){
+  ['player','ai'].forEach(side => {
+    const lvl = (state?.players?.[side]?.tranceLevel | 0);
+    const prev = _lastTranceLevel[side] | 0;
+    if (lvl > prev) triggerTranceUnlockMoment(side, lvl);
+    _lastTranceLevel[side] = lvl;
+  });
+}
+
+let _tranceToastEl = null, _tranceToastTimer = null;
+function triggerTranceUnlockMoment(side, lvl){
+  // Resolve weaver-specific tier label/desc.
+  const weaverName = state?.players?.[side]?.weaver?.name || '';
+  let tierName = `Stage ${lvl === 2 ? 'II' : 'I'}`;
+  let tierDesc = 'A new power has awakened.';
+  try {
+    const cfg = (typeof getTranceCfg === 'function') ? getTranceCfg(weaverName) : null;
+    const tier = cfg?.tiers?.[lvl - 1];
+    if (tier?.name) tierName = tier.name;
+    if (tier?.desc) tierDesc = tier.desc;
+  } catch {}
+
+  // Portrait flash on the affected side
+  const portraitEl = document.querySelector(
+    side === 'player' ? '.row.player .portrait' : '.row.ai .portrait'
+  );
+  if (portraitEl) {
+    portraitEl.classList.remove('trance-flash');
+    void portraitEl.offsetWidth;
+    portraitEl.classList.add('trance-flash');
+    setTimeout(() => portraitEl.classList.remove('trance-flash'), 950);
+  }
+
+  // Centered toast naming the unlocked tier
+  if (!_tranceToastEl) {
+    _tranceToastEl = document.createElement('div');
+    _tranceToastEl.id = 'trance-toast';
+    document.body.appendChild(_tranceToastEl);
+  }
+  const sideLabel = side === 'player' ? 'YOU' : 'OPPONENT';
+  _tranceToastEl.innerHTML =
+    `<div class="tt-tier">${sideLabel} · TRANCE ${lvl === 2 ? 'II' : 'I'}</div>` +
+    `<div class="tt-name">${tierName}</div>` +
+    `<div class="tt-desc">${tierDesc}</div>`;
+  _tranceToastEl.classList.add('show');
+  clearTimeout(_tranceToastTimer);
+  _tranceToastTimer = setTimeout(() => {
+    _tranceToastEl?.classList.remove('show');
+  }, 2200);
+
+  logLine(`✦ ${side} entered TRANCE ${lvl} — ${tierName}`);
+}
+
+// 4b. Hex applied — diff slot.hex state and fire a sided toast +
+//     red ring flash on the slot. No explicit hex event in
+//     GameLogic, so we detect via render-diff.
+const _lastHexState = { player: [false,false,false,false], ai: [false,false,false,false] };
+let _hexToastEl = null, _hexToastTimer = null;
+function detectHexApplied(){
+  ['player','ai'].forEach(side => {
+    const slots = state?.players?.[side]?.slots || [];
+    slots.forEach((slot, i) => {
+      const hexed = !!slot?.hex;
+      const prev = !!_lastHexState[side][i];
+      if (hexed && !prev) triggerHexAppliedMoment(side, i);
+      _lastHexState[side][i] = hexed;
+    });
+  });
+}
+function triggerHexAppliedMoment(side, slotIndex){
+  const rowSel = side === 'player' ? '.row.player' : '.row.ai';
+  const slotEl = document.querySelectorAll(`${rowSel} .slot.spell`)[slotIndex];
+  if (slotEl) {
+    slotEl.classList.remove('hex-applied-flash');
+    void slotEl.offsetWidth;
+    slotEl.classList.add('hex-applied-flash');
+    setTimeout(() => slotEl.classList.remove('hex-applied-flash'), 750);
+  }
+  if (!_hexToastEl) {
+    _hexToastEl = document.createElement('div');
+    _hexToastEl.id = 'hex-toast';
+    document.body.appendChild(_hexToastEl);
+  }
+  const who = side === 'player' ? 'Your' : 'Opponent’s';
+  _hexToastEl.textContent = `${who} slot was Hexed — disabled for 2 turns`;
+  _hexToastEl.classList.add('show');
+  clearTimeout(_hexToastTimer);
+  _hexToastTimer = setTimeout(() => {
+    _hexToastEl?.classList.remove('show');
+  }, 1700);
+}
+
+
 async function render(){
   const s = ensureSafetyShape(serializePublic(state) || {});
 
@@ -5249,7 +5418,13 @@ async function render(){
   renderTranceTrack('player');
   renderTranceTrack('ai');
   refreshPipAdvanceClasses();
-   
+
+  // v17 game-flow clarity: affordances, win-strip, pivot moments
+  refreshSlotAffordance();
+  renderWinconStrip();
+  detectTranceUnlocks();
+  detectHexApplied();
+
 
 
  
@@ -5709,6 +5884,74 @@ document.addEventListener("click", clearAllActionMenus);
 
 
 
+/* ---------- v17 wiring ---------- */
+
+// Wincon-strip click → toggle the small explainer popover.
+function wireWinconExplain(){
+  const strip   = document.getElementById('wincon-strip');
+  const explain = document.getElementById('wincon-explain');
+  if (!strip || !explain) return;
+  const close = explain.querySelector('.close');
+  strip.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    explain.classList.toggle('open');
+  });
+  close?.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    explain.classList.remove('open');
+  });
+  // Dismiss when clicking elsewhere
+  document.addEventListener('click', (ev) => {
+    if (!explain.contains(ev.target) && !strip.contains(ev.target)) {
+      explain.classList.remove('open');
+    }
+  });
+}
+
+// First-run welcome — show once based on localStorage flag, dismiss on
+// button click, and add a "Show welcome" entry in the menu sheet so
+// returning players can re-read.
+const WELCOME_FLAG = 'thegrey.welcomeSeen';
+function showWelcomeOverlay(){
+  const ov = document.getElementById('welcome-overlay');
+  if (!ov) return;
+  ov.dataset.shown = 'true';
+  ov.setAttribute('aria-hidden', 'false');
+}
+function hideWelcomeOverlay(){
+  const ov = document.getElementById('welcome-overlay');
+  if (!ov) return;
+  ov.dataset.shown = 'false';
+  ov.setAttribute('aria-hidden', 'true');
+}
+function wireWelcomeOverlay(){
+  const ov = document.getElementById('welcome-overlay');
+  const btn = document.getElementById('welcome-dismiss');
+  if (!ov || !btn) return;
+  btn.addEventListener('click', () => {
+    try { localStorage.setItem(WELCOME_FLAG, '1'); } catch {}
+    hideWelcomeOverlay();
+  });
+  let seen = '0';
+  try { seen = localStorage.getItem(WELCOME_FLAG) || '0'; } catch {}
+  if (seen !== '1') showWelcomeOverlay();
+
+  // Inject "Show welcome again" into the menu sheet, if present.
+  try {
+    const sheet = document.querySelector('.menu-sheet');
+    if (sheet && !sheet.querySelector('#welcome-replay-btn')) {
+      const btn2 = document.createElement('button');
+      btn2.id = 'welcome-replay-btn';
+      btn2.className = 'rune-btn';
+      btn2.textContent = 'Show welcome';
+      btn2.style.cssText = 'margin-top:8px; width:100%';
+      btn2.addEventListener('click', showWelcomeOverlay);
+      sheet.appendChild(btn2);
+    }
+  } catch {}
+}
+
+
 /* ---------- boot ---------- */
 document.addEventListener("DOMContentLoaded", async () => {
   ensureTopLeftUI();
@@ -5727,6 +5970,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   ensureReactionStyles();
   ensureShuffleStyles();
   ensureCardMotionStyles();
+
+  // v17: wire wincon-strip explainer + first-run welcome overlay
+  wireWinconExplain();
+  wireWelcomeOverlay();
 
 
 // 🔒 Gate check

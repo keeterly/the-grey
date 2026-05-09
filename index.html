@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Grey — board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=mlv16-20260509" />
+  <link rel="stylesheet" href="./styles.css?v=mlv17-20260509" />
 </head>
 <body id="board" class="theme-dark parchment">
 
@@ -23,6 +23,70 @@
 
   <!-- v16: persistent turn badge for mobile (hidden on desktop via CSS) -->
   <div id="turn-badge" aria-live="polite"></div>
+
+  <!-- v17: always-visible win-condition tracker (both sides) -->
+  <div id="wincon-strip" aria-label="Win condition progress">
+    <div class="wc-row wc-ai" data-side="ai">
+      <span class="wc-hp" title="Vitality (Ruin at 0)">
+        <span class="wc-icon" aria-hidden="true">♥</span>
+        <span class="wc-val">12</span>
+      </span>
+      <span class="wc-cf" title="Confluence: buy 5 from Aether Flow">
+        <span class="wc-icon" aria-hidden="true">◇</span>
+        <span class="wc-val">0/5</span>
+      </span>
+      <span class="wc-dm" title="Dominion: channel 10+ Aether">
+        <span class="wc-icon" aria-hidden="true">▲</span>
+        <span class="wc-val">0/10</span>
+      </span>
+    </div>
+    <div class="wc-row wc-player" data-side="player">
+      <span class="wc-hp" title="Vitality (Ruin at 0)">
+        <span class="wc-icon" aria-hidden="true">♥</span>
+        <span class="wc-val">12</span>
+      </span>
+      <span class="wc-cf" title="Confluence: buy 5 from Aether Flow">
+        <span class="wc-icon" aria-hidden="true">◇</span>
+        <span class="wc-val">0/5</span>
+      </span>
+      <span class="wc-dm" title="Dominion: channel 10+ Aether">
+        <span class="wc-icon" aria-hidden="true">▲</span>
+        <span class="wc-val">0/10</span>
+      </span>
+    </div>
+  </div>
+  <div id="wincon-explain" role="dialog" aria-hidden="true">
+    <button class="close" aria-label="Close">×</button>
+    <h4>Three paths to victory</h4>
+    <p><b>♥ Ruin</b> — drop opponent's Vitality to 0.</p>
+    <p><b>◇ Confluence</b> — buy 5 cards from the Aether Flow market.</p>
+    <p><b>▲ Dominion</b> — channel 10+ Aether (discard cards, certain effects).</p>
+  </div>
+
+  <!-- v17: first-run welcome overlay (one-time; localStorage flag) -->
+  <div id="welcome-overlay" data-shown="false" aria-hidden="true">
+    <div class="welcome-panel" role="dialog" aria-labelledby="welcome-title">
+      <h2 id="welcome-title">The Grey</h2>
+      <p class="welcome-tagline">A duel of weavers. Three paths to victory.</p>
+      <h3>How to win</h3>
+      <ul class="welcome-paths">
+        <li><b>Ruin</b> — drop your opponent to 0 hearts.</li>
+        <li><b>Confluence</b> — buy 5 cards from the Aether Flow.</li>
+        <li><b>Dominion</b> — channel 10 or more Aether.</li>
+      </ul>
+      <h3>Your turn</h3>
+      <p class="welcome-tip">
+        Tap a card in your hand to see what you can do — Play it to a Spell Slot,
+        Set it as a Glyph, Cast it, or Channel it for Aether. Pay Aether to advance
+        your Spells; once a spell hits its pip count, it resolves.
+      </p>
+      <p class="welcome-tip">
+        Long-press any card to read its full text. The bar at the top tracks your
+        progress on all three win conditions — tap it for a reminder.
+      </p>
+      <button id="welcome-dismiss" class="rune-btn">Begin</button>
+    </div>
+  </div>
 
   <main id="board-grid" class="grid">
     <!-- AI (top) -->
@@ -114,7 +178,7 @@
     </div>
   </div>
 
-  <script type="module" src="./index.js?v=mlv16-20260509"></script>
+  <script type="module" src="./index.js?v=mlv17-20260509"></script>
 </body>
 
 </html>
