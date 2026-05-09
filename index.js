@@ -5029,6 +5029,13 @@ async function spotlightFromEvents(state){
         animateReshuffle(e.side, Math.min(18, e.discardCount || 10));
       }
 
+      // v29: empty deck + discard. drawOne returns silently when both
+      // are empty; without feedback the player can't tell a draw was
+      // skipped. Toast briefly.
+      if (e.t === 'draw_failed' && e.side === 'player') {
+        try { aiActionToast('Deck and discard are empty'); } catch {}
+      }
+
       // === NEW: Tally for draw/discard animations (2B) ===
       if (e.t === 'draw') {
         const s = (e.side === 'ai') ? 'ai' : 'player';
@@ -5760,6 +5767,12 @@ async function render(){
   if (!state?.pendingWin && _pendingWinShown) {
     clearPendingWinBanner();
   }
+  // v29: also toggle a body class so CSS can lock the flow row from
+  // additional buys once a Confluence/Dominion win is one turn away.
+  // Without this, a player crossing the Confluence threshold via a
+  // 7th buy could keep clicking flow cards (Free Buy / cap exhausted)
+  // and wedge the engine. CSS dims and disables pointer-events.
+  document.body.classList.toggle('pending-win-active', !!state?.pendingWin && !state?.winner);
 
   // Wire pip click handlers once, after #player-slots exists
   if (!pipUIWired) {
@@ -6330,6 +6343,11 @@ function wireWelcomeOverlay(){
   btn.addEventListener('click', () => {
     try { localStorage.setItem(WELCOME_FLAG, '1'); } catch {}
     hideWelcomeOverlay();
+    // v29: prime _lastActivePlayer to the current side so the next
+    // render's diff doesn't fire a spurious "Your Turn" toast on the
+    // first paint after dismissal. Subsequent legitimate flips toast
+    // normally.
+    try { _lastActivePlayer = state?.activePlayer ?? 'player'; } catch {}
   });
   let seen = '0';
   try { seen = localStorage.getItem(WELCOME_FLAG) || '0'; } catch {}

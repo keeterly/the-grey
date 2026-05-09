@@ -1,6 +1,12 @@
 // ai.js — Strategic AI Decision Engine
 // One deliberate action per call, board-state aware.
 export async function runAiTurn(state, api) {
+  // v29 — small "thinking" delay so the AI feels deliberate rather
+  // than instantaneous. The orchestrator's 420ms beat between actions
+  // is wall-time only; the *decision* lands the moment runAiTurn is
+  // called. 180-280ms variable delay reads as cognition without
+  // dragging out the turn.
+  await new Promise(r => setTimeout(r, 180 + Math.random() * 100));
   const side = 'ai';
   const pub  = api.getPublic() || {};
   const me   = pub.players?.ai    || {};
