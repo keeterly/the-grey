@@ -996,13 +996,33 @@ body.mobile-portrait  .action-pop .rune-btn{
 }
 
 /* Peek/Zoom: cap so it doesn't overflow short viewports */
+/* Peek/Zoom: capped so it doesn't dominate the screen on phone.
+   Hearthstone/StS-style modest peek ~ 40-50% of screen height. */
 body.mobile-landscape #peek-card.card.peek,
-body.mobile-landscape #zoom-card.card.zoom,
-body.mobile-portrait  #peek-card.card.peek,
-body.mobile-portrait  #zoom-card.card.zoom{
-  width: min(calc(var(--hand-card-w)*1.9), 80vw);
+body.mobile-landscape #zoom-card.card.zoom{
+  width: min(calc(var(--hand-card-w)*1.9), 50vw);
   height: auto;
   aspect-ratio: 1 / 1.4;
+  max-height: 70vh;
+}
+body.mobile-portrait #peek-card.card.peek,
+body.mobile-portrait #zoom-card.card.zoom{
+  /* On portrait the constraint is HEIGHT (tall but narrow viewport).
+     Cap at 45vh which lands a 1.4-aspect card at ~32vw wide. */
+  width: auto;
+  height: 45vh;
+  aspect-ratio: 1 / 1.4;
+  max-width: 70vw;
+}
+/* Smooth scale-in for both modes */
+body.mobile-landscape #peek-card.card.peek,
+body.mobile-portrait #peek-card.card.peek{
+  transform: translate(-50%, -50%) scale(.92);
+  transition: opacity .16s ease, transform .16s ease;
+}
+body.mobile-landscape #peek-card.card.peek.show,
+body.mobile-portrait #peek-card.card.peek.show{
+  transform: translate(-50%, -50%) scale(1);
 }
 
 /* Very short displays */
