@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>The Grey — board</title>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600&family=Crimson+Text:wght@600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./styles.css?v=mlv19-20260509" />
+  <link rel="stylesheet" href="./styles.css?v=mlv20-20260509" />
 </head>
 <body id="board" class="theme-dark parchment">
 
@@ -25,36 +25,8 @@
   <div id="turn-badge" aria-live="polite"></div>
 
   <!-- v17: always-visible win-condition tracker (both sides) -->
-  <div id="wincon-strip" aria-label="Win condition progress">
-    <div class="wc-row wc-ai" data-side="ai">
-      <span class="wc-hp" title="Vitality (Ruin at 0)">
-        <span class="wc-icon" aria-hidden="true">♥</span>
-        <span class="wc-val">12</span>
-      </span>
-      <span class="wc-cf" title="Confluence: buy 7 from Aether Flow">
-        <span class="wc-icon" aria-hidden="true">◇</span>
-        <span class="wc-val">0/7</span>
-      </span>
-      <span class="wc-dm" title="Dominion: channel 10+ Aether">
-        <span class="wc-icon" aria-hidden="true">▲</span>
-        <span class="wc-val">0/10</span>
-      </span>
-    </div>
-    <div class="wc-row wc-player" data-side="player">
-      <span class="wc-hp" title="Vitality (Ruin at 0)">
-        <span class="wc-icon" aria-hidden="true">♥</span>
-        <span class="wc-val">12</span>
-      </span>
-      <span class="wc-cf" title="Confluence: buy 7 from Aether Flow">
-        <span class="wc-icon" aria-hidden="true">◇</span>
-        <span class="wc-val">0/7</span>
-      </span>
-      <span class="wc-dm" title="Dominion: channel 10+ Aether">
-        <span class="wc-icon" aria-hidden="true">▲</span>
-        <span class="wc-val">0/10</span>
-      </span>
-    </div>
-  </div>
+  <!-- v20: #wincon-strip removed. Per-side .wincon-rail elements now
+       live inside #board-grid between the rows. -->
   <div id="wincon-explain" role="dialog" aria-hidden="true">
     <button class="close" aria-label="Close">×</button>
     <h4>Three paths to victory</h4>
@@ -94,9 +66,9 @@
       <figure class="portrait">
         <img id="ai-portrait" src="" alt="Opponent" />
         <figcaption id="ai-name">Morr, Gravecurrent Binder</figcaption>
-        <div class="hearts" id="ai-hearts"></div>
+        <!-- v20: HP bar moved off the chip onto the AI wincon rail below. -->
        <div class="trance" data-side="ai">
- 
+
 </div>
 
 
@@ -117,7 +89,14 @@
   </div>
 </div>
 
-      
+
+    </section>
+
+    <!-- v20: AI win-condition rail (between AI slots and the market) -->
+    <section class="wincon-rail wc-ai" data-side="ai" aria-label="Opponent win conditions">
+      <div class="wcr-host hp"  id="ai-wcr-hp"></div>
+      <div class="wcr-host cf"  id="ai-wcr-cf"></div>
+      <div class="wcr-host dom" id="ai-wcr-dom"></div>
     </section>
 
     <!-- FLOW (center) -->
@@ -130,13 +109,20 @@
       </div>
     </section>
 
+    <!-- v20: Player win-condition rail (between the market and player slots) -->
+    <section class="wincon-rail wc-player" data-side="player" aria-label="Your win conditions">
+      <div class="wcr-host hp"  id="player-wcr-hp"></div>
+      <div class="wcr-host cf"  id="player-wcr-cf"></div>
+      <div class="wcr-host dom" id="player-wcr-dom"></div>
+    </section>
+
     <!-- PLAYER (bottom) -->
     <section class="row player">
       <div id="player-slots" class="slot-row" aria-label="Player slots"></div>
       <figure class="portrait">
          <img id="player-portrait" src="" alt="Player" />
         <figcaption id="player-name">Aria, Runesurge Adept</figcaption>
-        <div class="hearts" id="player-hearts"></div>
+        <!-- v20: HP bar moved off the chip onto the player wincon rail above. -->
         <div class="trance" data-side="player">
   
 </div>
@@ -178,7 +164,7 @@
     </div>
   </div>
 
-  <script type="module" src="./index.js?v=mlv19-20260509"></script>
+  <script type="module" src="./index.js?v=mlv20-20260509"></script>
 </body>
 
 </html>

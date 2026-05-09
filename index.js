@@ -545,8 +545,14 @@ function seedFlowToFiveOnBoot() {
 
 
 
+// v20: the chip-mounted #player-hearts / #ai-hearts elements are gone;
+// the HP bar now lives on the wincon rail (#player-wcr-hp / #ai-wcr-hp).
+// VFX anchors that fired on the hearts node now point at the rail host
+// (or the portrait as a final fallback) so damage shards/cracks/floaters
+// still visually originate near the HP indicator.
 function heartsElFor(side) {
-  return document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+  return document.getElementById(side === 'player' ? 'player-wcr-hp' : 'ai-wcr-hp')
+      || document.querySelector(side === 'player' ? '.row.player .portrait' : '.row.ai .portrait');
 }
 
 function animateDamage(side, amount = 1) {
@@ -580,8 +586,8 @@ function animateDamage(side, amount = 1) {
   host.appendChild(crack);
   crack.addEventListener('animationend', () => crack.remove(), { once:true });
 
-  // radial shards bursting from the heart row center
-  const hearts = document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+  // radial shards bursting from the HP bar center (v20: rail-mounted)
+  const hearts = heartsElFor(side);
   const anchor = hearts || host;
   const r = anchor.getBoundingClientRect();
   const cx = (r.left + r.right) / 2 - host.getBoundingClientRect().left;
@@ -917,10 +923,11 @@ function findSideContainer(side) {
 
 
 function heartsHost(side) {
-  const hearts = document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
-  // prefer the portrait wrapper if present, else the hearts node itself
-  const portrait = hearts?.closest('.portrait');
-  return portrait || hearts || findSideContainer(side);
+  // v20: hearts wrapper is gone; HP lives on the rail. Anchor damage VFX
+  // to the rail (where the HP bar now is) so cracks/shards still cluster
+  // around the HP indicator.
+  const rail = document.querySelector(side === 'player' ? '.wincon-rail.wc-player' : '.wincon-rail.wc-ai');
+  return rail || findSideContainer(side);
 }
 
 
@@ -937,7 +944,8 @@ function refreshHeartsShatter(side) {
 
 
 function heartsWrap(side) {
-  return document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
+  // v20: redirect to the rail HP host (former hearts container).
+  return document.getElementById(side === 'player' ? 'player-wcr-hp' : 'ai-wcr-hp');
 }
 
 /** Mark the newest lost heart (rightmost empty) as 'shattered'. */
@@ -2053,13 +2061,9 @@ function heartSVG({ filled = true, size = 36 } = {}) {
  * Render hearts as "containers": show `maxHearts` outlines,
  * with the first `hp` hearts filled. Defaults to 12 max.
  */
-// v19: replaced 12-icon SVG row with a slim continuous HP bar.
-// 12 tiny 12×12px hearts on mobile portrait (~156px row) became a
-// "gray blur" — the wincon strip's numeric ♥ was carrying all the
-// at-a-glance load while the heart row was just visual noise. The
-// new bar is one icon + a thin 7px-tall track + a numeric value,
-// color-tiered green→amber→red as HP drops.
-function renderHearts(el, hp = 12, maxHearts = 12) {
+// v20: HP bar (was renderHearts in v19). Same body, renamed to clarify
+// it's now one of three sibling indicators on the wincon rail.
+function renderHpBar(el, hp = 12, maxHearts = 12) {
   if (!el) return;
   const max = Math.max(1, maxHearts | 0);
   const cur = Math.max(0, Math.min(hp | 0, max));
@@ -2078,6 +2082,62 @@ function renderHearts(el, hp = 12, maxHearts = 12) {
       `<div class="hp-bar-fill" style="width:${pct.toFixed(1)}%"></div>` +
     `</div>` +
     `<span class="hp-num">${cur}</span>`;
+}
+// Backward-compat alias: anything still calling renderHearts continues
+// to work (the v19 chip callers were removed, but external paths might
+// still reach it). Safe to delete in a later cleanup once verified.
+const renderHearts = renderHpBar;
+
+// v20: shared slim progress bar — same visual family as the HP bar so
+// HP / Confluence / Dominion all read as one unified row of indicators.
+// `kind` is a class hint (cf | dom) used by CSS for icon coloring; `near`
+// triggers the existing pulse highlight when one step from winning.
+function renderProgressBar(el, opts) {
+  if (!el) return;
+  const { icon = '◆', cur = 0, max = 1, label = '', kind = '', near = false } = opts || {};
+  const m = Math.max(1, max | 0);
+  const c = Math.max(0, Math.min(cur | 0, m));
+  const pct = (c / m) * 100;
+  el.classList.add('hp-bar-host', 'wcr-progress');
+  el.classList.toggle('near', !!near);
+  // strip stale kind classes, then add the current kind
+  el.classList.remove('wcr-cf','wcr-dom');
+  if (kind) el.classList.add(`wcr-${kind}`);
+  el.innerHTML =
+    `<span class="hp-icon" aria-hidden="true">${icon}</span>` +
+    `<div class="hp-bar-track" role="progressbar" ` +
+      `aria-valuemin="0" aria-valuemax="${m}" aria-valuenow="${c}" ` +
+      `aria-label="${label} ${c} of ${m}">` +
+      `<div class="hp-bar-fill" style="width:${pct.toFixed(1)}%"></div>` +
+    `</div>` +
+    `<span class="hp-num">${c}/${m}</span>`;
+}
+
+// v20: render one side's full WC rail (HP + Confluence + Dominion).
+// Replaces the v17 fixed top-right wincon strip and the v17 per-portrait
+// .win-tracks injection. Single canonical place per side, spatially
+// associated with that side's slot row.
+function renderWinconRail(side) {
+  const s = state;
+  const P = s?.players?.[side];
+  if (!P) return;
+  const hp  = P.vitality | 0;
+  const cf  = P.flowCardsAcquired | 0;
+  const dom = P.greyEssence | 0;
+  renderHpBar(document.getElementById(`${side}-wcr-hp`), hp, 12);
+  renderProgressBar(document.getElementById(`${side}-wcr-cf`), {
+    icon: '◇', cur: cf, max: 7, label: 'Confluence',
+    kind: 'cf', near: cf >= 6 && cf < 7,
+  });
+  renderProgressBar(document.getElementById(`${side}-wcr-dom`), {
+    icon: '▲', cur: dom, max: 10, label: 'Dominion',
+    kind: 'dom', near: dom >= 8 && dom < 10,
+  });
+  // Mirror near-state on the rail itself so CSS can pulse the whole bar.
+  const rail = document.querySelector(`.wincon-rail.wc-${side}`);
+  if (rail) {
+    rail.classList.toggle('near', (cf >= 6 && cf < 7) || (dom >= 8 && dom < 10) || (hp <= 1 && hp > 0));
+  }
 }
 
 
@@ -4122,36 +4182,10 @@ function showPendingWinBanner(side, condition) {
   setTimeout(() => banner.classList.remove("show"), 5000);
 }
 
-function renderWinTracks(side) {
-  const s    = serializePublic(state) || {};
-  const P    = s.players?.[side];
-  if (!P) return;
-  const cf   = P.flowCardsAcquired | 0;
-  const dom  = P.greyEssence       | 0;
-  const heartsEl = document.getElementById(side === 'player' ? 'player-hearts' : 'ai-hearts');
-  if (!heartsEl) return;
-  let wrap = heartsEl.parentElement?.querySelector('.win-tracks');
-  if (!wrap) {
-    wrap = document.createElement('div');
-    wrap.className = 'win-tracks';
-    heartsEl.insertAdjacentElement('afterend', wrap);
-  }
-  const cfPct  = Math.min(100, (cf  / 5)  * 100);
-  const domPct = Math.min(100, (dom / 10) * 100);
-  const cfNear  = cf  >= 4 ? ' near' : '';
-  const domNear = dom >= 8 ? ' near' : '';
-  wrap.innerHTML = `
-    <div class="win-track confluence${cfNear}" title="Confluence: ${cf}/5 Aetherflow cards">
-      <span class="wt-label">C</span>
-      <div class="wt-bar"><div class="wt-fill" style="width:${cfPct}%"></div></div>
-      <span>${cf}/5</span>
-    </div>
-    <div class="win-track dominion${domNear}" title="Dominion: ${dom}/10 Grey Essence">
-      <span class="wt-label">D</span>
-      <div class="wt-bar"><div class="wt-fill" style="width:${domPct}%"></div></div>
-      <span>${dom}/10</span>
-    </div>`;
-}
+// v20: renderWinTracks deleted. The chip-mounted Confluence/Dominion
+// mini-bars are now shown on the per-side wincon rail (renderWinconRail).
+// This codepath also had a stale "/5" Confluence threshold (real value is
+// 7 post-v18) — removing it fixes that bug as a side effect.
 
 // ---------- cinematic helpers ----------
 function ensureCinematicLayer() {
@@ -4716,8 +4750,8 @@ async function spotlightFromEvents(state){
       // Damage VFX (hearts + shatter + floater)
       if (e.t === 'damage') {
         if (e.side === 'player' || e.side === 'ai') {
-          const id = e.side === 'player' ? 'player-hearts' : 'ai-hearts';
-          const hearts = document.getElementById(id);
+          // v20: HP element moved to the rail HP host.
+          const hearts = heartsElFor(e.side);
           if (hearts) {
             hearts.classList.add('hit');
             hearts.addEventListener('animationend', () => hearts.classList.remove('hit'), { once: true });
@@ -5328,39 +5362,8 @@ function refreshSlotAffordance(){
   }
 }
 
-// 3. Win-condition tracker strip. Reads HP / Confluence / Dominion
-//    progress for both sides and updates the always-visible pill.
-//    Adds a `.near` class when a side is one step away from winning.
-function renderWinconStrip(){
-  const strip = document.getElementById('wincon-strip');
-  if (!strip) return;
-  const s = state;
-  if (!s?.players) return;
-
-  const sides = ['ai', 'player'];
-  sides.forEach(side => {
-    const p = s.players[side] || {};
-    const hp = p.vitality | 0;
-    const cf = (p.flowCardsAcquired | 0);
-    const dm = (p.greyEssence | 0);
-    const row = strip.querySelector(`.wc-row.wc-${side}`);
-    if (!row) return;
-    const hpEl = row.querySelector('.wc-hp .wc-val');
-    const cfEl = row.querySelector('.wc-cf .wc-val');
-    const dmEl = row.querySelector('.wc-dm .wc-val');
-    if (hpEl) hpEl.textContent = `${hp}`;
-    if (cfEl) {
-      cfEl.textContent = `${cf}/7`;
-      cfEl.classList.toggle('near', cf >= 6 && cf < 7);
-    }
-    if (dmEl) {
-      dmEl.textContent = `${dm}/10`;
-      dmEl.classList.toggle('near', dm >= 8 && dm < 10);
-    }
-    // HP "near" if at 1 — opponent is one shot from Ruin
-    if (hpEl) hpEl.classList.toggle('near', hp <= 1 && hp > 0);
-  });
-}
+// v20: renderWinconStrip removed. Per-side rendering now handled by
+// renderWinconRail(side) — see definition near renderHpBar.
 
 // 4a. Trance unlock — diff against last-known level per side and
 //     fire a centered toast + portrait flash on transitions.
@@ -5492,20 +5495,18 @@ async function render(){
   
   setAetherDisplay(playerAeEl, s.players?.player?.aether ?? 0, s.players?.player?.tempAether ?? 0);
   setAetherDisplay(aiAeEl,     s.players?.ai?.aether ?? 0,     s.players?.ai?.tempAether ?? 0);
-  // in render()
-  renderHearts($("player-hearts"), s.players?.player?.vitality ?? 12, 12);
-  renderHearts($("ai-hearts"),     s.players?.ai?.vitality     ?? 12, 12);
-  renderWinTracks('player');
-  renderWinTracks('ai');
+  // v20: HP / Confluence / Dominion all render on the per-side rail.
+  renderWinconRail('ai');
+  renderWinconRail('player');
 
   removeLegacyTranceText();
   renderTranceTrack('player');
   renderTranceTrack('ai');
   refreshPipAdvanceClasses();
 
-  // v17 game-flow clarity: affordances, win-strip, pivot moments
+  // v17 game-flow clarity: affordances, pivot moments. v20: wincon strip
+  // replaced by per-side rails (rendered above).
   refreshSlotAffordance();
-  renderWinconStrip();
   detectTranceUnlocks();
   detectHexApplied();
 
@@ -5976,15 +5977,18 @@ document.addEventListener("click", clearAllActionMenus);
 
 /* ---------- v17 wiring ---------- */
 
-// Wincon-strip click → toggle the small explainer popover.
+// v20: tap either wincon rail → toggle the "Three paths to victory"
+// explainer popover. Was previously bound to the fixed top-right strip.
 function wireWinconExplain(){
-  const strip   = document.getElementById('wincon-strip');
+  const rails = document.querySelectorAll('.wincon-rail');
   const explain = document.getElementById('wincon-explain');
-  if (!strip || !explain) return;
+  if (!rails.length || !explain) return;
   const close = explain.querySelector('.close');
-  strip.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    explain.classList.toggle('open');
+  rails.forEach(rail => {
+    rail.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      explain.classList.toggle('open');
+    });
   });
   close?.addEventListener('click', (ev) => {
     ev.stopPropagation();
@@ -5992,7 +5996,8 @@ function wireWinconExplain(){
   });
   // Dismiss when clicking elsewhere
   document.addEventListener('click', (ev) => {
-    if (!explain.contains(ev.target) && !strip.contains(ev.target)) {
+    const onRail = ev.target.closest?.('.wincon-rail');
+    if (!explain.contains(ev.target) && !onRail) {
       explain.classList.remove('open');
     }
   });
