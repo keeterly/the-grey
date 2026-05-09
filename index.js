@@ -2551,9 +2551,11 @@ await render();
   document.body.appendChild(pop);
   // Ensure reaction popovers appear above the dimming overlay and other UI
   pop.style.zIndex = 3600;
-  // On mobile-landscape the action-pop is styled as a fixed bottom sheet
-  // (see styles.css). Skip the per-card positioning so CSS controls layout.
-  if (!isMobileLandscape()){
+  // On mobile (both orientations) the action-pop is styled as a fixed
+  // bottom sheet (see styles.css). Skip the per-card positioning so
+  // CSS controls layout.
+  const isMobilePortrait = document.body?.classList?.contains('mobile-portrait');
+  if (!isMobileLandscape() && !isMobilePortrait){
     const r = cardEl.getBoundingClientRect();
     pop.style.left = `${r.left + r.width/2}px`;
     pop.style.top  = `${r.top  - 12}px`;
