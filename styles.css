@@ -2996,3 +2996,79 @@ body.mobile-landscape .wcr-badge {
   padding: 0 3px;
   font-size: .65em;
 }
+
+
+/* ==========================================================
+   v22: TRANCE-AS-IDENTITY + HUD relocation
+   - Bottom-right End Turn / Deck / Discard cluster moved to the
+     empty top-right corner (mobile only). Top-right has been
+     unused since v20 removed the wincon strip.
+   - Portrait chip gets a school-tinted ring matching the weaver's
+     school (Aria=grey, Morr=black) so deckbuilding identity is
+     visible from the start.
+   ========================================================== */
+
+/* HUD: top-right horizontal cluster on mobile portrait. Override the
+   v17 vertical-stack rules. Desktop still uses the original right-
+   side vertical layout. */
+body.mobile-portrait .hud{
+  position: fixed !important;
+  right: 6px !important;
+  top: 6px !important;
+  bottom: auto !important;
+  left: auto !important;
+  flex-direction: row !important;
+  gap: 6px !important;
+  z-index: 50;
+}
+body.mobile-portrait .hud-btn{
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+}
+/* End-turn: same row, slightly larger as the most-tapped action. */
+body.mobile-portrait #btn-endturn-hud{
+  position: static !important;
+  width: 48px !important;
+  height: 36px !important;
+  border-radius: 10px !important;
+  font-size: 18px !important;
+  background: #c6a56a;
+  color: #0d0a07;
+  border: 1px solid #4a3d2f;
+  box-shadow: 0 4px 10px rgba(0,0,0,.45);
+  /* sits inside the .hud flex row so order is controlled here */
+  order: 0;
+}
+body.mobile-portrait #btn-discard-hud { order: 1; }
+body.mobile-portrait #btn-deck-hud    { order: 2; }
+/* Mobile landscape: keep existing left-side stack (no override). */
+
+/* Portrait chip school identity ring. Lives on .portrait via a CSS
+   variable set per-side from the weaver.school (we just colour both
+   sides until the AI weaver is also school-tagged at runtime). */
+.portrait[data-school="black"] { --school-tint: rgba(140,40,40,.65); }
+.portrait[data-school="white"] { --school-tint: rgba(220,200,140,.85); }
+.portrait[data-school="grey"]  { --school-tint: rgba(140,150,170,.55); }
+.portrait[data-school] img {
+  outline: 2px solid var(--school-tint, transparent);
+  outline-offset: 1px;
+  transition: outline-color .25s ease;
+}
+.portrait[data-school]::after {
+  content: attr(data-school);
+  position: absolute;
+  bottom: -2px; left: 50%;
+  transform: translateX(-50%);
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  font-size: .56em;
+  font-weight: 700;
+  color: var(--school-tint, #999);
+  background: rgba(20,16,10,.85);
+  border: 1px solid var(--school-tint, #555);
+  border-radius: 6px;
+  padding: 1px 5px;
+  pointer-events: none;
+}

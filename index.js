@@ -3841,8 +3841,10 @@ const TRANCE_DATA = {
   Morr: {
     thresholds: [4, 1],
     stages: [
-      { name: "Gravecurrent Tithe", effect: "When a card leaves a Slot: gain +1 Æ (once/turn)." },
-      { name: "Flow Bargain",       effect: "First Flow buy each turn costs 1 less Æ and Channel 1." }
+      // v22 — Black-school identity: vampire/sacrifice. Stage I bleeds
+      // attackers; Stage II turns every casting into a blood-rite.
+      { name: "Gravecurrent Tithe", effect: "When you take damage: opponent loses 1 HP and you gain 1 Æ (once/turn)." },
+      { name: "Last Rites",         effect: "When one of your Spells resolves: deal 1 extra damage and lose 1 HP." }
     ]
   },
   Veyra: {
@@ -3897,15 +3899,16 @@ const WEAVER_TRANCE = {
   },
 
   Morr: {
+    // v22 — Black-school identity rewrite (matches Morr block above).
     tiers: [
       {
-        name: "Gravecurrent",
-        desc: "When a card leaves a Slot: gain +1 Æ (once/turn).",
+        name: "Gravecurrent Tithe",
+        desc: "When you take damage: opponent loses 1 HP and you gain 1 Æ (once/turn).",
         threshold: 4
       },
       {
-        name: "Tithe of the Flow",
-        desc: "Your first Aether Flow purchase each turn costs 1 less Æ and Channel 1.",
+        name: "Last Rites",
+        desc: "When one of your Spells resolves: deal 1 extra damage and lose 1 HP.",
         threshold: 1
       }
     ]
@@ -5519,6 +5522,16 @@ async function render(){
 
       playerName     && (playerName.textContent = s.players?.player?.weaver?.name || "Player");
       aiName         && (aiName.textContent     = s.players?.ai?.weaver?.name || "Opponent");
+
+      // v22: stamp the school onto each portrait so CSS can paint a
+      // school-tinted ring + label badge under the portrait, making
+      // each weaver's deckbuilding identity visible at a glance.
+      const psFig = playerPortrait?.closest('.portrait');
+      const asFig = aiPortrait?.closest('.portrait');
+      const pSch  = (s.players?.player?.weaver?.school || 'grey').toLowerCase();
+      const aSch  = (s.players?.ai?.weaver?.school     || 'grey').toLowerCase();
+      if (psFig) psFig.dataset.school = pSch;
+      if (asFig) asFig.dataset.school = aSch;
 
 
 
