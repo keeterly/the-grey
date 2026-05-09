@@ -114,17 +114,28 @@ export async function runAiTurn(state, api) {
   }
 
   // ── 2) SET or REPLACE a Glyph ────────────────────────────────
-  // Glyphs are persistent now. Set freely when slot is open.
-  // In kill mode, swap to a damage glyph if current one isn't.
-  if (urgencyLevel < 3 && hasType('GLYPH')) {
-    const glyphs = handByType('GLYPH');
+  // v27: dropped the `urgencyLevel < 3` gate. The persistent slot
+  // is too valuable to leave starved, even in kill mode — passive
+  // damage glyphs (Creeping Malice) accelerate kills, defensive
+  // glyphs (Aegis) buy survival time. Also added school-sort so a
+  // Black weaver prefers Black glyphs when multiple are in hand.
+  if (hasType('GLYPH')) {
+    const aiSchool = pub.players?.ai?.weaver?.school;
+    const glyphs = handByType('GLYPH').slice().sort((a, b) => {
+      const aMatch = a.school === aiSchool ? 1 : 0;
+      const bMatch = b.school === aiSchool ? 1 : 0;
+      if (aMatch !== bMatch) return bMatch - aMatch;       // school-matching first
+      const aDmg = dealsDamage(a) || /damage/i.test(a.text || '') ? 1 : 0;
+      const bDmg = dealsDamage(b) || /damage/i.test(b.text || '') ? 1 : 0;
+      return killMode ? bDmg - aDmg : aDmg - bDmg;          // kill mode prefers damage; otherwise prefer non-damage utility
+    });
     const dmgGlyph = glyphs.find(g => dealsDamage(g) || /damage/i.test(g.text || ''));
     const open = glyphSlotOpen();
     if (open) {
-      api.setGlyphFromHand(side, (dmgGlyph || glyphs[0]).id);
+      api.setGlyphFromHand(side, glyphs[0].id);
       return state;
     }
-    // Replace: only when in kill mode and swapping to a damage glyph upgrades us
+    // Replace: only in kill mode and only if swapping to a damage glyph upgrades us.
     if (killMode && dmgGlyph && !currentGlyphIsDmg()) {
       try { api.setGlyphFromHand(side, dmgGlyph.id); return state; } catch { /* ignore */ }
     }
