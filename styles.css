@@ -1135,6 +1135,17 @@ body.mobile-portrait #peek-card.card.peek.show{
   position: absolute !important;
 }
 
+/* On phones cap the cinematic spotlight at a reasonable fraction of
+   the viewport (~38% wide) so the played-card hold doesn't fill
+   half the screen. JS still applies centerScale (~1.16), so peak
+   render is ~44% wide. */
+body.mobile-landscape .cinematic-layer .card,
+body.mobile-portrait  .cinematic-layer .card{
+  width: clamp(120px, 38vw, 170px) !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1.4 !important;
+}
+
 
 /* Cinematic layer */
 .cinematic-layer {
