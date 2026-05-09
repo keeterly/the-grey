@@ -741,22 +741,23 @@ body.mobile-landscape #ai-name{
    diamond indicators with roman numerals. Tap the chip on the desktop
    build to see full text; on mobile the lit diamond conveys the
    important state. */
-/* ===== v13: card-play impact ===== */
+/* ===== v13: card-play impact (v14a: gentler scale, glow only) =====
+   The previous 1.10 scale visibly stretched the slot's contents
+   (placed card art + rules text) on small slots, which is what the
+   "horribly scaled impact text" was. Drop the transform; keep the
+   ring + flash so the slot pulses without changing geometry. */
 @keyframes castImpactPulse {
-  0%   { box-shadow: 0 0 0 0 var(--impact-glow, rgba(198,165,106,.85)),
-                     inset 0 0 0 0 rgba(255,255,255,.5);
-         transform: scale(1.00); }
-  30%  { box-shadow: 0 0 0 22px rgba(0,0,0,0),
-                     inset 0 0 0 4px rgba(255,255,255,.35);
-         transform: scale(1.10); }
+  0%   { box-shadow: 0 0 0 0 var(--impact-glow, rgba(198,165,106,.95)),
+                     inset 0 0 0 0 rgba(255,255,255,.55); }
+  30%  { box-shadow: 0 0 0 18px rgba(0,0,0,0),
+                     inset 0 0 0 3px rgba(255,255,255,.35); }
   100% { box-shadow: 0 0 0 0 rgba(0,0,0,0),
-                     inset 0 0 0 0 rgba(255,255,255,0);
-         transform: scale(1.00); }
+                     inset 0 0 0 0 rgba(255,255,255,0); }
 }
 .slot.cast-impact {
-  animation: castImpactPulse 700ms cubic-bezier(.18,.9,.32,1.18);
+  animation: castImpactPulse 600ms ease-out;
   z-index: 12;
-  --impact-glow: rgba(198,165,106,.85);
+  --impact-glow: rgba(198,165,106,.95);
 }
 /* Type-keyed impact colors */
 .slot.cast-impact[data-impact-type="spell"]{   --impact-glow: rgba(126,182,255,.85); }
@@ -2023,19 +2024,35 @@ body.mobile-landscape #zoom-card.card.zoom{
    ========================================================== */
 
 body.mobile-portrait{
-  /* Hand cards: BIG — portrait has tons of vertical room. This is
-     the biggest hand we've shipped on mobile. */
-  --hand-card-w: clamp(110px, 30vw, 150px);
-  --hand-card-h: calc(var(--hand-card-w) * 1.32);
+  /* All cards use TCG aspect (1.4 height/width). Hand > flow > slot
+     in scale, but same proportions, so placed cards fit slots
+     naturally without stretching art or text.
+
+     v14a fixes from screenshot feedback:
+     - Flow cards were min(140,22vh,200) tall × 17vw wide -> 2.7:1
+       on portrait, totally non-card. Now 1.4 aspect locked.
+     - Hand cards (110-150 wide) were too big. Reduced to 82-110.
+     - Slot tiles (60×60 square) caused placed cards to render at
+       wrong aspect, hence the squashed art / oversized impact text
+       in the screenshot. Now card-shaped (60-76 wide × 84-106 tall).
+  */
+
+  /* Hand: smaller, TCG aspect */
+  --hand-card-w: clamp(82px, 22vw, 110px);
+  --hand-card-h: calc(var(--hand-card-w) * 1.4);
   --hand-card-scale: calc(var(--hand-card-w) / 150px);
 
-  /* Slot tiles: 4 across in 430-wide viewport. */
-  --card-w: clamp(60px, 18vw, 84px);
-  --card-h: 60px;
+  /* Slot tiles: card-shaped so placed cards aren't squashed.
+     4 across in 430-wide viewport: 4*72 + 3*4 = 300. Plenty of room. */
+  --card-w: clamp(60px, 17vw, 76px);
+  --card-h: calc(var(--card-w) * 1.4);
+  --slot-row-h: calc(var(--card-h) + 4px);
 
-  /* Flow cards: 5 across, modestly tall so all 5 fit and stay readable. */
-  --flow-card-w: clamp(64px, 17vw, 78px);
-  --flow-card-h: clamp(140px, 22vh, 200px);
+  /* Flow cards: same TCG aspect, same width as slots so the columns
+     line up nicely. 5 across in 430: 5*72 + 4*4 = 376. */
+  --flow-card-w: clamp(60px, 17vw, 76px);
+  --flow-card-h: calc(var(--flow-card-w) * 1.4);
+
   --card-radius: 9px;
   --card-scale: calc(var(--card-w) / 150px);
   --slot-scale: calc(var(--card-scale) * .85);
@@ -2043,17 +2060,19 @@ body.mobile-portrait{
   --gem-size: 22px;
   --card-gem: calc(20px * var(--card-scale));
 
-  --top-strip-h: 44px;       /* AI chip + hbgr at top */
-  --hand-band-h: calc(var(--hand-card-h) + 18px);
+  --top-strip-h: 44px;
+  --hand-band-h: calc(var(--hand-card-h) + 16px);
 }
 
 /* ===== Grid: vertical stack of AI slots / flow / player slots ===== */
 body.mobile-portrait #board-grid.grid{
   display: grid !important;
-  grid-template-rows: 60px minmax(0, 1fr) 60px !important;
+  /* Slot rows now use --slot-row-h so they grow with the card-shaped
+     tile height (no more cramped 60px square). */
+  grid-template-rows: var(--slot-row-h) minmax(0, 1fr) var(--slot-row-h) !important;
   row-gap: 8px !important;
-  /* Top padding leaves room for AI chip; bottom padding leaves
-     room for player chip + hand band. */
+  /* Top padding leaves room for AI chip; bottom padding leaves room
+     for player chip + hand band. */
   padding: var(--top-strip-h) 8px calc(var(--hand-band-h) + 44px) !important;
   height: 100vh;
   height: 100dvh;
