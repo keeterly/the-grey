@@ -1455,6 +1455,18 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   const haveReg  = (P.aether | 0);
   if (haveTemp + haveReg < price) throw new Error("Not enough Æ");
 
+  // v29: counter updates moved BEFORE the card move so any throw in
+  // the move/payment paths leaves counters consistent. Was: bonusBuys
+  // decremented at the bottom; a midway throw would consume the token
+  // without the buy. The affordability check above is the last thing
+  // that can throw.
+  if (useBonusBuy) {
+    P.bonusBuys = Math.max(0, (P.bonusBuys | 0) - 1);
+    pushEvt(state, { t: "bonus_buy_consumed", side: playerId });
+  } else {
+    P.purchasesThisTurn = (P.purchasesThisTurn | 0) + 1;
+  }
+
   // Clear the slot first so renderers see it empty immediately
   state.flow[flowIndex] = null;
   pushEvt(state, { t: 'flow_slot_empty', side: playerId, flowIndex });
@@ -1483,15 +1495,9 @@ export function buyFromFlow(state, playerId, flowIndexRaw){
   P.flowCardsAcquired = (P.flowCardsAcquired | 0) + 1;
   pushEvt(state, { t: "confluence_gain", side: playerId, total: P.flowCardsAcquired });
 
-  // v18: tick the buy counter so the cap blocks further buys this turn.
-  // v21: a Bonus Buy bypass consumes the token instead of incrementing
-  // the counter, so the next buy still works against the cap normally.
-  if (useBonusBuy) {
-    P.bonusBuys = Math.max(0, (P.bonusBuys | 0) - 1);
-    pushEvt(state, { t: "bonus_buy_consumed", side: playerId });
-  } else {
-    P.purchasesThisTurn = (P.purchasesThisTurn | 0) + 1;
-  }
+  // v29: buy counter updates moved up to right after the affordability
+  // check so any throw in the move/payment paths leaves counters
+  // consistent. The original duplicate block is removed here.
 
   // v21: pending buy aether bonus (Aetherwoven Pact) — pay out once.
   if ((P.pendingBuyAetherBonus | 0) > 0) {
@@ -1555,7 +1561,17 @@ export function drawOne(state, playerId){
   const P = state.players[playerId];
   if (!P) throw new Error("bad player");
   restockIfEmpty(state, playerId);
-  if (!P.deck.length) return state;
+  if (!P.deck.length) {
+    // v29: emit a draw_failed event so the UI can flash a "Empty deck
+    // and discard" toast. Was: silent no-op, player saw no feedback
+    // when they couldn't draw.
+    (state._events ||= []).push({
+      t: "draw_failed",
+      side: playerId,
+      reason: "no_cards"
+    });
+    return state;
+  }
   const c = P.deck.shift();
   P.hand.push(c);
   // tell the UI a card was actually drawn (animate from deck → hand)
@@ -2002,12 +2018,21 @@ function parseEffectsFromText(raw) {
   // Draw N
   { const m = t.match(/\bdraw\s+(\d+)/); if (m) fx.push({t:"draw", n:+m[1]}); }
 
-  // Gain N Æ (normal) — exclude "... this turn" separately below
-  { const m = t.match(/\b(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)\b(?!\s*this\s+turn)/i);
+  // Gain N Æ (normal) — exclude "... this turn" + the pendingBuyAether
+  // sentence below so we don't double-trigger.
+  // v29: trailing \b in the prior regex failed against "Æ." because "æ"
+  // isn't an ASCII word char, so the boundary check found no transition
+  // and the whole regex failed silently. Five cards (Ashen Focus,
+  // Wispform Surge, Veil of Dust, Surge of Ash, Reversal Surge) had
+  // been giving 0 Æ instead of their printed amounts. (?=\W|$) is
+  // broader and matches at end-of-string or any non-word char.
+  // Negative lookbehind keeps "Next time you buy a card, Gain N Æ"
+  // owned by the pendingBuyAether arm only.
+  { const m = t.match(/(?<!next\s+time\s+you\s+buy\s+a?\s*card[, ]+)(?:^|\W)(?:you\s+)?gain\s+(\d+)\s*(?:æ|ae|aether)(?=\W|$)(?!\s*this\s+turn)/i);
     if (m) fx.push({ t: "aether", n: +m[1] }); }
 
-  // "Gain N Æ this turn" — treat as normal gain for now
-  { const m = t.match(/\bgain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn\b/i);
+  // "Gain N Æ this turn" — same word-boundary fix.
+  { const m = t.match(/(?:^|\W)gain\s+(\d+)\s*(?:æ|ae|aether)\s+this\s+turn(?=\W|$)/i);
     if (m) fx.push({ t: "aether", n: +m[1] }); }
 
   // Channel N

@@ -322,8 +322,27 @@ html,body{height:100%}
 
 
 
-/* Rules text */
-.card .textbox{flex:1; padding:calc(8px * var(--card-scale)) calc(12px * var(--card-scale)) calc(48px * var(--card-scale)) calc(12px * var(--card-scale)); opacity:.92; line-height:1.2}
+/* Rules text — v29: clamp to 5 lines on the small in-place card so
+   long rules ("On Resolve → Hex an enemy Spell Slot and Draw 1 card")
+   don't bleed past the pip track and overlap the cost badge on tiny
+   market cards. The press-and-hold peek (.peek and #zoom-card)
+   override below restores full text. */
+.card .textbox{
+  flex:1;
+  padding:calc(8px * var(--card-scale)) calc(12px * var(--card-scale)) calc(48px * var(--card-scale)) calc(12px * var(--card-scale));
+  opacity:.92; line-height:1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+}
+/* Peek/Zoom enlarged copies show the full rules text. */
+#peek-card.card .textbox,
+#zoom-card.card .textbox {
+  -webkit-line-clamp: unset;
+  display: block;
+  overflow: visible;
+}
 
 /* Play cost — v28: brighter gold gradient + subtle outer ring so the
    cost number reads instantly on small cards. Was a flat #c6a56a. */
@@ -3396,4 +3415,72 @@ body.mobile-portrait #peek-card.card.peek {
    transition. */
 .flow-row .flow-card {
   transition: transform .26s cubic-bezier(.2,.8,.2,1);
+}
+
+
+/* ==========================================================
+   v29: small-portrait viewport fixes + late polish
+   - iPhone SE (≤700px tall): tighten padding, gap, slot rows
+   - Trance toast: width clamp so long descriptions don't push
+     into the flow row
+   ========================================================== */
+
+/* B2 — small-portrait viewport. The 5-row grid fit fine on 13/14,
+   but iPhone SE (667px) saw the flow market squeezed below 300px
+   tall. Reduce the bottom padding + gap; the slot rows stay big
+   enough for the chips without dominating. */
+@media (max-height: 700px) and (orientation: portrait) {
+  body.mobile-portrait #board-grid.grid {
+    row-gap: 4px !important;
+    padding: 4px 12px calc(var(--hand-band-h) + 4px) !important;
+  }
+  body.mobile-portrait .row.ai,
+  body.mobile-portrait .row.player {
+    --slot-row-h: 84px;
+  }
+  body.mobile-portrait .wincon-rail {
+    padding: 1px 4px;
+    font-size: .8em;
+  }
+  /* Shrink the AI mini hand so it doesn't take vertical room */
+  body.mobile-portrait #ai-mini { transform: scale(.85); transform-origin: top right; }
+}
+
+/* M1 — trance toast width clamp. Morr's new "When you take damage:
+   opponent loses 1 HP and you gain 1 Æ (once/turn)" was wrapping to
+   3 lines on iPhone SE and pushing the toast height into the flow
+   row. Cap the description width and the overall toast width so it
+   stays a tidy banner. */
+#trance-toast {
+  max-width: min(380px, 86vw);
+}
+#trance-toast .tt-desc {
+  max-width: 280px;
+  word-wrap: break-word;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* B4 — pending-win flow lockout. When the engine sets state.pending-
+   win, the body gets `pending-win-active` and the flow row dims +
+   becomes non-interactive. Player can still see the cards but can't
+   buy until the threat resolves (next turn). */
+body.pending-win-active .row.flow .flow-card,
+body.pending-win-active .row.flow .card.market {
+  opacity: .35;
+  filter: grayscale(.5);
+  pointer-events: none;
+}
+body.pending-win-active .row.flow::after {
+  content: 'Defend or claim victory next turn';
+  position: absolute;
+  left: 50%; bottom: -16px;
+  transform: translateX(-50%);
+  color: #d97a7a;
+  font-size: .72rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  text-shadow: 0 1px 4px #000;
+  pointer-events: none;
+  white-space: nowrap;
 }
