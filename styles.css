@@ -2917,7 +2917,11 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
 /* Stripe: a thin bar on the LEFT EDGE of every card, full height.
    Lives inside .card content; CSS pins it absolutely. */
 /* v23: stripe bumped 4px → 7px and given a soft outward glow so the
-   school identity reads even on shrunken hand cards. */
+   school identity reads even on shrunken hand cards.
+   v24: outward glow removed — it cast a 6px haze INTO the card content
+   area making titles/text hazy. Stripe still 7px but contained; the
+   :has() frame tint carries the school identity without bleeding into
+   the textbox. */
 .card .school-stripe {
   position: absolute;
   left: 0; top: 0; bottom: 0;
@@ -2928,31 +2932,31 @@ body.mobile-landscape .wincon-rail .hp-bar-host .hp-num {
 }
 .card .school-stripe.school-black {
   background: linear-gradient(180deg, #2a0a0a 0%, #8a2a2a 50%, #2a0a0a 100%);
-  box-shadow: inset 1px 0 0 rgba(255,140,140,.55), 1px 0 6px rgba(180,40,40,.4);
+  box-shadow: inset 1px 0 0 rgba(255,140,140,.55);
 }
 .card .school-stripe.school-white {
   background: linear-gradient(180deg, #c8b478 0%, #f5e6b8 50%, #a89460 100%);
-  box-shadow: inset 1px 0 0 rgba(255,240,200,.75), 1px 0 6px rgba(220,200,140,.45);
+  box-shadow: inset 1px 0 0 rgba(255,240,200,.75);
 }
 .card .school-stripe.school-grey {
   background: linear-gradient(180deg, #4a4a52 0%, #8a8a96 50%, #383840 100%);
-  box-shadow: inset 1px 0 0 rgba(200,205,220,.45), 1px 0 4px rgba(140,145,160,.3);
+  box-shadow: inset 1px 0 0 rgba(200,205,220,.45);
 }
 
-/* Whole-frame tint via :has() — pulls the school colour into the card
-   border + a faint top-edge gradient so the colour reads even when
-   the stripe itself is partially covered by adjacent cards in hand. */
+/* v24: tints further dialled back so the school identity is a quiet
+   secondary cue, not a competing layer with the card text. Border is
+   still tinted (alpha .45 instead of .7) but the background gradient
+   is removed for Black + White too — the stripe alone carries the
+   colour, and the textbox stays neutral and readable. */
 .card:has(.school-stripe.school-black) {
-  border-color: rgba(180,60,60,.7) !important;
-  background-image: linear-gradient(180deg, rgba(60,12,12,.28) 0%, transparent 50%);
+  border-color: rgba(180,60,60,.45) !important;
 }
 .card:has(.school-stripe.school-white) {
-  border-color: rgba(220,200,130,.75) !important;
-  background-image: linear-gradient(180deg, rgba(230,210,150,.18) 0%, transparent 50%);
+  border-color: rgba(220,200,130,.50) !important;
 }
 .card:has(.school-stripe.school-grey) {
-  border-color: rgba(150,155,170,.55);
-  /* Grey is the neutral default — no surface tint, lets existing palette dominate. */
+  border-color: rgba(150,155,170,.40);
+  /* Grey is the neutral default — no surface tint. */
 }
 
 /* Rail token badges (Ward, Free Buy). Inline, compact. */
@@ -3075,3 +3079,53 @@ body.mobile-portrait #btn-deck-hud    { order: 2; }
   padding: 1px 5px;
   pointer-events: none;
 }
+
+
+/* ==========================================================
+   v24: PEEK = press-and-hold-to-enlarge (MTG-Arena-style)
+   - body.peek-open dims the rest of the screen so only the
+     enlarged card is bright (the textbox finally readable
+     at the size it deserves).
+   - Peek card gets a stronger drop-shadow + hard outline so
+     it floats clearly above the dimmed backdrop.
+   ========================================================== */
+
+/* Backdrop dim. We dim the play area (#board-grid + .hud) and the
+   hand band, but NOT #preview-layer (which contains #peek-card),
+   so the enlarged card stays at full brightness. */
+body.peek-open #board-grid,
+body.peek-open #hud-right-strip,
+body.peek-open .hud,
+body.peek-open .hand-wrap,
+body.peek-open .hand,
+body.peek-open #ai-mini,
+body.peek-open .menu-btn,
+body.peek-open #weaver-backdrop {
+  filter: brightness(0.32) saturate(0.6);
+  transition: filter .14s ease;
+  pointer-events: none;
+}
+body:not(.peek-open) #board-grid,
+body:not(.peek-open) #hud-right-strip,
+body:not(.peek-open) .hud,
+body:not(.peek-open) .hand-wrap,
+body:not(.peek-open) .hand,
+body:not(.peek-open) #ai-mini {
+  transition: filter .12s ease;
+}
+
+/* Peek card itself: bigger on phones (was 2× scale; bump to ~70vw) and
+   given a stronger separation from the dimmed backdrop. */
+body.mobile-portrait #peek-card.card.peek,
+body.mobile-landscape #peek-card.card.peek {
+  width: min(78vw, 380px) !important;
+  height: auto !important;
+  aspect-ratio: 1 / 1.4 !important;
+  box-shadow: 0 24px 56px rgba(0,0,0,.75),
+              0 0 0 2px rgba(198,165,106,.55),
+              0 0 36px rgba(198,165,106,.25) !important;
+}
+
+/* Release-to-close — handled in JS by pointerup/leave/cancel on the
+   peeked card (attachPeekAndZoom). Press-and-hold to read; release
+   to dismiss. Matches MTG Arena's press-to-zoom pattern. */
