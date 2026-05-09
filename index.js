@@ -2016,20 +2016,23 @@ function isMobileLandscape(){
 function layoutHand(container, cards) {
   const N = cards.length; if (!N || !container) return;
 
-  // Mobile-landscape uses a tighter fan than desktop (smaller angles
-  // and lift) so cards stay readable in the limited landscape band.
+  // Mobile (both landscape and portrait) uses a tighter fan than
+  // desktop so cards stay readable in the limited band. Portrait
+  // gets more lift because the cards are bigger.
   const isML = isMobileLandscape();
-  const MAX_ANGLE = isML ? 14 : 22;
-  const MIN_ANGLE = isML ? 4  : 8;
+  const isMP = document.body?.classList?.contains('mobile-portrait');
+  const isMobile = isML || isMP;
+  const MAX_ANGLE = isMobile ? 14 : 22;
+  const MIN_ANGLE = isMobile ? 4  : 8;
   const totalAngle = N===1 ? 0 : clamp(MIN_ANGLE + (N-2)*2, MIN_ANGLE, MAX_ANGLE);
   const stepA  = N===1 ? 0 : totalAngle/(N-1);
   const startA = -totalAngle/2;
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
-  // Tighter overlap on mobile (.78) so wider hands fit without
-  // running off the edges; desktop kept at .98.
-  const stepX = cw * (isML ? 0.78 : 0.98);
+  // Tighter overlap on mobile so wider hands fit without running off
+  // the edges; desktop kept at .98.
+  const stepX = cw * (isMobile ? 0.82 : 0.98);
   const startX = -stepX * (N-1) / 2;
-  const LIFT = isML ? 14 : 44;
+  const LIFT = isML ? 14 : isMP ? 24 : 44;
 
   cards.forEach((el,i)=>{
     const a = startA + stepA*i;
@@ -6039,13 +6042,18 @@ function openPileModal(title, cards){
     const isLandscape = w > h;
     const phone = isPhoneSize();
     const mobileLandscape = phone && isLandscape;
+    const mobilePortrait  = phone && !isLandscape;
     document.body.classList.toggle("mobile-landscape", mobileLandscape);
+    document.body.classList.toggle("mobile-portrait",  mobilePortrait);
     // breadcrumb for diagnosis — visible in DevTools as <body data-mode="...">
     document.body.dataset.mode = mobileLandscape
       ? "mobile-landscape"
-      : (phone ? "mobile-portrait" : "desktop");
+      : (mobilePortrait ? "mobile-portrait" : "desktop");
+    // Portrait is now a first-class mobile layout, no longer require a
+    // rotate. Keep the prompt element in the DOM (other features may
+    // reference it) but never .show it.
     const prompt = document.getElementById('rotate-prompt');
-    if (prompt) prompt.classList.toggle('show', phone && !isLandscape);
+    if (prompt) prompt.classList.remove('show');
   };
 
   const init = () => { injectRotatePrompt(); apply(); };

@@ -2007,3 +2007,371 @@ body.mobile-landscape #zoom-card.card.zoom{
 
 
 
+
+
+/* ==========================================================
+   v14: MOBILE-PORTRAIT — vertical layout for phones held normally.
+   Roughly Marvel-Snap / Hearthstone-portrait shape:
+     [hbgr]  [AI chip]      ← top
+     AI slots
+     Aether Flow (5 cards, narrower than landscape)
+     Player slots
+     [Player chip]          ← just above the hand
+     Hand band (BIG fanned cards)
+   Coexists with body.mobile-landscape. Activates only on
+   phone-size screens held vertically.
+   ========================================================== */
+
+body.mobile-portrait{
+  /* Hand cards: BIG — portrait has tons of vertical room. This is
+     the biggest hand we've shipped on mobile. */
+  --hand-card-w: clamp(110px, 30vw, 150px);
+  --hand-card-h: calc(var(--hand-card-w) * 1.32);
+  --hand-card-scale: calc(var(--hand-card-w) / 150px);
+
+  /* Slot tiles: 4 across in 430-wide viewport. */
+  --card-w: clamp(60px, 18vw, 84px);
+  --card-h: 60px;
+
+  /* Flow cards: 5 across, modestly tall so all 5 fit and stay readable. */
+  --flow-card-w: clamp(64px, 17vw, 78px);
+  --flow-card-h: clamp(140px, 22vh, 200px);
+  --card-radius: 9px;
+  --card-scale: calc(var(--card-w) / 150px);
+  --slot-scale: calc(var(--card-scale) * .85);
+
+  --gem-size: 22px;
+  --card-gem: calc(20px * var(--card-scale));
+
+  --top-strip-h: 44px;       /* AI chip + hbgr at top */
+  --hand-band-h: calc(var(--hand-card-h) + 18px);
+}
+
+/* ===== Grid: vertical stack of AI slots / flow / player slots ===== */
+body.mobile-portrait #board-grid.grid{
+  display: grid !important;
+  grid-template-rows: 60px minmax(0, 1fr) 60px !important;
+  row-gap: 8px !important;
+  /* Top padding leaves room for AI chip; bottom padding leaves
+     room for player chip + hand band. */
+  padding: var(--top-strip-h) 8px calc(var(--hand-band-h) + 44px) !important;
+  height: 100vh;
+  height: 100dvh;
+  box-sizing: border-box;
+  align-content: stretch !important;
+}
+body.mobile-portrait .row.ai,
+body.mobile-portrait .row.player{
+  height: auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+  position: relative;
+}
+body.mobile-portrait .row.flow{
+  overflow: hidden !important;
+  position: relative;
+  min-height: 0 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(198,165,106,.10) 0%,
+      rgba(198,165,106,.04) 40%,
+      transparent 75%);
+}
+
+/* ===== Slot rows ===== */
+body.mobile-portrait #ai-slots.slot-row,
+body.mobile-portrait #player-slots.slot-row{
+  display: flex !important; flex-direction: row;
+  gap: 6px !important;
+  width: 100%; max-width: 100%;
+  justify-content: center; align-items: center;
+  position: static !important;
+}
+body.mobile-portrait .slot{
+  position: relative;
+  width: var(--card-w); height: var(--card-h);
+  flex: 0 0 auto;
+  background: transparent !important;
+  border: 1px dashed rgba(198,165,106,.22) !important;
+  box-shadow: none !important;
+}
+body.mobile-portrait .slot.has-card{
+  background: linear-gradient(180deg,#2b231b,#1a1511) !important;
+  border: 1px solid rgba(198,165,106,.6) !important;
+  box-shadow: inset 0 0 8px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.22) !important;
+}
+body.mobile-portrait .slot:not(.has-card)::after{ display: none !important; }
+body.mobile-portrait .slot .card{
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important; height: 100% !important;
+  transform: none !important;
+  font-size: calc(1rem * var(--card-scale));
+}
+body.mobile-portrait .slot::after{ inset: 4px; border-radius: calc(var(--card-radius) - 3px); }
+
+/* Empty-slot text hidden (matches landscape) */
+body.mobile-portrait .slot .slot-title{ display: none !important; }
+body.mobile-portrait .slot.glyph .glyph-ph .ph-title{ display: none !important; }
+body.mobile-portrait .slot.glyph .glyph-ph .ph-rune{ opacity: .14 !important; }
+
+/* ===== Aether Flow ===== */
+body.mobile-portrait .flow-wrap{
+  display: flex !important;
+  flex-direction: column;
+  width: 100% !important;
+  height: 100% !important;
+  justify-content: center; align-items: center;
+}
+body.mobile-portrait #flow-row{
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 4px !important;
+  width: 100%; max-width: 100%;
+  justify-content: center; align-items: center;
+  padding: 0 !important;
+  margin: 0 !important;
+  list-style: none;
+}
+body.mobile-portrait .flow-card{
+  width: var(--flow-card-w) !important;
+  height: var(--flow-card-h) !important;
+  flex: 0 0 var(--flow-card-w) !important;
+  position: relative;
+}
+body.mobile-portrait .flow-card .card{
+  position: relative !important;
+  top: auto !important; left: auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  font-size: calc(1rem * (var(--flow-card-w) / 150px));
+  --card-scale: calc(var(--flow-card-w) / 150px);
+}
+body.mobile-portrait .price-label{
+  position: absolute !important;
+  right: 4px !important; bottom: 4px !important;
+  left: auto !important; top: auto !important;
+  transform: none !important;
+  z-index: 4;
+}
+body.mobile-portrait .flow-board .flow-price-num{
+  width: 22px !important; height: 22px !important;
+  background: rgba(20,16,12,.92) !important;
+  border: 1px solid #c6a56a !important;
+}
+body.mobile-portrait .flow-board .flow-price-num .n{
+  font-size: 12px !important;
+  font-weight: 800;
+  color: #c6a56a;
+}
+
+/* ===== Hand: big fanned cards at the bottom ===== */
+body.mobile-portrait .hand-wrap{
+  position: fixed; left: 0; right: 0; bottom: 0;
+  height: var(--hand-band-h);
+  z-index: 40;
+  background: linear-gradient(to top, rgba(15,12,9,.94) 60%, rgba(15,12,9,0));
+  padding: 6px 8px calc(8px + env(safe-area-inset-bottom, 0px));
+  box-sizing: border-box;
+  pointer-events: none;
+}
+body.mobile-portrait .hand{
+  position: absolute;
+  left: 50%; bottom: 0;
+  transform: translateX(-50%);
+  width: 100%;
+  height: var(--hand-band-h);
+  perspective: 1200px;
+  pointer-events: auto;
+  display: block;
+  overflow: visible;
+}
+body.mobile-portrait .hand .card{
+  position: absolute !important;
+  top: auto !important;
+  bottom: 0 !important;
+  left: 50% !important;
+  width: var(--hand-card-w) !important;
+  height: var(--hand-card-h) !important;
+  max-height: var(--hand-card-h) !important;
+  font-size: calc(1rem * var(--hand-card-scale));
+  --card-scale: var(--hand-card-scale);
+  --card-gem: calc(22px * var(--hand-card-scale));
+  transform-origin: 50% 100%;
+  border-radius: 12px;
+  box-shadow: 0 8px 18px rgba(0,0,0,.5);
+  transition: transform .18s ease, box-shadow .14s ease-out;
+  overflow: hidden;
+}
+body.mobile-portrait .hand .card.is-focus{
+  transform:
+    translate(var(--tx,0), calc(var(--ty,0px) - 22px))
+    rotate(var(--rot,0deg))
+    scale(1.08) !important;
+  box-shadow: 0 18px 30px rgba(0,0,0,.65);
+  z-index: 50 !important;
+}
+
+/* ===== Chips: AI top-right, player just above the hand band ===== */
+body.mobile-portrait .row.player .portrait,
+body.mobile-portrait .row.ai .portrait{
+  position: fixed !important;
+  height: 38px !important;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  z-index: 30;
+  margin: 0; padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  backdrop-filter: none;
+  max-width: 64vw;
+  overflow: visible;
+  text-shadow: 0 1px 2px rgba(0,0,0,.85);
+}
+body.mobile-portrait .row.ai .portrait{
+  top: 4px !important;
+  right: 6px !important; left: auto !important;
+  bottom: auto !important;
+  flex-direction: row-reverse;
+  justify-content: flex-start;
+}
+body.mobile-portrait .row.player .portrait{
+  top: auto !important;
+  /* Sits in the gap between the player slot row and the hand band. */
+  bottom: calc(var(--hand-band-h) + 4px) !important;
+  left: 6px !important; right: auto !important;
+  flex-direction: row;
+  justify-content: flex-start;
+}
+
+body.mobile-portrait .portrait img{
+  width: 32px; height: 32px; border-radius: 50%;
+  margin: 0; flex: 0 0 32px;
+  border: 1.5px solid #c6a56a;
+  box-shadow: 0 2px 6px rgba(0,0,0,.6);
+  object-fit: cover;
+}
+body.mobile-portrait #player-name,
+body.mobile-portrait #ai-name{
+  font-size: .76rem !important;
+  line-height: 1 !important;
+  font-weight: 600;
+  color: #e7dcc3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 22vw !important;
+  margin: 0 !important;
+}
+body.mobile-portrait .portrait figcaption{
+  display: block; line-height: 1; margin: 0;
+}
+
+/* Hearts compact */
+body.mobile-portrait #player-hearts,
+body.mobile-portrait #ai-hearts{
+  display: flex !important;
+  gap: 1px !important;
+  margin: 0 !important;
+  max-width: 80px;
+  overflow: hidden;
+  flex-wrap: nowrap;
+}
+body.mobile-portrait #player-hearts svg,
+body.mobile-portrait #ai-hearts svg{
+  width: 12px !important;
+  height: 12px !important;
+}
+body.mobile-portrait #player-hearts .heart,
+body.mobile-portrait #ai-hearts .heart{ flex: 0 0 auto; line-height: 0; }
+body.mobile-portrait .hearts .heart-svg.empty{ display: none !important; }
+
+/* Aether display */
+body.mobile-portrait #player-aether,
+body.mobile-portrait #ai-aether{
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 4px !important;
+  margin: 0 !important;
+  font-size: .72rem !important;
+  align-items: center;
+}
+body.mobile-portrait #player-aether .ae-line,
+body.mobile-portrait #ai-aether .ae-line{
+  display: flex !important; gap: 2px; align-items: center;
+}
+body.mobile-portrait #player-aether svg,
+body.mobile-portrait #ai-aether svg{ width: 14px !important; height: 14px !important; }
+
+/* Hide secondary HUD state on mobile-portrait too */
+body.mobile-portrait .portrait .trance-wrap,
+body.mobile-portrait .portrait .win-tracks{ display: none !important; }
+body.mobile-portrait #ai-mini{ display: none !important; }
+body.mobile-portrait .flow-title-rail { display: none !important; }
+body.mobile-portrait .topbar { display: none !important; }
+
+/* Hamburger top-left */
+body.mobile-portrait .tl-wrap{
+  left: 6px !important; right: auto !important;
+  top: 4px !important;
+  transform: none !important;
+  width: auto !important;
+  display: inline-flex !important;
+  gap: 0 !important;
+  position: fixed !important;
+  z-index: 100;
+}
+body.mobile-portrait .menu-btn{
+  padding: 6px 8px !important;
+  gap: 0 !important;
+  border-radius: 8px !important;
+}
+body.mobile-portrait .menu-btn .lbl,
+body.mobile-portrait .menu-btn .ver{ display: none !important; }
+
+/* End-turn FAB: just above the hand band, right side */
+body.mobile-portrait #btn-endturn-hud{
+  position: fixed;
+  right: 12px;
+  bottom: calc(var(--hand-band-h) + 50px);
+  top: auto; left: auto;
+  width: 56px; height: 48px; border-radius: 14px;
+  font-weight: 800; font-size: 20px;
+  background: #c6a56a; color: #0d0a07;
+  border: 1px solid #4a3d2f;
+  box-shadow: 0 6px 16px rgba(0,0,0,.55);
+  z-index: 51;
+  transform: none;
+  display: grid; place-items: center;
+}
+
+/* HUD deck/discard piles: vertical stack on the right, above end-turn */
+body.mobile-portrait .hud{
+  position: fixed; left: auto; right: 12px;
+  top: auto;
+  bottom: calc(var(--hand-band-h) + 110px);
+  display: flex; flex-direction: column; gap: 8px;
+  z-index: 50;
+  transform: none;
+}
+body.mobile-portrait .hud-btn{
+  width: 44px; height: 44px; border-radius: 10px;
+  font-size: 14px;
+}
+
+/* Weaver backdrop: dim and pinned to bottom on portrait */
+body.mobile-portrait #weaver-backdrop{
+  display: block !important;
+  opacity: .25 !important;
+  z-index: 0 !important;
+}
+body.mobile-portrait #weaver-backdrop.active{ opacity: .25 !important; }
+body.mobile-portrait #weaver-backdrop img{
+  height: 60vh !important;
+  height: 60dvh !important;
+  bottom: 0 !important;
+  filter: saturate(.7) brightness(.65);
+}
