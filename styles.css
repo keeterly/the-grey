@@ -965,15 +965,16 @@ body.mobile-landscape #btn-endturn-hud{
   display: grid; place-items: center;
 }
 
-/* ===== Bottom action sheet (replaces tiny popover) ===== */
+/* v26: action popover styling. The fixed-bottom-sheet positioning was
+   removed (used to be 92vw at bottom: hand-band+8px) so showCardOptions
+   in JS can anchor the popover ABOVE the focused card on every break-
+   point. Visual styling stays; positioning is now controlled per-tap.
+   Width capped tighter (min(360px, 80vw)) so a card-anchored popover
+   doesn't span the screen when the focused card is near an edge. */
 body.mobile-landscape .action-pop,
 body.mobile-portrait  .action-pop{
-  position: fixed !important;
-  left: 50% !important;
-  bottom: calc(var(--hand-band-h) + 8px) !important;
-  top: auto !important;
-  transform: translateX(-50%) !important;
-  width: min(420px, 92vw); padding: 10px 12px;
+  position: fixed;
+  width: min(360px, 80vw); padding: 10px 12px;
   display: flex; gap: 10px; justify-content: center; align-items: center;
   background: linear-gradient(180deg,#2a211a,#1a140f);
   border: 1px solid #5a4b37; border-radius: 14px;
@@ -3114,3 +3115,23 @@ body.mobile-landscape #peek-card.card.peek {
 /* Release-to-close — handled in JS by pointerup/leave/cancel on the
    peeked card (attachPeekAndZoom). Press-and-hold to read; release
    to dismiss. Matches MTG Arena's press-to-zoom pattern. */
+
+
+/* ==========================================================
+   v26: SLOT-LEVEL school border (the v25 inset shadow on .card
+   gets clipped by .slot { overflow: hidden }, so we mirror the
+   ring on the slot itself once a card lands).
+   ========================================================== */
+
+.slot[data-school="black"] {
+  box-shadow: inset 0 0 0 3px rgba(168, 50, 50, .92);
+  border-color: rgba(168, 50, 50, .92);
+}
+.slot[data-school="white"] {
+  box-shadow: inset 0 0 0 3px rgba(214, 185, 102, .92);
+  border-color: rgba(214, 185, 102, .92);
+}
+.slot[data-school="grey"] {
+  box-shadow: inset 0 0 0 3px rgba(124, 136, 152, .80);
+  border-color: rgba(124, 136, 152, .80);
+}

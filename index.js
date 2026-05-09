@@ -2205,7 +2205,18 @@ function layoutHand(container, cards) {
   const cw = cards[0]?.clientWidth || container.clientWidth / Math.max(1, N);
   // Tighter overlap on mobile so wider hands fit without running off
   // the edges; desktop kept at .98.
-  const stepX = cw * (isMobile ? 0.82 : 0.98);
+  // v26: also clamp stepX so the hand never overflows the container
+  // when N grows large. Without this, 7+ cards on a narrow phone band
+  // stacked so heavily that the focused card's neighbours were
+  // unreadable. We compute the available width (container minus one
+  // card width and a small breathing margin), divide by (N-1), and
+  // pick the SMALLER of (idealStep, fitStep) so cards fan tighter
+  // only when they have to.
+  const idealStep = cw * (isMobile ? 0.82 : 0.98);
+  const containerW = container.clientWidth || window.innerWidth;
+  const padded = Math.max(cw, containerW - cw - 24);
+  const fitStep = N > 1 ? padded / (N - 1) : 0;
+  const stepX = N > 1 ? Math.min(idealStep, fitStep) : 0;
   const startX = -stepX * (N-1) / 2;
   const LIFT = isML ? 14 : isMP ? 24 : 44;
 
@@ -2758,16 +2769,36 @@ await render();
   document.body.appendChild(pop);
   // Ensure reaction popovers appear above the dimming overlay and other UI
   pop.style.zIndex = 3600;
-  // On mobile (both orientations) the action-pop is styled as a fixed
-  // bottom sheet (see styles.css). Skip the per-card positioning so
-  // CSS controls layout.
-  const isMobilePortrait = document.body?.classList?.contains('mobile-portrait');
-  if (!isMobileLandscape() && !isMobilePortrait){
-    const r = cardEl.getBoundingClientRect();
-    pop.style.left = `${r.left + r.width/2}px`;
-    pop.style.top  = `${r.top  - 12}px`;
-    pop.style.transform = "translate(-50%, -100%)";
-  }
+  // v26: anchor the popover above the focused card on EVERY breakpoint.
+  // Was: mobile fell back to a fixed 92vw bottom sheet that visually
+  // covered hand cards on portrait phones. Now the popover floats just
+  // above whichever card the user tapped, falling below if there isn't
+  // room (only matters for cards near the top of the viewport).
+  pop.style.position = 'fixed';
+  pop.style.bottom = 'auto';
+  pop.style.transform = 'none';
+  // Let the popover size itself first so we can read offsetHeight/Width.
+  // It's already in the DOM at this point.
+  const popW = pop.offsetWidth || 320;
+  const popH = pop.offsetHeight || 64;
+  const r = cardEl.getBoundingClientRect();
+  const cx = r.left + r.width / 2;
+  const margin = 8;
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  let left = Math.round(cx - popW / 2);
+  left = Math.max(margin, Math.min(left, vw - popW - margin));
+
+  // Prefer above the card; if the card is too close to the top, fall below.
+  const aboveTop = r.top - popH - 12;
+  const belowTop = r.bottom + 12;
+  const top = (aboveTop >= margin)
+    ? aboveTop
+    : Math.min(belowTop, vh - popH - margin);
+
+  pop.style.left = `${left}px`;
+  pop.style.top  = `${Math.max(margin, top)}px`;
 }
 
 
@@ -3131,6 +3162,14 @@ function renderSlots(container, snapshot, isPlayer){
 
     // reflect occupancy so CSS can undim when a card is present
     d.classList.toggle('has-card', !!(slot.hasCard && slot.card));
+    // v26: stamp the placed card's school so the slot frame can paint
+    // a school-coloured ring (the .card's own inset shadow gets clipped
+    // by .slot { overflow: hidden }, so we mirror it on the slot itself).
+    if (slot.hasCard && slot.card) {
+      d.dataset.school = (slot.card.school || 'grey').toLowerCase();
+    } else {
+      delete d.dataset.school;
+    }
     if (slot.hasCard && slot.card){
       const art = document.createElement("article");
         art.className = "card";
@@ -3194,6 +3233,14 @@ g.tabIndex = 0; // for :focus-within keyboard reveal
 // current glyph data
 const glyphSlot = safe[3] || { isGlyph: true, hasCard: false, card: null };
 g.classList.toggle("has-card", !!(glyphSlot.hasCard && glyphSlot.card));
+// v26: school-coloured ring on the glyph slot when set (mirrors the
+// spell-slot treatment above so placed glyphs read their school
+// identity from across the screen).
+if (glyphSlot.hasCard && glyphSlot.card) {
+  g.dataset.school = (glyphSlot.card.school || 'grey').toLowerCase();
+} else {
+  delete g.dataset.school;
+}
 
 // ---------- EMPTY: placeholder wrapper (title centered over rune) ----------
 if (!glyphSlot.hasCard || !glyphSlot.card) {
@@ -4388,13 +4435,20 @@ function ensureRightHudStrip() {
     document.body.appendChild(strip);
   }
 
-  // v23: layout responds to body.mobile-portrait. v22 added CSS rules
-  // for a top-right horizontal cluster, but this function had been
-  // pinning the strip at bottom-right with inline styles, overriding
-  // them. Now we apply per-orientation inline styles so the strip
-  // moves to the top-right on portrait phones (where it had been
-  // overlapping the rightmost flow card and the player glyph slot).
-  const isPortrait = document.body.classList.contains('mobile-portrait');
+  // v23: layout responds to mobile-portrait. v22 added CSS rules for a
+  // top-right horizontal cluster, but this function had been pinning
+  // the strip at bottom-right with inline styles, overriding them.
+  // v26: read the viewport DIRECTLY rather than trusting body.mobile-
+  // portrait. The orientation handler that sets that class runs as an
+  // IIFE alongside DOMContentLoaded; on first paint there was a race
+  // where this could run before the class was set, so the strip would
+  // briefly appear bottom-right before render() relocated it. Reading
+  // window dimensions matches the orientation IIFE's own logic
+  // (w<=720 && h>w) so the first paint already lands top-right.
+  const isPortrait = (() => {
+    const w = window.innerWidth, h = window.innerHeight;
+    return w <= 720 && h > w;
+  })();
   Object.assign(strip.style, isPortrait ? {
     position: 'fixed',
     top: '6px',
